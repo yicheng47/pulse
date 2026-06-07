@@ -1,0 +1,23 @@
+[workspace]
+resolver = "3"
+members = ["crates/pulse-engine", "crates/pulse-cli", "src-tauri"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace.dependencies]
+pulse-engine = { path = "crates/pulse-engine" }
+
+objc2-core-audio = "0.3"
+objc2-core-audio-types = "0.3"
+symphonia = { version = "0.5", default-features = false, features = ["flac", "alac", "isomp4", "wav", "aiff", "pcm"] }
+rtrb = "0.3"
+realfft = "3"
+thiserror = "2"
+
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
+tauri = { version = "2", features = [] }
+tauri-build = { version = "2", features = [] }

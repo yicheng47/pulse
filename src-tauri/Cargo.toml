@@ -1,0 +1,17 @@
+[package]
+name = "pulse"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+description = "Bit-perfect local music library player for macOS"
+
+[lib]
+name = "pulse_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[dependencies]
+pulse-engine.workspace = true
+tauri.workspace = true

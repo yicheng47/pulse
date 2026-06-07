@@ -1,0 +1,13 @@
+[package]
+name = "pulse-engine"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+objc2-core-audio.workspace = true
+objc2-core-audio-types.workspace = true
+symphonia.workspace = true
+rtrb.workspace = true
+realfft.workspace = true
+thiserror.workspace = true

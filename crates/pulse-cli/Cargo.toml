@@ -1,0 +1,10 @@
+[package]
+name = "pulse-cli"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+pulse-engine.workspace = true
+clap.workspace = true
+anyhow.workspace = true
