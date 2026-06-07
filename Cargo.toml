@@ -12,6 +12,7 @@ pulse-engine = { path = "crates/pulse-engine" }
 
 objc2-core-audio = "0.3"
 objc2-core-audio-types = "0.3"
+objc2-core-foundation = { version = "0.3", features = ["CFString"] }
 symphonia = { version = "0.5", default-features = false, features = ["flac", "alac", "isomp4", "wav", "aiff", "pcm"] }
 rtrb = "0.3"
 realfft = "3"
