@@ -23,6 +23,14 @@ No GPL dependencies remains a constraint. Open-source does not mean giving up th
 - Editorial enrichment from MusicBrainz, Cover Art Archive, Last.fm, Discogs, or Wikipedia.
 - Smart Radio from the user's own library.
 
+## Agent Harness Direction
+
+`pulse-cli` should remain a deterministic, scriptable engine harness even after the desktop app exists. It is the place to prove device visibility, file probing, hog mode, format switching, playback validation, and diagnostics without a UI in the way.
+
+That also makes `pulse-cli` the natural future boundary for agent and MCP workflows. The command surface should support stable JSON output, stable exit codes, bounded playback tests, and machine-readable error types so an agent can list devices, probe files, run format validation, play a short test clip, and collect diagnostics safely.
+
+A TUI can be added later if it helps human debugging, but it should not replace the boring command surface. The CLI's first job is to be a reliable harness for engineers and agents.
+
 ## Non-Goals
 
 - No DSD.
