@@ -27,6 +27,7 @@ pub(crate) struct IoProc {
     proc_id: AudioDeviceIOProcID,
     state: Option<Box<CallbackState>>,
     running: bool,
+    destroyed: bool,
 }
 
 impl IoProc {
@@ -63,6 +64,7 @@ impl IoProc {
             proc_id,
             state: Some(state),
             running: true,
+            destroyed: false,
         })
     }
 
@@ -71,15 +73,31 @@ impl IoProc {
             .as_ref()
             .map_or(0, |state| state.position_frames.load(Ordering::Relaxed))
     }
-}
 
-impl Drop for IoProc {
-    fn drop(&mut self) {
+    pub(crate) fn stop(mut self) -> Consumer<u8> {
+        self.destroy();
+        let state = self
+            .state
+            .take()
+            .expect("IOProc callback state must exist until stop");
+        state.consumer
+    }
+
+    fn destroy(&mut self) {
         if self.running {
             let _ = unsafe { AudioDeviceStop(self.device_id, self.proc_id) };
             self.running = false;
         }
-        let _ = unsafe { AudioDeviceDestroyIOProcID(self.device_id, self.proc_id) };
+        if !self.destroyed {
+            let _ = unsafe { AudioDeviceDestroyIOProcID(self.device_id, self.proc_id) };
+            self.destroyed = true;
+        }
+    }
+}
+
+impl Drop for IoProc {
+    fn drop(&mut self) {
+        self.destroy();
         self.state = None;
     }
 }

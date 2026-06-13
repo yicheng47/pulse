@@ -57,8 +57,8 @@ impl Engine {
     pub fn set_format(&mut self, fmt: PcmFormat) -> Result<(), EngineError> {
         self.pause()?;
         hal::set_nominal_sample_rate(self.device, fmt)?;
-        let physical_format = hal::set_matching_physical_format(self.device, fmt)?;
-        let bytes_per_frame = physical_format.supports_direct_interleaved_copy(fmt)?;
+        let (_, bytes_per_frame) =
+            hal::set_matching_direct_interleaved_physical_format(self.device, fmt)?;
         let ring_capacity = usize::try_from(fmt.sample_rate)
             .ok()
             .and_then(|sample_rate| sample_rate.checked_mul(bytes_per_frame))
@@ -92,7 +92,9 @@ impl Engine {
     }
 
     pub fn pause(&mut self) -> Result<(), EngineError> {
-        self.ioproc = None;
+        if let Some(ioproc) = self.ioproc.take() {
+            self.consumer = Some(ioproc.stop());
+        }
         Ok(())
     }
 
