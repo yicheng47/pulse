@@ -232,6 +232,8 @@ Non-responsibilities:
 
 Core Audio HAL is mostly a property API: get or set a property on an audio object using an address made of selector, scope, and element. That is awkward, but it maps cleanly to a small wrapper layer.
 
+The canonical API reference for this layer is Apple's Core Audio documentation: https://developer.apple.com/documentation/coreaudio.
+
 Responsibilities:
 
 - Take and release hog mode.

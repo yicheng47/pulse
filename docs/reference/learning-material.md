@@ -23,6 +23,8 @@ Primary read: Ross Bencina, "Real-time audio programming 101: time waits for not
 
 The bit-perfect macOS path goes through Core Audio HAL. Pulse uses `objc2-core-audio` and `objc2-core-audio-types` for bindings, then wraps the property API itself.
 
+Official API reference: Apple's Core Audio documentation at https://developer.apple.com/documentation/coreaudio.
+
 Learn these HAL operations first:
 
 - Device enumeration and hot-plug listeners.
@@ -70,6 +72,7 @@ Tier 2, decode and playback architecture:
 
 - Symphonia examples.
 - cpal CoreAudio backend as a calling-pattern reference only.
+- Local `coreaudio-rs` clone: `~/repos/coreaudio-rs`. Reference only; it currently uses the same `objc2-core-audio` / `objc2-core-audio-types` binding family underneath.
 - `rust_cli_musicplayer` for a small CLI decode/playback shape.
 
 Tier 3, Tauri app shell references:
