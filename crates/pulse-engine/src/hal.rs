@@ -25,8 +25,8 @@ use objc2_core_audio::{
 };
 use objc2_core_audio_types::{
     AudioBuffer, AudioBufferList, AudioStreamBasicDescription, AudioValueRange,
-    kAudioFormatFlagIsFloat, kAudioFormatFlagIsSignedInteger, kAudioFormatLinearPCM,
-    kAudioStreamAnyRate,
+    kAudioFormatFlagIsBigEndian, kAudioFormatFlagIsFloat, kAudioFormatFlagIsNonInterleaved,
+    kAudioFormatFlagIsSignedInteger, kAudioFormatLinearPCM, kAudioStreamAnyRate,
 };
 use objc2_core_foundation::{CFRetained, CFString};
 
@@ -40,6 +40,57 @@ const FORMAT_POLL_INTERVAL: Duration = Duration::from_millis(5);
 pub(crate) struct SelectedPhysicalFormat {
     pub stream_id: AudioObjectID,
     pub format: AudioStreamBasicDescription,
+}
+
+impl SelectedPhysicalFormat {
+    pub(crate) fn supports_direct_interleaved_copy(
+        self,
+        requested: PcmFormat,
+    ) -> Result<usize, EngineError> {
+        let format = self.format;
+        if format.mFormatFlags & kAudioFormatFlagIsBigEndian != 0 {
+            return Err(EngineError::UnsupportedFormat(
+                "big-endian physical output is not wired yet".to_string(),
+            ));
+        }
+        if format.mFormatFlags & kAudioFormatFlagIsNonInterleaved != 0 {
+            return Err(EngineError::UnsupportedFormat(
+                "non-interleaved physical output is not wired yet".to_string(),
+            ));
+        }
+        if format.mChannelsPerFrame != u32::from(requested.channels) {
+            return Err(EngineError::UnsupportedFormat(format!(
+                "physical output has {} channels for {}-channel source",
+                format.mChannelsPerFrame, requested.channels
+            )));
+        }
+        if format.mBitsPerChannel != u32::from(requested.bits_per_sample) {
+            return Err(EngineError::UnsupportedFormat(format!(
+                "physical output uses {} bits for {}-bit source",
+                format.mBitsPerChannel, requested.bits_per_sample
+            )));
+        }
+        if format.mFramesPerPacket != 1 {
+            return Err(EngineError::UnsupportedFormat(format!(
+                "physical output uses {} frames per packet",
+                format.mFramesPerPacket
+            )));
+        }
+
+        let source_bytes_per_frame = requested.bytes_per_frame();
+        let physical_bytes_per_frame = usize::try_from(format.mBytesPerFrame).map_err(|_| {
+            EngineError::UnsupportedFormat(
+                "physical bytes per frame does not fit usize".to_string(),
+            )
+        })?;
+        if physical_bytes_per_frame != source_bytes_per_frame {
+            return Err(EngineError::UnsupportedFormat(format!(
+                "physical output uses {physical_bytes_per_frame} bytes/frame for {source_bytes_per_frame} bytes/frame source"
+            )));
+        }
+
+        Ok(source_bytes_per_frame)
+    }
 }
 
 pub(crate) struct HogGuard {
@@ -515,7 +566,7 @@ fn current_pid() -> i32 {
     i32::try_from(std::process::id()).expect("process id must fit in pid_t")
 }
 
-fn check_status(call: &'static str, status: i32) -> Result<(), EngineError> {
+pub(crate) fn check_status(call: &'static str, status: i32) -> Result<(), EngineError> {
     if status == kAudioHardwareNoError {
         Ok(())
     } else {
