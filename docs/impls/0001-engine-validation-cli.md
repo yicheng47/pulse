@@ -166,4 +166,3 @@ Verification:
 - How should the engine represent 24-bit audio when the DAC exposes 24 meaningful bits in a 32-bit physical container?
 - Should `play` default to the system output device or require `--device` once multiple output devices are present?
 - What is the smallest useful underrun metric to expose without adding app-shell concepts to the engine?
-

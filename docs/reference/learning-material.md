@@ -72,6 +72,7 @@ Tier 2, decode and playback architecture:
 
 - Symphonia examples.
 - cpal CoreAudio backend as a calling-pattern reference only.
+- Local `coreaudio-rs` clone: `~/repos/coreaudio-rs`. Reference only; it currently uses the same `objc2-core-audio` / `objc2-core-audio-types` binding family underneath.
 - `rust_cli_musicplayer` for a small CLI decode/playback shape.
 
 Tier 3, Tauri app shell references:

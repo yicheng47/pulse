@@ -5,4 +5,3 @@ Implementation notes are tactical plans for concrete build slices. Architecture 
 Active notes:
 
 - [`0001-engine-validation-cli.md`](0001-engine-validation-cli.md) - first stage: prove `pulse-engine` through `pulse-cli`.
-
