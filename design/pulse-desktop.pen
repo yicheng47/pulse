@@ -1,0 +1,4718 @@
+{
+  "version": "2.13",
+  "children": [
+    {
+      "type": "frame",
+      "id": "Q32TIQ",
+      "x": -1763,
+      "y": 109,
+      "name": "Design System · Cyberpunk Neon",
+      "theme": {},
+      "clip": true,
+      "width": 1320,
+      "height": 900,
+      "fill": "$bg-page",
+      "cornerRadius": "$radius-lg",
+      "stroke": "$border",
+      "strokeWidth": 1,
+      "strokeAlignment": "inner",
+      "layout": "vertical",
+      "gap": 24,
+      "padding": 32,
+      "children": [
+        {
+          "type": "frame",
+          "id": "SMxzm",
+          "name": "Header",
+          "width": "fill_container",
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "vm6Zy",
+              "name": "Header Copy",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 6,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "gHovo",
+                  "name": "Title",
+                  "fill": "$text-primary",
+                  "content": "Pulse Design System — Cyberpunk Neon",
+                  "fontFamily": "$font-display",
+                  "fontSize": 30,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "gVf2N",
+                  "name": "Subtitle",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Single-palette desktop foundations: graphite shell, neon control states, cyan audio signals, and violet system affordances.",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "id": "w8fdOw",
+              "type": "ref",
+              "ref": "V8kVG",
+              "name": "Primary Action Sample",
+              "descendants": {
+                "rcmkZ": {
+                  "icon": "play"
+                },
+                "t5fRGs": {
+                  "content": "Play"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "F5Xrh",
+          "name": "Color Tokens",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 12,
+          "children": [
+            {
+              "type": "text",
+              "id": "jrGX5",
+              "name": "Section Label",
+              "fill": "$text-muted",
+              "content": "Color tokens",
+              "fontFamily": "$font-mono",
+              "fontSize": 12,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "fODsd",
+              "name": "Surfaces",
+              "width": "fill_container",
+              "gap": 10,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "A070o4",
+                  "name": "bg-page",
+                  "width": "fill_container",
+                  "fill": "$bg-surface",
+                  "cornerRadius": "$radius-md",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": "$radius-sm",
+                      "id": "Ewaol",
+                      "name": "Swatch",
+                      "fill": "$bg-page",
+                      "width": "fill_container",
+                      "height": 34
+                    },
+                    {
+                      "type": "text",
+                      "id": "W4UqZc",
+                      "name": "Token",
+                      "fill": "$text-secondary",
+                      "content": "bg-page",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "vbnRE",
+                  "name": "bg-surface",
+                  "width": "fill_container",
+                  "fill": "$bg-surface",
+                  "cornerRadius": "$radius-md",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": "$radius-sm",
+                      "id": "brMFm",
+                      "name": "Swatch",
+                      "fill": "$bg-surface",
+                      "width": "fill_container",
+                      "height": 34
+                    },
+                    {
+                      "type": "text",
+                      "id": "TKGjY",
+                      "name": "Token",
+                      "fill": "$text-secondary",
+                      "content": "bg-surface",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "SaDuJ",
+                  "name": "bg-muted",
+                  "width": "fill_container",
+                  "fill": "$bg-surface",
+                  "cornerRadius": "$radius-md",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": "$radius-sm",
+                      "id": "Qj9Tf",
+                      "name": "Swatch",
+                      "fill": "$bg-muted",
+                      "width": "fill_container",
+                      "height": 34
+                    },
+                    {
+                      "type": "text",
+                      "id": "dgNn4",
+                      "name": "Token",
+                      "fill": "$text-secondary",
+                      "content": "bg-muted",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "prBjW",
+                  "name": "bg-elevated",
+                  "width": "fill_container",
+                  "fill": "$bg-surface",
+                  "cornerRadius": "$radius-md",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": "$radius-sm",
+                      "id": "STpQd",
+                      "name": "Swatch",
+                      "fill": "$bg-elevated",
+                      "width": "fill_container",
+                      "height": 34
+                    },
+                    {
+                      "type": "text",
+                      "id": "XgXYM",
+                      "name": "Token",
+                      "fill": "$text-secondary",
+                      "content": "bg-elevated",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "tV7UV",
+                  "name": "bg-inset",
+                  "width": "fill_container",
+                  "fill": "$bg-surface",
+                  "cornerRadius": "$radius-md",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": "$radius-sm",
+                      "id": "w6LIIY",
+                      "name": "Swatch",
+                      "fill": "$bg-inset",
+                      "width": "fill_container",
+                      "height": 34
+                    },
+                    {
+                      "type": "text",
+                      "id": "P0iip",
+                      "name": "Token",
+                      "fill": "$text-secondary",
+                      "content": "bg-inset",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "U6skK",
+              "name": "Brand + Signal Tokens",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "DsVGm",
+                  "name": "Accent Variations",
+                  "width": "fill_container",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "hpMth",
+                      "name": "accent-soft",
+                      "width": "fill_container",
+                      "fill": "$bg-surface",
+                      "cornerRadius": "$radius-md",
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 10,
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": "$radius-sm",
+                          "id": "aINnk",
+                          "name": "Swatch",
+                          "fill": "$accent-soft",
+                          "width": "fill_container",
+                          "height": 28
+                        },
+                        {
+                          "type": "text",
+                          "id": "ssFOn",
+                          "name": "Token",
+                          "fill": "$text-secondary",
+                          "content": "accent-soft",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "D8PZVs",
+                      "name": "accent",
+                      "width": "fill_container",
+                      "fill": "$bg-surface",
+                      "cornerRadius": "$radius-md",
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 10,
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": "$radius-sm",
+                          "id": "mfQsg",
+                          "name": "Swatch",
+                          "fill": "$accent",
+                          "width": "fill_container",
+                          "height": 28
+                        },
+                        {
+                          "type": "text",
+                          "id": "X2waA",
+                          "name": "Token",
+                          "fill": "$text-secondary",
+                          "content": "accent",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ZtKAA",
+                      "name": "accent-bright",
+                      "width": "fill_container",
+                      "fill": "$bg-surface",
+                      "cornerRadius": "$radius-md",
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 10,
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": "$radius-sm",
+                          "id": "Baiw7",
+                          "name": "Swatch",
+                          "fill": "$accent-bright",
+                          "width": "fill_container",
+                          "height": 28
+                        },
+                        {
+                          "type": "text",
+                          "id": "bvtVe",
+                          "name": "Token",
+                          "fill": "$text-secondary",
+                          "content": "accent-bright",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "oZ5j4",
+                  "name": "Semantic Signals",
+                  "width": "fill_container",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "mxq51",
+                      "name": "primary",
+                      "width": "fill_container",
+                      "fill": "$bg-surface",
+                      "cornerRadius": "$radius-md",
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 10,
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": "$radius-sm",
+                          "id": "fcv55",
+                          "name": "Swatch",
+                          "fill": "$primary",
+                          "width": "fill_container",
+                          "height": 28
+                        },
+                        {
+                          "type": "text",
+                          "id": "Wo5U0",
+                          "name": "Token",
+                          "fill": "$text-secondary",
+                          "content": "primary",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "tevJY",
+                      "name": "primary-soft",
+                      "width": "fill_container",
+                      "fill": "$bg-surface",
+                      "cornerRadius": "$radius-md",
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 10,
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": "$radius-sm",
+                          "id": "G1i3Z",
+                          "name": "Swatch",
+                          "fill": "$primary-soft",
+                          "width": "fill_container",
+                          "height": 28
+                        },
+                        {
+                          "type": "text",
+                          "id": "x6oOZM",
+                          "name": "Token",
+                          "fill": "$text-secondary",
+                          "content": "primary-soft",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Wx6LH",
+                      "name": "quality",
+                      "width": "fill_container",
+                      "fill": "$bg-surface",
+                      "cornerRadius": "$radius-md",
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 10,
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": "$radius-sm",
+                          "id": "q7TOLV",
+                          "name": "Swatch",
+                          "fill": "$quality",
+                          "width": "fill_container",
+                          "height": 28
+                        },
+                        {
+                          "type": "text",
+                          "id": "c2FK49",
+                          "name": "Token",
+                          "fill": "$text-secondary",
+                          "content": "quality",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "JF9Gy",
+                      "name": "meter",
+                      "width": "fill_container",
+                      "fill": "$bg-surface",
+                      "cornerRadius": "$radius-md",
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 10,
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": "$radius-sm",
+                          "id": "f2Kvv9",
+                          "name": "Swatch",
+                          "fill": "$meter",
+                          "width": "fill_container",
+                          "height": 28
+                        },
+                        {
+                          "type": "text",
+                          "id": "S3nLPG",
+                          "name": "Token",
+                          "fill": "$text-secondary",
+                          "content": "meter",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "qp837",
+                      "name": "info",
+                      "width": "fill_container",
+                      "fill": "$bg-surface",
+                      "cornerRadius": "$radius-md",
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 10,
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": "$radius-sm",
+                          "id": "hI787",
+                          "name": "Swatch",
+                          "fill": "$info",
+                          "width": "fill_container",
+                          "height": 28
+                        },
+                        {
+                          "type": "text",
+                          "id": "P8hEz",
+                          "name": "Token",
+                          "fill": "$text-secondary",
+                          "content": "info",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "q1MMiW",
+                      "name": "warning",
+                      "width": "fill_container",
+                      "fill": "$bg-surface",
+                      "cornerRadius": "$radius-md",
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 10,
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": "$radius-sm",
+                          "id": "Zbs19",
+                          "name": "Swatch",
+                          "fill": "$warning",
+                          "width": "fill_container",
+                          "height": 28
+                        },
+                        {
+                          "type": "text",
+                          "id": "ABzhW",
+                          "name": "Token",
+                          "fill": "$text-secondary",
+                          "content": "warning",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "i7Upd",
+                      "name": "danger",
+                      "width": "fill_container",
+                      "height": 70,
+                      "fill": "$bg-surface",
+                      "cornerRadius": "$radius-md",
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 10,
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": "$radius-sm",
+                          "id": "zZlav",
+                          "name": "Swatch",
+                          "fill": "$danger",
+                          "width": "fill_container",
+                          "height": 28
+                        },
+                        {
+                          "type": "text",
+                          "id": "mPtA4",
+                          "name": "Token",
+                          "fill": "$text-secondary",
+                          "content": "danger",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "DISn6",
+          "name": "Typography",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 12,
+          "children": [
+            {
+              "type": "text",
+              "id": "zRCtB",
+              "name": "Section Label",
+              "fill": "$text-muted",
+              "content": "Typography",
+              "fontFamily": "$font-mono",
+              "fontSize": 12,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "x9r4nL",
+              "name": "Type Samples",
+              "width": "fill_container",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "aomUN",
+                  "name": "Display · Rajdhani",
+                  "width": "fill_container",
+                  "fill": "$bg-surface",
+                  "cornerRadius": "$radius-md",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "U4S5VO",
+                      "name": "Name",
+                      "fill": "$text-muted",
+                      "content": "Display · Rajdhani",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "NYtos",
+                      "name": "Sample",
+                      "fill": "$text-primary",
+                      "content": "Albums / Neon Library",
+                      "fontFamily": "$font-display",
+                      "fontSize": 28,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "hgrCZ",
+                  "name": "Interface · Inter",
+                  "width": "fill_container",
+                  "fill": "$bg-surface",
+                  "cornerRadius": "$radius-md",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ZuOXF",
+                      "name": "Name",
+                      "fill": "$text-muted",
+                      "content": "Interface · Inter",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "s477B",
+                      "name": "Sample",
+                      "fill": "$text-primary",
+                      "content": "Default output device",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 18,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "bv4UX",
+                  "name": "Data · Geist Mono",
+                  "width": "fill_container",
+                  "height": 90,
+                  "fill": "$bg-surface",
+                  "cornerRadius": "$radius-md",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "lB3nx",
+                      "name": "Name",
+                      "fill": "$text-muted",
+                      "content": "Data · Geist Mono",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "MLR9I",
+                      "name": "Sample",
+                      "fill": "$text-primary",
+                      "content": "FLAC 24/96 · 02:14",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 16,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "MZXPR",
+          "name": "Usage Semantics",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 12,
+          "children": [
+            {
+              "type": "text",
+              "id": "ThVJV",
+              "name": "Section Label",
+              "fill": "$text-muted",
+              "content": "Usage semantics",
+              "fontFamily": "$font-mono",
+              "fontSize": 12,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "T99JfF",
+              "name": "Usage Row",
+              "width": "fill_container",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "azxGi",
+                  "name": "Accent Action",
+                  "width": "fill_container",
+                  "fill": "$bg-surface",
+                  "cornerRadius": "$radius-md",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 14,
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "Az67N",
+                      "name": "Signal Strip",
+                      "fill": "$accent",
+                      "width": "fill_container",
+                      "height": 5
+                    },
+                    {
+                      "type": "text",
+                      "id": "i1bZy",
+                      "name": "Title",
+                      "fill": "$text-primary",
+                      "content": "Accent",
+                      "fontFamily": "$font-display",
+                      "fontSize": 17,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "fuBnV",
+                      "name": "Body",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Play, active chips, current selection",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "a5H4V",
+                  "name": "Soft Active",
+                  "width": "fill_container",
+                  "fill": "$bg-surface",
+                  "cornerRadius": "$radius-md",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 14,
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "y2shy",
+                      "name": "Signal Strip",
+                      "fill": "$accent-soft",
+                      "width": "fill_container",
+                      "height": 5
+                    },
+                    {
+                      "type": "text",
+                      "id": "ycaQC",
+                      "name": "Title",
+                      "fill": "$text-primary",
+                      "content": "Soft",
+                      "fontFamily": "$font-display",
+                      "fontSize": 17,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "HdTOh",
+                      "name": "Body",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Selected surfaces and quiet focus states",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "WNVeU",
+                  "name": "Audio Signal",
+                  "width": "fill_container",
+                  "fill": "$bg-surface",
+                  "cornerRadius": "$radius-md",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 14,
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "pNiut",
+                      "name": "Signal Strip",
+                      "fill": "$quality",
+                      "width": "fill_container",
+                      "height": 5
+                    },
+                    {
+                      "type": "text",
+                      "id": "caNsb",
+                      "name": "Title",
+                      "fill": "$text-primary",
+                      "content": "Audio",
+                      "fontFamily": "$font-display",
+                      "fontSize": 17,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "vixVB",
+                      "name": "Body",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Quality, meters, device capability",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "iKOsU",
+                  "name": "System Info",
+                  "width": "fill_container",
+                  "fill": "$bg-surface",
+                  "cornerRadius": "$radius-md",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 14,
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "Q2CtSx",
+                      "name": "Signal Strip",
+                      "fill": "$primary",
+                      "width": "fill_container",
+                      "height": 5
+                    },
+                    {
+                      "type": "text",
+                      "id": "DHB7Q",
+                      "name": "Title",
+                      "fill": "$text-primary",
+                      "content": "System",
+                      "fontFamily": "$font-display",
+                      "fontSize": 17,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "hCevN",
+                      "name": "Body",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Secondary affordances and information",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "o1Z6R",
+                  "name": "Risk State",
+                  "width": "fill_container",
+                  "fill": "$bg-surface",
+                  "cornerRadius": "$radius-md",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 14,
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "lafxs",
+                      "name": "Signal Strip",
+                      "fill": "$danger",
+                      "width": "fill_container",
+                      "height": 5
+                    },
+                    {
+                      "type": "text",
+                      "id": "vKIC8",
+                      "name": "Title",
+                      "fill": "$text-primary",
+                      "content": "Risk",
+                      "fontFamily": "$font-display",
+                      "fontSize": 17,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "j9U4We",
+                      "name": "Body",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Warnings, failures, destructive state",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "E3N1P",
+      "x": -1763,
+      "y": 1216,
+      "name": "Library / Main",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$bg-page",
+      "cornerRadius": "$radius-lg",
+      "stroke": "$border",
+      "strokeWidth": 1,
+      "strokeAlignment": "inner",
+      "children": [
+        {
+          "type": "frame",
+          "id": "vNEQj",
+          "name": "Sidebar",
+          "width": 236,
+          "height": "fill_container",
+          "fill": "$bg-surface",
+          "stroke": "$border",
+          "strokeWidth": {
+            "right": 1
+          },
+          "strokeAlignment": "inner",
+          "layout": "vertical",
+          "gap": 22,
+          "padding": [
+            24,
+            14,
+            16,
+            14
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "OWFgQ",
+              "name": "Brand",
+              "width": "fill_container",
+              "gap": 10,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "ExBwP",
+                  "name": "App Icon Mark",
+                  "clip": true,
+                  "width": 32,
+                  "height": 32,
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 180,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "$bg-surface",
+                        "position": 0
+                      },
+                      {
+                        "color": "$bg-inset",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "cornerRadius": 7,
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "path",
+                      "id": "pUg6p",
+                      "x": 5,
+                      "y": 5,
+                      "name": "Pulse",
+                      "geometry": "M6 100l50 0 16 12 18-60 16 98 16-62 18 12 54 0",
+                      "viewBox": [
+                        0,
+                        0,
+                        200,
+                        200
+                      ],
+                      "fill": "#00000000",
+                      "width": 22,
+                      "height": 22,
+                      "stroke": "$accent",
+                      "strokeWidth": 0.75,
+                      "strokeLinejoin": "round",
+                      "strokeLinecap": "round"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "WA1Ph",
+                  "name": "Copy",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "e3Q7Qi",
+                      "name": "Name",
+                      "fill": "$text-primary",
+                      "content": "Pulse",
+                      "fontFamily": "$font-display",
+                      "fontSize": 18,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "x2F6Pv",
+              "name": "Navigation",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 20,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "AKLGk",
+                  "name": "Library Group",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "V7LS5",
+                      "name": "Header Wrap",
+                      "width": "fill_container",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "TEeE2",
+                          "name": "Header",
+                          "fill": "$text-muted",
+                          "content": "LIBRARY",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "700",
+                          "letterSpacing": 0.8
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "B82oJ",
+                      "name": "Items",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "t0GAia",
+                          "name": "Nav / Albums",
+                          "width": "fill_container",
+                          "fill": "$accent-soft",
+                          "cornerRadius": "$radius-md",
+                          "gap": 10,
+                          "padding": [
+                            9,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "R6IkfF",
+                              "name": "Icon",
+                              "width": 17,
+                              "height": 17,
+                              "icon": "library",
+                              "library": "lucide",
+                              "fill": "$accent"
+                            },
+                            {
+                              "type": "text",
+                              "id": "xzPEy",
+                              "name": "Label",
+                              "fill": "$text-primary",
+                              "content": "Albums",
+                              "fontFamily": "$font-display",
+                              "fontSize": 15,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "sAXi8",
+                          "name": "Nav / Artists",
+                          "width": "fill_container",
+                          "fill": "#00000000",
+                          "cornerRadius": "$radius-md",
+                          "gap": 10,
+                          "padding": [
+                            9,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "kzX1w",
+                              "name": "Icon",
+                              "width": 17,
+                              "height": 17,
+                              "icon": "users",
+                              "library": "lucide",
+                              "fill": "$text-muted"
+                            },
+                            {
+                              "type": "text",
+                              "id": "gBI6M",
+                              "name": "Label",
+                              "fill": "$text-secondary",
+                              "content": "Artists",
+                              "fontFamily": "$font-display",
+                              "fontSize": 15,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "N4c7T",
+                          "name": "Nav / Tracks",
+                          "width": "fill_container",
+                          "fill": "#00000000",
+                          "cornerRadius": "$radius-md",
+                          "gap": 10,
+                          "padding": [
+                            9,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "V5nPy",
+                              "name": "Icon",
+                              "width": 17,
+                              "height": 17,
+                              "icon": "music",
+                              "library": "lucide",
+                              "fill": "$text-muted"
+                            },
+                            {
+                              "type": "text",
+                              "id": "CbCxK",
+                              "name": "Label",
+                              "fill": "$text-secondary",
+                              "content": "Tracks",
+                              "fontFamily": "$font-display",
+                              "fontSize": 15,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "rKTtm",
+                          "name": "Nav / Playlists",
+                          "width": "fill_container",
+                          "fill": "#00000000",
+                          "cornerRadius": "$radius-md",
+                          "gap": 10,
+                          "padding": [
+                            9,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "UpDwg",
+                              "name": "Icon",
+                              "width": 17,
+                              "height": 17,
+                              "icon": "list-music",
+                              "library": "lucide",
+                              "fill": "$text-muted"
+                            },
+                            {
+                              "type": "text",
+                              "id": "Rcfpn",
+                              "name": "Label",
+                              "fill": "$text-secondary",
+                              "content": "Playlists",
+                              "fontFamily": "$font-display",
+                              "fontSize": 15,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "BWlff",
+                  "name": "Output Group",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "guPeR",
+                      "name": "Header Wrap",
+                      "width": "fill_container",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "VEPbE",
+                          "name": "Header",
+                          "fill": "$text-muted",
+                          "content": "OUTPUT",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "700",
+                          "letterSpacing": 0.8
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "N5tX4",
+                      "name": "Items",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "ofhyL",
+                          "name": "Nav / Devices",
+                          "width": "fill_container",
+                          "fill": "#00000000",
+                          "cornerRadius": "$radius-md",
+                          "gap": 10,
+                          "padding": [
+                            9,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "tOEzQ",
+                              "name": "Icon",
+                              "width": 17,
+                              "height": 17,
+                              "icon": "speaker",
+                              "library": "lucide",
+                              "fill": "$text-muted"
+                            },
+                            {
+                              "type": "text",
+                              "id": "a3nJ8",
+                              "name": "Label",
+                              "fill": "$text-secondary",
+                              "content": "Devices",
+                              "fontFamily": "$font-display",
+                              "fontSize": 15,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "mBeoJ",
+              "name": "Sidebar Spacer",
+              "width": "fill_container",
+              "height": "fill_container"
+            },
+            {
+              "type": "frame",
+              "id": "VUk4g",
+              "name": "Sidebar Footer / Settings",
+              "width": "fill_container",
+              "fill": "#00000000",
+              "cornerRadius": "$radius-md",
+              "gap": 10,
+              "padding": [
+                9,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "r91At",
+                  "name": "Settings Icon",
+                  "width": 18,
+                  "height": 18,
+                  "icon": "settings",
+                  "library": "lucide",
+                  "fill": "$text-muted"
+                },
+                {
+                  "type": "text",
+                  "id": "X2fuxh",
+                  "name": "Label",
+                  "fill": "$text-secondary",
+                  "content": "Settings",
+                  "fontFamily": "$font-display",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "KxO1W",
+                  "name": "Footer Spacer",
+                  "width": "fill_container",
+                  "height": 1
+                },
+                {
+                  "type": "icon",
+                  "id": "p9DOG",
+                  "name": "Collapse",
+                  "width": 17,
+                  "height": 17,
+                  "icon": "chevrons-left",
+                  "library": "lucide",
+                  "fill": "$text-muted"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "K57beP",
+          "name": "Right Column",
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "children": [
+            {
+              "type": "frame",
+              "id": "VLe8X",
+              "name": "Main",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "$bg-page",
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "U1fnkM",
+                  "name": "Top Bar",
+                  "width": "fill_container",
+                  "height": 74,
+                  "stroke": "$border",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "strokeAlignment": "inner",
+                  "padding": [
+                    0,
+                    28
+                  ],
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "id": "B25UcS",
+                      "type": "ref",
+                      "ref": "VoSds",
+                      "width": 420,
+                      "children": [
+                        {
+                          "id": "tHHlr",
+                          "type": "ref",
+                          "ref": "tHHlr"
+                        },
+                        {
+                          "id": "js0pJ",
+                          "type": "ref",
+                          "ref": "js0pJ",
+                          "content": "Search albums, artists, tracks"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "LQ9eb",
+                      "name": "Actions",
+                      "gap": 10,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "m36YB",
+                          "type": "ref",
+                          "ref": "b4MNr8",
+                          "name": "Add Folder",
+                          "descendants": {
+                            "jQ5Ha": {
+                              "icon": "folder-plus"
+                            },
+                            "ezvDc": {
+                              "content": "Add Folder"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "XM4St",
+                  "name": "Body",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "n6UClD",
+                      "name": "Library Content",
+                      "width": "fill_container",
+                      "height": "fill_container",
+                      "fill": "$bg-page",
+                      "layout": "vertical",
+                      "gap": 18,
+                      "padding": [
+                        26,
+                        28,
+                        24,
+                        28
+                      ],
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "KpVjS",
+                          "name": "Albums Header",
+                          "width": "fill_container",
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "OSYjE",
+                              "name": "Copy",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "tTJJX",
+                                  "name": "Title",
+                                  "fill": "$text-primary",
+                                  "content": "Albums",
+                                  "fontFamily": "$font-display",
+                                  "fontSize": 34,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "V1E7m",
+                                  "name": "Meta",
+                                  "fill": "$text-secondary",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "1,106 albums · 12,482 tracks · Pop filter active · last scan 2 min ago",
+                                  "fontFamily": "$font-sans",
+                                  "fontSize": 13,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "H8jvO",
+                              "name": "Header Actions",
+                              "gap": 10,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "zOHV5",
+                                  "name": "Scan State",
+                                  "fill": "$primary-soft",
+                                  "cornerRadius": "$radius-sm",
+                                  "stroke": "$primary",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner",
+                                  "gap": 8,
+                                  "padding": [
+                                    7,
+                                    10
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "ellipse",
+                                      "id": "B7VJ6U",
+                                      "name": "Dot",
+                                      "fill": "$primary",
+                                      "width": 6,
+                                      "height": 6
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "Z1Wgb",
+                                      "name": "Label",
+                                      "fill": "$primary",
+                                      "content": "SCAN OK",
+                                      "fontFamily": "$font-mono",
+                                      "fontSize": 11,
+                                      "fontWeight": "700"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "aQ318",
+                                  "name": "View Toggle",
+                                  "fill": "$bg-inset",
+                                  "cornerRadius": "$radius-md",
+                                  "stroke": "$border",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner",
+                                  "gap": 2,
+                                  "padding": 3,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "b9Nba",
+                                      "name": "View / Grid",
+                                      "fill": "$accent-soft",
+                                      "cornerRadius": "$radius-sm",
+                                      "stroke": "$accent",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "padding": [
+                                        6,
+                                        9
+                                      ],
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "u3VNE",
+                                          "name": "Label",
+                                          "fill": "$accent",
+                                          "content": "Grid",
+                                          "fontFamily": "$font-sans",
+                                          "fontSize": 12,
+                                          "fontWeight": "600"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "Msnzw",
+                                      "name": "View / List",
+                                      "fill": "#00000000",
+                                      "cornerRadius": "$radius-sm",
+                                      "stroke": "#00000000",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "padding": [
+                                        6,
+                                        9
+                                      ],
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "ZhIOX",
+                                          "name": "Label",
+                                          "fill": "$text-secondary",
+                                          "content": "List",
+                                          "fontFamily": "$font-sans",
+                                          "fontSize": 12,
+                                          "fontWeight": "600"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "hE434",
+                          "name": "Album Filters",
+                          "width": "fill_container",
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "bxhP9",
+                              "name": "Filters",
+                              "gap": 8,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "m2wa1",
+                                  "name": "Filter / All albums",
+                                  "fill": "$accent-soft",
+                                  "cornerRadius": "$radius-sm",
+                                  "stroke": "$accent",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner",
+                                  "padding": [
+                                    7,
+                                    10
+                                  ],
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "u2Pe52",
+                                      "name": "Label",
+                                      "fill": "$accent",
+                                      "content": "All albums",
+                                      "fontFamily": "$font-sans",
+                                      "fontSize": 12,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "P25qpK",
+                                  "name": "Filter / Hi-Res",
+                                  "fill": "$bg-muted",
+                                  "cornerRadius": "$radius-sm",
+                                  "stroke": "$border",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner",
+                                  "padding": [
+                                    7,
+                                    10
+                                  ],
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "of0cf",
+                                      "name": "Label",
+                                      "fill": "$text-secondary",
+                                      "content": "Hi-Res",
+                                      "fontFamily": "$font-sans",
+                                      "fontSize": 12,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "c7jNk",
+                                  "name": "Filter / Recently Added",
+                                  "fill": "$bg-muted",
+                                  "cornerRadius": "$radius-sm",
+                                  "stroke": "$border",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner",
+                                  "padding": [
+                                    7,
+                                    10
+                                  ],
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "ADVIi",
+                                      "name": "Label",
+                                      "fill": "$text-secondary",
+                                      "content": "Recently Added",
+                                      "fontFamily": "$font-sans",
+                                      "fontSize": 12,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "xNZKM",
+                                  "name": "Filter / Classical",
+                                  "fill": "$bg-muted",
+                                  "cornerRadius": "$radius-sm",
+                                  "stroke": "$border",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner",
+                                  "padding": [
+                                    7,
+                                    10
+                                  ],
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "tTT6J",
+                                      "name": "Label",
+                                      "fill": "$text-secondary",
+                                      "content": "Classical",
+                                      "fontFamily": "$font-sans",
+                                      "fontSize": 12,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "xdaSz",
+                                  "name": "Filter / Jazz",
+                                  "fill": "$bg-muted",
+                                  "cornerRadius": "$radius-sm",
+                                  "stroke": "$border",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner",
+                                  "padding": [
+                                    7,
+                                    10
+                                  ],
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "pDpYY",
+                                      "name": "Label",
+                                      "fill": "$text-secondary",
+                                      "content": "Jazz",
+                                      "fontFamily": "$font-sans",
+                                      "fontSize": 12,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "Xgn19",
+                                  "name": "Filter / Electronic",
+                                  "fill": "$bg-muted",
+                                  "cornerRadius": "$radius-sm",
+                                  "stroke": "$border",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner",
+                                  "padding": [
+                                    7,
+                                    10
+                                  ],
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "V1wQbU",
+                                      "name": "Label",
+                                      "fill": "$text-secondary",
+                                      "content": "Electronic",
+                                      "fontFamily": "$font-sans",
+                                      "fontSize": 12,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "fhPQp",
+                              "name": "Sort Control",
+                              "fill": "$bg-muted",
+                              "cornerRadius": "$radius-sm",
+                              "stroke": "$border",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner",
+                              "gap": 8,
+                              "padding": [
+                                7,
+                                10
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "eUImz",
+                                  "name": "Label",
+                                  "fill": "$text-muted",
+                                  "content": "DATE ADDED",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "icon",
+                                  "id": "ZMpFN",
+                                  "name": "Chevron",
+                                  "width": 14,
+                                  "height": 14,
+                                  "icon": "chevron-down",
+                                  "library": "lucide",
+                                  "fill": "$text-muted"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "yV1lD",
+                          "name": "Grid Section",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 12,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "v7YCj0",
+                              "name": "Section Header",
+                              "width": "fill_container",
+                              "justifyContent": "space_between",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "I0aSDq",
+                                  "name": "Title",
+                                  "fill": "$text-primary",
+                                  "content": "Recently added",
+                                  "fontFamily": "$font-display",
+                                  "fontSize": 22,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "SLOQp",
+                                  "name": "Count",
+                                  "fill": "$text-muted",
+                                  "content": "10 shown · Pop",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "KQZgz",
+                              "name": "Album Grid",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 14,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "q5KyJ",
+                                  "name": "Album Row",
+                                  "width": "fill_container",
+                                  "gap": 14,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "wu31n",
+                                      "name": "Album / Blonde",
+                                      "width": "fill_container",
+                                      "fill": "$bg-surface",
+                                      "cornerRadius": "$radius-md",
+                                      "stroke": "$accent",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "layout": "vertical",
+                                      "gap": 10,
+                                      "padding": 12,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "xXPNv",
+                                          "name": "Cover",
+                                          "clip": true,
+                                          "width": "fill_container",
+                                          "height": 140,
+                                          "fill": {
+                                            "type": "image",
+                                            "enabled": true,
+                                            "url": "album-covers/pop/blonde.jpg",
+                                            "mode": "fill"
+                                          },
+                                          "cornerRadius": "$radius-sm",
+                                          "stroke": "$border-strong",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "layout": "none",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "wMsmV",
+                                              "x": 14,
+                                              "y": 12,
+                                              "name": "Mark",
+                                              "enabled": false,
+                                              "fill": "$accent-bright",
+                                              "content": "GV",
+                                              "fontFamily": "$font-display",
+                                              "fontSize": 38,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "rectangle",
+                                              "cornerRadius": 2,
+                                              "id": "y7boRk",
+                                              "x": 14,
+                                              "y": 118,
+                                              "name": "Neon Rule",
+                                              "enabled": false,
+                                              "fill": "$accent",
+                                              "width": 68,
+                                              "height": 3
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "gnHum",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "XRDn8",
+                                              "name": "Title",
+                                              "fill": "$text-primary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Blonde",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 13,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "u1z14",
+                                              "name": "Artist",
+                                              "fill": "$text-secondary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Frank Ocean",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "x6QJ2m",
+                                              "name": "Meta",
+                                              "fill": "$quality",
+                                              "content": "FLAC · 17 tracks",
+                                              "fontFamily": "$font-mono",
+                                              "fontSize": 10,
+                                              "fontWeight": "600"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "wgU76",
+                                      "name": "Album / Melodrama",
+                                      "width": "fill_container",
+                                      "fill": "$bg-surface",
+                                      "cornerRadius": "$radius-md",
+                                      "stroke": "$border",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "layout": "vertical",
+                                      "gap": 10,
+                                      "padding": 12,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "UPPe4",
+                                          "name": "Cover",
+                                          "clip": true,
+                                          "width": "fill_container",
+                                          "height": 140,
+                                          "fill": {
+                                            "type": "image",
+                                            "enabled": true,
+                                            "url": "album-covers/pop/melodrama.jpg",
+                                            "mode": "fill"
+                                          },
+                                          "cornerRadius": "$radius-sm",
+                                          "stroke": "$border-strong",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "layout": "none",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "jM92A",
+                                              "x": 14,
+                                              "y": 12,
+                                              "name": "Mark",
+                                              "enabled": false,
+                                              "fill": "$text-secondary",
+                                              "content": "KB",
+                                              "fontFamily": "$font-display",
+                                              "fontSize": 38,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "rectangle",
+                                              "cornerRadius": 2,
+                                              "id": "MFyzz",
+                                              "x": 14,
+                                              "y": 118,
+                                              "name": "Neon Rule",
+                                              "enabled": false,
+                                              "fill": "$quality",
+                                              "width": 68,
+                                              "height": 3
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "gTaYb",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "BibX3",
+                                              "name": "Title",
+                                              "fill": "$text-primary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Melodrama",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 13,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "DlAts",
+                                              "name": "Artist",
+                                              "fill": "$text-secondary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Lorde",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "tfvNR",
+                                              "name": "Meta",
+                                              "fill": "$quality",
+                                              "content": "FLAC · 11 tracks",
+                                              "fontFamily": "$font-mono",
+                                              "fontSize": 10,
+                                              "fontWeight": "600"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "ClVZU",
+                                      "name": "Album / BRAT",
+                                      "width": "fill_container",
+                                      "fill": "$bg-surface",
+                                      "cornerRadius": "$radius-md",
+                                      "stroke": "$border",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "layout": "vertical",
+                                      "gap": 10,
+                                      "padding": 12,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "Z8gVNm",
+                                          "name": "Cover",
+                                          "clip": true,
+                                          "width": "fill_container",
+                                          "height": 140,
+                                          "fill": {
+                                            "type": "image",
+                                            "enabled": true,
+                                            "url": "album-covers/pop/brat.jpg",
+                                            "mode": "fill"
+                                          },
+                                          "cornerRadius": "$radius-sm",
+                                          "stroke": "$border-strong",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "layout": "none",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "f8QQn",
+                                              "x": 14,
+                                              "y": 12,
+                                              "name": "Mark",
+                                              "enabled": false,
+                                              "fill": "$text-secondary",
+                                              "content": "RAM",
+                                              "fontFamily": "$font-display",
+                                              "fontSize": 38,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "rectangle",
+                                              "cornerRadius": 2,
+                                              "id": "Y2Jq3",
+                                              "x": 14,
+                                              "y": 118,
+                                              "name": "Neon Rule",
+                                              "enabled": false,
+                                              "fill": "$quality",
+                                              "width": 68,
+                                              "height": 3
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "t2io6",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "LEPs7",
+                                              "name": "Title",
+                                              "fill": "$text-primary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "BRAT",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 13,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "fulm4",
+                                              "name": "Artist",
+                                              "fill": "$text-secondary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Charli XCX",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "OIDjK",
+                                              "name": "Meta",
+                                              "fill": "$quality",
+                                              "content": "FLAC · 15 tracks",
+                                              "fontFamily": "$font-mono",
+                                              "fontSize": 10,
+                                              "fontWeight": "600"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "Y6TVTy",
+                                      "name": "Album / After Hours",
+                                      "width": "fill_container",
+                                      "fill": "$bg-surface",
+                                      "cornerRadius": "$radius-md",
+                                      "stroke": "$border",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "layout": "vertical",
+                                      "gap": 10,
+                                      "padding": 12,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "oDQLv",
+                                          "name": "Cover",
+                                          "clip": true,
+                                          "width": "fill_container",
+                                          "height": 140,
+                                          "fill": {
+                                            "type": "image",
+                                            "enabled": true,
+                                            "url": "album-covers/pop/after-hours.jpg",
+                                            "mode": "fill"
+                                          },
+                                          "cornerRadius": "$radius-sm",
+                                          "stroke": "$border-strong",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "layout": "none",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "hhBy5",
+                                              "x": 14,
+                                              "y": 12,
+                                              "name": "Mark",
+                                              "enabled": false,
+                                              "fill": "$text-secondary",
+                                              "content": "IE",
+                                              "fontFamily": "$font-display",
+                                              "fontSize": 38,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "rectangle",
+                                              "cornerRadius": 2,
+                                              "id": "z72sLk",
+                                              "x": 14,
+                                              "y": 118,
+                                              "name": "Neon Rule",
+                                              "enabled": false,
+                                              "fill": "$quality",
+                                              "width": 68,
+                                              "height": 3
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "CrUSA",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "JOpsB",
+                                              "name": "Title",
+                                              "fill": "$text-primary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "After Hours",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 13,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "LV2Ve",
+                                              "name": "Artist",
+                                              "fill": "$text-secondary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "The Weeknd",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "K2SbbH",
+                                              "name": "Meta",
+                                              "fill": "$quality",
+                                              "content": "FLAC · 14 tracks",
+                                              "fontFamily": "$font-mono",
+                                              "fontSize": 10,
+                                              "fontWeight": "600"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "z26z8t",
+                                      "name": "Album / Norman Fucking Rockwell!",
+                                      "width": "fill_container",
+                                      "fill": "$bg-surface",
+                                      "cornerRadius": "$radius-md",
+                                      "stroke": "$border",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "layout": "vertical",
+                                      "gap": 10,
+                                      "padding": 12,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "l8v5IG",
+                                          "name": "Cover",
+                                          "clip": true,
+                                          "width": "fill_container",
+                                          "height": 140,
+                                          "fill": {
+                                            "type": "image",
+                                            "enabled": true,
+                                            "url": "album-covers/pop/norman-fucking-rockwell.jpg",
+                                            "mode": "fill"
+                                          },
+                                          "cornerRadius": "$radius-sm",
+                                          "stroke": "$border-strong",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "layout": "none",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "j7dbZI",
+                                              "x": 14,
+                                              "y": 12,
+                                              "name": "Mark",
+                                              "enabled": false,
+                                              "fill": "$text-secondary",
+                                              "content": "SAW",
+                                              "fontFamily": "$font-display",
+                                              "fontSize": 38,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "rectangle",
+                                              "cornerRadius": 2,
+                                              "id": "O23os",
+                                              "x": 14,
+                                              "y": 118,
+                                              "name": "Neon Rule",
+                                              "enabled": false,
+                                              "fill": "$quality",
+                                              "width": 68,
+                                              "height": 3
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "Q9ANah",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "ZXt9l",
+                                              "name": "Title",
+                                              "fill": "$text-primary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Norman Fucking Rockwell!",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 13,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "t4Fqa",
+                                              "name": "Artist",
+                                              "fill": "$text-secondary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Lana Del Rey",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "kViQ6",
+                                              "name": "Meta",
+                                              "fill": "$quality",
+                                              "content": "FLAC · 14 tracks",
+                                              "fontFamily": "$font-mono",
+                                              "fontSize": 10,
+                                              "fontWeight": "600"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "pFg6b",
+                                  "name": "Album Row",
+                                  "width": "fill_container",
+                                  "gap": 14,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "b7L2Mb",
+                                      "name": "Album / Hounds of Love",
+                                      "width": "fill_container",
+                                      "fill": "$bg-surface",
+                                      "cornerRadius": "$radius-md",
+                                      "stroke": "$border",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "layout": "vertical",
+                                      "gap": 10,
+                                      "padding": 12,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "V1QCHc",
+                                          "name": "Cover",
+                                          "clip": true,
+                                          "width": "fill_container",
+                                          "height": 140,
+                                          "fill": {
+                                            "type": "image",
+                                            "enabled": true,
+                                            "url": "album-covers/pop/hounds-of-love.jpg",
+                                            "mode": "fill"
+                                          },
+                                          "cornerRadius": "$radius-sm",
+                                          "stroke": "$border-strong",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "layout": "none",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "wOTJs",
+                                              "x": 14,
+                                              "y": 12,
+                                              "name": "Mark",
+                                              "enabled": false,
+                                              "fill": "$text-secondary",
+                                              "content": "OK",
+                                              "fontFamily": "$font-display",
+                                              "fontSize": 38,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "rectangle",
+                                              "cornerRadius": 2,
+                                              "id": "JOmX2",
+                                              "x": 14,
+                                              "y": 118,
+                                              "name": "Neon Rule",
+                                              "enabled": false,
+                                              "fill": "$quality",
+                                              "width": 68,
+                                              "height": 3
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "OiNdb",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "Y3zPAH",
+                                              "name": "Title",
+                                              "fill": "$text-primary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Hounds of Love",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 13,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "id9pd",
+                                              "name": "Artist",
+                                              "fill": "$text-secondary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Kate Bush",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "l0V1i8",
+                                              "name": "Meta",
+                                              "fill": "$quality",
+                                              "content": "FLAC · 12 tracks",
+                                              "fontFamily": "$font-mono",
+                                              "fontSize": 10,
+                                              "fontWeight": "600"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "fjp4L",
+                                      "name": "Album / Off the Wall",
+                                      "width": "fill_container",
+                                      "fill": "$bg-surface",
+                                      "cornerRadius": "$radius-md",
+                                      "stroke": "$border",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "layout": "vertical",
+                                      "gap": 10,
+                                      "padding": 12,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "n6Oz2",
+                                          "name": "Cover",
+                                          "clip": true,
+                                          "width": "fill_container",
+                                          "height": 140,
+                                          "fill": {
+                                            "type": "image",
+                                            "enabled": true,
+                                            "url": "album-covers/pop/off-the-wall.jpg",
+                                            "mode": "fill"
+                                          },
+                                          "cornerRadius": "$radius-sm",
+                                          "stroke": "$border-strong",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "layout": "none",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "BD52W",
+                                              "x": 14,
+                                              "y": 12,
+                                              "name": "Mark",
+                                              "enabled": false,
+                                              "fill": "$text-secondary",
+                                              "content": "BT",
+                                              "fontFamily": "$font-display",
+                                              "fontSize": 38,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "rectangle",
+                                              "cornerRadius": 2,
+                                              "id": "sfJh7",
+                                              "x": 14,
+                                              "y": 118,
+                                              "name": "Neon Rule",
+                                              "enabled": false,
+                                              "fill": "$quality",
+                                              "width": 68,
+                                              "height": 3
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "WSshB",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "t3rj6",
+                                              "name": "Title",
+                                              "fill": "$text-primary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Off the Wall",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 13,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "I5rzI3",
+                                              "name": "Artist",
+                                              "fill": "$text-secondary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Michael Jackson",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "fK9ew",
+                                              "name": "Meta",
+                                              "fill": "$quality",
+                                              "content": "FLAC · 10 tracks",
+                                              "fontFamily": "$font-mono",
+                                              "fontSize": 10,
+                                              "fontWeight": "600"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "XYPk3",
+                                      "name": "Album / 21",
+                                      "width": "fill_container",
+                                      "fill": "$bg-surface",
+                                      "cornerRadius": "$radius-md",
+                                      "stroke": "$border",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "layout": "vertical",
+                                      "gap": 10,
+                                      "padding": 12,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "W42J8",
+                                          "name": "Cover",
+                                          "clip": true,
+                                          "width": "fill_container",
+                                          "height": 140,
+                                          "fill": {
+                                            "type": "image",
+                                            "enabled": true,
+                                            "url": "album-covers/pop/21.jpg",
+                                            "mode": "fill"
+                                          },
+                                          "cornerRadius": "$radius-sm",
+                                          "stroke": "$border-strong",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "layout": "none",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "u6hFMX",
+                                              "x": 14,
+                                              "y": 12,
+                                              "name": "Mark",
+                                              "enabled": false,
+                                              "fill": "$text-secondary",
+                                              "content": "KC",
+                                              "fontFamily": "$font-display",
+                                              "fontSize": 38,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "rectangle",
+                                              "cornerRadius": 2,
+                                              "id": "THS6M",
+                                              "x": 14,
+                                              "y": 118,
+                                              "name": "Neon Rule",
+                                              "enabled": false,
+                                              "fill": "$quality",
+                                              "width": 68,
+                                              "height": 3
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "aJzEX",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "N6eUno",
+                                              "name": "Title",
+                                              "fill": "$text-primary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "21",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 13,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "Ur8Xm",
+                                              "name": "Artist",
+                                              "fill": "$text-secondary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Adele",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "u3O7RK",
+                                              "name": "Meta",
+                                              "fill": "$quality",
+                                              "content": "FLAC · 11 tracks",
+                                              "fontFamily": "$font-mono",
+                                              "fontSize": 10,
+                                              "fontWeight": "600"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "llx12",
+                                      "name": "Album / Voodoo",
+                                      "width": "fill_container",
+                                      "fill": "$bg-surface",
+                                      "cornerRadius": "$radius-md",
+                                      "stroke": "$border",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "layout": "vertical",
+                                      "gap": 10,
+                                      "padding": 12,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "M7BZJL",
+                                          "name": "Cover",
+                                          "clip": true,
+                                          "width": "fill_container",
+                                          "height": 140,
+                                          "fill": {
+                                            "type": "image",
+                                            "enabled": true,
+                                            "url": "album-covers/pop/voodoo.jpg",
+                                            "mode": "fill"
+                                          },
+                                          "cornerRadius": "$radius-sm",
+                                          "stroke": "$border-strong",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "layout": "none",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "GC5zF",
+                                              "x": 14,
+                                              "y": 12,
+                                              "name": "Mark",
+                                              "enabled": false,
+                                              "fill": "$text-secondary",
+                                              "content": "DY",
+                                              "fontFamily": "$font-display",
+                                              "fontSize": 38,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "rectangle",
+                                              "cornerRadius": 2,
+                                              "id": "AyYt1",
+                                              "x": 14,
+                                              "y": 118,
+                                              "name": "Neon Rule",
+                                              "enabled": false,
+                                              "fill": "$quality",
+                                              "width": 68,
+                                              "height": 3
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "DHi6r",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "k3R19L",
+                                              "name": "Title",
+                                              "fill": "$text-primary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Voodoo",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 13,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "xyMCB",
+                                              "name": "Artist",
+                                              "fill": "$text-secondary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "D'Angelo",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "lDQs0",
+                                              "name": "Meta",
+                                              "fill": "$quality",
+                                              "content": "FLAC · 13 tracks",
+                                              "fontFamily": "$font-mono",
+                                              "fontSize": 10,
+                                              "fontWeight": "600"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "uDPAR",
+                                      "name": "Album / Fetch The Bolt Cutters",
+                                      "width": "fill_container",
+                                      "fill": "$bg-surface",
+                                      "cornerRadius": "$radius-md",
+                                      "stroke": "$border",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "layout": "vertical",
+                                      "gap": 10,
+                                      "padding": 12,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "Jng0v",
+                                          "name": "Cover",
+                                          "clip": true,
+                                          "width": "fill_container",
+                                          "height": 140,
+                                          "fill": {
+                                            "type": "image",
+                                            "enabled": true,
+                                            "url": "album-covers/pop/fetch-the-bolt-cutters.jpg",
+                                            "mode": "fill"
+                                          },
+                                          "cornerRadius": "$radius-sm",
+                                          "stroke": "$border-strong",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "layout": "none",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "b8tvp",
+                                              "x": 14,
+                                              "y": 12,
+                                              "name": "Mark",
+                                              "enabled": false,
+                                              "fill": "$text-secondary",
+                                              "content": "ISW",
+                                              "fontFamily": "$font-display",
+                                              "fontSize": 38,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "rectangle",
+                                              "cornerRadius": 2,
+                                              "id": "N2xrVM",
+                                              "x": 14,
+                                              "y": 118,
+                                              "name": "Neon Rule",
+                                              "enabled": false,
+                                              "fill": "$quality",
+                                              "width": 68,
+                                              "height": 3
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "QkgXu",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "td5RH",
+                                              "name": "Title",
+                                              "fill": "$text-primary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Fetch The Bolt Cutters",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 13,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "t8bxe",
+                                              "name": "Artist",
+                                              "fill": "$text-secondary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Fiona Apple",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "Y6BfU",
+                                              "name": "Meta",
+                                              "fill": "$quality",
+                                              "content": "FLAC · 13 tracks",
+                                              "fontFamily": "$font-mono",
+                                              "fontSize": 10,
+                                              "fontWeight": "600"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "ncr1S",
+              "type": "ref",
+              "ref": "qKkw7",
+              "name": "Bottom Player",
+              "width": "fill_container",
+              "height": 92,
+              "descendants": {
+                "MVw5k": {
+                  "width": 330,
+                  "gap": 12
+                },
+                "iIdh0": {
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "album-covers/pop/blonde.jpg",
+                    "mode": "fill"
+                  },
+                  "width": 52,
+                  "height": 52,
+                  "cornerRadius": "$radius-sm",
+                  "stroke": "$border-strong"
+                },
+                "RgfcY": {
+                  "gap": 4
+                },
+                "b5z9Ag": {
+                  "content": "Blonde",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 13,
+                  "fontWeight": "700",
+                  "fill": "$text-primary"
+                },
+                "WbUkS": {
+                  "content": "Frank Ocean",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal",
+                  "fill": "$text-secondary"
+                },
+                "vB8rT": {
+                  "content": "FLAC · POP",
+                  "fill": "$quality"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "MOUEy",
+      "x": -323,
+      "y": 109,
+      "name": "Components Board",
+      "clip": true,
+      "width": 1200,
+      "fill": "$bg-page",
+      "cornerRadius": "$radius-lg",
+      "stroke": "$border",
+      "strokeWidth": 1,
+      "strokeAlignment": "inner",
+      "layout": "vertical",
+      "gap": 28,
+      "padding": 40,
+      "children": [
+        {
+          "type": "text",
+          "id": "UsD67",
+          "name": "Label",
+          "fill": "$text-muted",
+          "content": "COMPONENTS",
+          "fontFamily": "$font-mono",
+          "fontSize": 12,
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "Rurqt",
+          "name": "Buttons Row",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "V8kVG",
+              "name": "Button / Primary",
+              "reusable": true,
+              "fill": "$accent",
+              "cornerRadius": "$radius-md",
+              "gap": 8,
+              "padding": [
+                9,
+                14
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "rcmkZ",
+                  "name": "Icon",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "play",
+                  "library": "lucide",
+                  "fill": "$bg-inset"
+                },
+                {
+                  "type": "text",
+                  "id": "t5fRGs",
+                  "name": "Label",
+                  "fill": "$bg-inset",
+                  "content": "Play",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "b4MNr8",
+              "name": "Button / Secondary",
+              "reusable": true,
+              "fill": "$bg-muted",
+              "cornerRadius": "$radius-md",
+              "stroke": "$border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "gap": 8,
+              "padding": [
+                9,
+                14
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "jQ5Ha",
+                  "name": "Icon",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "folder-plus",
+                  "library": "lucide",
+                  "fill": "$text-secondary"
+                },
+                {
+                  "type": "text",
+                  "id": "ezvDc",
+                  "name": "Label",
+                  "fill": "$text-primary",
+                  "content": "Add Folder",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "cQjUd",
+              "name": "Button / Icon",
+              "reusable": true,
+              "width": 34,
+              "height": 34,
+              "fill": "$bg-muted",
+              "cornerRadius": "$radius-md",
+              "stroke": "$border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "MicBg",
+                  "name": "Icon",
+                  "width": 17,
+                  "height": 17,
+                  "icon": "settings",
+                  "library": "lucide",
+                  "fill": "$text-secondary"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Y8Ojv",
+              "name": "Status Pill",
+              "reusable": true,
+              "fill": "$accent-soft",
+              "cornerRadius": "$radius-sm",
+              "stroke": "$accent",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "gap": 6,
+              "padding": [
+                5,
+                9
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "sYa7K",
+                  "name": "Dot",
+                  "fill": "$accent",
+                  "width": 6,
+                  "height": 6
+                },
+                {
+                  "type": "text",
+                  "id": "kjQGY",
+                  "name": "Label",
+                  "fill": "$accent",
+                  "content": "Exclusive",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 11,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "co00z",
+              "name": "Filter Chip / Active",
+              "reusable": true,
+              "fill": "$accent-soft",
+              "cornerRadius": "$radius-sm",
+              "stroke": "$accent",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "padding": [
+                7,
+                11
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "e1oOgg",
+                  "name": "Label",
+                  "fill": "$accent",
+                  "content": "Albums",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "hdr1x",
+              "name": "Filter Chip / Default",
+              "reusable": true,
+              "fill": "$bg-muted",
+              "cornerRadius": "$radius-sm",
+              "stroke": "$border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "padding": [
+                7,
+                11
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "G5QthV",
+                  "name": "Label",
+                  "fill": "$text-secondary",
+                  "content": "Tracks",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "UMGSB",
+          "name": "Nav & Search Row",
+          "gap": 16,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "hChAt",
+              "name": "Sidebar Item",
+              "reusable": true,
+              "width": 210,
+              "fill": "$accent-soft",
+              "cornerRadius": "$radius-md",
+              "gap": 10,
+              "padding": [
+                9,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "fG6mv",
+                  "name": "Icon",
+                  "width": 17,
+                  "height": 17,
+                  "icon": "library",
+                  "library": "lucide",
+                  "fill": "$accent"
+                },
+                {
+                  "type": "text",
+                  "id": "jyrp9",
+                  "name": "Label",
+                  "fill": "$text-primary",
+                  "content": "Library",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "VoSds",
+              "name": "Input / Search",
+              "reusable": true,
+              "width": 360,
+              "fill": "$bg-inset",
+              "cornerRadius": "$radius-md",
+              "stroke": "$border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "gap": 10,
+              "padding": [
+                10,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "tHHlr",
+                  "name": "Icon",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "search",
+                  "library": "lucide",
+                  "fill": "$text-muted"
+                },
+                {
+                  "type": "text",
+                  "id": "js0pJ",
+                  "name": "Placeholder",
+                  "fill": "$text-muted",
+                  "content": "Search library",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "pF8bk",
+          "name": "Settings Row",
+          "reusable": true,
+          "width": 440,
+          "stroke": "$border",
+          "strokeWidth": {
+            "bottom": 1
+          },
+          "strokeAlignment": "inner",
+          "gap": 16,
+          "padding": [
+            14,
+            0
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "HYv64",
+              "name": "Copy",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "l9GWAM",
+                  "name": "Title",
+                  "fill": "$text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Default output",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "Mo9R6",
+                  "name": "Description",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Matrix Audio mini-i Pro 4",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "icon",
+              "id": "p4In90",
+              "name": "Chevron",
+              "width": 16,
+              "height": 16,
+              "icon": "chevron-right",
+              "library": "lucide",
+              "fill": "$text-muted"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "pv9Av",
+          "name": "Device Row",
+          "reusable": true,
+          "width": 520,
+          "fill": "$bg-surface",
+          "cornerRadius": "$radius-lg",
+          "stroke": "$border",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "gap": 14,
+          "padding": 14,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "FEKn9",
+              "name": "Icon",
+              "width": 22,
+              "height": 22,
+              "icon": "speaker",
+              "library": "lucide",
+              "fill": "$accent"
+            },
+            {
+              "type": "frame",
+              "id": "z3YXJ",
+              "name": "Copy",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "NQtay",
+                  "name": "Name",
+                  "fill": "$text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Matrix Audio mini-i Series",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "wiSco",
+                  "name": "Meta",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "96 kHz · 24-bit · hog mode available",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "id": "OL73W",
+              "type": "ref",
+              "ref": "Y8Ojv",
+              "name": "State"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "doTjx",
+          "name": "Library Row",
+          "reusable": true,
+          "width": 620,
+          "stroke": "$border",
+          "strokeWidth": {
+            "bottom": 1
+          },
+          "strokeAlignment": "inner",
+          "gap": 14,
+          "padding": [
+            12,
+            0
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "iZf3X",
+              "name": "Cover",
+              "width": 44,
+              "height": 44,
+              "fill": "$bg-elevated",
+              "cornerRadius": "$radius-sm",
+              "stroke": "$border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner"
+            },
+            {
+              "type": "frame",
+              "id": "tgC0G",
+              "name": "Track Copy",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Crn30",
+                  "name": "Title",
+                  "fill": "$text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Nocturne in E-flat major",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "jV3gZ",
+                  "name": "Artist",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Claudio Arrau · Chopin",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "J3Wpq",
+              "name": "Format",
+              "fill": "$text-secondary",
+              "content": "FLAC 24/96",
+              "fontFamily": "$font-mono",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "P8cUyN",
+              "name": "Duration",
+              "fill": "$text-muted",
+              "content": "04:28",
+              "fontFamily": "$font-mono",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "qKkw7",
+          "name": "Playback Bar",
+          "reusable": true,
+          "width": "fill_container",
+          "height": 92,
+          "fill": "$bg-surface",
+          "stroke": "$border",
+          "strokeWidth": {
+            "top": 1
+          },
+          "strokeAlignment": "inner",
+          "gap": 22,
+          "padding": [
+            12,
+            20
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "MVw5k",
+              "name": "Now Playing",
+              "width": 320,
+              "gap": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "iIdh0",
+                  "name": "Cover",
+                  "width": 60,
+                  "height": 60,
+                  "fill": "$bg-elevated",
+                  "cornerRadius": "$radius-sm",
+                  "stroke": "$border-strong",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner"
+                },
+                {
+                  "type": "frame",
+                  "id": "RgfcY",
+                  "name": "Copy",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 5,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "b5z9Ag",
+                      "name": "Title",
+                      "fill": "$text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Nocturne in E-flat major",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 14,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "WbUkS",
+                      "name": "Artist",
+                      "fill": "$text-muted",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Claudio Arrau · Chopin",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "kRlBI",
+              "name": "Transport Center",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Nqfs2",
+                  "name": "Controls",
+                  "gap": 12,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "G7rBsN",
+                      "name": "Shuffle",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "shuffle",
+                      "library": "lucide",
+                      "fill": "$text-secondary"
+                    },
+                    {
+                      "type": "icon",
+                      "id": "I2roc",
+                      "name": "Previous",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "skip-back",
+                      "library": "lucide",
+                      "fill": "$text-secondary"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "z2f9xS",
+                      "name": "Play",
+                      "width": 28,
+                      "height": 28,
+                      "fill": "$accent",
+                      "cornerRadius": "$radius-md",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "OEUCE",
+                          "name": "Play Icon",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "play",
+                          "library": "lucide",
+                          "fill": "$bg-inset"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "icon",
+                      "id": "f1kzk",
+                      "name": "Next",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "skip-forward",
+                      "library": "lucide",
+                      "fill": "$text-secondary"
+                    },
+                    {
+                      "type": "icon",
+                      "id": "FqdC3",
+                      "name": "Repeat",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "repeat-2",
+                      "library": "lucide",
+                      "fill": "$text-secondary"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "r6HZK",
+                  "name": "Progress Row",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "n9vLdt",
+                      "name": "Elapsed",
+                      "fill": "$text-muted",
+                      "content": "02:14",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "gmbcs",
+                      "name": "Progress Bar",
+                      "width": "fill_container",
+                      "height": 4,
+                      "fill": "$bg-inset",
+                      "cornerRadius": 2,
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 2,
+                          "id": "nXSEz",
+                          "name": "Elapsed Fill",
+                          "fill": "$accent",
+                          "width": 180,
+                          "height": 4
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "WTgJr",
+                      "name": "Duration",
+                      "fill": "$text-muted",
+                      "content": "04:28",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "MvhQm",
+              "name": "Output Status",
+              "width": 300,
+              "gap": 14,
+              "justifyContent": "end",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "W4DFo",
+                  "name": "Format",
+                  "width": 132,
+                  "layout": "vertical",
+                  "gap": 3,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "vB8rT",
+                      "name": "Quality",
+                      "fill": "$quality",
+                      "content": "FLAC 24/96",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 12,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "TId2o",
+                      "name": "Device",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Matrix mini-i",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "wIS69",
+                  "name": "Output",
+                  "width": 17,
+                  "height": 17,
+                  "icon": "speaker",
+                  "library": "lucide",
+                  "fill": "$text-secondary"
+                },
+                {
+                  "type": "frame",
+                  "id": "cOeyi",
+                  "name": "Queue Button",
+                  "width": 38,
+                  "height": 34,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "H4oceM",
+                      "x": 0,
+                      "y": 8,
+                      "name": "Queue",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "list-music",
+                      "library": "lucide",
+                      "fill": "$text-secondary"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "eCWdc",
+                      "x": 22,
+                      "y": 0,
+                      "name": "Badge",
+                      "width": 16,
+                      "height": 16,
+                      "fill": "$accent",
+                      "cornerRadius": 8,
+                      "stroke": "$bg-surface",
+                      "strokeWidth": 2,
+                      "strokeAlignment": "outer",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "QLFLt",
+                          "name": "Count",
+                          "fill": "$bg-inset",
+                          "content": "7",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "vH78z",
+      "x": -263,
+      "y": 1216,
+      "name": "Output Device Popover",
+      "width": 360,
+      "fill": "$bg-surface",
+      "cornerRadius": "$radius-lg",
+      "stroke": "$border",
+      "strokeWidth": 1,
+      "strokeAlignment": "inner",
+      "layout": "vertical",
+      "gap": 11,
+      "padding": 14,
+      "children": [
+        {
+          "type": "frame",
+          "id": "O4XCsY",
+          "name": "Header",
+          "width": "fill_container",
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "wWG8D",
+              "name": "Title",
+              "fill": "$text-primary",
+              "content": "Choose audio output",
+              "fontFamily": "$font-display",
+              "fontSize": 17,
+              "fontWeight": "700"
+            },
+            {
+              "type": "icon",
+              "id": "bqp11",
+              "name": "Settings",
+              "width": 16,
+              "height": 16,
+              "icon": "settings",
+              "library": "lucide",
+              "fill": "$text-secondary"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "jvvCP",
+          "name": "Current Device",
+          "width": "fill_container",
+          "fill": "$bg-inset",
+          "cornerRadius": "$radius-md",
+          "stroke": "$accent",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "gap": 12,
+          "padding": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "aaOXa",
+              "name": "Icon",
+              "width": 22,
+              "height": 22,
+              "icon": "speaker",
+              "library": "lucide",
+              "fill": "$accent"
+            },
+            {
+              "type": "frame",
+              "id": "NViSd",
+              "name": "Copy",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 3,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "lf3pr",
+                  "name": "Name",
+                  "fill": "$text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "mini-i Series",
+                  "fontFamily": "$font-display",
+                  "fontSize": 17,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "hZs5P",
+                  "name": "Driver",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "CoreAudio · Exclusive mode",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "Y0Oz6z",
+                  "name": "Info",
+                  "fill": "$quality",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Up to 24-bit / 192 kHz",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 11,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "icon",
+              "id": "iH1j3",
+              "name": "Check",
+              "width": 18,
+              "height": 18,
+              "icon": "check",
+              "library": "lucide",
+              "fill": "$accent"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "Dx4E6",
+          "name": "Direct Label",
+          "fill": "$text-muted",
+          "content": "DIRECT DEVICES",
+          "fontFamily": "$font-mono",
+          "fontSize": 10,
+          "fontWeight": "700",
+          "letterSpacing": 0.8
+        },
+        {
+          "type": "frame",
+          "id": "eLFtG",
+          "name": "Direct Devices",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 2,
+          "children": [
+            {
+              "type": "frame",
+              "id": "s3kSb",
+              "name": "DELL U2718Q",
+              "width": "fill_container",
+              "fill": "#00000000",
+              "cornerRadius": "$radius-md",
+              "gap": 12,
+              "padding": [
+                9,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "jkmeP",
+                  "name": "Icon",
+                  "width": 18,
+                  "height": 18,
+                  "icon": "speaker",
+                  "library": "lucide",
+                  "fill": "$text-muted"
+                },
+                {
+                  "type": "text",
+                  "id": "IV6LF",
+                  "name": "Name",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "DELL U2718Q",
+                  "fontFamily": "$font-display",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "RfMko",
+              "name": "DELL U2725QE (1)",
+              "width": "fill_container",
+              "fill": "#00000000",
+              "cornerRadius": "$radius-md",
+              "gap": 12,
+              "padding": [
+                9,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "pPnc3",
+                  "name": "Icon",
+                  "width": 18,
+                  "height": 18,
+                  "icon": "speaker",
+                  "library": "lucide",
+                  "fill": "$text-muted"
+                },
+                {
+                  "type": "text",
+                  "id": "xLSOr",
+                  "name": "Name",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "DELL U2725QE (1)",
+                  "fontFamily": "$font-display",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ud6zz",
+              "name": "DELL U2725QE (2)",
+              "width": "fill_container",
+              "fill": "#00000000",
+              "cornerRadius": "$radius-md",
+              "gap": 12,
+              "padding": [
+                9,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "w4PtUx",
+                  "name": "Icon",
+                  "width": 18,
+                  "height": 18,
+                  "icon": "speaker",
+                  "library": "lucide",
+                  "fill": "$text-muted"
+                },
+                {
+                  "type": "text",
+                  "id": "Tn9WS",
+                  "name": "Name",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "DELL U2725QE (2)",
+                  "fontFamily": "$font-display",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "x2XmV",
+              "name": "Mac Studio Speakers",
+              "width": "fill_container",
+              "fill": "#00000000",
+              "cornerRadius": "$radius-md",
+              "gap": 12,
+              "padding": [
+                9,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "DaX81",
+                  "name": "Icon",
+                  "width": 18,
+                  "height": 18,
+                  "icon": "speaker",
+                  "library": "lucide",
+                  "fill": "$text-muted"
+                },
+                {
+                  "type": "text",
+                  "id": "YKIy5",
+                  "name": "Name",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Mac Studio Speakers",
+                  "fontFamily": "$font-display",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "em7Wq",
+              "name": "mini-i Series",
+              "width": "fill_container",
+              "fill": "$accent-soft",
+              "cornerRadius": "$radius-md",
+              "stroke": "$accent",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "gap": 12,
+              "padding": [
+                9,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "yvCCB",
+                  "name": "Icon",
+                  "width": 18,
+                  "height": 18,
+                  "icon": "speaker",
+                  "library": "lucide",
+                  "fill": "$accent"
+                },
+                {
+                  "type": "text",
+                  "id": "mP0Ww",
+                  "name": "Name",
+                  "fill": "$text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "mini-i Series",
+                  "fontFamily": "$font-display",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "icon",
+                  "id": "hR3TR",
+                  "name": "Check",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "check",
+                  "library": "lucide",
+                  "fill": "$accent"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "cdy8Y",
+              "name": "OrayVirtualAudioDevice",
+              "width": "fill_container",
+              "fill": "#00000000",
+              "cornerRadius": "$radius-md",
+              "gap": 12,
+              "padding": [
+                9,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "NamY3",
+                  "name": "Icon",
+                  "width": 18,
+                  "height": 18,
+                  "icon": "speaker",
+                  "library": "lucide",
+                  "fill": "$text-muted"
+                },
+                {
+                  "type": "text",
+                  "id": "JMV3B",
+                  "name": "Name",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "OrayVirtualAudioDevice",
+                  "fontFamily": "$font-display",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "IKjBj",
+              "name": "Scarlett 2i2 4th Gen",
+              "width": "fill_container",
+              "fill": "#00000000",
+              "cornerRadius": "$radius-md",
+              "gap": 12,
+              "padding": [
+                9,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "xPlgJ",
+                  "name": "Icon",
+                  "width": 18,
+                  "height": 18,
+                  "icon": "speaker",
+                  "library": "lucide",
+                  "fill": "$text-muted"
+                },
+                {
+                  "type": "text",
+                  "id": "s6fpo",
+                  "name": "Name",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Scarlett 2i2 4th Gen",
+                  "fontFamily": "$font-display",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "XvgvL",
+          "name": "Network Label",
+          "fill": "$text-muted",
+          "content": "NETWORK DEVICES",
+          "fontFamily": "$font-mono",
+          "fontSize": 10,
+          "fontWeight": "700",
+          "letterSpacing": 0.8
+        },
+        {
+          "type": "text",
+          "id": "Qe4g8",
+          "name": "Network Empty",
+          "fill": "$text-muted",
+          "content": "No network devices found",
+          "fontFamily": "$font-sans",
+          "fontSize": 12,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "SzFlP",
+          "name": "Footer",
+          "width": "fill_container",
+          "stroke": "$border",
+          "strokeWidth": {
+            "top": 1
+          },
+          "strokeAlignment": "inner",
+          "padding": [
+            12,
+            2,
+            2,
+            2
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "FA9N2",
+              "name": "Help",
+              "fill": "$text-secondary",
+              "content": "Can't find your device?",
+              "fontFamily": "$font-display",
+              "fontSize": 14,
+              "fontWeight": "500"
+            },
+            {
+              "type": "icon",
+              "id": "UwYRW",
+              "name": "Arrow",
+              "width": 16,
+              "height": 16,
+              "icon": "log-in",
+              "library": "lucide",
+              "fill": "$text-muted"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "v06cM3",
+      "x": -1763,
+      "y": -311,
+      "name": "App Icon",
+      "clip": true,
+      "width": 256,
+      "height": 256,
+      "fill": {
+        "type": "gradient",
+        "gradientType": "linear",
+        "enabled": true,
+        "rotation": 180,
+        "size": {
+          "height": 1
+        },
+        "colors": [
+          {
+            "color": "$bg-surface",
+            "position": 0
+          },
+          {
+            "color": "$bg-inset",
+            "position": 1
+          }
+        ]
+      },
+      "cornerRadius": 54,
+      "stroke": "$border",
+      "strokeWidth": 1,
+      "strokeAlignment": "inner",
+      "layout": "none",
+      "children": [
+        {
+          "type": "path",
+          "id": "r6325",
+          "x": 30,
+          "y": 30,
+          "name": "Pulse",
+          "geometry": "M6 100l50 0 16 12 18-60 16 98 16-62 18 12 54 0",
+          "viewBox": [
+            0,
+            0,
+            200,
+            200
+          ],
+          "fill": "#00000000",
+          "width": 196,
+          "height": 196,
+          "stroke": "$accent",
+          "strokeWidth": 6,
+          "strokeLinejoin": "round",
+          "strokeLinecap": "round",
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "color": "#00000000"
+          }
+        }
+      ]
+    }
+  ],
+  "variables": {
+    "accent": {
+      "type": "color",
+      "value": "#FF2D7E"
+    },
+    "accent-soft": {
+      "type": "color",
+      "value": "#2A0E1C"
+    },
+    "bg-elevated": {
+      "type": "color",
+      "value": "#282825"
+    },
+    "bg-inset": {
+      "type": "color",
+      "value": "#0A0A0A"
+    },
+    "bg-muted": {
+      "type": "color",
+      "value": "#1E1E1C"
+    },
+    "bg-page": {
+      "type": "color",
+      "value": "#0F0F0F"
+    },
+    "bg-surface": {
+      "type": "color",
+      "value": "#161615"
+    },
+    "border": {
+      "type": "color",
+      "value": "#312F2C"
+    },
+    "border-strong": {
+      "type": "color",
+      "value": "#403D39"
+    },
+    "danger": {
+      "type": "color",
+      "value": "#FF4D6D"
+    },
+    "font-display": {
+      "type": "string",
+      "value": "Rajdhani"
+    },
+    "font-mono": {
+      "type": "string",
+      "value": "Geist Mono"
+    },
+    "font-sans": {
+      "type": "string",
+      "value": "Inter"
+    },
+    "info": {
+      "type": "color",
+      "value": "#B15CFF"
+    },
+    "meter": {
+      "type": "color",
+      "value": "#9DE23A"
+    },
+    "radius-lg": {
+      "type": "number",
+      "value": 8
+    },
+    "radius-md": {
+      "type": "number",
+      "value": 6
+    },
+    "radius-sm": {
+      "type": "number",
+      "value": 4
+    },
+    "text-muted": {
+      "type": "color",
+      "value": "#6A6A66"
+    },
+    "text-primary": {
+      "type": "color",
+      "value": "#F0F0EE"
+    },
+    "text-secondary": {
+      "type": "color",
+      "value": "#9D9D99"
+    },
+    "warning": {
+      "type": "color",
+      "value": "#FF8A2A"
+    },
+    "quality": {
+      "type": "color",
+      "value": "#9DE23A"
+    },
+    "primary": {
+      "type": "color",
+      "value": "#B15CFF"
+    },
+    "primary-soft": {
+      "type": "color",
+      "value": "#241334"
+    },
+    "signature": {
+      "type": "color",
+      "value": "#F3B8C6"
+    },
+    "signature-soft": {
+      "type": "color",
+      "value": "#2A1D22"
+    },
+    "accent-bright": {
+      "type": "color",
+      "value": "#FF74B8"
+    }
+  }
+}
