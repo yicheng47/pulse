@@ -91,23 +91,13 @@ impl Engine {
     pub fn set_format(&mut self, fmt: PcmFormat) -> Result<(), EngineError> {
         self.pause()?;
         hal::set_nominal_sample_rate(self.device, fmt)?;
-        let _ = hal::set_matching_physical_format(self.device, fmt)?;
+        let _ = hal::set_matching_physical_format(self.device, fmt);
         let packer = FloatPacker::new(fmt)?;
-        let ring_capacity = usize::try_from(fmt.sample_rate)
-            .ok()
-            .and_then(|sample_rate| sample_rate.checked_mul(packer.output_bytes_per_frame))
-            .and_then(|bytes_per_second| bytes_per_second.checked_mul(4))
-            .ok_or_else(|| {
-                EngineError::UnsupportedFormat("ring buffer size overflow".to_string())
-            })?;
-        let (producer, consumer) = RingBuffer::<u8>::new(ring_capacity);
 
-        self.producer = Some(producer);
-        self.consumer = Some(consumer);
+        self.reset_ring(fmt, packer)?;
         self.sink = None;
         self.format = Some(fmt);
         self.packer = Some(packer);
-        self.pack_buffer.clear();
         Ok(())
     }
 
@@ -123,8 +113,18 @@ impl Engine {
                 "playback sink is stopped; call set_format before playing again".to_string(),
             )
         })?;
-        self.sink = Some(auhal::AuhalSink::start(self.device, consumer, format)?);
-        Ok(())
+        match auhal::AuhalSink::start(self.device, consumer, format) {
+            Ok(sink) => {
+                self.sink = Some(sink);
+                Ok(())
+            }
+            Err(error) => {
+                if let Some(packer) = self.packer {
+                    self.reset_ring(format, packer)?;
+                }
+                Err(error)
+            }
+        }
     }
 
     pub fn pause(&mut self) -> Result<(), EngineError> {
@@ -176,6 +176,21 @@ impl Engine {
     /// Latest RMS/peak from the realtime tap.
     pub fn levels(&self) -> Levels {
         Levels::default()
+    }
+
+    fn reset_ring(&mut self, format: PcmFormat, packer: FloatPacker) -> Result<(), EngineError> {
+        let ring_capacity = usize::try_from(format.sample_rate)
+            .ok()
+            .and_then(|sample_rate| sample_rate.checked_mul(packer.output_bytes_per_frame))
+            .and_then(|bytes_per_second| bytes_per_second.checked_mul(4))
+            .ok_or_else(|| {
+                EngineError::UnsupportedFormat("ring buffer size overflow".to_string())
+            })?;
+        let (producer, consumer) = RingBuffer::<u8>::new(ring_capacity);
+        self.producer = Some(producer);
+        self.consumer = Some(consumer);
+        self.pack_buffer.clear();
+        Ok(())
     }
 }
 
