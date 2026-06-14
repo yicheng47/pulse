@@ -2522,9 +2522,12 @@ dependencies = [
 name = "pulse"
 version = "0.1.0"
 dependencies = [
+ "dirs",
  "pulse-engine",
+ "serde",
  "tauri",
  "tauri-build",
+ "toml 0.8.2",
 ]
 
 [[package]]
