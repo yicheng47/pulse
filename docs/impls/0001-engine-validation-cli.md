@@ -4,7 +4,7 @@
 
 ## Context
 
-Pulse's first real risk is not React, Tauri, library scanning, or visual polish. The hard part is whether a Rust engine can drive a real macOS output device in hog mode, switch to the source file's native sample rate and physical integer format, and feed the DAC without Core Audio inserting conversion.
+Pulse's first real risk is not React, Tauri, library scanning, or visual polish. The hard part is whether a Rust engine can drive a real macOS output device in hog mode, switch to the source file's native sample rate, and feed the DAC cleanly.
 
 This needs to be proven before the app shell gets serious. If the engine cannot be validated from a small CLI, the Tauri app would only hide the failure behind more moving parts.
 
@@ -18,7 +18,7 @@ Make this command work:
 pulse-cli play <file.flac>
 ```
 
-Expected result: the Matrix Mini-i Pro 4 shows the source file's native rate/depth while Pulse owns the device in exclusive mode.
+Expected result: the Matrix Mini-i Pro 4 shows the source file's native sample rate while Pulse owns the device in exclusive mode.
 
 ## Approach
 
@@ -26,11 +26,11 @@ Build the path from the outside inward:
 
 1. Device discovery: list Core Audio output devices and pick the default output device.
 2. File probe: use Symphonia to read native sample rate, bit depth, channel count, and codec/container.
-3. HAL control plane: take hog mode, switch nominal sample rate, select a matching physical integer format, and confirm Core Audio reports the new state.
-4. Data plane: decode PCM on a normal thread, push into an `rtrb` ring buffer, and let the IOProc drain into the device buffer.
+3. HAL control plane: take hog mode, switch nominal sample rate, select or inspect a compatible physical format, and confirm Core Audio reports the new state.
+4. Data plane: decode PCM on a normal thread, convert accepted frames to float32, push into an `rtrb` ring buffer, and let the AUHAL render callback drain into the device buffer.
 5. Validation: run known files at 44.1, 48, 96, and 192 kHz; confirm the DAC readout changes per file.
 
-The first pass should be conservative. Reject unsupported device formats rather than adding clever conversion. Silent fallback is worse than failure because it undermines the bit-perfect claim.
+The first pass should be conservative. Silent fallback is worse than failure because it hides device behavior we need to understand.
 
 ## Commands
 
@@ -104,15 +104,15 @@ Verification:
 - System audio cannot mix while Pulse owns the device.
 - Unsupported formats produce `NoMatchingFormat` rather than fallback conversion.
 
-### Step 4: Implement IOProc playback
+### Step 4: Implement AUHAL playback
 
 Files:
 
-- `crates/pulse-engine/src/ioproc.rs`
+- `crates/pulse-engine/src/auhal.rs`
 - `crates/pulse-engine/src/lib.rs`
 - `crates/pulse-engine/src/levels.rs`
 
-Implement raw HAL IOProc lifecycle and ring-buffer draining.
+Implement Hardware AudioUnit lifecycle and ring-buffer draining.
 
 Verification:
 
@@ -138,7 +138,7 @@ Verification:
 
 - Known 44.1, 48, 96, and 192 kHz files play.
 - Known 16-bit and 24-bit files play.
-- The DAC shows the expected native rate/depth.
+- The DAC shows the expected native sample rate.
 
 ## Non-Goals
 
@@ -153,13 +153,13 @@ Verification:
 
 | File | Expected DAC Readout | Result |
 |------|----------------------|--------|
-| FLAC 44.1 kHz / 16-bit / 2ch | 44.1 kHz / 16-bit | |
-| FLAC 48 kHz / 24-bit / 2ch | 48 kHz / 24-bit | |
-| FLAC 96 kHz / 24-bit / 2ch | 96 kHz / 24-bit | |
-| FLAC 192 kHz / 24-bit / 2ch | 192 kHz / 24-bit | |
-| ALAC 44.1 kHz / 16-bit / 2ch | 44.1 kHz / 16-bit | |
-| AIFF 44.1 kHz / 16-bit / 2ch | 44.1 kHz / 16-bit | |
-| WAV 44.1 kHz / 16-bit / 2ch | 44.1 kHz / 16-bit | |
+| FLAC 44.1 kHz / 16-bit / 2ch | 44.1 kHz | |
+| FLAC 48 kHz / 24-bit / 2ch | 48 kHz | |
+| FLAC 96 kHz / 24-bit / 2ch | 96 kHz | |
+| FLAC 192 kHz / 24-bit / 2ch | 192 kHz | |
+| ALAC 44.1 kHz / 16-bit / 2ch | 44.1 kHz | |
+| AIFF 44.1 kHz / 16-bit / 2ch | 44.1 kHz | |
+| WAV 44.1 kHz / 16-bit / 2ch | 44.1 kHz | |
 
 ## Open Questions
 

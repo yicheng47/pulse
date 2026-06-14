@@ -91,7 +91,7 @@ When you do enumerate (because the choice genuinely depends on the user's prefer
 
 - **Music only, PCM only.** No DSD, no video, no streaming integration. Don't scope-creep these back in.
 - **No libmpv, no FFmpeg, no GPL deps** — keeps App Store eligibility and paid closed-source distribution open.
-- **Playback path is a raw HAL IOProc** (`AudioDeviceCreateIOProcID`), never AUHAL/AudioUnit — an implicit AudioConverter in the path breaks the bit-perfect guarantee. `cpal` and `coreaudio-rs` are reference code only, never dependencies.
-- **Realtime audio thread (IOProc callback): no allocation, no locks, no syscalls.** Data crosses threads via `rtrb` only.
+- **Playback path is AUHAL / Hardware AudioUnit by default.** Pulse feeds native-rate interleaved float32 through `coreaudio-rs`, while direct `objc2-core-audio` HAL code still owns device discovery, hog mode, sample-rate switching, and physical-format probing.
+- **Realtime audio callback: no allocation, no locks, no syscalls.** Data crosses threads via `rtrb` only.
 - **`pulse-engine` stays UI-agnostic** — no Tauri types in the engine crate. It must remain drivable from `pulse-cli` alone.
-- Bit-perfect claims are validated on hardware (Matrix Mini-i Pro 4 indicator showing the source's native rate/depth), not just by tests.
+- Do not make hard bit-perfect claims for the AUHAL path. Hardware validation can prove native-rate/exclusive playback; a future raw-HAL integer engine would be needed before claiming unchanged integer frames reach the DAC.

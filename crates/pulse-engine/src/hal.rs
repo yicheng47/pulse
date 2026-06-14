@@ -515,7 +515,7 @@ fn current_pid() -> i32 {
     i32::try_from(std::process::id()).expect("process id must fit in pid_t")
 }
 
-fn check_status(call: &'static str, status: i32) -> Result<(), EngineError> {
+pub(crate) fn check_status(call: &'static str, status: i32) -> Result<(), EngineError> {
     if status == kAudioHardwareNoError {
         Ok(())
     } else {
@@ -632,9 +632,9 @@ mod tests {
                 mSampleRate: sample_rate,
                 mFormatID: kAudioFormatLinearPCM,
                 mFormatFlags: format_flags,
-                mBytesPerPacket: 8,
+                mBytesPerPacket: bits_per_channel / 8 * 2,
                 mFramesPerPacket: 1,
-                mBytesPerFrame: 8,
+                mBytesPerFrame: bits_per_channel / 8 * 2,
                 mChannelsPerFrame: 2,
                 mBitsPerChannel: bits_per_channel,
                 mReserved: 0,

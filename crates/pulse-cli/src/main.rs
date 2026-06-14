@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, thread, time::Duration};
 
 use anyhow::Result;
 use clap::Parser;
@@ -17,12 +17,12 @@ enum Cmd {
         #[arg(long)]
         device: Option<pulse_engine::device::DeviceId>,
     },
-    /// Play a file bit-perfect (hog + integer mode)
+    /// Play a file through the AUHAL Core Audio backend
     Play {
         file: PathBuf,
-        /// Output device name (default: system default output)
+        /// Core Audio output device ID (default: system default output)
         #[arg(long)]
-        device: Option<String>,
+        device: Option<pulse_engine::device::DeviceId>,
     },
 }
 
@@ -88,8 +88,36 @@ fn main() -> Result<()> {
             );
         }
         Cmd::Play { file, device } => {
-            let _ = (file, device);
-            todo!("decode → feed → IOProc; validate on the Matrix DAC indicator")
+            let stream = pulse_engine::decode::open(&file)?;
+            let device_id = match device {
+                Some(device_id) => device_id,
+                None => pulse_engine::device::default_output_device()?.id,
+            };
+            let mut engine = pulse_engine::Engine::open(device_id)?;
+            engine.set_format(stream.format)?;
+            engine.play()?;
+
+            let bytes_per_frame = stream.format.bytes_per_frame();
+            let mut fed_frames = 0_u64;
+            pulse_engine::decode::stream_pcm(&file, stream.format, |mut pcm| {
+                while !pcm.is_empty() {
+                    let accepted_frames = engine.feed(pcm);
+                    if accepted_frames == 0 {
+                        thread::sleep(Duration::from_millis(2));
+                        continue;
+                    }
+
+                    let accepted_bytes = accepted_frames * bytes_per_frame;
+                    fed_frames += accepted_frames as u64;
+                    pcm = &pcm[accepted_bytes..];
+                }
+                Ok(())
+            })?;
+
+            while engine.position() < fed_frames {
+                thread::sleep(Duration::from_millis(10));
+            }
+            engine.pause()?;
         }
     }
     Ok(())

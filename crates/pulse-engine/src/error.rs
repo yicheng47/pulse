@@ -12,6 +12,8 @@ pub enum EngineError {
     Hogged(i32),
     #[error("no physical format matches {0:?}")]
     NoMatchingFormat(crate::PcmFormat),
+    #[error("unsupported format: {0}")]
+    UnsupportedFormat(String),
     #[error("timed out waiting for {0}")]
     Timeout(&'static str),
     #[error("decode: {0}")]
