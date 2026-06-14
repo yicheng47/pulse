@@ -17,4 +17,4 @@ Open-source first under the MIT license, especially through the engine validatio
 
 ## Status
 
-Engine playback is proven through `pulse-cli` on the Matrix Mini-i Pro 4 using AUHAL. Current goal: expose backend output-device settings through Tauri before designing the frontend settings surface in Pencil.
+Engine playback is proven through `pulse-cli` on the Matrix Mini-i Pro 4 using AUHAL. Current goal: design the desktop product surfaces in Pencil before adding frontend or app-settings backend code.

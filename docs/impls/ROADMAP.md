@@ -9,6 +9,7 @@ Each stage should have a focused implementation note once work starts. A stage i
 - Finish one stage before starting the next stage branch.
 - Keep each stage small enough to review as one PR.
 - Do not implement frontend surfaces before a Pencil design exists for that surface.
+- Do not harden app-specific Tauri settings backends before the settings UX and storage model are designed.
 - Keep `pulse-engine` UI-agnostic and drivable from `pulse-cli`.
 - Keep `pulse-cli` deterministic and scriptable because it is the future agent/MCP harness boundary.
 - Persist Core Audio device identity by UID, not by transient `AudioDeviceID`.
@@ -26,20 +27,19 @@ Each stage should have a focused implementation note once work starts. A stage i
 
 | Stage | Impl Note | Goal | Boundary |
 |-------|-----------|------|----------|
-| 5 | [`0005-desktop-device-settings.md`](0005-desktop-device-settings.md) | Add backend-only Tauri output-device settings commands and app config persistence. | No React settings UI until the settings surface is designed in Pencil. |
+| 5 | [`0005-product-design.md`](0005-product-design.md) | Design the desktop settings/library shell in Pencil. | No React UI or app-settings Tauri backend until the design defines the contract. |
 
 ## Next
 
 | Stage | Goal | Notes |
 |-------|------|-------|
-| 6 | Design desktop settings/library shell in Pencil. | Settings, library, now-playing, and search need a coherent app shape before React implementation. |
-| 7 | Implement the designed app shell and settings surface. | Use Stage 5 backend commands; keep playback UI out unless the design explicitly covers it. |
-| 8 | Add local library scanner and SQLite store. | PCM music files only: FLAC, ALAC, AIFF, WAV. No streaming and no video. |
-| 9 | Add fast library browsing and search. | Build around local library UX, not enrichment or radio yet. |
-| 10 | Add playback queue and now-playing foundation. | Use the existing AUHAL engine path; avoid bit-perfect claims. |
-| 11 | Add metadata enrichment. | MusicBrainz / Cover Art Archive / Last.fm / Discogs / Wikipedia can be evaluated here. |
-| 12 | Add Smart Radio v1. | Use the user's own library only. |
-| 13 | Polish and package. | Packaging, release notes, app icon pass, and smoke matrix. |
+| 6 | Implement the designed app shell and settings surface. | Add Tauri backend only where the Stage 5 design needs concrete data or persistence. App settings probably belong in SQLite once the app store exists. |
+| 7 | Add local library scanner and SQLite store. | PCM music files only: FLAC, ALAC, AIFF, WAV. No streaming and no video. |
+| 8 | Add fast library browsing and search. | Build around local library UX, not enrichment or radio yet. |
+| 9 | Add playback queue and now-playing foundation. | Use the existing AUHAL engine path; avoid bit-perfect claims. |
+| 10 | Add metadata enrichment. | MusicBrainz / Cover Art Archive / Last.fm / Discogs / Wikipedia can be evaluated here. |
+| 11 | Add Smart Radio v1. | Use the user's own library only. |
+| 12 | Polish and package. | Packaging, release notes, app icon pass, and smoke matrix. |
 
 ## Parking Lot
 
