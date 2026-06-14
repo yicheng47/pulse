@@ -17,7 +17,7 @@ enum Cmd {
         #[arg(long)]
         device: Option<pulse_engine::device::DeviceId>,
     },
-    /// Play a file bit-perfect (hog + integer mode)
+    /// Play a file through the AUHAL Core Audio backend
     Play {
         file: PathBuf,
         /// Core Audio output device ID (default: system default output)

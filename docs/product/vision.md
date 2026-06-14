@@ -1,14 +1,16 @@
 # Product Vision
 
-Pulse is a bit-perfect local music library player for macOS. It is music-only: no video, no streaming integration, no DSD.
+Pulse is a high-quality local music library player for macOS. It is music-only: no video, no streaming integration, no DSD.
 
-The target is the local FLAC listener who wants Audirvana-level output correctness without Audirvana's pricing and UI. The product wedge is simple: beautiful, fast, bit-perfect playback for owned music libraries.
+The target is the local FLAC listener who wants Audirvana-level output care without Audirvana's pricing and UI. The product wedge is simple: beautiful, fast, native-rate playback for owned music libraries.
+
+Bit-perfect integer output remains a possible future differentiator, but it should not be claimed until a lower-level path is rebuilt and validated on hardware.
 
 ## Commercialization Stance
 
 Pulse is open-source first, especially during the initial engine, design, and product-validation stage.
 
-The project may still become commercial later, but only after the bit-perfect proof and early UI attract real demand from local-library and audiophile users. Until then, optimize for credibility, inspectable engineering, and fast feedback rather than licensing complexity or paid packaging.
+The project may still become commercial later, but only after playback proof and early UI attract real demand from local-library and audiophile users. Until then, optimize for credibility, inspectable engineering, and fast feedback rather than licensing complexity or paid packaging.
 
 No GPL dependencies remains a constraint. Open-source does not mean giving up the option for commercial distribution later.
 
@@ -16,7 +18,7 @@ No GPL dependencies remains a constraint. Open-source does not mean giving up th
 
 - Local and NAS music libraries.
 - PCM formats only: FLAC, ALAC, AIFF, WAV.
-- Bit-perfect playback through Core Audio HAL exclusive mode, integer mode, and per-track sample-rate switching.
+- Native-rate playback through Core Audio AUHAL, with direct HAL control for hog mode, sample-rate switching, and physical-format diagnostics.
 - Fast scanning and sub-100ms search across large libraries.
 - Grid/list browsing, collections, smart collections, and metadata editing.
 - Cinematic now-playing with album-art color extraction, synced LRC lyrics, real VU/spectrum, artist context, and next-track prefetching.
@@ -43,7 +45,7 @@ A TUI can be added later if it helps human debugging, but it should not replace 
 
 ## Build Order
 
-1. Prove the audio engine with `pulse-cli play <file>` and the Matrix Mini-i Pro 4 showing the file's native rate/depth.
+1. Prove the audio engine with `pulse-cli play <file>` and the Matrix Mini-i Pro 4 showing the file's native sample rate with clean sound.
 2. Design the library, now-playing, search, and settings surfaces in Pencil.
 3. Scaffold the Tauri app shell following the Runner-style layout.
 4. Build the library scanner, SQLite store, and FTS search.

@@ -6,7 +6,7 @@
 
 Stage 1 proved that `pulse-cli` can enumerate devices and probe file format metadata. Stage 2 moves from inspection into device control: hog mode, nominal sample-rate switching, and physical output format selection.
 
-This stage still does not play audio. That is intentional. If device ownership and format switching are wrong, IOProc playback would make the failure harder to isolate.
+This stage still does not play audio. That is intentional. If device ownership and format switching are wrong, playback would make the failure harder to isolate.
 
 ## Goal
 
@@ -38,11 +38,11 @@ The first pass is intentionally conservative:
 - Format must have at least the requested channel count.
 - Format must have at least the requested bit depth.
 
-The "at least bit depth" rule keeps 24-bit files compatible with devices that expose 24 meaningful bits in a 32-bit physical container. The later IOProc stage must still pack samples correctly for the selected physical format before we call that path bit-perfect.
+The "at least bit depth" rule keeps 24-bit files compatible with devices that expose 24 meaningful bits in a 32-bit physical container. In the AUHAL stage this physical format is diagnostic/control-plane state; the callback itself receives float32 client buffers.
 
 ## Non-Goals
 
-- No IOProc playback.
+- No playback.
 - No decoder loop.
 - No JSON output yet.
 - No Tauri UI.

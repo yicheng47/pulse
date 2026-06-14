@@ -25,8 +25,8 @@ use objc2_core_audio::{
 };
 use objc2_core_audio_types::{
     AudioBuffer, AudioBufferList, AudioStreamBasicDescription, AudioValueRange,
-    kAudioFormatFlagIsBigEndian, kAudioFormatFlagIsFloat, kAudioFormatFlagIsNonInterleaved,
-    kAudioFormatFlagIsSignedInteger, kAudioFormatLinearPCM, kAudioStreamAnyRate,
+    kAudioFormatFlagIsFloat, kAudioFormatFlagIsSignedInteger, kAudioFormatLinearPCM,
+    kAudioStreamAnyRate,
 };
 use objc2_core_foundation::{CFRetained, CFString};
 
@@ -40,57 +40,6 @@ const FORMAT_POLL_INTERVAL: Duration = Duration::from_millis(5);
 pub(crate) struct SelectedPhysicalFormat {
     pub stream_id: AudioObjectID,
     pub format: AudioStreamBasicDescription,
-}
-
-impl SelectedPhysicalFormat {
-    pub(crate) fn supports_direct_interleaved_copy(
-        self,
-        requested: PcmFormat,
-    ) -> Result<usize, EngineError> {
-        let format = self.format;
-        if format.mFormatFlags & kAudioFormatFlagIsBigEndian != 0 {
-            return Err(EngineError::UnsupportedFormat(
-                "big-endian physical output is not wired yet".to_string(),
-            ));
-        }
-        if format.mFormatFlags & kAudioFormatFlagIsNonInterleaved != 0 {
-            return Err(EngineError::UnsupportedFormat(
-                "non-interleaved physical output is not wired yet".to_string(),
-            ));
-        }
-        if format.mChannelsPerFrame != u32::from(requested.channels) {
-            return Err(EngineError::UnsupportedFormat(format!(
-                "physical output has {} channels for {}-channel source",
-                format.mChannelsPerFrame, requested.channels
-            )));
-        }
-        if format.mBitsPerChannel != u32::from(requested.bits_per_sample) {
-            return Err(EngineError::UnsupportedFormat(format!(
-                "physical output uses {} bits for {}-bit source",
-                format.mBitsPerChannel, requested.bits_per_sample
-            )));
-        }
-        if format.mFramesPerPacket != 1 {
-            return Err(EngineError::UnsupportedFormat(format!(
-                "physical output uses {} frames per packet",
-                format.mFramesPerPacket
-            )));
-        }
-
-        let source_bytes_per_frame = requested.bytes_per_frame();
-        let physical_bytes_per_frame = usize::try_from(format.mBytesPerFrame).map_err(|_| {
-            EngineError::UnsupportedFormat(
-                "physical bytes per frame does not fit usize".to_string(),
-            )
-        })?;
-        if physical_bytes_per_frame != source_bytes_per_frame {
-            return Err(EngineError::UnsupportedFormat(format!(
-                "physical output uses {physical_bytes_per_frame} bytes/frame for {source_bytes_per_frame} bytes/frame source"
-            )));
-        }
-
-        Ok(source_bytes_per_frame)
-    }
 }
 
 pub(crate) struct HogGuard {
@@ -333,31 +282,6 @@ pub(crate) fn set_matching_physical_format(
     Err(EngineError::NoMatchingFormat(format))
 }
 
-pub(crate) fn set_matching_direct_interleaved_physical_format(
-    device_id: AudioObjectID,
-    format: PcmFormat,
-) -> Result<(SelectedPhysicalFormat, usize), EngineError> {
-    for stream_id in output_streams(device_id)? {
-        for ranged_format in available_physical_formats(stream_id)? {
-            let Some((candidate, bytes_per_frame)) =
-                matching_direct_interleaved_physical_format(ranged_format, format)
-            else {
-                continue;
-            };
-            set_physical_format(stream_id, candidate)?;
-            return Ok((
-                SelectedPhysicalFormat {
-                    stream_id,
-                    format: candidate,
-                },
-                bytes_per_frame,
-            ));
-        }
-    }
-
-    Err(EngineError::NoMatchingFormat(format))
-}
-
 pub(crate) fn audio_buffer_list_channel_count(bytes: &[u8]) -> u32 {
     let Some(buffer_count) =
         read_unaligned::<u32>(bytes, mem::offset_of!(AudioBufferList, mNumberBuffers))
@@ -508,19 +432,6 @@ fn matching_physical_format(
     }
 
     Some(format)
-}
-
-fn matching_direct_interleaved_physical_format(
-    ranged_format: AudioStreamRangedDescription,
-    requested: PcmFormat,
-) -> Option<(AudioStreamBasicDescription, usize)> {
-    let format = matching_physical_format(ranged_format, requested)?;
-    let selected = SelectedPhysicalFormat {
-        stream_id: 0,
-        format,
-    };
-    let bytes_per_frame = selected.supports_direct_interleaved_copy(requested).ok()?;
-    Some((format, bytes_per_frame))
 }
 
 fn set_physical_format(
@@ -703,48 +614,6 @@ mod tests {
         );
 
         assert!(matched.is_none());
-    }
-
-    #[test]
-    fn matching_direct_interleaved_physical_format_rejects_wider_container() {
-        let matched = matching_direct_interleaved_physical_format(
-            ranged_format(
-                44_100.0,
-                44_100.0,
-                44_100.0,
-                32,
-                kAudioFormatFlagIsSignedInteger,
-            ),
-            PcmFormat {
-                sample_rate: 44_100,
-                bits_per_sample: 24,
-                channels: 2,
-            },
-        );
-
-        assert!(matched.is_none());
-    }
-
-    #[test]
-    fn matching_direct_interleaved_physical_format_accepts_exact_copy() {
-        let (matched, bytes_per_frame) = matching_direct_interleaved_physical_format(
-            ranged_format(
-                44_100.0,
-                44_100.0,
-                44_100.0,
-                16,
-                kAudioFormatFlagIsSignedInteger,
-            ),
-            PcmFormat {
-                sample_rate: 44_100,
-                bits_per_sample: 16,
-                channels: 2,
-            },
-        )
-        .expect("exact integer interleaved format should be copyable");
-
-        assert_eq!(matched.mSampleRate as u32, 44_100);
-        assert_eq!(bytes_per_frame, 4);
     }
 
     fn write_u32(bytes: &mut [u8], offset: usize, value: u32) {
