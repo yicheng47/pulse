@@ -2533,7 +2533,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "dirs",
  "pulse-engine",
+ "serde",
+ "toml 0.8.2",
 ]
 
 [[package]]

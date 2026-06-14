@@ -1,7 +1,8 @@
 use objc2_core_audio::{
-    kAudioDevicePropertyStreamConfiguration, kAudioHardwarePropertyDefaultOutputDevice,
-    kAudioHardwarePropertyDevices, kAudioObjectPropertyName, kAudioObjectPropertyScopeGlobal,
-    kAudioObjectPropertyScopeOutput, kAudioObjectSystemObject, kAudioObjectUnknown,
+    kAudioDevicePropertyDeviceUID, kAudioDevicePropertyStreamConfiguration,
+    kAudioHardwarePropertyDefaultOutputDevice, kAudioHardwarePropertyDevices,
+    kAudioObjectPropertyName, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyScopeOutput,
+    kAudioObjectSystemObject, kAudioObjectUnknown,
 };
 
 use crate::{PcmFormat, error::EngineError, hal};
@@ -12,6 +13,7 @@ pub type DeviceId = u32;
 #[derive(Debug, Clone)]
 pub struct Device {
     pub id: DeviceId,
+    pub uid: String,
     pub name: String,
 }
 
@@ -104,8 +106,20 @@ fn device_from_id(id: DeviceId) -> Result<Device, EngineError> {
 
     Ok(Device {
         id,
+        uid: device_uid(id)?,
         name: device_name(id)?,
     })
+}
+
+fn device_uid(id: DeviceId) -> Result<String, EngineError> {
+    hal::get_cf_string(
+        id,
+        hal::address(
+            kAudioDevicePropertyDeviceUID,
+            kAudioObjectPropertyScopeGlobal,
+        ),
+        "AudioObjectGetPropertyData(kAudioDevicePropertyDeviceUID)",
+    )
 }
 
 fn device_name(id: DeviceId) -> Result<String, EngineError> {

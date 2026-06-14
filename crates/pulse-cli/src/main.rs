@@ -1,7 +1,9 @@
 use std::{path::PathBuf, thread, time::Duration};
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{Parser, Subcommand};
+
+mod config;
 
 #[derive(Parser)]
 #[command(name = "pulse-cli", about = "CLI harness for the Pulse audio engine")]
@@ -24,16 +26,41 @@ enum Cmd {
         #[arg(long)]
         device: Option<pulse_engine::device::DeviceId>,
     },
+    /// Read or update pulse-cli config
+    Config {
+        #[command(subcommand)]
+        command: ConfigCmd,
+    },
+}
+
+#[derive(Subcommand)]
+enum ConfigCmd {
+    /// Show the active CLI config
+    Show,
+    /// Remember an output device as the pulse-cli default
+    SetDefaultDevice {
+        /// Core Audio output device ID from `pulse-cli devices`
+        device: pulse_engine::device::DeviceId,
+    },
+    /// Remove the configured default output device
+    ClearDefaultDevice,
 }
 
 fn main() -> Result<()> {
     match Cmd::parse() {
         Cmd::Devices => {
-            let default = pulse_engine::device::default_output_device()
+            let system_default = pulse_engine::device::default_output_device()
                 .ok()
                 .map(|device| device.id);
+            let configured_default = config::configured_output_id().ok().flatten();
             for device in pulse_engine::device::list_output_devices()? {
-                let marker = if Some(device.id) == default { "*" } else { " " };
+                let marker = if Some(device.id) == configured_default {
+                    ">"
+                } else if Some(device.id) == system_default {
+                    "*"
+                } else {
+                    " "
+                };
                 println!("{marker} {:>4}  {}", device.id, device.name);
             }
         }
@@ -50,10 +77,7 @@ fn main() -> Result<()> {
         }
         Cmd::ValidateFormat { file, device } => {
             let stream = pulse_engine::decode::open(&file)?;
-            let device_id = match device {
-                Some(device_id) => device_id,
-                None => pulse_engine::device::default_output_device()?.id,
-            };
+            let device_id = config::resolve_output_device(device)?;
             let validation =
                 pulse_engine::device::validate_output_format(device_id, stream.format)?;
 
@@ -89,10 +113,7 @@ fn main() -> Result<()> {
         }
         Cmd::Play { file, device } => {
             let stream = pulse_engine::decode::open(&file)?;
-            let device_id = match device {
-                Some(device_id) => device_id,
-                None => pulse_engine::device::default_output_device()?.id,
-            };
+            let device_id = config::resolve_output_device(device)?;
             let mut engine = pulse_engine::Engine::open(device_id)?;
             engine.set_format(stream.format)?;
             engine.play()?;
@@ -119,6 +140,33 @@ fn main() -> Result<()> {
             }
             engine.pause()?;
         }
+        Cmd::Config { command } => match command {
+            ConfigCmd::Show => {
+                let path = config::config_path()?;
+                let cli_config = config::CliConfig::load()?;
+                println!("config: {}", path.display());
+                match cli_config.default_output {
+                    Some(default_output) => {
+                        println!(
+                            "default output device: {} (uid: {})",
+                            default_output.name, default_output.uid
+                        );
+                    }
+                    None => println!("default output device: <system default>"),
+                }
+            }
+            ConfigCmd::SetDefaultDevice { device } => {
+                let preference = config::set_default_output(device)?;
+                println!(
+                    "default output device: {} (uid: {})",
+                    preference.name, preference.uid
+                );
+            }
+            ConfigCmd::ClearDefaultDevice => {
+                config::clear_default_output()?;
+                println!("default output device: <system default>");
+            }
+        },
     }
     Ok(())
 }
