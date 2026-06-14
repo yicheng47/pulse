@@ -8,3 +8,6 @@ publish.workspace = true
 pulse-engine.workspace = true
 clap.workspace = true
 anyhow.workspace = true
+dirs.workspace = true
+serde.workspace = true
+toml.workspace = true
