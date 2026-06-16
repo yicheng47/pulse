@@ -10,21 +10,27 @@ The next risk is different. If we start adding app settings, library screens, or
 
 ## Goal
 
-Create the first Pulse product design in Pencil:
+Create the first Pulse product design baseline in Pencil:
 
 ```text
-design/pulse-app.pen
+design/pulse-desktop.pen
 ```
 
-The design should cover the first app shell surfaces:
+The first baseline should cover the app shell surfaces enough to guide implementation order:
 
 - settings and output-device preference
 - local library browsing
 - search
 - now-playing foundation
 - navigation between those surfaces
+- library management / storage roots
+- Albums, Tracks, and Playlists pages
 
 The output-device settings design should decide whether the app default lives as a normal SQLite setting, a separate config file, or a hybrid. Do not lock that storage shape in backend code before the design is clear.
+
+The product design also clarifies that playback controls need a real engine-owned controller, not CLI-owned transport logic or React-owned playback state.
+
+Stage 5 is not considered globally complete just because the first cyberpunk foundation exists. Detail passes remain for settings, device management, search states, album detail, track detail, playlist editing, empty/error states, and other product surfaces.
 
 ## Boundary
 
@@ -37,9 +43,11 @@ No Tauri app-settings backend lands in this stage unless the Pencil design creat
 - Pencil file under `design/`.
 - Short design notes in `docs/impls/` or `docs/product/` describing the chosen app shell and settings model.
 - Updated roadmap if the design changes the implementation order.
+- Follow-up implementation stage for the playback controller before wiring the designed playback row.
 
 ## Verification
 
 - The design file exists and can be opened by the Pencil MCP.
-- The settings surface has enough detail to implement without guessing.
-- The implementation order after Stage 5 is still reflected in `ROADMAP.md`.
+- The completed baseline surfaces have enough detail to unblock the next implementation slice without guessing.
+- Unfinished design surfaces are explicitly tracked rather than hidden under a broad "done" label.
+- The implementation order after the current design baseline is still reflected in `ROADMAP.md`.

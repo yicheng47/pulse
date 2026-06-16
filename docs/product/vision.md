@@ -1,10 +1,12 @@
 # Product Vision
 
-Pulse is a high-quality local music library player for macOS. It is music-only: no video, no streaming integration, no DSD.
+Pulse is a high-quality local music library player for macOS. It is music-only: no video playback, no video library support, no streaming integration, no DSD.
 
 The target is the local FLAC listener who wants Audirvana-level output care without Audirvana's pricing and UI. The product wedge is simple: beautiful, fast, native-rate playback for owned music libraries.
 
 Bit-perfect integer output remains a possible future differentiator, but it should not be claimed until a lower-level path is rebuilt and validated on hardware.
+
+The first release scope is defined separately in [`mvp.md`](mvp.md). This vision doc is intentionally broader than the MVP.
 
 ## Commercialization Stance
 
@@ -36,7 +38,7 @@ A TUI can be added later if it helps human debugging, but it should not replace 
 ## Non-Goals
 
 - No DSD.
-- No video.
+- No video playback or video library support.
 - No streaming-service integration.
 - No libmpv.
 - No FFmpeg.

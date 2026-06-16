@@ -10,3 +10,4 @@ Active notes:
 - [`0003-auhal-playback.md`](0003-auhal-playback.md) - third stage: AUHAL playback from decoded PCM.
 - [`0004-cli-config.md`](0004-cli-config.md) - fourth stage: persisted CLI defaults for playback harness ergonomics.
 - [`0005-product-design.md`](0005-product-design.md) - fifth stage: Pencil-led product design before frontend or app-settings backend implementation.
+- [`0006-playback-controller.md`](0006-playback-controller.md) - sixth stage: UI-agnostic playback controller inside `pulse-engine`.
