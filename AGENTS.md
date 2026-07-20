@@ -93,5 +93,5 @@ When you do enumerate (because the choice genuinely depends on the user's prefer
 - **No libmpv, no FFmpeg, no GPL deps** — keeps App Store eligibility and paid closed-source distribution open.
 - **Playback path is AUHAL / Hardware AudioUnit by default.** Pulse feeds native-rate interleaved float32 through `coreaudio-rs`, while direct `objc2-core-audio` HAL code still owns device discovery, hog mode, sample-rate switching, and physical-format probing.
 - **Realtime audio callback: no allocation, no locks, no syscalls.** Data crosses threads via `rtrb` only.
-- **`pulse-engine` stays UI-agnostic** — no Tauri types in the engine crate. It must remain drivable from `pulse-cli` alone.
+- **`pulse-engine` stays UI-agnostic** — no GPUI or `pulse-app` types in the engine crate. It must remain drivable from `pulse-cli` alone.
 - Do not make hard bit-perfect claims for the AUHAL path. Hardware validation can prove native-rate/exclusive playback; a future raw-HAL integer engine would be needed before claiming unchanged integer frames reach the DAC.

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/pulse-engine", "crates/pulse-cli", "src-tauri"]
+members = ["crates/pulse-engine", "crates/pulse-cli", "crates/pulse-app"]
 
 [workspace.package]
 version = "0.1.0"
@@ -20,10 +20,10 @@ rtrb = "0.3"
 realfft = "3"
 thiserror = "2"
 
+gpui = "0.2"
+
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 dirs = "6"
 serde = { version = "1", features = ["derive"] }
 toml = "0.8"
-tauri = { version = "2", features = [] }
-tauri-build = { version = "2", features = [] }
