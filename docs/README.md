@@ -16,5 +16,6 @@ Current architecture docs:
 - `product/vision.md` - broad product direction and constraints.
 - `product/mvp.md` - first usable desktop release scope.
 - `impls/0001-engine-validation-cli.md` - first-stage engine validation plan.
+- `impls/0007-gpui-native-ui-pivot.md` - GPUI native UI pivot decision.
 
-Runner's docs tree is larger (`features/`, `impls/`, `tests/`, `journals/`) because it is already shipping iterative app work. Pulse should add those folders when the Tauri app and feature planning start, not before.
+Runner's docs tree is larger (`features/`, `impls/`, `tests/`, `journals/`) because it is already shipping iterative app work. Pulse should add those folders when the app and feature planning start, not before.

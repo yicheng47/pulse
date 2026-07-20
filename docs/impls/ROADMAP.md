@@ -9,7 +9,7 @@ Each stage should have a focused implementation note once work starts. A stage i
 - Finish one stage before starting the next stage branch.
 - Keep each stage small enough to review as one PR.
 - Do not implement frontend surfaces before a Pencil design exists for that surface.
-- Do not harden app-specific Tauri settings backends before the settings UX and storage model are designed.
+- Do not harden app-shell settings backends before the settings UX and storage model are designed.
 - Keep `pulse-engine` UI-agnostic and drivable from `pulse-cli`.
 - Keep `pulse-cli` deterministic and scriptable because it is the future agent/MCP harness boundary.
 - Persist Core Audio device identity by UID, not by transient `AudioDeviceID`.
@@ -34,13 +34,13 @@ Each stage should have a focused implementation note once work starts. A stage i
 
 | Stage | Impl Note | Goal | Boundary |
 |-------|-----------|------|----------|
-| 6 | [`0006-playback-controller.md`](0006-playback-controller.md) | Add the UI-agnostic playback controller inside `pulse-engine`: play, pause, resume, seek, stop, events, and thin CLI/Tauri adapters. | Keep Tauri and CLI as adapters; no library scanner or product UI implementation in this stage. |
+| 6 | [`0006-playback-controller.md`](0006-playback-controller.md) | Add the UI-agnostic playback controller inside `pulse-engine`: play, pause, resume, seek, stop, events, and a thin CLI adapter. | Keep the app shell and CLI as adapters; no library scanner or product UI implementation in this stage. The app-shell adapter lands in stage 7 per [impl 0007](0007-gpui-native-ui-pivot.md). |
 
 ## MVP Path
 
 | Stage | Goal | Notes |
 |-------|------|-------|
-| 7 | Wire the playback controller into Tauri. | Add app-owned controller state, Tauri commands for play/pause/resume/seek/stop, and frontend-facing playback events. Keep React as a command/event client. |
+| 7 | Scaffold the GPUI app and wire in the playback controller ([impl 0007](0007-gpui-native-ui-pivot.md)). | Delete the Tauri/React scaffold; add `crates/pulse-app` with window, theme-as-data, and the playback row surface from the Pencil design as the visual spike. App-owned controller state with in-process event subscription — no command/IPC layer. |
 | 8 | Implement output-device settings. | List devices, select the Pulse output device, persist by Core Audio UID, surface unavailable/hogged-device errors, and show active output in the playback row. |
 | 9 | Add storage roots and the library scanner. | Local folders and mounted NAS folders. PCM music files only: FLAC, ALAC, AIFF, WAV. No streaming and no video playback or video library support. |
 | 10 | Add SQLite library store and search. | Store scanned metadata, cover-art cache paths, storage-root status, and FTS/search indexes. Artist remains metadata/filter context, not a primary destination. |

@@ -6,7 +6,7 @@
 
 `pulse-engine` is the UI-agnostic playback engine. It should own the complete playback behavior: device discovery, decode, native-rate configuration, low-level AUHAL output, playback state, transport commands, queue mechanics, and progress/events.
 
-The Tauri app and `pulse-cli` should both drive the same Rust engine API. They are adapters, not playback owners.
+The GPUI app (`pulse-app`, [impl 0007](../impls/0007-gpui-native-ui-pivot.md)) and `pulse-cli` should both drive the same Rust engine API. They are adapters, not playback owners.
 
 The current implemented core already proves clean native-rate playback through Core Audio's Hardware AudioUnit path, also called AUHAL. Pulse still talks directly to Core Audio HAL for device control, but the audio callback is owned by an AudioUnit rather than a raw `AudioDeviceCreateIOProcID` callback.
 
@@ -20,7 +20,7 @@ The desired product runtime is a long-lived controller inside the Rust process, 
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ React UI or pulse-cli                                                        │
+│ pulse-app UI or pulse-cli                                                    │
 │                                                                              │
 │  - play / pause / resume / seek / stop / next / previous                     │
 │  - select output device                                                      │
@@ -29,10 +29,10 @@ The desired product runtime is a long-lived controller inside the Rust process, 
                                │ adapter API
                                ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ Tauri backend or CLI adapter                                                 │
+│ pulse-app or CLI adapter                                                     │
 │                                                                              │
 │  - translates UI/CLI input into PlaybackCommand                              │
-│  - translates PlaybackEvent into Tauri events or CLI output                  │
+│  - translates PlaybackEvent into UI state updates or CLI output              │
 │  - does not own playback state machine                                       │
 └──────────────────────────────┬───────────────────────────────────────────────┘
                                │ command channel
@@ -83,7 +83,7 @@ The desired product runtime is a long-lived controller inside the Rust process, 
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-SQLite, React component state, library scanning, artwork, lyrics, metadata enrichment, and sidebar navigation belong outside the playback engine. The engine may receive a `PathBuf`, queue item ID, title for diagnostics, or selected device ID, but it should not know about album pages, design components, or Tauri event names.
+SQLite, app view state, library scanning, artwork, lyrics, metadata enrichment, and sidebar navigation belong outside the playback engine. The engine may receive a `PathBuf`, queue item ID, title for diagnostics, or selected device ID, but it should not know about album pages, design components, or GPUI view types.
 
 ## 3. Audio Terms In Software Terms
 
@@ -107,7 +107,7 @@ There are four practical execution contexts once the controller exists.
 
 ### 4.1 Adapter Thread
 
-The adapter is `pulse-cli` today and the Tauri backend for the desktop app. It can parse commands, receive UI invocations, serialize output, and forward events.
+The adapter is `pulse-cli` today and `pulse-app` for the desktop app. It can parse commands, receive UI invocations, serialize output, and forward events.
 
 Adapter responsibilities:
 
@@ -154,7 +154,7 @@ Forbidden inside the callback:
 - Locks, including mutexes and RwLocks.
 - Filesystem, logging, stdout, stderr, or syscalls.
 - Waiting on channels or condition variables.
-- Calling Tauri, React, SQLite, HTTP, tag parsing, or metadata code.
+- Calling GPUI, SQLite, HTTP, tag parsing, or metadata code.
 - Format negotiation or device enumeration.
 - Anything whose runtime is not tightly bounded.
 
@@ -197,7 +197,7 @@ crates/pulse-engine/src/
   error.rs
 ```
 
-The naming can shift during implementation, but the boundary should not: low-level AUHAL primitives and high-level playback control both live in `pulse-engine`; Tauri and CLI remain adapters.
+The naming can shift during implementation, but the boundary should not: low-level AUHAL primitives and high-level playback control both live in `pulse-engine`; `pulse-app` and CLI remain adapters.
 
 ## 6. Public Boundary
 
@@ -322,7 +322,7 @@ They must not know about:
 - SQLite row layout.
 - Album grid UI.
 - Artwork loading.
-- Tauri window names.
+- GPUI views or window types.
 
 ### 8.4 `device.rs`
 
@@ -520,7 +520,7 @@ The validation language must match the backend. AUHAL can be validated for clean
 - Streaming integrations.
 - libmpv, FFmpeg, or GPL audio dependencies.
 - App UI owning playback state directly.
-- Tauri-specific types inside `pulse-engine`.
+- GPUI or `pulse-app` types inside `pulse-engine`.
 - SQLite/library schema inside `pulse-engine`.
 - Raw HAL integer IOProc in this stage.
 
@@ -539,4 +539,4 @@ Stop
 State/position/error events
 ```
 
-Once that is reliable through both a CLI smoke path and Tauri commands, the designed desktop playback row can be wired without moving product logic into React.
+Once that is reliable through the CLI smoke path, the designed desktop playback row can be wired into `pulse-app` without moving product logic into the UI layer.

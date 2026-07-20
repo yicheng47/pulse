@@ -1,6 +1,6 @@
 # Playback Controller
 
-> Sixth product stage: wire Pulse's real playback behavior inside `pulse-engine`, then expose it through thin CLI and Tauri adapters.
+> Sixth product stage: wire Pulse's real playback behavior inside `pulse-engine`, then expose it through a thin CLI adapter. The app-shell adapter is the GPUI `pulse-app`, delivered in stage 7 per [impl 0007](0007-gpui-native-ui-pivot.md).
 
 ## Context
 
@@ -14,7 +14,7 @@ The current code does not yet have that product playback layer. `pulse-cli play`
 
 Add a UI-agnostic playback controller inside `pulse-engine`.
 
-The controller should own playback behavior and expose a command/event API that both `pulse-cli` and the Tauri backend can drive.
+The controller should own playback behavior and expose a command/event API that both `pulse-cli` and `pulse-app` can drive.
 
 Minimum user-visible behavior:
 
@@ -30,8 +30,8 @@ Minimum user-visible behavior:
 Do not create a separate OS process yet. The playback "server" is a long-lived Rust worker inside the calling process.
 
 ```text
-React UI / pulse-cli
-  -> Tauri command or CLI command
+pulse-app UI / pulse-cli
+  -> app action or CLI command
     -> PlaybackController command channel
       -> controller worker thread
         -> decode worker / low-level Engine
@@ -39,7 +39,7 @@ React UI / pulse-cli
             -> Core Audio device
 ```
 
-`pulse-engine` owns the controller. `src-tauri` and `pulse-cli` are adapters.
+`pulse-engine` owns the controller. `pulse-app` and `pulse-cli` are adapters.
 
 ## Boundary
 
@@ -55,8 +55,7 @@ React UI / pulse-cli
 
 `pulse-engine` must not know about:
 
-- Tauri command names.
-- React state shape.
+- GPUI types or `pulse-app` view state.
 - SQLite table layout.
 - Album-grid UI.
 - Artwork display.
@@ -120,7 +119,7 @@ pub enum PlaybackEvent {
 }
 ```
 
-Events should be facts, not UI instructions. Tauri can translate them into window events; CLI can print or wait for them.
+Events should be facts, not UI instructions. The app derives UI state from them in-process; CLI can print or wait for them.
 
 ## State Model
 
@@ -158,22 +157,9 @@ Seek should be implemented as a controlled restart at a target source frame/time
 
 For formats where Symphonia seek is imprecise, prefer nearest valid seek point plus correct state reporting over fake precision.
 
-## Tauri Wiring
+## App Wiring
 
-Add app state that owns one `PlaybackController`.
-
-Initial commands:
-
-```text
-play_file(path)
-pause()
-resume()
-seek(position_ms)
-stop()
-playback_state()
-```
-
-Tauri should forward controller events to the frontend. Tauri should not implement queue or playback timing logic itself.
+Moved to stage 7 per [impl 0007](0007-gpui-native-ui-pivot.md): `pulse-app` owns one `PlaybackController`, subscribes to its events in-process, and derives UI state from them — no command/IPC layer. The app should not implement queue or playback timing logic itself.
 
 ## CLI Wiring
 
@@ -208,7 +194,7 @@ The CLI should call `PlaybackController`, not duplicate controller behavior.
 7. Implement conservative `Pause` / `Resume` with recorded logical position.
 8. Implement `Seek`.
 9. Rewire `pulse-cli play` to use the controller while preserving current behavior.
-10. Add Tauri commands and frontend-facing events, but keep the UI minimal until the app shell implementation stage.
+10. Keep the command/event surface clean enough for `pulse-app` to consume directly in stage 7.
 
 ## Verification
 

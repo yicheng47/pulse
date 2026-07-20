@@ -91,7 +91,7 @@ They should not need to understand Core Audio, hog mode, device IDs, or sample-r
 
 ### App Shell
 
-- Tauri desktop app shell.
+- Native GPUI app shell in `crates/pulse-app` ([impl 0007](../impls/0007-gpui-native-ui-pivot.md)).
 - Persist window-safe app settings.
 - Dark cyberpunk design system from `design/pulse-desktop.pen`.
 - No landing page; first screen is the usable app.
@@ -160,7 +160,7 @@ The MVP is acceptable when these flows work end to end:
 
 1. Add the `pulse-engine` playback controller.
 2. Wire thin CLI smoke commands to the controller.
-3. Add Tauri playback commands/events.
+3. Scaffold `crates/pulse-app` and wire the controller in-process.
 4. Implement output-device selection and persistence in the app.
 5. Implement storage roots and scanner.
 6. Implement SQLite library store and search.

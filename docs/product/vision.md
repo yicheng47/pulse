@@ -49,7 +49,7 @@ A TUI can be added later if it helps human debugging, but it should not replace 
 
 1. Prove the audio engine with `pulse-cli play <file>` and the Matrix Mini-i Pro 4 showing the file's native sample rate with clean sound.
 2. Design the library, now-playing, search, and settings surfaces in Pencil.
-3. Scaffold the Tauri app shell following the Runner-style layout.
+3. Scaffold the native GPUI app shell, `crates/pulse-app` ([impl 0007](../impls/0007-gpui-native-ui-pivot.md)).
 4. Build the library scanner, SQLite store, and FTS search.
 5. Add metadata enrichment.
 6. Build now-playing.

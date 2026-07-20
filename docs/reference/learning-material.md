@@ -1,6 +1,6 @@
 # Learning Material
 
-Pulse's unfamiliar domains are realtime audio constraints, Core Audio HAL/AUHAL, and validating playback behavior on real DACs. Rust, Tauri, and React are familiar enough; learn the audio path first.
+Pulse's unfamiliar domains are realtime audio constraints, Core Audio HAL/AUHAL, and validating playback behavior on real DACs. Rust is familiar and GPUI was de-risked in Runner's cancelled rewrite; learn the audio path first.
 
 ## 1. Audio Fundamentals
 
@@ -58,11 +58,11 @@ Failure modes to guard against now: silent OS resampling, underruns, float/int c
 
 Future bit-perfect validation additionally needs proof that integer samples reach the DAC unchanged.
 
-## 6. Tauri Bridge
+## 6. Engine-To-UI Bridge
 
-The engine stays in Rust and exposes a clean API. Tauri commands should call that API and publish UI events.
+The engine stays in Rust and exposes a clean API. The GPUI app calls that API and observes controller events in-process — no IPC or serialization boundary.
 
-For meters and spectrum, compute small arrays in Rust and send them to the webview at roughly 30-60 Hz. Do not try to make UI animation part of the realtime audio path.
+For meters and spectrum, compute small arrays from the engine tap and hand them to render code at roughly 30-60 Hz. Do not try to make UI animation part of the realtime audio path.
 
 ## 7. Reference Repos
 
@@ -79,8 +79,8 @@ Tier 2, decode and playback architecture:
 - Local `coreaudio-rs` crate source after `cargo fetch`; it currently uses the same `objc2-core-audio` / `objc2-core-audio-types` binding family underneath.
 - `rust_cli_musicplayer` for a small CLI decode/playback shape.
 
-Tier 3, Tauri app shell references:
+Tier 3, GPUI app shell references:
 
-- Audion for a Tauri 2 offline local library shape.
-- Sonus for Tauri local/NAS music library ideas.
-- `arjav0703/music-app` for a small Tauri + React music app.
+- Vendored `gpui` source and bundled examples; docs are thin, the source is the working reference.
+- Runner's GPUI rewrite salvage in the memory repo (`projects/runner/gpui-rewrite/`): IME-capable input, grapheme text editing, .app packaging and codesign.
+- Zed's app crates for architecture ideas. Read only; they are GPL.
