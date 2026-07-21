@@ -5,13 +5,14 @@ use std::{fs::File, io::ErrorKind, path::Path};
 
 use symphonia::core::{
     audio::{AudioBuffer, AudioBufferRef, RawSampleBuffer, Signal},
-    codecs::DecoderOptions,
+    codecs::{Decoder, DecoderOptions},
     errors::Error as SymphoniaError,
-    formats::FormatOptions,
+    formats::{FormatOptions, FormatReader, SeekMode, SeekTo},
     io::{MediaSourceStream, MediaSourceStreamOptions},
     meta::MetadataOptions,
     probe::Hint,
     sample::i24,
+    units::{Time, TimeBase},
 };
 
 use crate::{PcmFormat, error::EngineError};
@@ -20,6 +21,90 @@ pub struct DecodedStream {
     pub format: PcmFormat,
     pub codec: String,
     pub frames: Option<u64>,
+}
+
+pub(crate) struct PcmDecoder {
+    format_reader: Box<dyn FormatReader>,
+    decoder: Box<dyn Decoder>,
+    track_id: u32,
+    stream: DecodedStream,
+    time_base: TimeBase,
+}
+
+impl PcmDecoder {
+    pub(crate) fn open(path: &Path) -> Result<Self, EngineError> {
+        let format_reader = probe(path)?.format;
+        let track = format_reader
+            .default_track()
+            .ok_or_else(|| EngineError::Decode("no default audio track".to_string()))?;
+        let track_id = track.id;
+        let stream = decoded_stream_from_track(track)?;
+        let time_base = track
+            .codec_params
+            .time_base
+            .unwrap_or_else(|| TimeBase::new(1, stream.format.sample_rate));
+        let decoder = symphonia::default::get_codecs()
+            .make(&track.codec_params, &DecoderOptions::default())
+            .map_err(decode_error)?;
+
+        Ok(Self {
+            format_reader,
+            decoder,
+            track_id,
+            stream,
+            time_base,
+        })
+    }
+
+    pub(crate) fn format(&self) -> PcmFormat {
+        self.stream.format
+    }
+
+    pub(crate) fn duration_ms(&self) -> Option<u64> {
+        self.stream
+            .frames
+            .map(|frames| time_to_ms(self.time_base.calc_time(frames)))
+    }
+
+    pub(crate) fn seek(&mut self, position_ms: u64) -> Result<u64, EngineError> {
+        let time = Time::new(position_ms / 1_000, (position_ms % 1_000) as f64 / 1_000.0);
+        let seeked = self
+            .format_reader
+            .seek(
+                SeekMode::Coarse,
+                SeekTo::Time {
+                    time,
+                    track_id: Some(self.track_id),
+                },
+            )
+            .map_err(decode_error)?;
+        self.decoder.reset();
+        Ok(time_to_ms(self.time_base.calc_time(seeked.actual_ts)))
+    }
+
+    pub(crate) fn next_pcm(&mut self, pcm: &mut Vec<u8>) -> Result<Option<u64>, EngineError> {
+        loop {
+            let packet = match self.format_reader.next_packet() {
+                Ok(packet) => packet,
+                Err(SymphoniaError::IoError(err)) if err.kind() == ErrorKind::UnexpectedEof => {
+                    return Ok(None);
+                }
+                Err(err) => return Err(decode_error(err)),
+            };
+            if packet.track_id() != self.track_id {
+                continue;
+            }
+
+            let audio_buf = self.decoder.decode(&packet).map_err(decode_error)?;
+            let frames = audio_buf.frames() as u64;
+            pcm.clear();
+            write_interleaved_bytes(audio_buf, self.stream.format, &mut |bytes| {
+                pcm.extend_from_slice(bytes);
+                Ok(())
+            })?;
+            return Ok(Some(frames));
+        }
+    }
 }
 
 pub fn open(path: &Path) -> Result<DecodedStream, EngineError> {
@@ -35,39 +120,22 @@ pub fn stream_pcm<F>(path: &Path, expected: PcmFormat, mut on_pcm: F) -> Result<
 where
     F: FnMut(&[u8]) -> Result<(), EngineError>,
 {
-    let mut probed = probe(path)?;
-    let track = probed
-        .format
-        .default_track()
-        .ok_or_else(|| EngineError::Decode("no default audio track".to_string()))?;
-    let track_id = track.id;
-    let actual = decoded_stream_from_track(track)?.format;
+    let mut decoder = PcmDecoder::open(path)?;
+    let actual = decoder.format();
     if actual != expected {
         return Err(EngineError::UnsupportedFormat(format!(
             "decoded format {actual:?} does not match engine format {expected:?}"
         )));
     }
 
-    let mut decoder = symphonia::default::get_codecs()
-        .make(&track.codec_params, &DecoderOptions::default())
-        .map_err(decode_error)?;
     let mut frames = 0_u64;
+    let mut pcm = Vec::new();
 
-    loop {
-        let packet = match probed.format.next_packet() {
-            Ok(packet) => packet,
-            Err(SymphoniaError::IoError(err)) if err.kind() == ErrorKind::UnexpectedEof => break,
-            Err(err) => return Err(decode_error(err)),
-        };
-        if packet.track_id() != track_id {
-            continue;
-        }
-
-        let audio_buf = decoder.decode(&packet).map_err(decode_error)?;
+    while let Some(decoded_frames) = decoder.next_pcm(&mut pcm)? {
         frames = frames
-            .checked_add(audio_buf.frames() as u64)
+            .checked_add(decoded_frames)
             .ok_or_else(|| EngineError::Decode("decoded frame count overflow".to_string()))?;
-        write_interleaved_bytes(audio_buf, expected, &mut on_pcm)?;
+        on_pcm(&pcm)?;
     }
 
     Ok(frames)
@@ -247,6 +315,12 @@ fn sample_format_bits(format: symphonia::core::sample::SampleFormat) -> u32 {
 
 fn decode_error(err: SymphoniaError) -> EngineError {
     EngineError::Decode(err.to_string())
+}
+
+fn time_to_ms(time: Time) -> u64 {
+    time.seconds
+        .saturating_mul(1_000)
+        .saturating_add((time.frac * 1_000.0) as u64)
 }
 
 #[cfg(test)]

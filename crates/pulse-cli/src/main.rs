@@ -1,7 +1,8 @@
-use std::{path::PathBuf, thread, time::Duration};
+use std::{path::PathBuf, sync::mpsc::Receiver, thread, time::Duration};
 
-use anyhow::Result;
+use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
+use pulse_engine::{PlaybackCommand, PlaybackController, PlaybackEvent, PlaybackState};
 
 mod config;
 
@@ -22,6 +23,23 @@ enum Cmd {
     /// Play a file through the AUHAL Core Audio backend
     Play {
         file: PathBuf,
+        /// Core Audio output device ID (default: system default output)
+        #[arg(long)]
+        device: Option<pulse_engine::device::DeviceId>,
+    },
+    /// Play, pause for two seconds, then resume a file
+    SmokePause {
+        file: PathBuf,
+        /// Core Audio output device ID (default: system default output)
+        #[arg(long)]
+        device: Option<pulse_engine::device::DeviceId>,
+    },
+    /// Play a file, then seek to a timestamp
+    SmokeSeek {
+        file: PathBuf,
+        /// Seek target in seconds, for example 90 or 90s
+        #[arg(long, value_name = "SECS", value_parser = parse_position_ms)]
+        to: u64,
         /// Core Audio output device ID (default: system default output)
         #[arg(long)]
         device: Option<pulse_engine::device::DeviceId>,
@@ -112,33 +130,39 @@ fn main() -> Result<()> {
             );
         }
         Cmd::Play { file, device } => {
-            let stream = pulse_engine::decode::open(&file)?;
             let device_id = config::resolve_output_device(device)?;
-            let mut engine = pulse_engine::Engine::open(device_id)?;
-            engine.set_format(stream.format)?;
-            engine.play()?;
-
-            let bytes_per_frame = stream.format.bytes_per_frame();
-            let mut fed_frames = 0_u64;
-            pulse_engine::decode::stream_pcm(&file, stream.format, |mut pcm| {
-                while !pcm.is_empty() {
-                    let accepted_frames = engine.feed(pcm);
-                    if accepted_frames == 0 {
-                        thread::sleep(Duration::from_millis(2));
-                        continue;
-                    }
-
-                    let accepted_bytes = accepted_frames * bytes_per_frame;
-                    fed_frames += accepted_frames as u64;
-                    pcm = &pcm[accepted_bytes..];
-                }
-                Ok(())
-            })?;
-
-            while engine.position() < fed_frames {
-                thread::sleep(Duration::from_millis(10));
-            }
-            engine.pause()?;
+            let (controller, events) = start_playback(device_id, file)?;
+            wait_for_completion(&events)?;
+            drop(controller);
+        }
+        Cmd::SmokePause { file, device } => {
+            let device_id = config::resolve_output_device(device)?;
+            let (controller, events) = start_playback(device_id, file)?;
+            wait_for_state(&events, PlaybackState::Playing)?;
+            thread::sleep(Duration::from_secs(2));
+            controller
+                .command_sender()
+                .send(PlaybackCommand::Pause)
+                .context("playback controller stopped")?;
+            wait_for_state(&events, PlaybackState::Paused)?;
+            thread::sleep(Duration::from_secs(2));
+            controller
+                .command_sender()
+                .send(PlaybackCommand::Resume)
+                .context("playback controller stopped")?;
+            wait_for_state(&events, PlaybackState::Playing)?;
+            wait_for_completion(&events)?;
+        }
+        Cmd::SmokeSeek { file, to, device } => {
+            let device_id = config::resolve_output_device(device)?;
+            let (controller, events) = start_playback(device_id, file)?;
+            wait_for_state(&events, PlaybackState::Playing)?;
+            controller
+                .command_sender()
+                .send(PlaybackCommand::Seek { position_ms: to })
+                .context("playback controller stopped")?;
+            wait_for_state(&events, PlaybackState::Playing)?;
+            wait_for_completion(&events)?;
         }
         Cmd::Config { command } => match command {
             ConfigCmd::Show => {
@@ -169,4 +193,62 @@ fn main() -> Result<()> {
         },
     }
     Ok(())
+}
+
+fn start_playback(
+    device_id: pulse_engine::device::DeviceId,
+    file: PathBuf,
+) -> Result<(PlaybackController, Receiver<PlaybackEvent>)> {
+    let controller = PlaybackController::spawn(device_id);
+    let events = controller.subscribe();
+    controller
+        .command_sender()
+        .send(PlaybackCommand::PlayFile { path: file })
+        .context("playback controller stopped")?;
+    Ok((controller, events))
+}
+
+fn wait_for_state(events: &Receiver<PlaybackEvent>, expected: PlaybackState) -> Result<()> {
+    loop {
+        match events.recv().context("playback controller stopped")? {
+            PlaybackEvent::StateChanged(state) if state == expected => return Ok(()),
+            PlaybackEvent::Ended => bail!("playback ended before reaching {expected:?}"),
+            PlaybackEvent::Error { message } => bail!(message),
+            _ => {}
+        }
+    }
+}
+
+fn wait_for_completion(events: &Receiver<PlaybackEvent>) -> Result<()> {
+    loop {
+        match events.recv().context("playback controller stopped")? {
+            PlaybackEvent::Ended => return Ok(()),
+            PlaybackEvent::Error { message } => bail!(message),
+            _ => {}
+        }
+    }
+}
+
+fn parse_position_ms(value: &str) -> Result<u64, String> {
+    let seconds = value
+        .strip_suffix('s')
+        .unwrap_or(value)
+        .parse::<f64>()
+        .map_err(|_| format!("invalid seconds value '{value}'"))?;
+    if !seconds.is_finite() || seconds < 0.0 {
+        return Err("seconds must be a finite non-negative number".to_string());
+    }
+    Ok((seconds * 1_000.0).round() as u64)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_position_ms;
+
+    #[test]
+    fn parses_seek_seconds_with_optional_suffix() {
+        assert_eq!(parse_position_ms("90"), Ok(90_000));
+        assert_eq!(parse_position_ms("1.5s"), Ok(1_500));
+        assert!(parse_position_ms("-1").is_err());
+    }
 }
