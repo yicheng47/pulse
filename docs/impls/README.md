@@ -8,7 +8,7 @@ Active notes:
 
 - [`ROADMAP.md`](ROADMAP.md) - canonical implementation stage order.
 - [`0005-product-design.md`](0005-product-design.md) - fifth stage: Pencil-led product design. Partially complete; more surfaces still need design passes.
-- [`0009-playback-row.md`](0009-playback-row.md) - remaining half of stage 7: the playback row surface and controller wiring.
+- [`0009-playback-row.md`](0009-playback-row.md) - stage 7 playback row MVP; implementation complete, physical Matrix hardware validation outstanding.
 
 Archived notes:
 
