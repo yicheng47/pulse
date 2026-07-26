@@ -39,15 +39,16 @@ Each stage should have a focused implementation note once work starts. A stage i
 
 ## MVP Path
 
-| Stage | Goal | Notes |
-|-------|------|-------|
-| 8 | Implement output-device settings. | List devices, select the Pulse output device, persist by Core Audio UID, surface unavailable/hogged-device errors, and show active output in the playback row. |
-| 9 | Add storage roots and the library scanner. | Local folders and mounted NAS folders. PCM music files only: FLAC, ALAC, AIFF, WAV. No streaming and no video playback or video library support. |
-| 10 | Add SQLite library store and search. | Store scanned metadata, cover-art cache paths, storage-root status, and FTS/search indexes. Artist remains metadata/filter context, not a primary destination. |
-| 11 | Implement MVP library UI. | Build Albums, Tracks, Playlists, and Storage from `design/pulse-desktop.pen`. Add required missing design passes immediately before each UI slice. |
-| 12 | Wire now-playing, queue, and playlists. | Playback row uses Stage 6 controller state. Manual playlists support create/rename/delete/add/remove/reorder/play. Queue supports next/previous and queue count. |
-| 13 | Add MVP states and failure handling. | Loading, empty, offline storage, scan failure, decode failure, hogged device, unavailable device, and missing-file states. No silent failure. |
-| 14 | MVP hardening and v0 release. | Hardware smoke matrix, scanner/library regression tests, CLI smoke tests, basic packaging, release notes, and final product-design cleanup for shipped surfaces. |
+| Stage | Impl Note | Goal | Notes |
+|-------|-----------|------|-------|
+| 7.5 | [`0010-app-shell.md`](0010-app-shell.md) | Build the shared app chrome. | Sidebar navigation, top bar, routed body, docked playback row. Prerequisite for stages 8-13 — device management and Storage have nowhere to live until it exists. Must not regress drop-to-play. |
+| 8 | [`0011-output-device-management.md`](0011-output-device-management.md) | Implement output-device settings. | List devices, select the Pulse output device, persist by Core Audio UID, surface unavailable/hogged-device errors, and show active output in the playback row. Delivered through the Output Device Popover; the Devices page is not designed yet. Needs a narrow capability query added to `pulse-engine`. |
+| 9 | — | Add storage roots and the library scanner. | Local folders and mounted NAS folders. PCM music files only: FLAC, ALAC, AIFF, WAV. No streaming and no video playback or video library support. Blocked on design: the Add Storage flow, scan progress/loading states, and offline-root/scan-failure states. |
+| 10 | — | Add SQLite library store and search. | Store scanned metadata, cover-art cache paths, storage-root status, and FTS/search indexes. Artist remains metadata/filter context, not a primary destination. |
+| 11 | — | Implement MVP library UI. | Build Albums, Tracks, Playlists, and Storage from `design/pulse-desktop.pen`. Add required missing design passes immediately before each UI slice. Storage panels carry off-token colors (`#151514`, `#111110`) that need a re-tokenize pass first. |
+| 12 | — | Wire now-playing, queue, and playlists. | Playback row uses Stage 6 controller state. Manual playlists support create/rename/delete/add/remove/reorder/play. Queue supports next/previous and queue count. |
+| 13 | — | Add MVP states and failure handling. | Loading, empty, offline storage, scan failure, decode failure, hogged device, unavailable device, and missing-file states. No silent failure. |
+| 14 | — | MVP hardening and v0 release. | Hardware smoke matrix, scanner/library regression tests, CLI smoke tests, basic packaging, release notes, and final product-design cleanup for shipped surfaces. |
 
 ## Post-MVP / Parking Lot
 

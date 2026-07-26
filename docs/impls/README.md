@@ -9,6 +9,8 @@ Active notes:
 - [`ROADMAP.md`](ROADMAP.md) - canonical implementation stage order.
 - [`0005-product-design.md`](0005-product-design.md) - fifth stage: Pencil-led product design. Partially complete; more surfaces still need design passes.
 - [`0009-playback-row.md`](0009-playback-row.md) - stage 7 playback row MVP; implementation complete, physical Matrix hardware validation outstanding.
+- [`0010-app-shell.md`](0010-app-shell.md) - sidebar, top bar, and routed body; the chrome stages 8-13 drop into.
+- [`0011-output-device-management.md`](0011-output-device-management.md) - stage 8: device list, selection, and UID persistence through the Output Device Popover.
 
 Archived notes:
 
