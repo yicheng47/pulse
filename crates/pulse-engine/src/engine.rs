@@ -104,7 +104,7 @@ impl Engine {
 
     pub fn pause(&mut self) -> Result<(), EngineError> {
         if let Some(sink) = self.sink.take() {
-            sink.stop();
+            sink.stop()?;
         }
         Ok(())
     }

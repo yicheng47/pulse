@@ -1,10 +1,11 @@
 use std::{
-    path::Path,
+    path::{Path, PathBuf},
     sync::{
         Arc, Mutex,
-        mpsc::{self, Receiver, Sender, TryRecvError},
+        atomic::{AtomicBool, Ordering},
+        mpsc::{self, Receiver, RecvTimeoutError, Sender, TryRecvError},
     },
-    thread,
+    thread::{self, JoinHandle},
     time::Duration,
 };
 
@@ -15,6 +16,7 @@ use crate::{
 
 const POSITION_EVENT_INTERVAL_MS: u64 = 100;
 const FEED_RETRY_DELAY: Duration = Duration::from_millis(2);
+const SHUTDOWN_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
 type BackendFactory =
     Arc<dyn Fn(DeviceId) -> Result<Box<dyn PlaybackBackend>, EngineError> + Send + Sync>;
@@ -24,6 +26,8 @@ type DecoderFactory =
 pub struct PlaybackController {
     command_tx: Sender<PlaybackCommand>,
     subscribers: EventSubscribers,
+    shutdown: Arc<AtomicBool>,
+    worker: Option<JoinHandle<()>>,
 }
 
 impl PlaybackController {
@@ -56,8 +60,10 @@ impl PlaybackController {
         let (command_tx, command_rx) = mpsc::channel();
         let subscribers = Arc::new(Mutex::new(Vec::new()));
         let worker_subscribers = Arc::clone(&subscribers);
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let worker_shutdown = Arc::clone(&shutdown);
 
-        thread::Builder::new()
+        let worker = thread::Builder::new()
             .name("pulse-playback-controller".to_string())
             .spawn(move || {
                 Worker::new(
@@ -66,6 +72,7 @@ impl PlaybackController {
                     worker_subscribers,
                     backend_factory,
                     decoder_factory,
+                    worker_shutdown,
                 )
                 .run();
             })
@@ -74,6 +81,17 @@ impl PlaybackController {
         Self {
             command_tx,
             subscribers,
+            shutdown,
+            worker: Some(worker),
+        }
+    }
+}
+
+impl Drop for PlaybackController {
+    fn drop(&mut self) {
+        self.shutdown.store(true, Ordering::Release);
+        if let Some(worker) = self.worker.take() {
+            let _ = worker.join();
         }
     }
 }
@@ -147,11 +165,11 @@ struct CurrentTrack {
     source: PlayableSource,
     format: PcmFormat,
     position_ms: u64,
+    resume_position_ms: u64,
 }
 
 struct ActivePlayback {
     decoder: Box<dyn SourceDecoder>,
-    backend: Box<dyn PlaybackBackend>,
     base_position_ms: u64,
     pcm: Vec<u8>,
     pcm_offset: usize,
@@ -160,15 +178,25 @@ struct ActivePlayback {
     last_reported_position_ms: u64,
 }
 
+struct PreparedDecoder {
+    path: PathBuf,
+    requested_position_ms: u64,
+    actual_position_ms: u64,
+    decoder: Box<dyn SourceDecoder>,
+}
+
 struct Worker {
     state: PlaybackState,
     output_device: DeviceId,
     current: Option<CurrentTrack>,
     active: Option<ActivePlayback>,
+    prepared_decoder: Option<PreparedDecoder>,
+    backend: Option<(DeviceId, Box<dyn PlaybackBackend>)>,
     command_rx: Receiver<PlaybackCommand>,
     subscribers: EventSubscribers,
     backend_factory: BackendFactory,
     decoder_factory: DecoderFactory,
+    shutdown: Arc<AtomicBool>,
 }
 
 impl Worker {
@@ -178,41 +206,45 @@ impl Worker {
         subscribers: EventSubscribers,
         backend_factory: BackendFactory,
         decoder_factory: DecoderFactory,
+        shutdown: Arc<AtomicBool>,
     ) -> Self {
         Self {
             state: PlaybackState::Idle,
             output_device,
             current: None,
             active: None,
+            prepared_decoder: None,
+            backend: None,
             command_rx,
             subscribers,
             backend_factory,
             decoder_factory,
+            shutdown,
         }
     }
 
     fn run(mut self) {
-        loop {
+        while !self.shutdown.load(Ordering::Acquire) {
             if self.active.is_some() {
                 match self.command_rx.try_recv() {
                     Ok(command) => self.handle_command(command),
-                    Err(TryRecvError::Empty) => {
-                        if let Err(error) = self.pump() {
-                            self.fail(error);
-                        }
-                        thread::sleep(FEED_RETRY_DELAY);
-                    }
+                    Err(TryRecvError::Empty) => match self.pump() {
+                        Ok(true) => {}
+                        Ok(false) => thread::sleep(FEED_RETRY_DELAY),
+                        Err(error) => self.fail(error),
+                    },
                     Err(TryRecvError::Disconnected) => break,
                 }
             } else {
-                match self.command_rx.recv() {
+                match self.command_rx.recv_timeout(SHUTDOWN_POLL_INTERVAL) {
                     Ok(command) => self.handle_command(command),
-                    Err(_) => break,
+                    Err(RecvTimeoutError::Timeout) => {}
+                    Err(RecvTimeoutError::Disconnected) => break,
                 }
             }
         }
 
-        self.stop_active();
+        let _ = self.release_backend();
     }
 
     fn handle_command(&mut self, command: PlaybackCommand) {
@@ -230,8 +262,9 @@ impl Worker {
         }
     }
 
-    fn play_file(&mut self, path: std::path::PathBuf) -> Result<(), EngineError> {
-        self.stop_active();
+    fn play_file(&mut self, path: PathBuf) -> Result<(), EngineError> {
+        self.stop_active()?;
+        self.prepared_decoder = None;
         self.current = None;
         self.set_state(PlaybackState::Loading);
         self.start_path(&path, 0, true, false)
@@ -246,8 +279,9 @@ impl Worker {
         let position_ms = self.logical_position_ms();
         if let Some(current) = &mut self.current {
             current.position_ms = position_ms;
+            current.resume_position_ms = position_ms;
         }
-        self.stop_active();
+        self.release_backend()?;
         self.emit_position(position_ms);
         self.set_state(PlaybackState::Paused);
         Ok(())
@@ -270,44 +304,54 @@ impl Worker {
             return Ok(());
         }
 
-        let position_ms = self.clamp_position(position_ms);
+        let requested_position_ms = self.clamp_position(position_ms);
         if self.state == PlaybackState::Paused {
             let path = self.current_path()?;
-            let mut decoder = (self.decoder_factory)(&path)?;
-            let position_ms = if position_ms == 0 {
+            let actual_position_ms = if requested_position_ms == 0 {
+                self.prepared_decoder = None;
                 0
             } else {
-                decoder.seek(position_ms)?
+                let mut decoder = (self.decoder_factory)(&path)?;
+                let actual_position_ms = decoder.seek(requested_position_ms)?;
+                self.prepared_decoder = Some(PreparedDecoder {
+                    path,
+                    requested_position_ms,
+                    actual_position_ms,
+                    decoder,
+                });
+                actual_position_ms
             };
             if let Some(current) = &mut self.current {
-                current.position_ms = position_ms;
+                current.position_ms = actual_position_ms;
+                current.resume_position_ms = requested_position_ms;
             }
-            self.emit_position(position_ms);
+            self.emit_position(actual_position_ms);
             return Ok(());
         }
 
         let path = self.current_path()?;
         self.set_state(PlaybackState::Loading);
-        self.stop_active();
-        self.start_path(&path, position_ms, false, true)
+        self.prepared_decoder = None;
+        self.stop_active()?;
+        self.start_path(&path, requested_position_ms, false, true)
     }
 
     fn stop(&mut self) -> Result<(), EngineError> {
-        if !matches!(
-            self.state,
-            PlaybackState::Playing
-                | PlaybackState::Paused
-                | PlaybackState::Ended
-                | PlaybackState::Error
-        ) {
-            self.illegal_command("Stop");
+        if self.state == PlaybackState::Idle {
             return Ok(());
         }
 
         self.set_state(PlaybackState::Stopping);
-        self.stop_active();
+        // Dropping the backend releases the device even if its stop call fails, so Idle is factual.
+        let stop_error = self.release_backend().err();
+        self.prepared_decoder = None;
         self.current = None;
         self.set_state(PlaybackState::Idle);
+        if let Some(error) = stop_error {
+            self.broadcast(PlaybackEvent::Error {
+                message: error.to_string(),
+            });
+        }
         Ok(())
     }
 
@@ -319,10 +363,14 @@ impl Worker {
         if self.state == PlaybackState::Playing {
             let position_ms = self.logical_position_ms();
             let path = self.current_path()?;
-            self.output_device = device_id;
             self.set_state(PlaybackState::Loading);
-            self.stop_active();
+            self.release_backend()?;
+            self.output_device = device_id;
             return self.start_path(&path, position_ms, false, true);
+        }
+
+        if self.state == PlaybackState::Paused {
+            self.release_backend()?;
         }
 
         self.output_device = device_id;
@@ -336,20 +384,34 @@ impl Worker {
         emit_now_playing: bool,
         emit_position: bool,
     ) -> Result<(), EngineError> {
-        let mut decoder = (self.decoder_factory)(path)?;
+        let prepared = self.prepared_decoder.take().filter(|prepared| {
+            prepared.path == path && prepared.requested_position_ms == requested_position_ms
+        });
+        let (mut decoder, prepared_position_ms) = match prepared {
+            Some(prepared) => (prepared.decoder, Some(prepared.actual_position_ms)),
+            None => ((self.decoder_factory)(path)?, None),
+        };
         let format = decoder.format();
         let duration_ms = decoder.duration_ms();
         let requested_position_ms = duration_ms.map_or(requested_position_ms, |duration| {
             requested_position_ms.min(duration)
         });
-        let actual_position_ms = if requested_position_ms == 0 {
-            0
-        } else {
-            decoder.seek(requested_position_ms)?
+        let actual_position_ms = match prepared_position_ms {
+            Some(position_ms) => position_ms,
+            None if requested_position_ms == 0 => 0,
+            None => decoder.seek(requested_position_ms)?,
         };
 
-        let mut backend = (self.backend_factory)(self.output_device)?;
+        let mut backend = match self
+            .backend
+            .take()
+            .filter(|(device_id, _)| *device_id == self.output_device)
+        {
+            Some((_, backend)) => backend,
+            None => (self.backend_factory)(self.output_device)?,
+        };
         backend.start(format)?;
+        self.backend = Some((self.output_device, backend));
 
         let source = PlayableSource {
             path: path.to_path_buf(),
@@ -359,10 +421,10 @@ impl Worker {
             source: source.clone(),
             format,
             position_ms: actual_position_ms,
+            resume_position_ms: actual_position_ms,
         });
         self.active = Some(ActivePlayback {
             decoder,
-            backend,
             base_position_ms: actual_position_ms,
             pcm: Vec::new(),
             pcm_offset: 0,
@@ -381,7 +443,8 @@ impl Worker {
         Ok(())
     }
 
-    fn pump(&mut self) -> Result<(), EngineError> {
+    fn pump(&mut self) -> Result<bool, EngineError> {
+        let mut made_progress = false;
         let bytes_per_frame = self
             .current
             .as_ref()
@@ -392,15 +455,27 @@ impl Worker {
 
         if active.pcm_offset == active.pcm.len() && !active.decoder_finished {
             match active.decoder.next_pcm(&mut active.pcm)? {
-                Some(_) => active.pcm_offset = 0,
-                None => active.decoder_finished = true,
+                Some(_) => {
+                    active.pcm_offset = 0;
+                    made_progress = true;
+                }
+                None => {
+                    active.decoder_finished = true;
+                    made_progress = true;
+                }
             }
         }
 
         if active.pcm_offset < active.pcm.len() {
-            let accepted_frames = active.backend.feed(&active.pcm[active.pcm_offset..]);
+            let accepted_frames = self
+                .backend
+                .as_mut()
+                .expect("active playback must have a backend")
+                .1
+                .feed(&active.pcm[active.pcm_offset..]);
             active.pcm_offset += accepted_frames * bytes_per_frame;
             active.fed_frames += accepted_frames as u64;
+            made_progress |= accepted_frames > 0;
         }
 
         let position_ms = self.logical_position_ms();
@@ -418,31 +493,53 @@ impl Worker {
             self.emit_position(position_ms);
         }
 
+        let backend_position = self
+            .backend
+            .as_ref()
+            .expect("active playback must have a backend")
+            .1
+            .position();
         let finished = self.active.as_ref().is_some_and(|active| {
             active.decoder_finished
                 && active.pcm_offset == active.pcm.len()
-                && active.backend.position() >= active.fed_frames
+                && backend_position >= active.fed_frames
         });
         if finished {
             self.finish_playback();
+            made_progress = true;
         }
 
-        Ok(())
+        Ok(made_progress)
     }
 
     fn finish_playback(&mut self) {
         let position_ms = self.logical_position_ms();
+        let should_emit_position = self
+            .active
+            .as_ref()
+            .is_none_or(|active| active.last_reported_position_ms != position_ms);
         if let Some(current) = &mut self.current {
             current.position_ms = position_ms;
+            current.resume_position_ms = position_ms;
         }
-        self.stop_active();
-        self.emit_position(position_ms);
+        // All fed frames were consumed, so Ended remains factual even if AUHAL stop reports failure.
+        let stop_error = self.release_backend().err();
+        self.prepared_decoder = None;
+        if should_emit_position {
+            self.emit_position(position_ms);
+        }
         self.set_state(PlaybackState::Ended);
         self.broadcast(PlaybackEvent::Ended);
+        if let Some(error) = stop_error {
+            self.broadcast(PlaybackEvent::Error {
+                message: error.to_string(),
+            });
+        }
     }
 
     fn fail(&mut self, error: EngineError) {
-        self.stop_active();
+        let _ = self.release_backend();
+        self.prepared_decoder = None;
         self.current = None;
         self.set_state(PlaybackState::Error);
         self.broadcast(PlaybackEvent::Error {
@@ -450,10 +547,27 @@ impl Worker {
         });
     }
 
-    fn stop_active(&mut self) {
-        if let Some(mut active) = self.active.take() {
-            let _ = active.backend.stop();
+    fn stop_active(&mut self) -> Result<(), EngineError> {
+        if self.active.take().is_some() {
+            let (device_id, mut backend) = self
+                .backend
+                .take()
+                .expect("active playback must have a backend");
+            backend.stop()?;
+            self.backend = Some((device_id, backend));
         }
+        Ok(())
+    }
+
+    fn release_backend(&mut self) -> Result<(), EngineError> {
+        let was_active = self.active.take().is_some();
+        let Some((_, mut backend)) = self.backend.take() else {
+            return Ok(());
+        };
+        if was_active {
+            backend.stop()?;
+        }
+        Ok(())
     }
 
     fn set_state(&mut self, next: PlaybackState) {
@@ -470,9 +584,10 @@ impl Worker {
         self.broadcast(PlaybackEvent::StateChanged(next));
     }
 
-    fn illegal_command(&self, command: &str) {
-        self.broadcast(PlaybackEvent::Error {
-            message: format!("{command} is not valid while playback is {:?}", self.state),
+    fn illegal_command(&self, command: &'static str) {
+        self.broadcast(PlaybackEvent::CommandRejected {
+            command,
+            state: self.state,
         });
     }
 
@@ -488,9 +603,14 @@ impl Worker {
             .as_ref()
             .expect("active playback must have a current track")
             .format;
-        let position_ms = active
-            .base_position_ms
-            .saturating_add(frames_to_ms(active.backend.position(), format.sample_rate));
+        let position_ms = active.base_position_ms.saturating_add(frames_to_ms(
+            self.backend
+                .as_ref()
+                .expect("active playback must have a backend")
+                .1
+                .position(),
+            format.sample_rate,
+        ));
         self.clamp_position(position_ms)
     }
 
@@ -501,17 +621,17 @@ impl Worker {
             .map_or(position_ms, |duration| position_ms.min(duration))
     }
 
-    fn current_path(&self) -> Result<std::path::PathBuf, EngineError> {
+    fn current_path(&self) -> Result<PathBuf, EngineError> {
         self.current
             .as_ref()
             .map(|current| current.source.path.clone())
             .ok_or_else(|| EngineError::Decode("no current source".to_string()))
     }
 
-    fn current_path_and_position(&self) -> Result<(std::path::PathBuf, u64), EngineError> {
+    fn current_path_and_position(&self) -> Result<(PathBuf, u64), EngineError> {
         self.current
             .as_ref()
-            .map(|current| (current.source.path.clone(), current.position_ms))
+            .map(|current| (current.source.path.clone(), current.resume_position_ms))
             .ok_or_else(|| EngineError::Decode("no current source".to_string()))
     }
 
@@ -547,11 +667,26 @@ mod tests {
 
     use super::*;
 
-    #[derive(Default)]
     struct FakeLog {
         opened_devices: Vec<DeviceId>,
         seek_positions: Vec<u64>,
         stops: usize,
+        fail_open_device: Option<DeviceId>,
+        stop_error: bool,
+        position_limit: u64,
+    }
+
+    impl Default for FakeLog {
+        fn default() -> Self {
+            Self {
+                opened_devices: Vec::new(),
+                seek_positions: Vec::new(),
+                stops: 0,
+                fail_open_device: None,
+                stop_error: false,
+                position_limit: 1_000,
+            }
+        }
     }
 
     struct FakeBackend {
@@ -561,6 +696,7 @@ mod tests {
 
     impl PlaybackBackend for FakeBackend {
         fn start(&mut self, _format: PcmFormat) -> Result<(), EngineError> {
+            self.fed_frames = 0;
             Ok(())
         }
 
@@ -571,12 +707,17 @@ mod tests {
         }
 
         fn position(&self) -> u64 {
-            self.fed_frames.min(1_000)
+            self.fed_frames.min(self.log.lock().unwrap().position_limit)
         }
 
         fn stop(&mut self) -> Result<(), EngineError> {
-            self.log.lock().unwrap().stops += 1;
-            Ok(())
+            let mut log = self.log.lock().unwrap();
+            log.stops += 1;
+            if log.stop_error {
+                Err(EngineError::Decode("backend stop failed".to_string()))
+            } else {
+                Ok(())
+            }
         }
     }
 
@@ -617,7 +758,7 @@ mod tests {
     };
 
     #[test]
-    fn fake_backend_pause_resume_and_seek_rebuild_from_logical_position() {
+    fn pause_releases_backend_while_seek_reuses_resumed_backend() {
         let (controller, log) = fake_controller();
         let events = controller.subscribe();
         let commands = controller.command_sender();
@@ -668,13 +809,13 @@ mod tests {
         });
 
         let log = log.lock().unwrap();
-        assert_eq!(log.opened_devices, [7, 7, 7]);
+        assert_eq!(log.opened_devices, [7, 7]);
         assert_eq!(log.seek_positions, [1_000, 5_000]);
         assert_eq!(log.stops, 3);
     }
 
     #[test]
-    fn illegal_command_order_emits_errors_without_changing_idle_state() {
+    fn illegal_command_order_is_rejected_without_changing_idle_state() {
         let (controller, _) = fake_controller();
         let events = controller.subscribe();
         let commands = controller.command_sender();
@@ -685,11 +826,13 @@ mod tests {
             .send(PlaybackCommand::Seek { position_ms: 500 })
             .unwrap();
 
-        let mut errors = Vec::new();
-        while errors.len() < 3 {
+        let mut rejections = Vec::new();
+        while rejections.len() < 3 {
             let event = events.recv_timeout(Duration::from_secs(1)).unwrap();
             match event {
-                PlaybackEvent::Error { message } => errors.push(message),
+                PlaybackEvent::CommandRejected { command, state } => {
+                    rejections.push((command, state))
+                }
                 PlaybackEvent::StateChanged(state) => {
                     panic!("illegal command changed state to {state:?}")
                 }
@@ -697,11 +840,18 @@ mod tests {
             }
         }
 
-        assert!(errors.iter().all(|message| message.contains("Idle")));
+        assert_eq!(
+            rejections,
+            [
+                ("Pause", PlaybackState::Idle),
+                ("Resume", PlaybackState::Idle),
+                ("Seek", PlaybackState::Idle),
+            ]
+        );
     }
 
     #[test]
-    fn paused_seek_emits_and_records_the_decoder_actual_position() {
+    fn paused_seek_resumes_from_the_original_target_without_compounding_seek_error() {
         let (controller, log) = fake_controller_with_seek_offset(250);
         let events = controller.subscribe();
         let commands = controller.command_sender();
@@ -738,10 +888,19 @@ mod tests {
         });
         commands.send(PlaybackCommand::Resume).unwrap();
         wait_for(&events, |event| {
+            matches!(
+                event,
+                PlaybackEvent::Position {
+                    position_ms: 4_750,
+                    ..
+                }
+            )
+        });
+        wait_for(&events, |event| {
             *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
         });
 
-        assert_eq!(log.lock().unwrap().seek_positions, [5_000, 4_750]);
+        assert_eq!(log.lock().unwrap().seek_positions, [5_000]);
     }
 
     #[test]
@@ -776,6 +935,236 @@ mod tests {
         assert_eq!(log.seek_positions, [1_000]);
     }
 
+    #[test]
+    fn end_of_track_emits_ended_and_supports_stop_from_ended() {
+        let (controller, log) = fake_controller();
+        log.lock().unwrap().position_limit = u64::MAX;
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+
+        let mut ending_events = Vec::new();
+        loop {
+            let event = events.recv_timeout(Duration::from_secs(1)).unwrap();
+            let ended = event == PlaybackEvent::Ended;
+            ending_events.push(event);
+            if ended {
+                break;
+            }
+        }
+        assert_eq!(
+            ending_events,
+            [
+                PlaybackEvent::Position {
+                    position_ms: 2_000,
+                    duration_ms: Some(10_000),
+                },
+                PlaybackEvent::StateChanged(PlaybackState::Ended),
+                PlaybackEvent::Ended,
+            ]
+        );
+
+        commands.send(PlaybackCommand::Resume).unwrap();
+        assert_eq!(
+            wait_for(&events, |event| {
+                matches!(event, PlaybackEvent::CommandRejected { .. })
+            }),
+            PlaybackEvent::CommandRejected {
+                command: "Resume",
+                state: PlaybackState::Ended,
+            }
+        );
+
+        commands.send(PlaybackCommand::Stop).unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Idle)
+        });
+        assert_eq!(log.lock().unwrap().stops, 1);
+    }
+
+    #[test]
+    fn end_of_track_stop_failure_preserves_ended_before_error() {
+        let (controller, log) = fake_controller();
+        {
+            let mut log = log.lock().unwrap();
+            log.position_limit = u64::MAX;
+            log.stop_error = true;
+        }
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+
+        wait_for(&events, |event| *event == PlaybackEvent::Ended);
+        assert_eq!(
+            events.recv_timeout(Duration::from_secs(1)).unwrap(),
+            PlaybackEvent::Error {
+                message: "decode: backend stop failed".to_string(),
+            }
+        );
+        assert_eq!(log.lock().unwrap().stops, 1);
+    }
+
+    #[test]
+    fn play_file_while_playing_reuses_backend_for_new_track() {
+        let (controller, log) = fake_controller();
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("first.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            matches!(
+                event,
+                PlaybackEvent::Position {
+                    position_ms: 1_000,
+                    ..
+                }
+            )
+        });
+
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("second.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            matches!(
+                event,
+                PlaybackEvent::NowPlaying { source, .. }
+                    if source.path == Path::new("second.flac")
+            )
+        });
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+
+        let log = log.lock().unwrap();
+        assert_eq!(log.opened_devices, [7]);
+        assert_eq!(log.stops, 1);
+    }
+
+    #[test]
+    fn output_device_failure_stops_playback_and_emits_error() {
+        let (controller, log) = fake_controller();
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            matches!(
+                event,
+                PlaybackEvent::Position {
+                    position_ms: 1_000,
+                    ..
+                }
+            )
+        });
+        log.lock().unwrap().fail_open_device = Some(9);
+
+        commands
+            .send(PlaybackCommand::SetOutputDevice { device_id: 9 })
+            .unwrap();
+        let error = wait_for(&events, |event| {
+            matches!(event, PlaybackEvent::Error { .. })
+        });
+
+        assert_eq!(
+            error,
+            PlaybackEvent::Error {
+                message: "device hogged by pid 42".to_string()
+            }
+        );
+        let log = log.lock().unwrap();
+        assert_eq!(log.opened_devices, [7, 9]);
+        assert_eq!(log.stops, 1);
+    }
+
+    #[test]
+    fn backend_stop_failure_emits_error_instead_of_paused() {
+        let (controller, log) = fake_controller();
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            matches!(
+                event,
+                PlaybackEvent::Position {
+                    position_ms: 1_000,
+                    ..
+                }
+            )
+        });
+        log.lock().unwrap().stop_error = true;
+
+        commands.send(PlaybackCommand::Pause).unwrap();
+        let error = wait_for(&events, |event| {
+            matches!(event, PlaybackEvent::Error { .. })
+        });
+
+        assert_eq!(
+            error,
+            PlaybackEvent::Error {
+                message: "decode: backend stop failed".to_string()
+            }
+        );
+        assert_eq!(log.lock().unwrap().stops, 1);
+    }
+
+    #[test]
+    fn dropping_controller_stops_active_playback_with_sender_clone_alive() {
+        let (controller, log) = fake_controller();
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            matches!(
+                event,
+                PlaybackEvent::Position {
+                    position_ms: 1_000,
+                    ..
+                }
+            )
+        });
+
+        drop(controller);
+        assert!(commands.send(PlaybackCommand::Stop).is_err());
+        loop {
+            match events.recv_timeout(Duration::from_secs(1)) {
+                Ok(_) => {}
+                Err(RecvTimeoutError::Disconnected) => break,
+                Err(RecvTimeoutError::Timeout) => {
+                    panic!("playback worker did not shut down after command disconnect")
+                }
+            }
+        }
+
+        assert_eq!(log.lock().unwrap().stops, 1);
+    }
+
     fn fake_controller() -> (PlaybackController, Arc<Mutex<FakeLog>>) {
         fake_controller_with_seek_offset(0)
     }
@@ -789,7 +1178,14 @@ mod tests {
         let controller = PlaybackController::spawn_with_dependencies(
             7,
             Arc::new(move |device_id| {
-                backend_log.lock().unwrap().opened_devices.push(device_id);
+                let fail_open = {
+                    let mut log = backend_log.lock().unwrap();
+                    log.opened_devices.push(device_id);
+                    log.fail_open_device == Some(device_id)
+                };
+                if fail_open {
+                    return Err(EngineError::Hogged(42));
+                }
                 Ok(Box::new(FakeBackend {
                     log: Arc::clone(&backend_log),
                     fed_frames: 0,

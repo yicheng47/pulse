@@ -98,21 +98,22 @@ impl AuhalSink {
         self.position_frames.load(Ordering::Relaxed)
     }
 
-    pub(crate) fn stop(mut self) {
-        self.stop_inner();
+    pub(crate) fn stop(mut self) -> Result<(), EngineError> {
+        self.stop_inner()
     }
 
-    fn stop_inner(&mut self) {
+    fn stop_inner(&mut self) -> Result<(), EngineError> {
         if self.running {
-            let _ = self.audio_unit.stop();
             self.running = false;
+            self.audio_unit.stop().map_err(audio_unit_error)?;
         }
+        Ok(())
     }
 }
 
 impl Drop for AuhalSink {
     fn drop(&mut self) {
-        self.stop_inner();
+        let _ = self.stop_inner();
     }
 }
 

@@ -12,6 +12,12 @@ pub enum PlaybackEvent {
         duration_ms: Option<u64>,
     },
     Ended,
+    CommandRejected {
+        command: &'static str,
+        state: PlaybackState,
+    },
+    /// A runtime failure. It is fatal when paired with `StateChanged(Error)` and advisory when
+    /// emitted after teardown has already reached `Idle` or `Ended`.
     Error {
         message: String,
     },

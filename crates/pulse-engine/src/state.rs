@@ -16,8 +16,8 @@ impl PlaybackState {
         matches!(
             (self, next),
             (Idle | Ended | Error, Loading)
-                | (Idle | Ended | Error, Stopping)
-                | (Loading, Playing | Stopping | Error)
+                | (Ended | Error, Stopping)
+                | (Loading, Playing | Error)
                 | (Playing, Loading | Paused | Stopping | Ended | Error)
                 | (Paused, Loading | Stopping | Error)
                 | (Stopping, Idle | Error)

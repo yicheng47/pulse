@@ -213,6 +213,9 @@ fn wait_for_state(events: &Receiver<PlaybackEvent>, expected: PlaybackState) -> 
         match events.recv().context("playback controller stopped")? {
             PlaybackEvent::StateChanged(state) if state == expected => return Ok(()),
             PlaybackEvent::Ended => bail!("playback ended before reaching {expected:?}"),
+            PlaybackEvent::CommandRejected { command, state } => {
+                bail!("{command} rejected while {state:?}")
+            }
             PlaybackEvent::Error { message } => bail!(message),
             _ => {}
         }
@@ -223,6 +226,9 @@ fn wait_for_completion(events: &Receiver<PlaybackEvent>) -> Result<()> {
     loop {
         match events.recv().context("playback controller stopped")? {
             PlaybackEvent::Ended => return Ok(()),
+            PlaybackEvent::CommandRejected { command, state } => {
+                bail!("{command} rejected while {state:?}")
+            }
             PlaybackEvent::Error { message } => bail!(message),
             _ => {}
         }
@@ -243,12 +249,38 @@ fn parse_position_ms(value: &str) -> Result<u64, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_position_ms;
+    use std::sync::mpsc;
+
+    use super::*;
 
     #[test]
     fn parses_seek_seconds_with_optional_suffix() {
         assert_eq!(parse_position_ms("90"), Ok(90_000));
         assert_eq!(parse_position_ms("1.5s"), Ok(1_500));
         assert!(parse_position_ms("-1").is_err());
+    }
+
+    #[test]
+    fn wait_helpers_surface_command_rejections() {
+        let rejection = PlaybackEvent::CommandRejected {
+            command: "Pause",
+            state: PlaybackState::Idle,
+        };
+
+        let (state_tx, state_rx) = mpsc::channel();
+        state_tx.send(rejection.clone()).unwrap();
+        assert_eq!(
+            wait_for_state(&state_rx, PlaybackState::Paused)
+                .unwrap_err()
+                .to_string(),
+            "Pause rejected while Idle"
+        );
+
+        let (completion_tx, completion_rx) = mpsc::channel();
+        completion_tx.send(rejection).unwrap();
+        assert_eq!(
+            wait_for_completion(&completion_rx).unwrap_err().to_string(),
+            "Pause rejected while Idle"
+        );
     }
 }
