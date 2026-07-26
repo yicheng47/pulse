@@ -1,60 +1,105 @@
-# 0009 — Playback row and controller wiring
+# 0009 — Playback row MVP
 
-> Remaining half of stage 7. The app shell decisions are settled and archived ([0007](archive/0007-gpui-native-ui-pivot.md) pivot, [0008](archive/0008-gpui-ce-dependency.md) GPUI-CE); the enduring rules live in [`arch/tech-stack.md`](../arch/tech-stack.md). This note covers only what is still unbuilt.
-
-## Already landed
-
-`crates/pulse-app` exists as a GPUI-CE binary: window, theme-as-data generated from the Pencil tokens (`theme.rs`), and an embedded font/icon asset layer behind a hand-rolled `AssetSource` (`assets.rs`). The Tauri/React scaffold is gone. `pulse-engine` ships `PlaybackController` with play/pause/resume/seek/stop plus events, proven by 22 tests and the `pulse-cli` smoke commands.
+> Remaining half of stage 7, and the first runnable Pulse app. The app shell decisions are settled and archived ([0007](archive/0007-gpui-native-ui-pivot.md) pivot, [0008](archive/0008-gpui-ce-dependency.md) GPUI-CE); the enduring rules live in [`arch/tech-stack.md`](../arch/tech-stack.md).
 
 ## Goal
 
-Build the playback row from the Pencil design and drive it with the real engine. Two slices, in this order, because the first answers a risk and the second is plumbing.
+One window: drag an audio file in, it plays. Play/pause works. The progress bar can be dragged to seek. Nothing else.
 
-**Slice 1 — static surface.** The row rendered from hardcoded content, no engine. This is the visual spike: it settles whether the cyberpunk design language survives as GPUI paint code instead of CSS, which stages 11–13 all assume.
+This is deliberately narrower than [`product/mvp.md`](../product/mvp.md), which describes the broader v0 with library scanning, SQLite, and browsing. Those stay on the roadmap; this note is the first end-to-end slice that makes Pulse a real app — file in, sound out, transport that responds.
 
-**Slice 2 — controller wiring.** App-owned `PlaybackController`, in-process event subscription, transport driven from the row.
+## Already landed
+
+`crates/pulse-app` is a GPUI-CE binary with a window, `theme.rs` generated from the Pencil tokens, and embedded fonts/icons behind a hand-rolled `AssetSource` in `assets.rs`. `pulse-engine` ships `PlaybackController` (play/pause/resume/seek/stop plus events), proven by 22 tests and the `pulse-cli` smoke commands.
+
+## Scope
+
+In:
+
+- A drop target covering the window: accept one dropped file, reject unsupported extensions with a visible message.
+- The playback row from the Pencil design, rendered for real.
+- Play/pause toggle driven by actual `PlaybackState`.
+- Drag the progress bar to seek; elapsed/duration labels track playback.
+- Errors from the engine surface visibly instead of a dead button.
+
+Out — render if the design shows them, but do not wire:
+
+- Shuffle, repeat, previous, next. Icons only.
+- Queue badge behavior (stage 12), output-device switching from the row (stage 8).
+- Sidebar, albums, tracks, playlists, storage (stage 11).
+- Tag reading, cover-art extraction, visualizers, level meters.
 
 ## Design source
 
-Component `qKkw7` ("Playback Bar") in `design/pulse-desktop.pen`. Read it with the `pencil` MCP rather than trusting this summary — it is the source, this is a convenience transcription.
+Component `qKkw7` ("Playback Bar") in `design/pulse-desktop.pen`. **Read it with the `pencil` MCP** (`get_variables`, then `batch_get` on `qKkw7` with `readDepth: 5`) — the table below is a convenience transcription, the file is the source of truth. Do not open `.pen` files with Read or Grep; they are encrypted.
 
 Root: 92px tall, `bg-surface`, padding 12/20, gap 22, items centered, 1px `border` on the top edge only, full width.
 
 | Zone | Width | Contents |
 |---|---|---|
-| Now Playing | 320 | 60×60 cover (`radius-sm`, 1px inner `border-strong`, clipped, image fill); title in Rajdhani 15/700 `text-primary`; `artist - album` in Inter 12 `text-secondary`; 4px gap |
-| Transport Center | fills | Controls row (gap 12, centered): shuffle, skip-back, 28×28 `accent` play button (`radius-md`) with a 16px `bg-inset` glyph, skip-forward, repeat-2 — outer icons 17px `text-secondary`. Progress row (gap 12): elapsed in Geist Mono 11 `text-muted`, 4px `bg-inset` track (radius 2) with an `accent` fill, duration same as elapsed |
-| Output Status | 300 | Right-aligned, gap 14. Format block (132 wide, gap 3): quality in Geist Mono 12/700 `quality` lime, device line in Inter 12 `text-secondary`. Speaker icon 17px. Queue button 38×34 with a `list-music` icon and a 16px `accent` badge offset to the top-right, 2px `bg-surface` outer stroke, count in Geist Mono 10/700 `bg-inset` |
+| Now Playing | 320 | 60×60 cover (`radius-sm`, 1px inner `border-strong`, clipped); title in Rajdhani 15/700 `text-primary`; secondary line in Inter 12 `text-secondary`; 4px gap |
+| Transport Center | fills | Controls row (gap 12, centered): shuffle, skip-back, 28×28 `accent` play button (`radius-md`) with a 16px `bg-inset` glyph, skip-forward, repeat-2 — outer icons 17px `text-secondary`. Progress row (gap 12): elapsed in Geist Mono 11 `text-muted`, 4px `bg-inset` track (radius 2) with an `accent` fill, duration same style as elapsed |
+| Output Status | 300 | Right-aligned, gap 14. Format block (132 wide, gap 3): quality line in Geist Mono 12/700 `quality` lime, device line in Inter 12 `text-secondary`. Speaker icon 17px. Queue button 38×34 with a `list-music` icon and a 16px `accent` badge offset top-right, 2px `bg-surface` outer stroke, count in Geist Mono 10/700 `bg-inset` |
 
-Icons are already vendored in `crates/pulse-app/assets/icons/`, including `pause` for the toggle the design does not show.
+`theme.rs` already holds every token — use it, do not hardcode hex. Icons are vendored in `crates/pulse-app/assets/icons/`, including `pause`, which the design does not show but the toggle needs.
 
-## Slice 2 details
+**No tags yet.** The engine reports `PcmFormat { sample_rate, bits_per_sample, channels }`, not artist/album, and `lofty` is a later stage. Derive the title from the file stem and the secondary line from something actually available (parent directory name, or the path). Do not invent "Unknown Artist" placeholders, and do not fake a codec name the engine did not report — the container can come from the file extension.
 
-`crates/pulse-app` gains a `pulse-engine` dependency — one direction only. The engine must not learn about GPUI; that boundary is in `AGENTS.md` and `arch/pulse-engine.md`.
+## Engine wiring
 
-The app owns one `PlaybackController` and derives all row state from `PlaybackEvent`: `NowPlaying` fills the title/artist/format text, `Position` drives the progress fill and elapsed/duration labels, `StateChanged` selects the play vs pause glyph, `Error` surfaces a visible failure rather than a silent dead button. Row interactions send `PlaybackCommand` — play/pause toggle, seek from the progress bar.
+`crates/pulse-app` gains a `pulse-engine` dependency. One direction only: the engine must not learn about GPUI. That boundary is in `AGENTS.md` and [`arch/pulse-engine.md`](../arch/pulse-engine.md).
 
-The open design question is bridging `controller.subscribe()`, a blocking channel receiver, into GPUI's runtime without stalling the main thread. Expected shape: a task on the background executor draining the receiver and updating the entity through an async app handle, so events arrive as normal entity updates. Settle this in slice 2, not slice 1.
+Relevant API, current as of this note:
+
+- `device::default_output_device() -> Result<Device, EngineError>`; `Device { id, uid, name }`.
+- `PlaybackController::spawn(output_device: DeviceId) -> Self`. Hold it — dropping it stops playback.
+- `controller.command_sender() -> Sender<PlaybackCommand>`, `controller.subscribe() -> Receiver<PlaybackEvent>`. Both are `std::sync::mpsc`.
+- `PlaybackCommand::{PlayFile { path }, Pause, Resume, Seek { position_ms }, Stop, SetOutputDevice { device_id }}`.
+- `PlaybackEvent::{StateChanged(PlaybackState), NowPlaying { source, format }, Position { position_ms, duration_ms }, Ended, Error { message }}`.
+- `PlaybackState::{Idle, Loading, Playing, Paused, Stopping, Ended, Error}` — note `Paused` and `Ended` are distinct from `Idle`; the play glyph should reflect that.
+
+Derive all row state from events. `NowPlaying` fills the text, `Position` drives the fill and labels, `StateChanged` picks play vs pause, `Error` becomes visible text.
+
+Consider resolving the device and spawning the controller lazily on first play rather than at launch, so opening the window does not reach for the DAC.
+
+## Implementation notes
+
+These were verified against the gpui-ce checkout at the pinned rev. Read gpui-ce for reference, never Zed's GPUI.
+
+**File drop.** `div().on_drop(cx.listener(|this, paths: &ExternalPaths, window, cx| ...))`; `ExternalPaths::paths() -> &[PathBuf]`. `drag_over::<ExternalPaths>(|style, ..| ...)` gives hover feedback. Engine formats are FLAC, ALAC, AIFF, WAV — filter on extension and say so when rejecting.
+
+**Event pump.** `Receiver` is blocking, so do not `recv()` on the UI thread. Drain with `try_recv()` from a foreground task:
+
+```rust
+cx.spawn(async move |this, cx| {
+    loop {
+        cx.background_executor().timer(POLL_INTERVAL).await;
+        if this.update(cx, |this, cx| this.drain_events(cx)).is_err() {
+            break;
+        }
+    }
+})
+.detach();
+```
+
+`Context::spawn` takes `AsyncFnOnce(WeakEntity<T>, &mut AsyncApp)`. The controller emits `Position` every 100ms, so a ~16ms poll is smooth; only `notify()` when something actually changed.
+
+**Progress bar geometry.** Mouse events carry a window position, not element bounds. Capture the track's bounds during paint with `canvas(prepaint, paint)` — its prepaint closure receives `Bounds<Pixels>` — and stash them where the mouse handler can read them. `Canvas` implements `Styled`, so it can be an absolutely-positioned overlay filling the track. Fractional fill width is `gpui::relative(fraction)`.
+
+**Seek on release, not on move.** Every `Seek` tears down the feed, resets the ring, and re-seeks the decoder. Firing one per mouse-move will stutter badly. Track the scrub position visually during the drag and send a single `Seek` on mouse up. Attach move/up handlers above the track so a drag that leaves the bar still completes.
 
 ## Verification
 
 - `make verify` green: check, tests, clippy under `-D warnings`, fmt.
-- `make run` opens the window and the row visually matches `qKkw7`. Compare against a Pencil screenshot of the component rather than judging from memory.
-- Slice 2: play a real FLAC from the app, then pause, resume, and seek using the row's own controls; confirm the format and device text reflect what the engine actually opened.
-- **Needs a manual pass on the Matrix Mini-i Pro 4** — clean audible playback, native-rate switching, pause/resume not restarting from zero, hog mode released on stop. No agent can sign this off. Stage 6's hardware smoke is also still outstanding and covers the same ground from the CLI side.
+- `make run` opens the window; the row matches `qKkw7`. Compare against a `get_screenshot` of the component rather than judging from memory.
+- Drag in a real FLAC: it plays. Pause and resume from the row, and confirm resume does not restart from zero. Drag the progress bar and confirm playback continues from where it was dropped.
+- Drop an unsupported file and confirm a visible message rather than silence.
+- **Hardware smoke needs a manual pass on the Matrix Mini-i Pro 4** — clean audible playback, native-rate switching, hog mode released on stop. Agents cannot verify sound; report it as outstanding rather than claiming it.
 
 ## Risks
 
-- The design language in paint code is the whole point of slice 1. If gradients, glow, or the badge offsets fight the framework, we learn it here rather than at stage 11. Note that the row as designed is flat — solid `bg-surface`, no `background_blur` — so `backdrop_filter` is not exercised yet despite being a stated reason for GPUI-CE.
-- Inter and Geist Mono are embedded as variable fonts. If weights render flat or wrong, swap in static cuts; Rajdhani is already static Medium + Bold.
-- Pencil's `fill_container`/`fit_content` sizing does not map one-to-one onto GPUI flex. Expect to translate intent, not properties.
-- Album art is one 60px image here. Grid-scale decode and caching stays a stage 11 question.
-- Progress-bar seek needs drag handling, not just a click target. Keep it a click-to-seek in the first pass if drag proves fiddly, and say so rather than shipping a bar that looks draggable and is not.
-
-## Non-goals
-
-- No sidebar, albums, tracks, playlists, or storage surfaces — those are stage 11.
-- No queue panel or next/previous behavior; the badge is display-only until stage 12.
-- No shuffle or repeat behavior — the icons render, they do not wire.
-- No output-device switching from the row; that is stage 8.
-- No visualizers, lyrics, or level meters.
+- This is the visual spike for the whole GPUI pivot. If the design language fights the framework — badge offsets, the 4px track, type weights — that is the finding, and it matters more than shipping the slice. Say so explicitly.
+- The row as designed is flat: solid `bg-surface`, no `background_blur`. `backdrop_filter` is not exercised here despite being a stated GPUI-CE reason.
+- Inter and Geist Mono are embedded as variable fonts. If weights render flat or wrong, swapping to static cuts is the fix; Rajdhani is already static Medium + Bold.
+- Pencil's `fill_container`/`fit_content` does not map one-to-one onto GPUI flex. Translate intent, not properties.
+- If progress drag proves fiddly, ship click-to-seek and say that plainly rather than a bar that looks draggable and is not.
