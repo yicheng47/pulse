@@ -7,3 +7,4 @@ publish.workspace = true
 [dependencies]
 gpui.workspace = true
 gpui_platform.workspace = true
+pulse-engine.workspace = true

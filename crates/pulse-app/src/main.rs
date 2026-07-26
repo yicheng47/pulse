@@ -1,39 +1,10 @@
 mod assets;
+mod playback_row;
 mod theme;
 
 use assets::Assets;
-use gpui::{
-    App, Bounds, Context, FontWeight, TitlebarOptions, Window, WindowBounds, WindowOptions, div,
-    prelude::*, px, size, svg,
-};
-
-struct PulseApp;
-
-impl Render for PulseApp {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        div()
-            .flex()
-            .size_full()
-            .items_center()
-            .justify_center()
-            .gap(px(12.))
-            .bg(theme::bg_page())
-            .child(
-                svg()
-                    .path("icons/play.svg")
-                    .size(px(28.))
-                    .text_color(theme::accent()),
-            )
-            .child(
-                div()
-                    .font_family(theme::FONT_DISPLAY)
-                    .font_weight(FontWeight::BOLD)
-                    .text_size(px(28.))
-                    .text_color(theme::text_primary())
-                    .child("Pulse"),
-            )
-    }
-}
+use gpui::{App, AppContext, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};
+use playback_row::PlaybackRow;
 
 fn main() {
     gpui_platform::application()
@@ -53,7 +24,7 @@ fn main() {
                     window_bounds: Some(WindowBounds::Windowed(bounds)),
                     ..Default::default()
                 },
-                |_, cx| cx.new(|_| PulseApp),
+                |_, cx| cx.new(PlaybackRow::new),
             )
             .expect("failed to open window");
             cx.activate(true);

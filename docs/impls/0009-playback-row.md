@@ -8,6 +8,29 @@ One window: drag an audio file in, it plays. Play/pause works. The progress bar 
 
 This is deliberately narrower than [`product/mvp.md`](../product/mvp.md), which describes the broader v0 with library scanning, SQLite, and browsing. Those stay on the roadmap; this note is the first end-to-end slice that makes Pulse a real app — file in, sound out, transport that responds.
 
+## Progress
+
+Implemented on `feature/stage-7-playback-row`:
+
+- Window-wide single-file drop accepts FLAC, ALAC in M4A, AIFF, and WAV; unsupported files and engine failures produce visible messages.
+- The `qKkw7` playback row is rendered with the generated theme tokens and embedded fonts/icons. Shuffle, repeat, previous, next, queue, and output-device controls remain display-only as scoped.
+- Play/pause reflects real engine state, including distinct paused and ended states.
+- The progress bar has a 16px drag target around its 4px visual track, updates elapsed/duration while playing, and sends one seek when the drag is released.
+- macOS CI runs the full Rust `make verify` gate for pull requests and pushes to `main`. Windows and Linux support and CI are intentionally deferred.
+
+Validation completed:
+
+- `make verify` passes: 22 engine tests, 8 app tests, and 2 CLI tests, plus workspace check, clippy with warnings denied, and formatting.
+- `make run` opens the app without a panic.
+- Jason manually confirmed that dropping an audio file starts playback and that the basic playback experience feels good.
+- Working-tree review found no remaining must-fix issues before the CI and progress-note additions.
+
+Known divergences and remaining validation:
+
+- The row uses a neutral embedded placeholder instead of the design's Blonde cover art because cover extraction is out of scope. The queue badge reports the honest single-track count rather than the design's static `7`, and unloaded time/format fields use honest placeholders.
+- GPUI matched the layout geometry, icon sizing, badge offsets, 4px track, and static Rajdhani weights without fighting the design. Its offscreen Metal `render_to_image` path omitted all text, including a system-font control, so a complete automated pixel comparison was not possible; the live window renders text normally.
+- Detailed hardware validation on the physical Matrix Mini-i Pro 4 remains outstanding: native-rate switching, pause/resume and seeking under real playback, clean output, and hog-mode release still need Jason's manual pass.
+
 ## Already landed
 
 `crates/pulse-app` is a GPUI-CE binary with a window, `theme.rs` generated from the Pencil tokens, and embedded fonts/icons behind a hand-rolled `AssetSource` in `assets.rs`. `pulse-engine` ships `PlaybackController` (play/pause/resume/seek/stop plus events), proven by 22 tests and the `pulse-cli` smoke commands.
