@@ -11,3 +11,5 @@ Active notes:
 - [`0004-cli-config.md`](0004-cli-config.md) - fourth stage: persisted CLI defaults for playback harness ergonomics.
 - [`0005-product-design.md`](0005-product-design.md) - fifth stage: Pencil-led product design before frontend or app-settings backend implementation.
 - [`0006-playback-controller.md`](0006-playback-controller.md) - sixth stage: UI-agnostic playback controller inside `pulse-engine`.
+- [`0007-gpui-native-ui-pivot.md`](0007-gpui-native-ui-pivot.md) - app shell pivots from Tauri 2 + React to a native GPUI `crates/pulse-app`.
+- [`0008-gpui-ce-dependency.md`](0008-gpui-ce-dependency.md) - swap the abandoned crates.io `gpui` for rev-pinned GPUI-CE; unlocks `backdrop_filter`.

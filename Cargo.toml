@@ -20,7 +20,8 @@ rtrb = "0.3"
 realfft = "3"
 thiserror = "2"
 
-gpui = "0.2"
+gpui = { git = "https://github.com/gpui-ce/gpui-ce", rev = "6c799b8e99" }
+gpui_platform = { git = "https://github.com/gpui-ce/gpui-ce", rev = "6c799b8e99" }
 
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"

@@ -1,8 +1,8 @@
 mod theme;
 
 use gpui::{
-    App, Application, Bounds, Context, TitlebarOptions, Window, WindowBounds, WindowOptions, div,
-    prelude::*, px, size,
+    App, Bounds, Context, TitlebarOptions, Window, WindowBounds, WindowOptions, div, prelude::*,
+    px, size,
 };
 
 struct PulseApp;
@@ -21,7 +21,7 @@ impl Render for PulseApp {
 }
 
 fn main() {
-    Application::new().run(|cx: &mut App| {
+    gpui_platform::application().run(|cx: &mut App| {
         let bounds = Bounds::centered(None, size(px(1280.), px(800.)), cx);
         cx.open_window(
             WindowOptions {
