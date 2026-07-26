@@ -89,6 +89,7 @@ When you do enumerate (because the choice genuinely depends on the user's prefer
 
 ## Project-specific rules
 
+- **Append to `docs/impls/IMPL_LOG.md` at the end of each working session.** Newest entry at the bottom, dated, short: what happened, what's next, blockers. Record decisions, gotchas, and dead ends that the code and `git log` don't explain on their own — this project is early and most of the context is not yet in the code.
 - **Music only, PCM only.** No DSD, no video, no streaming integration. Don't scope-creep these back in.
 - **No libmpv, no FFmpeg, no GPL deps** — keeps App Store eligibility and paid closed-source distribution open.
 - **Playback path is AUHAL / Hardware AudioUnit by default.** Pulse feeds native-rate interleaved float32 through `coreaudio-rs`, while direct `objc2-core-audio` HAL code still owns device discovery, hog mode, sample-rate switching, and physical-format probing.
