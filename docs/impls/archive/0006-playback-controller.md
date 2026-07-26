@@ -1,6 +1,6 @@
 # Playback Controller
 
-> Sixth product stage: wire Pulse's real playback behavior inside `pulse-engine`, then expose it through a thin CLI adapter. The app-shell adapter is the GPUI `pulse-app`, delivered in stage 7 per [impl 0007](../0007-gpui-native-ui-pivot.md).
+> Sixth product stage: wire Pulse's real playback behavior inside `pulse-engine`, then expose it through a thin CLI adapter. The app-shell adapter is the GPUI `pulse-app`, delivered in stage 7 per [impl 0007](0007-gpui-native-ui-pivot.md).
 
 ## Context
 
@@ -159,7 +159,7 @@ For formats where Symphonia seek is imprecise, prefer nearest valid seek point p
 
 ## App Wiring
 
-Moved to stage 7 per [impl 0007](../0007-gpui-native-ui-pivot.md): `pulse-app` owns one `PlaybackController`, subscribes to its events in-process, and derives UI state from them — no command/IPC layer. The app should not implement queue or playback timing logic itself.
+Moved to stage 7 per [impl 0007](0007-gpui-native-ui-pivot.md): `pulse-app` owns one `PlaybackController`, subscribes to its events in-process, and derives UI state from them — no command/IPC layer. The app should not implement queue or playback timing logic itself.
 
 ## CLI Wiring
 

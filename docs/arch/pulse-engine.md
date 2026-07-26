@@ -6,7 +6,7 @@
 
 `pulse-engine` is the UI-agnostic playback engine. It should own the complete playback behavior: device discovery, decode, native-rate configuration, low-level AUHAL output, playback state, transport commands, queue mechanics, and progress/events.
 
-The GPUI app (`pulse-app`, [impl 0007](../impls/0007-gpui-native-ui-pivot.md)) and `pulse-cli` should both drive the same Rust engine API. They are adapters, not playback owners.
+The GPUI app (`pulse-app`, [tech stack](tech-stack.md)) and `pulse-cli` should both drive the same Rust engine API. They are adapters, not playback owners.
 
 The current implemented core already proves clean native-rate playback through Core Audio's Hardware AudioUnit path, also called AUHAL. Pulse still talks directly to Core Audio HAL for device control, but the audio callback is owned by an AudioUnit rather than a raw `AudioDeviceCreateIOProcID` callback.
 

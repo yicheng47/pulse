@@ -91,7 +91,7 @@ They should not need to understand Core Audio, hog mode, device IDs, or sample-r
 
 ### App Shell
 
-- Native GPUI app shell in `crates/pulse-app` ([impl 0007](../impls/0007-gpui-native-ui-pivot.md)).
+- Native GPUI app shell in `crates/pulse-app` ([tech stack](../arch/tech-stack.md)).
 - Persist window-safe app settings.
 - Dark cyberpunk design system from `design/pulse-desktop.pen`.
 - No landing page; first screen is the usable app.

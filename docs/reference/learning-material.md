@@ -81,6 +81,6 @@ Tier 2, decode and playback architecture:
 
 Tier 3, GPUI app shell references:
 
-- The gpui-ce checkout (`~/.cargo/git/checkouts/gpui-ce-*/`); docs are thin, the source is the working reference. Read gpui-ce, not Zed's GPUI — the renderers differ ([impl 0008](../impls/0008-gpui-ce-dependency.md)).
+- The gpui-ce checkout (`~/.cargo/git/checkouts/gpui-ce-*/`); docs are thin, the source is the working reference. Read gpui-ce, not Zed's GPUI — the renderers differ ([`arch/tech-stack.md`](../arch/tech-stack.md)).
 - Runner's GPUI rewrite salvage in the memory repo (`projects/runner/gpui-rewrite/`): IME-capable input, grapheme text editing, .app packaging and codesign.
 - Zed's app crates for architecture ideas. Read only; they are GPL.

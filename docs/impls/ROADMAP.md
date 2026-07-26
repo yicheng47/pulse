@@ -35,7 +35,7 @@ Each stage should have a focused implementation note once work starts. A stage i
 
 | Stage | Impl Note | Goal | Boundary |
 |-------|-----------|------|----------|
-| 7 | [`0007-gpui-native-ui-pivot.md`](0007-gpui-native-ui-pivot.md) | Scaffold the GPUI app and wire in the playback controller. Done so far: Tauri/React scaffold deleted, `crates/pulse-app` created with window, theme-as-data from the Pencil tokens, and the embedded font/icon asset layer. Remaining: the playback row surface as the visual spike, and app-owned controller state over an in-process event subscription. | No command/IPC layer. No library scanner, SQLite, or other library surfaces in this stage. |
+| 7 | [`0009-playback-row.md`](0009-playback-row.md) | Scaffold the GPUI app and wire in the playback controller. Landed: Tauri/React scaffold deleted, `crates/pulse-app` created with window, theme-as-data from the Pencil tokens, and the embedded font/icon asset layer. Remaining: the playback row surface as the visual spike, then app-owned controller state over an in-process event subscription. | No command/IPC layer. No library scanner, SQLite, or other library surfaces in this stage. |
 
 ## MVP Path
 

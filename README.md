@@ -10,10 +10,10 @@ Open-source first under the MIT license, especially through the engine validatio
 
 - `crates/pulse-engine` — standalone, UI-agnostic audio engine: AUHAL playback through `coreaudio-rs`, direct `objc2-core-audio` HAL device control, `symphonia` decode, `rtrb` ring buffer.
 - `crates/pulse-cli` — CLI harness that drives the engine and validates playback/device behavior before any UI exists.
-- `crates/pulse-app` — native GPUI desktop app shell; observes the engine in-process ([impl 0007](docs/impls/0007-gpui-native-ui-pivot.md)).
+- `crates/pulse-app` — native GPUI desktop app shell; observes the engine in-process ([tech stack](docs/arch/tech-stack.md)).
 - `design/` — Pencil (`.pen`) design files.
 - `docs/` — project markdown: architecture, product scope, reference notes.
 
 ## Status
 
-Engine playback is proven through `pulse-cli` on the Matrix Mini-i Pro 4 using AUHAL, and the desktop product surfaces are designed in Pencil. Current goal: the engine-owned playback controller (stage 6), then the GPUI app shell (stage 7).
+Engine playback is proven through `pulse-cli` on the Matrix Mini-i Pro 4 using AUHAL, the engine-owned playback controller has landed, and the desktop product surfaces are designed in Pencil. Current goal: the playback row surface and controller wiring in `pulse-app` (stage 7).
