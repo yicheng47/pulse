@@ -1,5 +1,5 @@
 {
-  "version": "2.13",
+  "version": "2.14",
   "children": [
     {
       "type": "frame",
@@ -7,7 +7,6 @@
       "x": -1763,
       "y": 109,
       "name": "Design System · Cyberpunk Neon",
-      "theme": {},
       "clip": true,
       "width": 1320,
       "height": 900,
@@ -12003,5 +12002,6 @@
       "type": "color",
       "value": "#FF74B8"
     }
-  }
+  },
+  "fileToken": "f013e477-928e-4a91-8df8-640ddeffd322"
 }
