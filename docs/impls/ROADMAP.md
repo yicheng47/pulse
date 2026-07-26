@@ -2,7 +2,7 @@
 
 This is the canonical engineering stage plan for Pulse. Product direction lives in `docs/product/vision.md`; MVP scope lives in [`docs/product/mvp.md`](../product/mvp.md). This roadmap controls implementation order so we do not drift into random probing.
 
-Each stage should have a focused implementation note once work starts. A stage is done only when its verification path is clear enough to repeat.
+Each stage should have a focused implementation note once work starts. A stage is done only when its verification path is clear enough to repeat. Shipped stages' notes move to [`archive/`](archive/) keeping their number.
 
 ## Stage Rules
 
@@ -19,10 +19,11 @@ Each stage should have a focused implementation note once work starts. A stage i
 
 | Stage | Impl Note | Outcome |
 |-------|-----------|---------|
-| 1 | [`0001-engine-validation-cli.md`](0001-engine-validation-cli.md) | Created the standalone engine validation CLI and proved file/device inspection. |
-| 2 | [`0002-hal-format-validation.md`](0002-hal-format-validation.md) | Proved hog mode, nominal sample-rate switching, and physical-format diagnostics. |
-| 3 | [`0003-auhal-playback.md`](0003-auhal-playback.md) | Switched playback to AUHAL and produced clean native-rate playback on the Matrix DAC. |
-| 4 | [`0004-cli-config.md`](0004-cli-config.md) | Added UID-backed CLI default output config for repeatable harness use. |
+| 1 | [`archive/0001-engine-validation-cli.md`](archive/0001-engine-validation-cli.md) | Created the standalone engine validation CLI and proved file/device inspection. |
+| 2 | [`archive/0002-hal-format-validation.md`](archive/0002-hal-format-validation.md) | Proved hog mode, nominal sample-rate switching, and physical-format diagnostics. |
+| 3 | [`archive/0003-auhal-playback.md`](archive/0003-auhal-playback.md) | Switched playback to AUHAL and produced clean native-rate playback on the Matrix DAC. |
+| 4 | [`archive/0004-cli-config.md`](archive/0004-cli-config.md) | Added UID-backed CLI default output config for repeatable harness use. |
+| 6 | [`archive/0006-playback-controller.md`](archive/0006-playback-controller.md) | Added the UI-agnostic `PlaybackController` with play/pause/resume/seek/stop, events, and CLI smoke commands. Hardware smoke on the Matrix DAC still needs a manual pass. |
 
 ## In Progress
 
@@ -34,13 +35,12 @@ Each stage should have a focused implementation note once work starts. A stage i
 
 | Stage | Impl Note | Goal | Boundary |
 |-------|-----------|------|----------|
-| 6 | [`0006-playback-controller.md`](0006-playback-controller.md) | Add the UI-agnostic playback controller inside `pulse-engine`: play, pause, resume, seek, stop, events, and a thin CLI adapter. | Keep the app shell and CLI as adapters; no library scanner or product UI implementation in this stage. The app-shell adapter lands in stage 7 per [impl 0007](0007-gpui-native-ui-pivot.md). |
+| 7 | [`0007-gpui-native-ui-pivot.md`](0007-gpui-native-ui-pivot.md) | Scaffold the GPUI app and wire in the playback controller. Done so far: Tauri/React scaffold deleted, `crates/pulse-app` created with window, theme-as-data from the Pencil tokens, and the embedded font/icon asset layer. Remaining: the playback row surface as the visual spike, and app-owned controller state over an in-process event subscription. | No command/IPC layer. No library scanner, SQLite, or other library surfaces in this stage. |
 
 ## MVP Path
 
 | Stage | Goal | Notes |
 |-------|------|-------|
-| 7 | Scaffold the GPUI app and wire in the playback controller ([impl 0007](0007-gpui-native-ui-pivot.md)). | Delete the Tauri/React scaffold; add `crates/pulse-app` with window, theme-as-data, and the playback row surface from the Pencil design as the visual spike. App-owned controller state with in-process event subscription — no command/IPC layer. |
 | 8 | Implement output-device settings. | List devices, select the Pulse output device, persist by Core Audio UID, surface unavailable/hogged-device errors, and show active output in the playback row. |
 | 9 | Add storage roots and the library scanner. | Local folders and mounted NAS folders. PCM music files only: FLAC, ALAC, AIFF, WAV. No streaming and no video playback or video library support. |
 | 10 | Add SQLite library store and search. | Store scanned metadata, cover-art cache paths, storage-root status, and FTS/search indexes. Artist remains metadata/filter context, not a primary destination. |

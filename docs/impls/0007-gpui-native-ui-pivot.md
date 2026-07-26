@@ -24,7 +24,7 @@ Unchanged: `crates/pulse-engine`, `crates/pulse-cli`, all HAL/AUHAL/decode decis
 Changes:
 
 - Delete `src/`, `src-tauri/`, `index.html`, `vite.config.ts`, `package.json`, `pnpm-lock.yaml`, `tsconfig*.json`, `dist/`, `node_modules/`; drop `tauri`/`tauri-build` from the workspace.
-- Add `crates/pulse-app`: gpui (crates.io 0.2.x) + `pulse-engine`. Theme carries over as Rust constants derived from the Pencil design — data, not CSS.
+- Add `crates/pulse-app`: gpui + `pulse-engine`. Theme carries over as Rust constants derived from the Pencil design — data, not CSS. The GPUI source was swapped to rev-pinned GPUI-CE in [impl 0008](0008-gpui-ce-dependency.md).
 - Reuse from the 0031 salvage: the IME-capable input field (`composer.rs` pattern — marked-range composition, `bounds_for_range` anchoring; NSTextInputClient offsets are relative to the marked string) for library search, and grapheme-cluster text editing (`text_util.rs`, `unicode-segmentation`).
 - Build prerequisite: Xcode 26 Metal Toolchain component (`xcodebuild -downloadComponent MetalToolchain`, one-time ~3 GB) for gpui's shader build; CI needs it too.
 - Licensing guardrail: `gpui` is Apache-2.0 and fine as a dependency; Zed's app crates are GPL — architectural reference only, never copy code.
@@ -40,5 +40,5 @@ Changes:
 
 - The cinematic/cyberpunk design language was the argument for CSS. Gradients, blur, glow, and motion in GPUI mean custom elements and paint code, not stylesheets. Mitigation: stage 7 deliberately builds the playback row — a visually demanding surface — as the visual spike; if the design language fights the framework, we learn it in the first slice, not stage 11.
 - Album-art at grid scale (hundreds of covers, scroll perf, image decode/caching) is unproven in our hands. Validate with `gpui::img` + `uniform_list` early in stage 11's first pass.
-- GPUI docs remain thin; the vendored source and bundled examples are the working reference. Accepted — known from 0031, never blocking.
+- GPUI docs remain thin; the gpui-ce checkout is the working reference. Accepted — known from 0031, never blocking.
 - No updater story for a native binary yet; same deferral as 0031 (GitHub-Releases check or Sparkle), decide at v0 release, not before.

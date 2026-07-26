@@ -8,7 +8,7 @@ Pulse is a native GPUI desktop app with a standalone Rust audio engine. One Rust
 
 | Layer | Choice |
 |---|---|
-| App shell + UI | GPUI (Zed's framework, Apache-2.0, crates.io), native macOS, Metal renderer |
+| App shell + UI | GPUI Community Edition (Apache-2.0, rev-pinned git dep), native macOS, Metal renderer |
 | Design source | Pencil (`design/pulse-desktop.pen`); theme carried into Rust as data |
 | Audio engine | Standalone Rust crate, UI-agnostic |
 | HAL access | `objc2-core-audio` + `objc2-core-audio-types`, wrapped by Pulse |
