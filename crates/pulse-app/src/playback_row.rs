@@ -73,7 +73,15 @@ impl PlaybackRow {
         }
     }
 
-    fn handle_drop(&mut self, paths: &ExternalPaths, cx: &mut Context<Self>) {
+    pub(crate) fn error(&self) -> Option<&str> {
+        self.error.as_deref()
+    }
+
+    pub(crate) fn has_track(&self) -> bool {
+        self.source_path.is_some()
+    }
+
+    pub(crate) fn handle_drop(&mut self, paths: &ExternalPaths, cx: &mut Context<Self>) {
         if paths.paths().len() != 1 {
             self.error = Some("Drop one audio file at a time.".to_string());
             cx.notify();
@@ -223,7 +231,7 @@ impl PlaybackRow {
         cx.notify();
     }
 
-    fn update_scrub(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) {
+    pub(crate) fn update_scrub(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) {
         if !self.scrubbing {
             return;
         }
@@ -240,7 +248,7 @@ impl PlaybackRow {
         cx.notify();
     }
 
-    fn finish_scrub(&mut self, event: &MouseUpEvent, cx: &mut Context<Self>) {
+    pub(crate) fn finish_scrub(&mut self, event: &MouseUpEvent, cx: &mut Context<Self>) {
         if !self.scrubbing {
             return;
         }
@@ -284,13 +292,13 @@ impl PlaybackRow {
             .flex()
             .items_center()
             .gap(px(12.))
-            .w(px(320.))
+            .w(px(330.))
             .child(
                 div()
                     .flex()
                     .items_center()
                     .justify_center()
-                    .size(px(60.))
+                    .size(px(52.))
                     .flex_none()
                     .overflow_hidden()
                     .rounded(px(theme::RADIUS_SM))
@@ -539,66 +547,21 @@ impl PlaybackRow {
 
 impl Render for PlaybackRow {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let status = self.error.clone().unwrap_or_else(|| {
-            if self.source_path.is_none() {
-                "Drop an audio file anywhere in the window".to_string()
-            } else {
-                String::new()
-            }
-        });
-
         div()
-            .id("window-drop-target")
             .flex()
-            .flex_col()
-            .size_full()
-            .bg(theme::bg_page())
-            .drag_over::<ExternalPaths>(|style, _, _, _| style.bg(theme::accent_soft()))
-            .on_drop(cx.listener(|this, paths: &ExternalPaths, _, cx| this.handle_drop(paths, cx)))
-            .on_mouse_move(
-                cx.listener(|this, event: &MouseMoveEvent, _, cx| this.update_scrub(event, cx)),
-            )
-            .on_mouse_up(
-                MouseButton::Left,
-                cx.listener(|this, event: &MouseUpEvent, _, cx| this.finish_scrub(event, cx)),
-            )
-            .on_mouse_up_out(
-                MouseButton::Left,
-                cx.listener(|this, event: &MouseUpEvent, _, cx| this.finish_scrub(event, cx)),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_1()
-                    .items_center()
-                    .justify_center()
-                    .font_family(theme::FONT_SANS)
-                    .text_size(px(13.))
-                    .text_color(
-                        self.error
-                            .as_ref()
-                            .map(|_| theme::danger())
-                            .unwrap_or_else(theme::text_muted),
-                    )
-                    .child(status),
-            )
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(px(22.))
-                    .w_full()
-                    .h(px(92.))
-                    .flex_none()
-                    .px(px(20.))
-                    .py(px(12.))
-                    .border_t_1()
-                    .border_color(theme::border())
-                    .bg(theme::bg_surface())
-                    .child(self.render_now_playing())
-                    .child(self.render_transport(cx))
-                    .child(self.render_output()),
-            )
+            .items_center()
+            .gap(px(22.))
+            .w_full()
+            .h(px(92.))
+            .flex_none()
+            .px(px(20.))
+            .py(px(12.))
+            .border_t_1()
+            .border_color(theme::border())
+            .bg(theme::bg_surface())
+            .child(self.render_now_playing())
+            .child(self.render_transport(cx))
+            .child(self.render_output())
     }
 }
 
