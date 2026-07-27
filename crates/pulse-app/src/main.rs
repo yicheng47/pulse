@@ -1,10 +1,12 @@
 mod assets;
+mod menu;
 mod playback_row;
+mod shell;
 mod theme;
 
 use assets::Assets;
 use gpui::{App, AppContext, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};
-use playback_row::PlaybackRow;
+use shell::Shell;
 
 fn main() {
     gpui_platform::application()
@@ -13,8 +15,9 @@ fn main() {
             cx.text_system()
                 .add_fonts(assets::fonts())
                 .expect("failed to load bundled fonts");
+            menu::install(cx);
 
-            let bounds = Bounds::centered(None, size(px(1280.), px(800.)), cx);
+            let bounds = Bounds::centered(None, size(px(1440.), px(900.)), cx);
             cx.open_window(
                 WindowOptions {
                     titlebar: Some(TitlebarOptions {
@@ -24,7 +27,7 @@ fn main() {
                     window_bounds: Some(WindowBounds::Windowed(bounds)),
                     ..Default::default()
                 },
-                |_, cx| cx.new(PlaybackRow::new),
+                |_, cx| cx.new(Shell::new),
             )
             .expect("failed to open window");
             cx.activate(true);

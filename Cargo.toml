@@ -21,7 +21,9 @@ realfft = "3"
 thiserror = "2"
 
 gpui = { git = "https://github.com/gpui-ce/gpui-ce", rev = "6c799b8e99" }
-gpui_platform = { git = "https://github.com/gpui-ce/gpui-ce", rev = "6c799b8e99" }
+# `font-kit` is off by default in gpui_platform, and without it MacPlatform
+# installs gpui::NoopTextSystem instead of MacTextSystem — no text renders at all.
+gpui_platform = { git = "https://github.com/gpui-ce/gpui-ce", rev = "6c799b8e99", features = ["font-kit"] }
 
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
