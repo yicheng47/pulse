@@ -42,6 +42,18 @@ Nav item: radius-md, padding [9,10], gap 10, icon 17px, label Rajdhani 15/600.
 
 **Docked player**: a `qKkw7` instance, 92 tall, full width.
 
+## Application menu and standard shortcuts
+
+GPUI installs no macOS menu bar, and Tauri used to provide one. On macOS the standard shortcuts are delivered *through* the menu bar, so **Cmd+Q currently does nothing** — along with Cmd+W, Cmd+M, and Cmd+H. This is shell chrome, so it lands here.
+
+Declare an app menu with `cx.set_menus(..)`, register actions via the `actions!` macro plus `cx.on_action(..)`, and bind keys with `cx.bind_keys([KeyBinding::new("cmd-q", Quit, None)])`. `App::quit()` exists for the Quit handler.
+
+Minimum: an application menu with About, a separator, Hide/Hide Others, and Quit; plus a Window menu with Minimize and Close. Use `MenuItem::os_submenu` with `SystemMenuType` where the OS manages the contents (Services, Window).
+
+Note for later: standard edit commands must use `MenuItem::action` with an `os_action` of `OsAction::Cut/Copy/Paste/SelectAll` — custom actions will not drive a text field. Not needed now, since nothing accepts text input until search in stage 10, but the Edit menu should be added at the same time as that field or Cmd+C will silently do nothing inside it.
+
+`gpui-ce`'s `Menu` struct carries a `disabled` field that Zed's does not, so struct literals need it or use the `Menu::new` builder. Verify against the pinned checkout rather than Zed's docs.
+
 ## Fix the row to its in-context size
 
 The shipped row was built from the standalone `qKkw7` component, but both screens instantiate it with overrides: cover **52×52** (not 60) and Now Playing **330** wide (not 320). The instance is what the design actually shows, so adjust `playback_row.rs` to match. Verify the current override values in the file rather than trusting this note.
@@ -75,6 +87,7 @@ For this stage, bind everything to `theme.rs` tokens and treat the token as corr
 - `make verify` green: check, tests, clippy under `-D warnings`, fmt.
 - `make run`: the shell matches the design. Compare against a `get_screenshot` of `E3N1P` rather than judging from memory, and report divergences.
 - Clicking each nav item changes selection and body, with active styling following.
+- Cmd+Q quits, Cmd+W closes the window, Cmd+M minimizes, Cmd+H hides. The app menu appears in the menu bar with the app's name.
 - **Regression check, mandatory:** drop a real audio file and confirm it still plays, the row still updates, play/pause still toggles, and the progress bar still seeks. Any regression here is a must-fix, not a note.
 - Hardware validation on the Matrix Mini-i Pro 4 is unchanged and still outstanding from stage 7 — agents cannot verify sound.
 
