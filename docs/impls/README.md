@@ -12,6 +12,7 @@ Active notes:
 - [`0009-playback-row.md`](0009-playback-row.md) - stage 7 playback row MVP; implementation complete, physical Matrix hardware validation outstanding.
 - [`0010-app-shell.md`](0010-app-shell.md) - sidebar, top bar, and routed body; the chrome stages 8-13 drop into.
 - [`0011-output-device-management.md`](0011-output-device-management.md) - stage 8: device list, selection, and UID persistence through the Output Device Popover.
+- [`0012-library-scan-and-store.md`](0012-library-scan-and-store.md) - headless half of stages 9-10: storage roots, file scan, tag extraction, and the SQLite store. No UI.
 
 Archived notes:
 

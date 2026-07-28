@@ -178,3 +178,12 @@ Next: land this branch, close out the four checks above, then `0011` device mana
 
 - Jason confirmed the popover's device list is correct against his real hardware. This was the one check agents could not do at all — `pulse-cli devices` returns nothing inside the sandbox — so the live Core Audio enumeration path is now verified end to end.
 - Still open from stage 8: device switching by ear, persistence across relaunch, and the unplug/hog error paths. Still open since stage 6: the Matrix Mini-i Pro 4 hardware smoke.
+
+## 2026-07-28 — Stage 9-10 backend planned (impl 0012)
+
+- Wrote `0012-library-scan-and-store.md` covering the headless half of stages 9 and 10: storage roots, the file walk, tag extraction, and the SQLite store. The Storage screen stays out, still blocked on its Pencil passes.
+- **Placement decided: library code lives in `crates/pulse-app` as a `library/` module, not a new crate.** I had proposed a `pulse-library` crate; Jason pushed back and was right. `arch/pulse-engine.md` only requires it be outside the *playback engine*, `pulse-app` is the only consumer, `pulse-cli` exists to prove engine and playback behavior rather than library behavior, and `pulse-app` modules are unit-testable as stage 8's preferences parser already shows. Extract to a crate if and when a second consumer appears.
+- The realisation that unblocked this: only the Storage *screen* needs design. Scanning, tagging, and storing are headless, so they can be built and proven now — which also sidesteps the sandbox's inability to verify a GPUI window.
+- Decisions recorded in the note: `rusqlite` with the `bundled` feature so a packaged `.app` does not depend on the host's SQLite; hand-rolled `std::fs` walk over adding `walkdir` unless symlink loops prove fiddly; FTS5 deliberately deferred since it is an additive migration; scan history stored because the Storage screen shows it and it cannot be backfilled; incremental rescan keyed on modified time.
+- Testing follows the existing pattern — no binary fixtures anywhere in the repo, `pulse-engine` synthesizes buffers in memory. Store tests use `:memory:` SQLite, walk tests use temp dirs of empty files, and tag extraction generates a minimal WAV in-test.
+- Next: run 0012 as a mission. Blockers unchanged — Jason's Pencil passes gate the Storage screen, the Matrix hardware smoke is still open from stage 6, and the Storage panels' `#151514`/`#111110` still need re-tokenizing before stage 11.
