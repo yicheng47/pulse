@@ -8,6 +8,8 @@ pub enum EngineError {
     Io(#[from] std::io::Error),
     #[error("no Core Audio output device is available")]
     NoOutputDevice,
+    #[error("output device {0} advertises no supported PCM physical formats")]
+    NoOutputCapabilities(u32),
     #[error("device hogged by pid {0}")]
     Hogged(i32),
     #[error("no physical format matches {0:?}")]

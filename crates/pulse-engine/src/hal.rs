@@ -282,6 +282,16 @@ pub(crate) fn set_matching_physical_format(
     Err(EngineError::NoMatchingFormat(format))
 }
 
+pub(crate) fn output_device_capabilities(
+    device_id: AudioObjectID,
+) -> Result<Option<(u32, f64)>, EngineError> {
+    let mut formats = Vec::new();
+    for stream_id in output_streams(device_id)? {
+        formats.extend(available_physical_formats(stream_id)?);
+    }
+    Ok(maximum_physical_format_capabilities(&formats))
+}
+
 pub(crate) fn audio_buffer_list_channel_count(bytes: &[u8]) -> u32 {
     let Some(buffer_count) =
         read_unaligned::<u32>(bytes, mem::offset_of!(AudioBufferList, mNumberBuffers))
@@ -432,6 +442,39 @@ fn matching_physical_format(
     }
 
     Some(format)
+}
+
+fn maximum_physical_format_capabilities(
+    formats: &[AudioStreamRangedDescription],
+) -> Option<(u32, f64)> {
+    let mut maximum: Option<(u32, f64)> = None;
+
+    for ranged_format in formats {
+        let format = ranged_format.mFormat;
+        if format.mFormatID != kAudioFormatLinearPCM
+            || format.mFormatFlags & kAudioFormatFlagIsFloat != 0
+            || format.mFormatFlags & kAudioFormatFlagIsSignedInteger == 0
+        {
+            continue;
+        }
+
+        let sample_rate = format
+            .mSampleRate
+            .max(ranged_format.mSampleRateRange.mMaximum);
+        if format.mBitsPerChannel == 0 || !sample_rate.is_finite() || sample_rate <= 0.0 {
+            continue;
+        }
+
+        maximum = Some(match maximum {
+            Some((max_bits, max_rate)) => (
+                max_bits.max(format.mBitsPerChannel),
+                max_rate.max(sample_rate),
+            ),
+            None => (format.mBitsPerChannel, sample_rate),
+        });
+    }
+
+    maximum
 }
 
 fn set_physical_format(
@@ -614,6 +657,32 @@ mod tests {
         );
 
         assert!(matched.is_none());
+    }
+
+    #[test]
+    fn maximum_capabilities_pick_independent_pcm_bit_and_rate_maxima() {
+        let formats = [
+            ranged_format(
+                44_100.0,
+                44_100.0,
+                96_000.0,
+                32,
+                kAudioFormatFlagIsSignedInteger,
+            ),
+            ranged_format(
+                0.0,
+                44_100.0,
+                192_000.0,
+                24,
+                kAudioFormatFlagIsSignedInteger,
+            ),
+            ranged_format(384_000.0, 384_000.0, 384_000.0, 64, kAudioFormatFlagIsFloat),
+        ];
+
+        assert_eq!(
+            maximum_physical_format_capabilities(&formats),
+            Some((32, 192_000.0))
+        );
     }
 
     fn write_u32(bytes: &mut [u8], offset: usize, value: u32) {
