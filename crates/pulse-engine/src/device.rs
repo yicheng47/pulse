@@ -25,6 +25,12 @@ pub struct FormatValidation {
     pub physical_format: PhysicalFormat,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct OutputDeviceCapabilities {
+    pub max_bits_per_channel: u32,
+    pub max_sample_rate: f64,
+}
+
 #[derive(Debug, Clone)]
 pub struct PhysicalFormat {
     pub stream_id: DeviceId,
@@ -70,6 +76,20 @@ pub fn default_output_device() -> Result<Device, EngineError> {
         return Err(EngineError::NoOutputDevice);
     }
     device_from_id(id)
+}
+
+pub fn output_device_capabilities(
+    device_id: DeviceId,
+) -> Result<OutputDeviceCapabilities, EngineError> {
+    let Some((max_bits_per_channel, max_sample_rate)) = hal::output_device_capabilities(device_id)?
+    else {
+        return Err(EngineError::NoOutputCapabilities(device_id));
+    };
+
+    Ok(OutputDeviceCapabilities {
+        max_bits_per_channel,
+        max_sample_rate,
+    })
 }
 
 pub fn validate_output_format(

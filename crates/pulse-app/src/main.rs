@@ -1,6 +1,7 @@
 mod assets;
 mod menu;
 mod playback_row;
+mod preferences;
 mod shell;
 mod theme;
 

@@ -11,6 +11,9 @@ pub enum PlaybackEvent {
         position_ms: u64,
         duration_ms: Option<u64>,
     },
+    OutputDeviceChanged {
+        device_id: crate::device::DeviceId,
+    },
     Ended,
     CommandRejected {
         command: &'static str,

@@ -5,6 +5,7 @@ edition.workspace = true
 publish.workspace = true
 
 [dependencies]
+dirs.workspace = true
 gpui.workspace = true
 gpui_platform.workspace = true
 pulse-engine.workspace = true

@@ -12,13 +12,25 @@ use gpui::{
     svg,
 };
 use pulse_engine::{
-    PcmFormat, PlaybackCommand, PlaybackController, PlaybackEvent, PlaybackState, device,
+    EngineError, PcmFormat, PlaybackCommand, PlaybackController, PlaybackEvent, PlaybackState,
+    device,
 };
 
-use crate::theme;
+use crate::{preferences, theme};
 
 const EVENT_POLL_INTERVAL: Duration = Duration::from_millis(16);
 const SUPPORTED_EXTENSIONS: &[&str] = &["flac", "m4a", "aif", "aiff", "wav"];
+
+struct PendingDeviceChange {
+    device: device::Device,
+    persist: bool,
+    success_message: Option<DeviceMessage>,
+}
+
+struct DeviceMessage {
+    text: String,
+    is_error: bool,
+}
 
 pub struct PlaybackRow {
     controller: Option<PlaybackController>,
@@ -29,7 +41,13 @@ pub struct PlaybackRow {
     title: String,
     secondary: String,
     format: Option<PcmFormat>,
-    device_name: Option<String>,
+    devices: Vec<device::Device>,
+    active_device: Option<device::Device>,
+    device_capabilities: Option<device::OutputDeviceCapabilities>,
+    pending_device_change: Option<PendingDeviceChange>,
+    device_message: Option<DeviceMessage>,
+    output_popover_open: bool,
+    output_toggle_press_closed_popover: bool,
     position_ms: u64,
     duration_ms: Option<u64>,
     error: Option<String>,
@@ -40,6 +58,9 @@ pub struct PlaybackRow {
 
 impl PlaybackRow {
     pub fn new(cx: &mut Context<Self>) -> Self {
+        let mut row = Self::initial();
+        row.initialize_output();
+
         cx.spawn(async move |this, cx| {
             loop {
                 cx.background_executor().timer(EVENT_POLL_INTERVAL).await;
@@ -50,7 +71,7 @@ impl PlaybackRow {
         })
         .detach();
 
-        Self::initial()
+        row
     }
 
     fn initial() -> Self {
@@ -63,7 +84,13 @@ impl PlaybackRow {
             title: "No track loaded".to_string(),
             secondary: "Drop FLAC, ALAC, AIFF, or WAV".to_string(),
             format: None,
-            device_name: None,
+            devices: Vec::new(),
+            active_device: None,
+            device_capabilities: None,
+            pending_device_change: None,
+            device_message: None,
+            output_popover_open: false,
+            output_toggle_press_closed_popover: false,
             position_ms: 0,
             duration_ms: None,
             error: None,
@@ -71,6 +98,105 @@ impl PlaybackRow {
             scrubbing: false,
             scrub_fraction: None,
         }
+    }
+
+    fn initialize_output(&mut self) {
+        self.device_message = None;
+        let devices = match device::list_output_devices() {
+            Ok(devices) => devices,
+            Err(error) => {
+                self.device_message = Some(DeviceMessage {
+                    text: format!("Could not list output devices: {error}"),
+                    is_error: true,
+                });
+                return;
+            }
+        };
+        let system_default = match device::default_output_device() {
+            Ok(device) => device,
+            Err(error) => {
+                self.devices = devices;
+                self.device_message = Some(DeviceMessage {
+                    text: error.to_string(),
+                    is_error: true,
+                });
+                return;
+            }
+        };
+        let preferred_uid = match preferences::load_output_device_uid() {
+            Ok(uid) => uid,
+            Err(error) => {
+                self.device_message = Some(DeviceMessage {
+                    text: format!(
+                        "Could not read the saved output device. Using {}: {error}",
+                        system_default.name
+                    ),
+                    is_error: true,
+                });
+                None
+            }
+        };
+        let (active_device, saved_device_missing) =
+            resolve_output_device(&devices, &system_default, preferred_uid.as_deref());
+
+        self.devices = devices;
+        self.active_device = Some(active_device.clone());
+        if saved_device_missing {
+            self.device_message = Some(DeviceMessage {
+                text: format!(
+                    "Saved output device is unavailable. Using system default: {}.",
+                    active_device.name
+                ),
+                is_error: false,
+            });
+        }
+        self.update_device_capabilities(&active_device);
+        self.install_controller(active_device.id);
+    }
+
+    fn install_controller(&mut self, device_id: device::DeviceId) {
+        let controller = PlaybackController::spawn(device_id);
+        self.event_rx = Some(controller.subscribe());
+        self.command_tx = Some(controller.command_sender());
+        self.controller = Some(controller);
+    }
+
+    fn update_device_capabilities(&mut self, output_device: &device::Device) {
+        match device::output_device_capabilities(output_device.id) {
+            Ok(capabilities) => {
+                self.device_capabilities = Some(capabilities);
+            }
+            Err(EngineError::NoOutputCapabilities(_)) => {
+                self.device_capabilities = None;
+                self.append_device_message(DeviceMessage {
+                    text: format!(
+                        "{} does not advertise a signed-integer PCM physical format Pulse can use.",
+                        output_device.name
+                    ),
+                    is_error: false,
+                });
+            }
+            Err(error) => {
+                self.device_capabilities = None;
+                self.append_device_message(DeviceMessage {
+                    text: format!(
+                        "Could not query {} capabilities: {error}",
+                        output_device.name
+                    ),
+                    is_error: true,
+                });
+            }
+        }
+    }
+
+    fn append_device_message(&mut self, message: DeviceMessage) {
+        self.device_message = Some(match self.device_message.take() {
+            Some(current) => DeviceMessage {
+                text: format!("{} {}", current.text, message.text),
+                is_error: current.is_error || message.is_error,
+            },
+            None => message,
+        });
     }
 
     pub(crate) fn error(&self) -> Option<&str> {
@@ -108,19 +234,12 @@ impl PlaybackRow {
 
     fn play_file(&mut self, path: PathBuf, cx: &mut Context<Self>) {
         if self.controller.is_none() {
-            let output_device = match device::default_output_device() {
-                Ok(device) => device,
-                Err(error) => {
-                    self.error = Some(error.to_string());
-                    cx.notify();
-                    return;
-                }
-            };
-            let controller = PlaybackController::spawn(output_device.id);
-            self.event_rx = Some(controller.subscribe());
-            self.command_tx = Some(controller.command_sender());
-            self.device_name = Some(output_device.name);
-            self.controller = Some(controller);
+            self.initialize_output();
+            if self.controller.is_none() {
+                self.error = Some("No output device is available.".to_string());
+                cx.notify();
+                return;
+            }
         }
 
         self.send_command(PlaybackCommand::PlayFile { path }, cx);
@@ -197,6 +316,9 @@ impl PlaybackRow {
                 self.position_ms = position_ms;
                 self.duration_ms = duration_ms;
             }
+            PlaybackEvent::OutputDeviceChanged { device_id } => {
+                self.complete_output_device_change(device_id);
+            }
             PlaybackEvent::Ended => {
                 self.playback_state = PlaybackState::Ended;
                 if let Some(duration_ms) = self.duration_ms {
@@ -210,9 +332,155 @@ impl PlaybackRow {
                 ));
             }
             PlaybackEvent::Error { message } => {
+                if let Some(pending) = self.pending_device_change.take() {
+                    self.device_message = Some(DeviceMessage {
+                        text: format!("Could not switch to {}: {message}", pending.device.name),
+                        is_error: true,
+                    });
+                }
                 self.error = Some(message);
             }
         }
+    }
+
+    fn complete_output_device_change(&mut self, device_id: device::DeviceId) {
+        let Some(pending) = self.pending_device_change.take() else {
+            return;
+        };
+        if pending.device.id != device_id {
+            return;
+        }
+
+        let persist = pending.persist;
+        let output_device = self.apply_completed_output_device_change(pending);
+        self.update_device_capabilities(&output_device);
+
+        if persist && let Err(error) = preferences::save_output_device_uid(&output_device.uid) {
+            self.device_message = Some(DeviceMessage {
+                text: format!(
+                    "Could not save {} as the output device: {error}",
+                    output_device.name
+                ),
+                is_error: true,
+            });
+        }
+    }
+
+    fn apply_completed_output_device_change(
+        &mut self,
+        pending: PendingDeviceChange,
+    ) -> device::Device {
+        let output_device = pending.device;
+        self.active_device = Some(output_device.clone());
+        self.device_message = pending.success_message;
+        output_device
+    }
+
+    fn toggle_output_popover(&mut self, cx: &mut Context<Self>) {
+        self.output_popover_open = !self.output_popover_open;
+        if self.output_popover_open {
+            self.refresh_output_devices(cx);
+        }
+        cx.notify();
+    }
+
+    fn refresh_output_devices(&mut self, cx: &mut Context<Self>) {
+        let devices = match device::list_output_devices() {
+            Ok(devices) => devices,
+            Err(error) => {
+                self.device_message = Some(DeviceMessage {
+                    text: format!("Could not refresh output devices: {error}"),
+                    is_error: true,
+                });
+                return;
+            }
+        };
+
+        let Some(active_device) = self.active_device.clone() else {
+            self.initialize_output();
+            return;
+        };
+
+        if let Some(current_device) = devices
+            .iter()
+            .find(|device| device.uid == active_device.uid)
+            .cloned()
+        {
+            self.devices = devices;
+            if current_device.id != active_device.id {
+                self.request_output_device_change(current_device, false, None, cx);
+            } else {
+                self.active_device = Some(current_device.clone());
+                self.update_device_capabilities(&current_device);
+            }
+            return;
+        }
+
+        self.devices = devices;
+        let system_default = match device::default_output_device() {
+            Ok(device) => device,
+            Err(error) => {
+                self.device_message = Some(DeviceMessage {
+                    text: format!(
+                        "{} is no longer available, and no system default could be resolved: {error}",
+                        active_device.name
+                    ),
+                    is_error: true,
+                });
+                return;
+            }
+        };
+        let message = DeviceMessage {
+            text: format!(
+                "{} is no longer available. Using system default: {}.",
+                active_device.name, system_default.name
+            ),
+            is_error: false,
+        };
+        self.request_output_device_change(system_default, false, Some(message), cx);
+    }
+
+    fn select_output_device(&mut self, output_device: device::Device, cx: &mut Context<Self>) {
+        self.request_output_device_change(output_device, true, None, cx);
+    }
+
+    fn request_output_device_change(
+        &mut self,
+        output_device: device::Device,
+        persist: bool,
+        success_message: Option<DeviceMessage>,
+        cx: &mut Context<Self>,
+    ) {
+        if persist {
+            self.output_popover_open = false;
+        }
+        self.error = None;
+        self.device_message = None;
+        self.pending_device_change = Some(PendingDeviceChange {
+            device: output_device.clone(),
+            persist,
+            success_message,
+        });
+
+        let Some(command_tx) = &self.command_tx else {
+            self.install_controller(output_device.id);
+            self.complete_output_device_change(output_device.id);
+            cx.notify();
+            return;
+        };
+        if command_tx
+            .send(PlaybackCommand::SetOutputDevice {
+                device_id: output_device.id,
+            })
+            .is_err()
+        {
+            self.pending_device_change = None;
+            self.device_message = Some(DeviceMessage {
+                text: "Playback engine disconnected while changing output devices.".to_string(),
+                is_error: true,
+            });
+        }
+        cx.notify();
     }
 
     fn begin_scrub(&mut self, event: &MouseDownEvent, cx: &mut Context<Self>) {
@@ -445,7 +713,7 @@ impl PlaybackRow {
             )
     }
 
-    fn render_output(&self) -> impl IntoElement {
+    fn render_output(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let (quality, quality_color) = self
             .format
             .map(|format| {
@@ -455,13 +723,97 @@ impl PlaybackRow {
                 )
             })
             .unwrap_or_else(|| ("—".to_string(), theme::text_muted()));
-        let device = match (self.format, &self.device_name) {
+        let device = match (self.format, &self.active_device) {
             (Some(format), Some(device)) => {
-                format!("{} · {device}", format_sample_rate(format.sample_rate))
+                format!(
+                    "{} · {}",
+                    format_sample_rate(format.sample_rate),
+                    device.name
+                )
             }
-            (_, Some(device)) => device.clone(),
+            (_, Some(device)) => device.name.clone(),
             (_, None) => "No output selected".to_string(),
         };
+        let mut output_details = div()
+            .flex()
+            .flex_col()
+            .gap(px(3.))
+            .w(px(132.))
+            .child(
+                div()
+                    .font_family(theme::FONT_MONO)
+                    .font_weight(FontWeight::BOLD)
+                    .text_size(px(12.))
+                    .text_color(quality_color)
+                    .whitespace_nowrap()
+                    .child(quality),
+            )
+            .child(
+                div()
+                    .w_full()
+                    .font_family(theme::FONT_SANS)
+                    .text_size(px(12.))
+                    .text_color(theme::text_secondary())
+                    .overflow_hidden()
+                    .whitespace_nowrap()
+                    .child(device),
+            );
+        if let Some(message) = &self.device_message {
+            output_details = output_details.child(
+                div()
+                    .w_full()
+                    .font_family(theme::FONT_SANS)
+                    .text_size(px(10.))
+                    .text_color(if message.is_error {
+                        theme::danger()
+                    } else {
+                        theme::warning()
+                    })
+                    .overflow_hidden()
+                    .whitespace_nowrap()
+                    .child(message.text.clone()),
+            );
+        }
+
+        let mut speaker = div()
+            .id("output-device-toggle")
+            .relative()
+            .flex()
+            .items_center()
+            .justify_center()
+            .size(px(24.))
+            .flex_none()
+            .cursor_pointer()
+            .capture_any_mouse_down(cx.listener(|this, event: &MouseDownEvent, _, _| {
+                if event.button == MouseButton::Left {
+                    this.output_toggle_press_closed_popover = this.output_popover_open;
+                }
+            }))
+            .on_click(cx.listener(|this, _, _, cx| {
+                if std::mem::take(&mut this.output_toggle_press_closed_popover) {
+                    cx.notify();
+                    return;
+                }
+                this.toggle_output_popover(cx);
+            }))
+            .child(
+                svg().path("icons/speaker.svg").size(px(17.)).text_color(
+                    if self
+                        .device_message
+                        .as_ref()
+                        .is_some_and(|message| message.is_error)
+                    {
+                        theme::danger()
+                    } else if self.output_popover_open {
+                        theme::accent()
+                    } else {
+                        theme::text_secondary()
+                    },
+                ),
+            );
+        if self.output_popover_open {
+            speaker = speaker.child(self.render_output_popover(cx));
+        }
 
         div()
             .flex()
@@ -469,38 +821,8 @@ impl PlaybackRow {
             .justify_end()
             .gap(px(14.))
             .w(px(300.))
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap(px(3.))
-                    .w(px(132.))
-                    .child(
-                        div()
-                            .font_family(theme::FONT_MONO)
-                            .font_weight(FontWeight::BOLD)
-                            .text_size(px(12.))
-                            .text_color(quality_color)
-                            .whitespace_nowrap()
-                            .child(quality),
-                    )
-                    .child(
-                        div()
-                            .w_full()
-                            .font_family(theme::FONT_SANS)
-                            .text_size(px(12.))
-                            .text_color(theme::text_secondary())
-                            .overflow_hidden()
-                            .whitespace_nowrap()
-                            .child(device),
-                    ),
-            )
-            .child(
-                svg()
-                    .path("icons/speaker.svg")
-                    .size(px(17.))
-                    .text_color(theme::text_secondary()),
-            )
+            .child(output_details)
+            .child(speaker)
             .child(
                 div()
                     .relative()
@@ -543,6 +865,269 @@ impl PlaybackRow {
                     ),
             )
     }
+
+    fn render_output_popover(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let active_name = self
+            .active_device
+            .as_ref()
+            .map(|device| device.name.clone())
+            .unwrap_or_else(|| "No active output".to_string());
+        let capability = self
+            .device_capabilities
+            .map(format_device_capabilities)
+            .unwrap_or_else(|| "Capabilities unavailable".to_string());
+        let mut direct_devices = div().flex().flex_col().gap(px(2.)).w_full();
+        for (index, output_device) in self.devices.iter().cloned().enumerate() {
+            direct_devices =
+                direct_devices.child(self.render_output_device_row(output_device, index, cx));
+        }
+        if self.devices.is_empty() {
+            direct_devices = direct_devices.child(
+                div()
+                    .px(px(10.))
+                    .py(px(9.))
+                    .font_family(theme::FONT_SANS)
+                    .text_size(px(12.))
+                    .text_color(theme::text_muted())
+                    .child("No direct output devices found"),
+            );
+        }
+
+        let mut popover = div()
+            .id("output-device-popover")
+            .absolute()
+            .right(px(-52.))
+            .bottom(px(54.))
+            .flex()
+            .flex_col()
+            .gap(px(11.))
+            .w(px(360.))
+            .p(px(14.))
+            .rounded(px(theme::RADIUS_LG))
+            .border_1()
+            .border_color(theme::border())
+            .bg(theme::bg_surface())
+            .occlude()
+            .on_mouse_down_out(cx.listener(|this, _, _, cx| {
+                this.output_popover_open = false;
+                cx.notify();
+            }))
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .w_full()
+                    .child(
+                        div()
+                            .font_family(theme::FONT_DISPLAY)
+                            .font_weight(FontWeight::BOLD)
+                            .text_size(px(17.))
+                            .text_color(theme::text_primary())
+                            .child("Choose audio output"),
+                    )
+                    .child(
+                        svg()
+                            .path("icons/settings.svg")
+                            .size(px(16.))
+                            .text_color(theme::text_secondary()),
+                    ),
+            )
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(12.))
+                    .w_full()
+                    .p(px(12.))
+                    .rounded(px(theme::RADIUS_MD))
+                    .border_1()
+                    .border_color(theme::accent())
+                    .bg(theme::bg_inset())
+                    .child(
+                        svg()
+                            .path("icons/speaker.svg")
+                            .size(px(22.))
+                            .flex_none()
+                            .text_color(theme::accent()),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_1()
+                            .min_w_0()
+                            .flex_col()
+                            .gap(px(3.))
+                            .child(
+                                div()
+                                    .w_full()
+                                    .font_family(theme::FONT_DISPLAY)
+                                    .font_weight(FontWeight::BOLD)
+                                    .text_size(px(17.))
+                                    .text_color(theme::text_primary())
+                                    .overflow_hidden()
+                                    .whitespace_nowrap()
+                                    .child(active_name),
+                            )
+                            .child(
+                                div()
+                                    .w_full()
+                                    .font_family(theme::FONT_SANS)
+                                    .text_size(px(12.))
+                                    .text_color(theme::text_secondary())
+                                    .overflow_hidden()
+                                    .whitespace_nowrap()
+                                    .child("CoreAudio · Exclusive during playback"),
+                            )
+                            .child(
+                                div()
+                                    .w_full()
+                                    .font_family(theme::FONT_MONO)
+                                    .font_weight(FontWeight::BOLD)
+                                    .text_size(px(11.))
+                                    .text_color(if self.device_capabilities.is_some() {
+                                        theme::quality()
+                                    } else {
+                                        theme::warning()
+                                    })
+                                    .overflow_hidden()
+                                    .whitespace_nowrap()
+                                    .child(capability),
+                            ),
+                    )
+                    .when(self.active_device.is_some(), |card| {
+                        card.child(
+                            svg()
+                                .path("icons/check.svg")
+                                .size(px(18.))
+                                .flex_none()
+                                .text_color(theme::accent()),
+                        )
+                    }),
+            );
+
+        if let Some(message) = &self.device_message {
+            popover = popover.child(
+                div()
+                    .w_full()
+                    .font_family(theme::FONT_SANS)
+                    .text_size(px(11.))
+                    .text_color(if message.is_error {
+                        theme::danger()
+                    } else {
+                        theme::warning()
+                    })
+                    .child(message.text.clone()),
+            );
+        }
+
+        popover
+            .child(section_label("DIRECT DEVICES"))
+            .child(direct_devices)
+            .child(section_label("NETWORK DEVICES"))
+            .child(
+                div()
+                    .font_family(theme::FONT_SANS)
+                    .text_size(px(12.))
+                    .text_color(theme::text_muted())
+                    .child("No network devices found"),
+            )
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .w_full()
+                    .pt(px(12.))
+                    .pr(px(2.))
+                    .pb(px(2.))
+                    .pl(px(2.))
+                    .border_t_1()
+                    .border_color(theme::border())
+                    .child(
+                        div()
+                            .font_family(theme::FONT_DISPLAY)
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_size(px(14.))
+                            .text_color(theme::text_secondary())
+                            .child("Can't find your device?"),
+                    )
+                    .child(
+                        svg()
+                            .path("icons/log-in.svg")
+                            .size(px(16.))
+                            .text_color(theme::text_muted()),
+                    ),
+            )
+    }
+
+    fn render_output_device_row(
+        &self,
+        output_device: device::Device,
+        index: usize,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let selected = self
+            .active_device
+            .as_ref()
+            .is_some_and(|active| active.uid == output_device.uid);
+        let selected_device = output_device.clone();
+
+        div()
+            .id(("output-device", index))
+            .flex()
+            .items_center()
+            .gap(px(12.))
+            .w_full()
+            .px(px(10.))
+            .py(px(9.))
+            .rounded(px(theme::RADIUS_MD))
+            .when(selected, |row| {
+                row.border_1()
+                    .border_color(theme::accent())
+                    .bg(theme::accent_soft())
+            })
+            .cursor_pointer()
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.select_output_device(selected_device.clone(), cx);
+            }))
+            .child(
+                svg()
+                    .path("icons/speaker.svg")
+                    .size(px(18.))
+                    .flex_none()
+                    .text_color(if selected {
+                        theme::accent()
+                    } else {
+                        theme::text_muted()
+                    }),
+            )
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .font_family(theme::FONT_DISPLAY)
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_size(px(14.))
+                    .text_color(if selected {
+                        theme::text_primary()
+                    } else {
+                        theme::text_secondary()
+                    })
+                    .overflow_hidden()
+                    .whitespace_nowrap()
+                    .child(output_device.name),
+            )
+            .when(selected, |row| {
+                row.child(
+                    svg()
+                        .path("icons/check.svg")
+                        .size(px(16.))
+                        .flex_none()
+                        .text_color(theme::accent()),
+                )
+            })
+    }
 }
 
 impl Render for PlaybackRow {
@@ -561,8 +1146,39 @@ impl Render for PlaybackRow {
             .bg(theme::bg_surface())
             .child(self.render_now_playing())
             .child(self.render_transport(cx))
-            .child(self.render_output())
+            .child(self.render_output(cx))
     }
+}
+
+fn section_label(label: &'static str) -> impl IntoElement {
+    div()
+        .font_family(theme::FONT_MONO)
+        .font_weight(FontWeight::BOLD)
+        .text_size(px(10.))
+        .text_color(theme::text_muted())
+        .child(label)
+}
+
+fn resolve_output_device(
+    devices: &[device::Device],
+    system_default: &device::Device,
+    preferred_uid: Option<&str>,
+) -> (device::Device, bool) {
+    let Some(preferred_uid) = preferred_uid else {
+        return (system_default.clone(), false);
+    };
+    match devices.iter().find(|device| device.uid == preferred_uid) {
+        Some(device) => (device.clone(), false),
+        None => (system_default.clone(), true),
+    }
+}
+
+fn format_device_capabilities(capabilities: device::OutputDeviceCapabilities) -> String {
+    format!(
+        "Up to {}-bit / {}",
+        capabilities.max_bits_per_channel,
+        format_sample_rate(capabilities.max_sample_rate.round() as u32)
+    )
 }
 
 fn transport_icon(path: &'static str) -> impl IntoElement {
@@ -746,6 +1362,75 @@ mod tests {
     }
 
     #[test]
+    fn resolves_saved_output_by_uid_and_falls_back_visibly() {
+        let system_default = output_device(1, "built-in", "Mac Speakers");
+        let dac = output_device(9, "matrix", "mini-i Series");
+        let devices = vec![system_default.clone(), dac.clone()];
+
+        let (selected, missing) = resolve_output_device(&devices, &system_default, Some("matrix"));
+        assert_eq!(selected.id, dac.id);
+        assert!(!missing);
+
+        let (selected, missing) =
+            resolve_output_device(&devices, &system_default, Some("unplugged"));
+        assert_eq!(selected.id, system_default.id);
+        assert!(missing);
+    }
+
+    #[test]
+    fn formats_advertised_output_capabilities_without_playback_claims() {
+        assert_eq!(
+            format_device_capabilities(device::OutputDeviceCapabilities {
+                max_bits_per_channel: 24,
+                max_sample_rate: 192_000.0,
+            }),
+            "Up to 24-bit / 192 kHz"
+        );
+    }
+
+    #[test]
+    fn applies_a_confirmed_output_device_and_its_success_message() {
+        let mut row = PlaybackRow::initial();
+        let selected = output_device(9, "matrix", "mini-i Series");
+
+        let applied = row.apply_completed_output_device_change(PendingDeviceChange {
+            device: selected.clone(),
+            persist: false,
+            success_message: Some(DeviceMessage {
+                text: "Using the system default.".to_string(),
+                is_error: false,
+            }),
+        });
+
+        assert_eq!(applied.id, selected.id);
+        assert_eq!(row.active_device.as_ref().unwrap().uid, selected.uid);
+        assert_eq!(
+            row.device_message.as_ref().unwrap().text,
+            "Using the system default."
+        );
+    }
+
+    #[test]
+    fn attributes_a_device_change_error_and_clears_the_pending_change() {
+        let mut row = PlaybackRow::initial();
+        row.pending_device_change = Some(PendingDeviceChange {
+            device: output_device(9, "matrix", "mini-i Series"),
+            persist: false,
+            success_message: None,
+        });
+
+        row.handle_event(PlaybackEvent::Error {
+            message: "device hogged by pid 42".to_string(),
+        });
+
+        assert!(row.pending_device_change.is_none());
+        assert_eq!(
+            row.device_message.as_ref().unwrap().text,
+            "Could not switch to mini-i Series: device hogged by pid 42"
+        );
+    }
+
+    #[test]
     fn derives_row_state_from_playback_events() {
         let mut row = PlaybackRow::initial();
         row.error = Some("old error".to_string());
@@ -797,5 +1482,13 @@ mod tests {
                 path: PathBuf::from("/Music/track.flac")
             })
         );
+    }
+
+    fn output_device(id: device::DeviceId, uid: &str, name: &str) -> device::Device {
+        device::Device {
+            id,
+            uid: uid.to_string(),
+            name: name.to_string(),
+        }
     }
 }

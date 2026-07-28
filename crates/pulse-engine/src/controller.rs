@@ -357,6 +357,7 @@ impl Worker {
 
     fn set_output_device(&mut self, device_id: DeviceId) -> Result<(), EngineError> {
         if self.output_device == device_id {
+            self.broadcast(PlaybackEvent::OutputDeviceChanged { device_id });
             return Ok(());
         }
 
@@ -365,8 +366,14 @@ impl Worker {
             let path = self.current_path()?;
             self.set_state(PlaybackState::Loading);
             self.release_backend()?;
+            let previous_device = self.output_device;
             self.output_device = device_id;
-            return self.start_path(&path, position_ms, false, true);
+            if let Err(error) = self.start_path(&path, position_ms, false, true) {
+                self.output_device = previous_device;
+                return Err(error);
+            }
+            self.broadcast(PlaybackEvent::OutputDeviceChanged { device_id });
+            return Ok(());
         }
 
         if self.state == PlaybackState::Paused {
@@ -374,6 +381,7 @@ impl Worker {
         }
 
         self.output_device = device_id;
+        self.broadcast(PlaybackEvent::OutputDeviceChanged { device_id });
         Ok(())
     }
 
@@ -929,6 +937,10 @@ mod tests {
         wait_for(&events, |event| {
             *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
         });
+        assert_eq!(
+            events.recv_timeout(Duration::from_secs(1)).unwrap(),
+            PlaybackEvent::OutputDeviceChanged { device_id: 9 }
+        );
 
         let log = log.lock().unwrap();
         assert_eq!(log.opened_devices, [7, 9]);
@@ -1090,8 +1102,18 @@ mod tests {
                 message: "device hogged by pid 42".to_string()
             }
         );
+
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+
         let log = log.lock().unwrap();
-        assert_eq!(log.opened_devices, [7, 9]);
+        assert_eq!(log.opened_devices, [7, 9, 7]);
         assert_eq!(log.stops, 1);
     }
 
