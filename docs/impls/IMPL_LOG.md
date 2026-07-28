@@ -149,3 +149,10 @@ Decisions left open, none blocking: whether to add a regression guard for the `f
 Housekeeping: `git worktree list` reports `/private/tmp/pulse-review-pr3-dc634a2` as `prunable`, left over from an earlier PR-3 review and unrelated to this work. `git worktree prune` clears the stale registration.
 
 Next: land this branch, close out the four checks above, then `0011` device management. Still-standing blockers beyond those: the Pencil re-tokenize pass for the Storage panels' `#151514`/`#111110` before stage 11, and the stage 9 design passes for the Add Storage flow.
+
+## 2026-07-27 — Stage 7.5 merged (session close)
+
+- Branch committed (`73eedbf`) and merged to `main` as `e6fd6a4`. `make verify` green on the merge result at 34 tests; CI green on a clean machine, including the `Cargo.lock` check that guards the `font-kit` manifest change.
+- Jason ran the shell and confirmed it looks right — the first look with text actually rendering. The remaining interaction checks (nav click-through, Cmd shortcuts, and the drop-to-play regression) were not walked through and stay open.
+- Correction recorded against the stage 7 entry above: the claim that GPUI's offscreen renderer omits text "but the live window renders text normally" was wrong. The live window never rendered text either; the offscreen result had been showing the truth and was explained away as a tooling limit.
+- Next session: `0011` device management. Carried blockers unchanged — Jason's hardware smoke on the Matrix Mini-i Pro 4 (open since stage 6), the Pencil re-tokenize pass before stage 11, and the stage 9 design passes for the Add Storage flow, scan progress, and failure states.
