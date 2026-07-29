@@ -1,4 +1,5 @@
 mod assets;
+pub mod library;
 mod menu;
 mod playback_row;
 mod preferences;

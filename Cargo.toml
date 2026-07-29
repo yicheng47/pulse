@@ -19,6 +19,10 @@ symphonia = { version = "0.5", default-features = false, features = ["flac", "al
 rtrb = "0.3"
 realfft = "3"
 thiserror = "2"
+libc = "0.2"
+lofty = "0.24"
+rusqlite = { version = "0.40", default-features = false, features = ["bundled"] }
+unicode-normalization = "0.1"
 
 gpui = { git = "https://github.com/gpui-ce/gpui-ce", rev = "6c799b8e99" }
 # `font-kit` is off by default in gpui_platform, and without it MacPlatform
@@ -30,3 +34,4 @@ anyhow = "1"
 dirs = "6"
 serde = { version = "1", features = ["derive"] }
 toml = "0.8"
+tempfile = "3"

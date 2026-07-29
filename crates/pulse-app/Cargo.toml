@@ -8,4 +8,12 @@ publish.workspace = true
 dirs.workspace = true
 gpui.workspace = true
 gpui_platform.workspace = true
+libc.workspace = true
+lofty.workspace = true
 pulse-engine.workspace = true
+rusqlite.workspace = true
+thiserror.workspace = true
+unicode-normalization.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
