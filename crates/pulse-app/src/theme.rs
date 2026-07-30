@@ -4,7 +4,7 @@
 // Neon"). Magenta is interactive/action, purple is navigation/informational,
 // lime is signal/quality readouts, greys are everything else.
 
-use gpui::{Rgba, rgb};
+use gpui::{Rgba, rgb, rgba};
 
 pub fn bg_inset() -> Rgba {
     rgb(0x0a0a0a)
@@ -16,6 +16,10 @@ pub fn bg_page() -> Rgba {
 
 pub fn bg_surface() -> Rgba {
     rgb(0x161615)
+}
+
+pub fn bg_surface_alt() -> Rgba {
+    rgb(0x111110)
 }
 
 pub fn bg_muted() -> Rgba {
@@ -46,6 +50,10 @@ pub fn accent_soft() -> Rgba {
     rgb(0x2a0e1c)
 }
 
+pub fn bg_selected() -> Rgba {
+    rgb(0x1a1117)
+}
+
 pub fn primary() -> Rgba {
     rgb(0xb15cff)
 }
@@ -66,6 +74,14 @@ pub fn quality() -> Rgba {
     rgb(0x9de23a)
 }
 
+pub fn quality_soft() -> Rgba {
+    rgb(0x111a0b)
+}
+
+pub fn quality_border() -> Rgba {
+    rgb(0x4f7b22)
+}
+
 pub fn meter() -> Rgba {
     rgb(0x9de23a)
 }
@@ -76,6 +92,14 @@ pub fn info() -> Rgba {
 
 pub fn danger() -> Rgba {
     rgb(0xff4d6d)
+}
+
+pub fn danger_soft() -> Rgba {
+    rgb(0x2a1016)
+}
+
+pub fn scrim() -> Rgba {
+    rgba(0x0a0a0acc)
 }
 
 pub fn warning() -> Rgba {

@@ -17,6 +17,20 @@ pub fn save_output_device_uid(uid: &str) -> io::Result<()> {
     fs::write(path, uid)
 }
 
+pub fn library_database_path() -> io::Result<PathBuf> {
+    Ok(app_data_directory()?.join("library.sqlite"))
+}
+
+pub fn cover_cache_directory() -> io::Result<PathBuf> {
+    Ok(app_data_directory()?.join("covers"))
+}
+
+fn app_data_directory() -> io::Result<PathBuf> {
+    dirs::data_dir()
+        .map(|path| path.join("pulse"))
+        .ok_or_else(|| io::Error::other("could not determine the app data directory"))
+}
+
 fn output_device_uid_path() -> io::Result<PathBuf> {
     dirs::config_dir()
         .map(|path| path.join("pulse").join("app-output-device.uid"))
@@ -49,6 +63,24 @@ mod tests {
                 .file_name()
                 .and_then(|name| name.to_str()),
             Some("app-output-device.uid")
+        );
+    }
+
+    #[test]
+    fn library_files_share_the_app_data_directory() {
+        assert_eq!(
+            library_database_path()
+                .unwrap()
+                .file_name()
+                .and_then(|name| name.to_str()),
+            Some("library.sqlite")
+        );
+        assert_eq!(
+            cover_cache_directory()
+                .unwrap()
+                .file_name()
+                .and_then(|name| name.to_str()),
+            Some("covers")
         );
     }
 }

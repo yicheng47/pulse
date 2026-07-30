@@ -16,10 +16,13 @@ use store::{
     update_track_path, upsert_track,
 };
 use thiserror::Error;
-use walk::walk_music_files;
+use walk::walk_music_files_until;
 
 pub type StorageRootId = i64;
 pub type TrackId = i64;
+
+pub const UNKNOWN_ALBUM: &str = "Unknown Album";
+pub const UNKNOWN_ARTIST: &str = "Unknown Artist";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StorageRoot {
@@ -41,6 +44,8 @@ pub struct Track {
     pub artist: Option<String>,
     pub album: Option<String>,
     pub album_artist: Option<String>,
+    pub year: Option<u32>,
+    pub genre: Option<String>,
     pub track_number: Option<u32>,
     pub disc_number: Option<u32>,
     pub duration_ms: Option<i64>,
@@ -53,6 +58,41 @@ pub struct Track {
     pub cover_art_mime_type: Option<String>,
     pub added_at_ms: i64,
     pub updated_at_ms: i64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Album {
+    pub title: String,
+    pub artist: String,
+    pub year: Option<u32>,
+    pub track_count: u64,
+    pub total_duration_ms: u64,
+    pub max_sample_rate_hz: Option<u32>,
+    pub max_bit_depth: Option<u8>,
+    pub cover_art_path: Option<PathBuf>,
+    pub latest_added_at_ms: i64,
+    pub genres: Vec<String>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum AlbumSortOrder {
+    #[default]
+    Title,
+    Artist,
+    DateAdded,
+    ReleaseYear,
+    Duration,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum TrackSortOrder {
+    #[default]
+    Title,
+    Artist,
+    Album,
+    DateAdded,
+    ReleaseYear,
+    Duration,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -187,10 +227,51 @@ pub fn scan_storage_root<F>(
     store: &mut LibraryStore,
     storage_root_id: StorageRootId,
     cover_cache_directory: impl AsRef<Path>,
-    mut on_progress: F,
+    on_progress: F,
 ) -> Result<ScanReport, LibraryError>
 where
     F: FnMut(ScanProgress),
+{
+    scan_storage_root_until(
+        store,
+        storage_root_id,
+        cover_cache_directory,
+        on_progress,
+        || false,
+    )
+    .map(|report| report.expect("non-cancellable scan cannot be cancelled"))
+}
+
+pub(crate) fn scan_storage_root_cancellable<F, C>(
+    store: &mut LibraryStore,
+    storage_root_id: StorageRootId,
+    cover_cache_directory: impl AsRef<Path>,
+    on_progress: F,
+    is_cancelled: C,
+) -> Result<Option<ScanReport>, LibraryError>
+where
+    F: FnMut(ScanProgress),
+    C: FnMut() -> bool,
+{
+    scan_storage_root_until(
+        store,
+        storage_root_id,
+        cover_cache_directory,
+        on_progress,
+        is_cancelled,
+    )
+}
+
+fn scan_storage_root_until<F, C>(
+    store: &mut LibraryStore,
+    storage_root_id: StorageRootId,
+    cover_cache_directory: impl AsRef<Path>,
+    mut on_progress: F,
+    mut is_cancelled: C,
+) -> Result<Option<ScanReport>, LibraryError>
+where
+    F: FnMut(ScanProgress),
+    C: FnMut() -> bool,
 {
     let root = store
         .storage_root(storage_root_id)?
@@ -203,7 +284,7 @@ where
         current_path: root.path.clone(),
     });
 
-    let walk = match walk_music_files(
+    let walk = match walk_music_files_until(
         &root.path,
         root.is_case_sensitive,
         |discovered_files, current_path| {
@@ -212,8 +293,13 @@ where
                 current_path: current_path.to_path_buf(),
             });
         },
+        &mut is_cancelled,
     ) {
-        Ok(walk) => walk,
+        Ok(Some(walk)) => walk,
+        Ok(None) => {
+            store.cancel_scan(scan_id)?;
+            return Ok(None);
+        }
         Err(error) => {
             return finish_offline_scan(
                 store,
@@ -222,40 +308,43 @@ where
                 started_at_ms,
                 error,
                 &mut on_progress,
-            );
+            )
+            .map(Some);
         }
     };
 
     if let Err(error) = store.mark_root_reachable(storage_root_id) {
-        return finish_fatal_scan(store, scan_id, &root, error, &mut on_progress);
+        return finish_fatal_scan(store, scan_id, &root, error, &mut on_progress).map(Some);
     }
 
     match apply_reachable_scan(
         store,
-        scan_id,
+        (scan_id, started_at_ms),
         &root,
-        started_at_ms,
         walk,
         cover_cache_directory.as_ref(),
         &mut on_progress,
+        &mut is_cancelled,
     ) {
         Ok(report) => Ok(report),
-        Err(error) => finish_fatal_scan(store, scan_id, &root, error, &mut on_progress),
+        Err(error) => finish_fatal_scan(store, scan_id, &root, error, &mut on_progress).map(Some),
     }
 }
 
-fn apply_reachable_scan<F>(
+fn apply_reachable_scan<F, C>(
     store: &mut LibraryStore,
-    scan_id: i64,
+    scan: (i64, i64),
     root: &StorageRoot,
-    started_at_ms: i64,
     walk: walk::WalkResult,
     cover_cache_directory: &Path,
     on_progress: &mut F,
-) -> Result<ScanReport, LibraryError>
+    is_cancelled: &mut C,
+) -> Result<Option<ScanReport>, LibraryError>
 where
     F: FnMut(ScanProgress),
+    C: FnMut() -> bool,
 {
+    let (scan_id, started_at_ms) = scan;
     let existing = store.existing_tracks(root.id)?;
     let seen = walk
         .files
@@ -279,6 +368,10 @@ where
     let mut skipped = 0;
 
     for (index, file) in walk.files.into_iter().enumerate() {
+        if is_cancelled() {
+            store.cancel_scan(scan_id)?;
+            return Ok(None);
+        }
         let current = existing.get(&file.path_key);
         let now_ms = system_time_ms(SystemTime::now())?;
         let mut action = ScanProgressAction::Skipped;
@@ -386,6 +479,11 @@ where
         });
     }
 
+    if is_cancelled() {
+        store.cancel_scan(scan_id)?;
+        return Ok(None);
+    }
+
     if !removals_suppressed {
         let missing = existing
             .iter()
@@ -451,7 +549,7 @@ where
         outcome,
     };
     on_progress(finished_progress(&report));
-    Ok(report)
+    Ok(Some(report))
 }
 
 fn cache_artwork(
@@ -614,6 +712,7 @@ fn system_time_units(time: SystemTime, units_per_second: u128) -> Result<i64, Li
 #[cfg(test)]
 mod tests {
     use std::{
+        cell::Cell,
         env, fs,
         time::{Duration, Instant},
     };
@@ -692,6 +791,140 @@ mod tests {
         assert_eq!(
             store.recent_scans(root.id, 1).unwrap()[0].outcome,
             Some(ScanOutcome::Offline)
+        );
+    }
+
+    #[test]
+    fn cancellation_keeps_partial_commits_without_recording_a_failed_scan() {
+        let temp = tempdir().unwrap();
+        let music = temp.path().join("music");
+        fs::create_dir(&music).unwrap();
+        metadata::write_test_wav(&music.join("first.wav"), "First", "Artist", "Album").unwrap();
+        metadata::write_test_wav(&music.join("second.wav"), "Second", "Artist", "Album").unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(&music, "Music").unwrap();
+        let cancelled = Cell::new(false);
+
+        let report = scan_storage_root_cancellable(
+            &mut store,
+            root.id,
+            temp.path().join("covers"),
+            |progress| {
+                if matches!(progress, ScanProgress::Processing { .. }) {
+                    cancelled.set(true);
+                }
+            },
+            || cancelled.get(),
+        )
+        .unwrap();
+
+        assert!(report.is_none());
+        assert_eq!(store.tracks_for_root(root.id).unwrap().len(), 1);
+        assert!(store.recent_scans(root.id, 1).unwrap().is_empty());
+    }
+
+    #[test]
+    #[ignore = "agent-runnable Stage 11 library proof; run with --ignored --nocapture"]
+    fn stage_11_library_ui_proof() {
+        use crate::library_ui::view_model::root_row_state;
+
+        let temp = tempdir().unwrap();
+        let database_path = temp.path().join("library.sqlite");
+        let music = temp.path().join("music");
+        let offline_music = temp.path().join("offline-music");
+        fs::create_dir(&music).unwrap();
+        fs::create_dir(&offline_music).unwrap();
+        metadata::write_test_wav(
+            &music.join("02-second.wav"),
+            "Second",
+            "Proof Artist",
+            "Proof Album",
+        )
+        .unwrap();
+        metadata::write_test_wav(
+            &music.join("01-first.wav"),
+            "First",
+            "Proof Artist",
+            "Proof Album",
+        )
+        .unwrap();
+        metadata::write_test_wav(
+            &offline_music.join("offline.wav"),
+            "Offline",
+            "Other Artist",
+            "Other Album",
+        )
+        .unwrap();
+
+        let mut store = LibraryStore::open(&database_path).unwrap();
+        let music_root = store.add_storage_root(&music, "Music").unwrap();
+        let offline_root = store
+            .add_storage_root(&offline_music, "Offline Music")
+            .unwrap();
+        scan_storage_root(
+            &mut store,
+            music_root.id,
+            temp.path().join("covers"),
+            |_| {},
+        )
+        .unwrap();
+        scan_storage_root(
+            &mut store,
+            offline_root.id,
+            temp.path().join("covers"),
+            |_| {},
+        )
+        .unwrap();
+        fs::rename(&offline_music, temp.path().join("disconnected-music")).unwrap();
+        scan_storage_root(
+            &mut store,
+            offline_root.id,
+            temp.path().join("covers"),
+            |_| {},
+        )
+        .unwrap();
+        drop(store);
+
+        let store = LibraryStore::open(&database_path).unwrap();
+        let albums = store.albums(AlbumSortOrder::Title).unwrap();
+        println!("album count: {}", albums.len());
+        let proof_album = albums
+            .iter()
+            .find(|album| album.title == "Proof Album")
+            .unwrap();
+        let ordered_tracks = store
+            .tracks_for_album(&proof_album.artist, &proof_album.title)
+            .unwrap();
+        println!(
+            "ordered tracks for {} / {}:",
+            proof_album.artist, proof_album.title
+        );
+        for track in &ordered_tracks {
+            println!(
+                "  disc={:?} track={:?} title={} path={}",
+                track.disc_number,
+                track.track_number,
+                track.title.as_deref().unwrap_or("Untitled"),
+                track.path.display()
+            );
+        }
+        for root in store.storage_roots().unwrap() {
+            let latest = store.recent_scans(root.id, 1).unwrap().into_iter().next();
+            println!(
+                "root {}: {:?}",
+                root.display_name,
+                root_row_state(&root, latest.as_ref(), false)
+            );
+        }
+
+        assert_eq!(albums.len(), 2);
+        assert_eq!(ordered_tracks.len(), 2);
+        assert!(
+            !store
+                .storage_root(offline_root.id)
+                .unwrap()
+                .unwrap()
+                .is_reachable
         );
     }
 
@@ -786,9 +1019,8 @@ mod tests {
 
         let report = apply_reachable_scan(
             &mut store,
-            scan_id,
+            (scan_id, started_at_ms),
             &root,
-            started_at_ms,
             walk::WalkResult {
                 files: Vec::new(),
                 errors: vec![walk::WalkError {
@@ -798,7 +1030,9 @@ mod tests {
             },
             &temp.path().join("covers"),
             &mut |_| {},
+            &mut || false,
         )
+        .unwrap()
         .unwrap();
 
         assert!(report.removals_suppressed);

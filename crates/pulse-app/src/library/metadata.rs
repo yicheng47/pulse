@@ -26,6 +26,8 @@ pub(super) struct AudioMetadata {
     pub artist: Option<String>,
     pub album: Option<String>,
     pub album_artist: Option<String>,
+    pub year: Option<u32>,
+    pub genre: Option<String>,
     pub track_number: Option<u32>,
     pub disc_number: Option<u32>,
     pub duration_ms: Option<i64>,
@@ -66,6 +68,10 @@ pub(super) fn extract_metadata(path: &Path) -> Result<AudioMetadata, MetadataErr
         artist: tag_text(&tagged_file, ItemKey::TrackArtist),
         album: tag_text(&tagged_file, ItemKey::AlbumTitle),
         album_artist: tag_text(&tagged_file, ItemKey::AlbumArtist),
+        year: tags_in_priority_order(&tagged_file)
+            .find_map(Accessor::date)
+            .map(|date| u32::from(date.year)),
+        genre: tag_text(&tagged_file, ItemKey::Genre),
         track_number: tags_in_priority_order(&tagged_file).find_map(Accessor::track),
         disc_number: tags_in_priority_order(&tagged_file).find_map(Accessor::disk),
         duration_ms,
@@ -215,6 +221,8 @@ pub(super) fn write_test_wav_with_format(
     push_info_item(&mut info, b"INAM", title);
     push_info_item(&mut info, b"IART", artist);
     push_info_item(&mut info, b"IPRD", album);
+    push_info_item(&mut info, b"ICRD", "2024");
+    push_info_item(&mut info, b"IGNR", "Electronic");
     push_info_item(&mut info, b"ITRK", "7");
     push_riff_chunk(&mut wave, b"LIST", &info);
 
@@ -280,6 +288,8 @@ mod tests {
         assert_eq!(metadata.title.as_deref(), Some("Test Title"));
         assert_eq!(metadata.artist.as_deref(), Some("Test Artist"));
         assert_eq!(metadata.album.as_deref(), Some("Test Album"));
+        assert_eq!(metadata.year, Some(2024));
+        assert_eq!(metadata.genre.as_deref(), Some("Electronic"));
         assert_eq!(metadata.track_number, Some(7));
         assert_eq!(metadata.sample_rate_hz, Some(44_100));
         assert_eq!(metadata.bit_depth, Some(16));
