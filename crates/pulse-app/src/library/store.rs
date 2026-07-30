@@ -304,14 +304,17 @@ impl LibraryStore {
                         year, duration_ms, sample_rate_hz, bit_depth, cover_art_path, added_at_ms
                  FROM tracks
              )
-             SELECT album_title, album_owner, MIN(year), COUNT(*),
-                    COALESCE(SUM(duration_ms), 0), MAX(sample_rate_hz), MAX(bit_depth),
+             SELECT album_title, album_owner, MIN(year) AS album_year,
+                    COUNT(*) AS track_count,
+                    COALESCE(SUM(duration_ms), 0) AS total_duration_ms,
+                    MAX(sample_rate_hz) AS max_sample_rate_hz,
+                    MAX(bit_depth) AS max_bit_depth,
                     substr(MIN(
                         CASE WHEN cover_art_path IS NOT NULL
                              THEN printf('%020lld%s', id, cover_art_path)
                         END
-                    ), 21),
-                    MAX(added_at_ms)
+                    ), 21) AS cover_art_path,
+                    MAX(added_at_ms) AS latest_added_at_ms
              FROM normalized
              GROUP BY album_owner, album_title
              ORDER BY {order_by}"
@@ -1105,6 +1108,69 @@ mod tests {
         assert!(albums[1].cover_art_path.is_none());
         assert_ne!(first, second);
         assert_eq!(store.genres().unwrap(), ["Electronic"]);
+    }
+
+    #[test]
+    fn albums_implements_every_mvp_sort_order() {
+        let temp = tempdir().unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let mut beta = test_metadata("Track B", "Alpha", Some("Beta"), None);
+        beta.year = Some(2020);
+        beta.duration_ms = Some(3_000);
+        let beta_id = insert_track(
+            &mut store,
+            &root,
+            &test_file(&root, "beta.wav", 1, 10),
+            &beta,
+        );
+        let mut alpha = test_metadata("Track A", "Zulu", Some("Alpha"), None);
+        alpha.year = Some(2024);
+        alpha.duration_ms = Some(1_000);
+        let alpha_id = insert_track(
+            &mut store,
+            &root,
+            &test_file(&root, "alpha.wav", 2, 10),
+            &alpha,
+        );
+        store
+            .connection
+            .execute(
+                "UPDATE tracks
+                 SET added_at_ms = CASE id WHEN ?1 THEN 100 WHEN ?2 THEN 200 END",
+                params![beta_id, alpha_id],
+            )
+            .unwrap();
+
+        let titles = |sort_order| {
+            store
+                .albums(sort_order)
+                .unwrap()
+                .into_iter()
+                .map(|album| album.title)
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(
+            titles(AlbumSortOrder::Title),
+            ["Alpha".to_string(), "Beta".to_string()]
+        );
+        assert_eq!(
+            titles(AlbumSortOrder::Artist),
+            ["Beta".to_string(), "Alpha".to_string()]
+        );
+        assert_eq!(
+            titles(AlbumSortOrder::DateAdded),
+            ["Alpha".to_string(), "Beta".to_string()]
+        );
+        assert_eq!(
+            titles(AlbumSortOrder::ReleaseYear),
+            ["Alpha".to_string(), "Beta".to_string()]
+        );
+        assert_eq!(
+            titles(AlbumSortOrder::Duration),
+            ["Beta".to_string(), "Alpha".to_string()]
+        );
     }
 
     #[test]
