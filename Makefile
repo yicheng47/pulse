@@ -1,4 +1,4 @@
-.PHONY: build release run check test clippy fmt fmt-check verify
+.PHONY: build release run check test clippy fmt fmt-check verify clean-rust-stale
 
 build:
 	cargo build --workspace
@@ -25,3 +25,8 @@ fmt-check:
 	cargo fmt --all --check
 
 verify: check test clippy fmt-check
+
+# Drop accumulated dev generations of the workspace crates, keeping
+# dependency artifacts warm
+clean-rust-stale:
+	cargo clean -p pulse-app -p pulse-engine -p pulse-cli --profile dev
