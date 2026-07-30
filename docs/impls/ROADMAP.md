@@ -24,6 +24,10 @@ Each stage should have a focused implementation note once work starts. A stage i
 | 3 | [`archive/0003-auhal-playback.md`](archive/0003-auhal-playback.md) | Switched playback to AUHAL and produced clean native-rate playback on the Matrix DAC. |
 | 4 | [`archive/0004-cli-config.md`](archive/0004-cli-config.md) | Added UID-backed CLI default output config for repeatable harness use. |
 | 6 | [`archive/0006-playback-controller.md`](archive/0006-playback-controller.md) | Added the UI-agnostic `PlaybackController` with play/pause/resume/seek/stop, events, and CLI smoke commands. Hardware smoke on the Matrix DAC still needs a manual pass. |
+| 7 | [`0009-playback-row.md`](0009-playback-row.md) | Native GPUI playback row: theme, embedded assets, window-wide drop-to-play, play/pause, drag-to-seek. Matrix hardware smoke still open. |
+| 7.5 | [`0010-app-shell.md`](0010-app-shell.md) | App chrome merged: sidebar, top bar, routed body, docked playback row, macOS menu. Includes the P1 `font-kit` fix. Nav/shortcut/drop manual checks still open. |
+| 8 | [`0011-output-device-management.md`](0011-output-device-management.md) | Output Device Popover merged (PR #8): live enumeration, UID persistence, capability line, failure fallbacks. Device list verified against real hardware; by-ear and unplug/hog checks still open. |
+| 9-10 | [`0012-library-scan-and-store.md`](0012-library-scan-and-store.md) | Merged as PR #9. Headless `pulse-app::library`: storage roots, incremental scanner with progress, Lofty tag/cover extraction, SQLite store. Measured on the real NAS: 4,904 tracks, 7.9× incremental speedup, zero errors. The Storage screen itself is stage 11. |
 
 ## In Progress
 
@@ -35,18 +39,13 @@ Each stage should have a focused implementation note once work starts. A stage i
 
 | Stage | Impl Note | Goal | Boundary |
 |-------|-----------|------|----------|
-| 7 | [`0009-playback-row.md`](0009-playback-row.md) | Implemented: native GPUI app shell, Pencil-derived theme and embedded assets, window-wide file drop, playback row, app-owned controller state, play/pause, and drag-to-seek. Remaining: manual validation on the physical Matrix Mini-i Pro 4. | No command/IPC layer. No library scanner, SQLite, or other library surfaces in this stage. |
+| 11 | [`0013-library-ui.md`](0013-library-ui.md) | Implement the MVP library UI over the 0012 backend. | Read-mostly UI plus storage management. No queue/playlist wiring (stage 12), no search implementation (popover designed, deferred), no loading/failure hardening beyond the designed states (stage 13). |
 
 ## MVP Path
 
 | Stage | Impl Note | Goal | Notes |
 |-------|-----------|------|-------|
-| 7.5 | [`0010-app-shell.md`](0010-app-shell.md) | Build the shared app chrome. | Sidebar navigation, top bar, routed body, docked playback row. Prerequisite for stages 8-13 — device management and Storage have nowhere to live until it exists. Must not regress drop-to-play. |
-| 8 | [`0011-output-device-management.md`](0011-output-device-management.md) | Implement output-device settings. | List devices, select the Pulse output device, persist by Core Audio UID, surface unavailable/hogged-device errors, and show active output in the playback row. Delivered through the Output Device Popover; the Devices page is not designed yet. Needs a narrow capability query added to `pulse-engine`. |
-| 9 | [`0012-library-scan-and-store.md`](0012-library-scan-and-store.md) | Add storage roots and the library scanner. | Local folders and mounted NAS folders. PCM music files only: FLAC, ALAC, AIFF, WAV. No streaming and no video playback or video library support. The headless backend is unblocked and covered by 0012; only the Storage *screen* waits on design (Add Storage flow, scan progress, offline-root and scan-failure states). |
-| 10 | [`0012-library-scan-and-store.md`](0012-library-scan-and-store.md) | Add SQLite library store and search. | Store scanned metadata, cover-art cache paths, and storage-root status. Library code lives in `pulse-app`, not a separate crate. FTS/search deliberately deferred — it is an additive migration. Artist remains metadata/filter context, not a primary destination. |
-| 11 | — | Implement MVP library UI. | Build Albums, Tracks, Playlists, and Storage from `design/pulse-desktop.pen`. Add required missing design passes immediately before each UI slice. Storage panels carry off-token colors (`#151514`, `#111110`) that need a re-tokenize pass first. |
-| 12 | — | Wire now-playing, queue, and playlists. | Playback row uses Stage 6 controller state. Manual playlists support create/rename/delete/add/remove/reorder/play. Queue supports next/previous and queue count. |
+| 12 | — | Wire now-playing, queue, and playlists. | Playback row uses Stage 6 controller state. Manual playlists support create/rename/delete/add/remove/reorder/play. Queue supports next/previous and queue count. Proposed home for search implementation (popover `A3JuUc` already designed). |
 | 13 | — | Add MVP states and failure handling. | Loading, empty, offline storage, scan failure, decode failure, hogged device, unavailable device, and missing-file states. No silent failure. |
 | 14 | — | MVP hardening and v0 release. | Hardware smoke matrix, scanner/library regression tests, CLI smoke tests, basic packaging, release notes, and final product-design cleanup for shipped surfaces. |
 
