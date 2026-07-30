@@ -1,9 +1,10 @@
 use gpui::{
-    Context, Entity, ExternalPaths, FontWeight, IntoElement, MouseButton, MouseMoveEvent,
-    MouseUpEvent, Render, Window, div, linear_color_stop, linear_gradient, prelude::*, px, svg,
+    AnyElement, Context, Entity, ExternalPaths, FontWeight, IntoElement, MouseButton,
+    MouseMoveEvent, MouseUpEvent, Render, Window, div, linear_color_stop, linear_gradient,
+    prelude::*, px, svg,
 };
 
-use crate::{playback_row::PlaybackRow, theme};
+use crate::{library_ui::LibraryView, playback_row::PlaybackRow, theme};
 
 const SIDEBAR_WIDTH: f32 = 236.0;
 const TOP_BAR_HEIGHT: f32 = 74.0;
@@ -56,13 +57,18 @@ const NAV_GROUPS: &[(&str, &[Destination])] = &[
 pub struct Shell {
     destination: Destination,
     row: Entity<PlaybackRow>,
+    library: Entity<LibraryView>,
 }
 
 impl Shell {
     pub fn new(cx: &mut Context<Self>) -> Self {
+        let row = cx.new(PlaybackRow::new);
+        let library = cx.new(|cx| LibraryView::new(row.clone(), cx));
+        cx.observe(&library, |_, _, cx| cx.notify()).detach();
         Self {
             destination: Destination::Albums,
-            row: cx.new(PlaybackRow::new),
+            row,
+            library,
         }
     }
 
@@ -139,6 +145,8 @@ impl Shell {
             .cursor_pointer()
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.destination = destination;
+                this.library
+                    .update(cx, |library, cx| library.set_destination(destination, cx));
                 cx.notify();
             }))
             .child(
@@ -165,11 +173,17 @@ impl Shell {
                     .child(destination.label()),
             )
             .when(destination == Destination::Storage, |item| {
-                item.child(div().flex_1()).child(render_storage_badge())
+                item.child(div().flex_1()).child(render_storage_badge(
+                    self.library.read(cx).storage_root_count(),
+                ))
             })
     }
 
-    fn render_body(&self, cx: &Context<Self>) -> impl IntoElement {
+    fn render_body(&self, cx: &Context<Self>) -> AnyElement {
+        if self.destination != Destination::Devices {
+            return self.library.clone().into_any_element();
+        }
+
         let row = self.row.read(cx);
         let error = row.error().map(str::to_string);
         let hint = match &error {
@@ -221,6 +235,7 @@ impl Shell {
                     })
                     .child(hint),
             )
+            .into_any_element()
     }
 }
 
@@ -304,7 +319,7 @@ fn render_brand() -> impl IntoElement {
         )
 }
 
-fn render_storage_badge() -> impl IntoElement {
+fn render_storage_badge(count: usize) -> impl IntoElement {
     div()
         .flex()
         .items_center()
@@ -322,7 +337,7 @@ fn render_storage_badge() -> impl IntoElement {
                 .font_weight(FontWeight::BOLD)
                 .text_size(px(10.))
                 .text_color(theme::text_muted())
-                .child("0"),
+                .child(count.to_string()),
         )
 }
 

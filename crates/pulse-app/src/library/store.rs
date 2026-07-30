@@ -9,12 +9,15 @@ use std::{
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
 use super::{
-    LibraryError, LibrarySummary, ScanHistoryEntry, ScanOutcome, StorageRoot, StorageRootId, Track,
-    TrackId, metadata::AudioMetadata, path::normalize_storage_root, system_time_ms,
+    Album, AlbumSortOrder, LibraryError, LibrarySummary, ScanHistoryEntry, ScanOutcome,
+    StorageRoot, StorageRootId, Track, TrackId, TrackSortOrder, UNKNOWN_ALBUM, UNKNOWN_ARTIST,
+    metadata::{self, AudioMetadata},
+    path::normalize_storage_root,
+    system_time_ms,
     walk::DiscoveredFile,
 };
 
-const SCHEMA_VERSION: i64 = 1;
+const SCHEMA_VERSION: i64 = 2;
 
 const SCHEMA: &str = r#"
 BEGIN IMMEDIATE;
@@ -39,6 +42,8 @@ CREATE TABLE tracks (
     artist                  TEXT,
     album                   TEXT,
     album_artist            TEXT,
+    year                    INTEGER,
+    genre                   TEXT,
     track_number            INTEGER,
     disc_number             INTEGER,
     duration_ms             INTEGER,
@@ -78,10 +83,10 @@ CREATE TABLE scan_history (
 CREATE INDEX scan_history_root_started_idx
     ON scan_history(storage_root_id, started_at_ms DESC);
 
--- FTS5 is deliberately deferred from schema v1. Search will add an FTS table and backfill it
+-- FTS5 is deliberately deferred. Search will add an FTS table and backfill it
 -- from tracks when that stage starts; the base catalog does not need an index it cannot query.
 
-PRAGMA user_version = 1;
+PRAGMA user_version = 2;
 COMMIT;
 "#;
 
@@ -125,7 +130,7 @@ impl LibraryStore {
     }
 
     fn from_connection(
-        connection: Connection,
+        mut connection: Connection,
         scan_session_id: String,
     ) -> Result<Self, LibraryError> {
         connection.busy_timeout(Duration::from_secs(5))?;
@@ -139,6 +144,7 @@ impl LibraryStore {
             connection.query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))?;
         match version {
             0 => connection.execute_batch(SCHEMA)?,
+            1 => migrate_v1_to_v2(&mut connection)?,
             SCHEMA_VERSION => {}
             version => return Err(LibraryError::UnsupportedSchemaVersion(version)),
         }
@@ -218,6 +224,22 @@ impl LibraryStore {
         Ok(roots)
     }
 
+    pub fn rename_storage_root(
+        &mut self,
+        storage_root_id: StorageRootId,
+        display_name: impl AsRef<str>,
+    ) -> Result<StorageRoot, LibraryError> {
+        let updated = self.connection.execute(
+            "UPDATE storage_roots SET display_name = ?2 WHERE id = ?1",
+            params![storage_root_id, display_name.as_ref()],
+        )?;
+        if updated == 0 {
+            return Err(LibraryError::StorageRootNotFound(storage_root_id));
+        }
+        self.storage_root(storage_root_id)?
+            .ok_or(LibraryError::StorageRootNotFound(storage_root_id))
+    }
+
     pub fn remove_storage_root(
         &mut self,
         storage_root_id: StorageRootId,
@@ -250,8 +272,8 @@ impl LibraryStore {
     ) -> Result<Vec<Track>, LibraryError> {
         let mut statement = self.connection.prepare(
             "SELECT id, storage_root_id, path, title, artist, album, album_artist,
-                    track_number, disc_number, duration_ms, sample_rate_hz, bit_depth,
-                    channels, file_size_bytes, modified_at_ns, cover_art_path,
+                    year, genre, track_number, disc_number, duration_ms, sample_rate_hz,
+                    bit_depth, channels, file_size_bytes, modified_at_ns, cover_art_path,
                     cover_art_mime_type, added_at_ms, updated_at_ms
              FROM tracks
              WHERE storage_root_id = ?1
@@ -263,6 +285,141 @@ impl LibraryStore {
         Ok(tracks)
     }
 
+    pub fn albums(&self, sort_order: AlbumSortOrder) -> Result<Vec<Album>, LibraryError> {
+        let order_by = match sort_order {
+            AlbumSortOrder::Title => "album_title COLLATE NOCASE, album_owner COLLATE NOCASE",
+            AlbumSortOrder::Artist => "album_owner COLLATE NOCASE, album_title COLLATE NOCASE",
+            AlbumSortOrder::DateAdded => "latest_added_at_ms DESC, album_title COLLATE NOCASE",
+            AlbumSortOrder::ReleaseYear => {
+                "album_year IS NULL, album_year DESC, album_title COLLATE NOCASE"
+            }
+            AlbumSortOrder::Duration => "total_duration_ms DESC, album_title COLLATE NOCASE",
+        };
+        let sql = format!(
+            "WITH normalized AS (
+                 SELECT id,
+                        COALESCE(NULLIF(trim(album_artist), ''),
+                                 NULLIF(trim(artist), ''), ?1) AS album_owner,
+                        COALESCE(NULLIF(trim(album), ''), ?2) AS album_title,
+                        year, duration_ms, sample_rate_hz, bit_depth, cover_art_path, added_at_ms
+                 FROM tracks
+             )
+             SELECT album_title, album_owner, MIN(year), COUNT(*),
+                    COALESCE(SUM(duration_ms), 0), MAX(sample_rate_hz), MAX(bit_depth),
+                    substr(MIN(
+                        CASE WHEN cover_art_path IS NOT NULL
+                             THEN printf('%020lld%s', id, cover_art_path)
+                        END
+                    ), 21),
+                    MAX(added_at_ms)
+             FROM normalized
+             GROUP BY album_owner, album_title
+             ORDER BY {order_by}"
+        );
+        let mut statement = self.connection.prepare(&sql)?;
+        let mut albums = statement
+            .query_map(params![UNKNOWN_ARTIST, UNKNOWN_ALBUM], album_from_row)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let mut genres_by_album = HashMap::<(String, String), Vec<String>>::new();
+        let mut genres_statement = self.connection.prepare(
+            "SELECT
+                 COALESCE(NULLIF(trim(album_artist), ''), NULLIF(trim(artist), ''), ?1),
+                 COALESCE(NULLIF(trim(album), ''), ?2),
+                 trim(genre)
+             FROM tracks
+             WHERE genre IS NOT NULL AND trim(genre) <> ''
+             GROUP BY 1, 2, 3
+             ORDER BY trim(genre) COLLATE NOCASE",
+        )?;
+        let genre_rows =
+            genres_statement.query_map(params![UNKNOWN_ARTIST, UNKNOWN_ALBUM], |row| {
+                Ok((
+                    (row.get::<_, String>(0)?, row.get::<_, String>(1)?),
+                    row.get::<_, String>(2)?,
+                ))
+            })?;
+        for row in genre_rows {
+            let (key, genre) = row?;
+            genres_by_album.entry(key).or_default().push(genre);
+        }
+        for album in &mut albums {
+            album.genres = genres_by_album
+                .remove(&(album.artist.clone(), album.title.clone()))
+                .unwrap_or_default();
+        }
+
+        Ok(albums)
+    }
+
+    pub fn all_tracks(&self, sort_order: TrackSortOrder) -> Result<Vec<Track>, LibraryError> {
+        let order_by = match sort_order {
+            TrackSortOrder::Title => {
+                "COALESCE(NULLIF(trim(title), ''), path) COLLATE NOCASE, path_key"
+            }
+            TrackSortOrder::Artist => {
+                "COALESCE(NULLIF(trim(artist), ''), 'Unknown Artist') COLLATE NOCASE,
+                 COALESCE(NULLIF(trim(title), ''), path) COLLATE NOCASE, path_key"
+            }
+            TrackSortOrder::Album => {
+                "COALESCE(NULLIF(trim(album), ''), 'Unknown Album') COLLATE NOCASE,
+                 COALESCE(disc_number, 1), COALESCE(track_number, 2147483647), path_key"
+            }
+            TrackSortOrder::DateAdded => "added_at_ms DESC, path_key",
+            TrackSortOrder::ReleaseYear => "year IS NULL, year DESC, path_key",
+            TrackSortOrder::Duration => "duration_ms IS NULL, duration_ms DESC, path_key",
+        };
+        let sql = format!(
+            "SELECT id, storage_root_id, path, title, artist, album, album_artist,
+                    year, genre, track_number, disc_number, duration_ms, sample_rate_hz,
+                    bit_depth, channels, file_size_bytes, modified_at_ns, cover_art_path,
+                    cover_art_mime_type, added_at_ms, updated_at_ms
+             FROM tracks
+             ORDER BY {order_by}"
+        );
+        let mut statement = self.connection.prepare(&sql)?;
+        let tracks = statement
+            .query_map([], track_from_row)?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(tracks)
+    }
+
+    pub fn tracks_for_album(&self, artist: &str, title: &str) -> Result<Vec<Track>, LibraryError> {
+        let mut statement = self.connection.prepare(
+            "SELECT id, storage_root_id, path, title, artist, album, album_artist,
+                    year, genre, track_number, disc_number, duration_ms, sample_rate_hz,
+                    bit_depth, channels, file_size_bytes, modified_at_ns, cover_art_path,
+                    cover_art_mime_type, added_at_ms, updated_at_ms
+             FROM tracks
+             WHERE COALESCE(NULLIF(trim(album_artist), ''),
+                            NULLIF(trim(artist), ''), ?1) = ?3
+               AND COALESCE(NULLIF(trim(album), ''), ?2) = ?4
+             ORDER BY COALESCE(disc_number, 1),
+                      track_number IS NULL, track_number, path_key",
+        )?;
+        let tracks = statement
+            .query_map(
+                params![UNKNOWN_ARTIST, UNKNOWN_ALBUM, artist, title],
+                track_from_row,
+            )?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(tracks)
+    }
+
+    pub fn genres(&self) -> Result<Vec<String>, LibraryError> {
+        let mut statement = self.connection.prepare(
+            "SELECT trim(genre)
+             FROM tracks
+             WHERE genre IS NOT NULL AND trim(genre) <> ''
+             GROUP BY trim(genre) COLLATE NOCASE
+             ORDER BY trim(genre) COLLATE NOCASE",
+        )?;
+        let genres = statement
+            .query_map([], |row| row.get(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(genres)
+    }
+
     pub fn root_summary(
         &self,
         storage_root_id: StorageRootId,
@@ -272,19 +429,20 @@ impl LibraryStore {
                  (
                      SELECT COUNT(*)
                      FROM (
-                         SELECT album, COALESCE(album_artist, artist, '') AS album_owner
+                         SELECT
+                             COALESCE(NULLIF(trim(album), ''), ?2) AS album_title,
+                             COALESCE(NULLIF(trim(album_artist), ''),
+                                      NULLIF(trim(artist), ''), ?3) AS album_owner
                          FROM tracks
                          WHERE storage_root_id = ?1
-                           AND album IS NOT NULL
-                           AND trim(album) <> ''
-                         GROUP BY album, album_owner
+                         GROUP BY album_title, album_owner
                      )
                  ),
                  COUNT(*),
                  COALESCE(SUM(file_size_bytes), 0)
              FROM tracks
              WHERE storage_root_id = ?1",
-            [storage_root_id],
+            params![storage_root_id, UNKNOWN_ALBUM, UNKNOWN_ARTIST],
             summary_from_row,
         )?;
         Ok(summary)
@@ -296,16 +454,18 @@ impl LibraryStore {
                  (
                      SELECT COUNT(*)
                      FROM (
-                         SELECT album, COALESCE(album_artist, artist, '') AS album_owner
+                         SELECT
+                             COALESCE(NULLIF(trim(album), ''), ?1) AS album_title,
+                             COALESCE(NULLIF(trim(album_artist), ''),
+                                      NULLIF(trim(artist), ''), ?2) AS album_owner
                          FROM tracks
-                         WHERE album IS NOT NULL AND trim(album) <> ''
-                         GROUP BY album, album_owner
+                         GROUP BY album_title, album_owner
                      )
                  ),
                  COUNT(*),
                  COALESCE(SUM(file_size_bytes), 0)
              FROM tracks",
-            [],
+            params![UNKNOWN_ALBUM, UNKNOWN_ARTIST],
             summary_from_row,
         )?;
         Ok(summary)
@@ -347,6 +507,15 @@ impl LibraryStore {
                 |row| row.get(0),
             )
             .map_err(Into::into)
+    }
+
+    pub(super) fn cancel_scan(&self, scan_id: i64) -> Result<(), LibraryError> {
+        self.connection.execute(
+            "DELETE FROM scan_history
+             WHERE id = ?1 AND finished_at_ms IS NULL AND outcome IS NULL",
+            [scan_id],
+        )?;
+        Ok(())
     }
 
     pub(super) fn mark_root_reachable(
@@ -436,6 +605,52 @@ impl LibraryStore {
     }
 }
 
+fn migrate_v1_to_v2(connection: &mut Connection) -> Result<(), LibraryError> {
+    let existing_tracks = {
+        let mut statement = connection.prepare("SELECT id, path FROM tracks ORDER BY id")?;
+        statement
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    PathBuf::from(row.get::<_, String>(1)?),
+                ))
+            })?
+            .collect::<Result<Vec<_>, _>>()?
+    };
+    let backfill = existing_tracks
+        .iter()
+        .filter_map(|(id, path)| {
+            metadata::extract_metadata(path)
+                .ok()
+                .map(|metadata| (*id, metadata.year, metadata.genre))
+        })
+        .collect::<Vec<_>>();
+    let backfilled_ids = backfill
+        .iter()
+        .map(|(id, _, _)| *id)
+        .collect::<std::collections::HashSet<_>>();
+
+    let transaction = connection.transaction()?;
+    transaction.execute_batch(
+        "ALTER TABLE tracks ADD COLUMN year INTEGER;
+         ALTER TABLE tracks ADD COLUMN genre TEXT;",
+    )?;
+    for (id, year, genre) in backfill {
+        transaction.execute(
+            "UPDATE tracks SET year = ?2, genre = ?3 WHERE id = ?1",
+            params![id, year, genre],
+        )?;
+    }
+    for (id, _) in existing_tracks {
+        if !backfilled_ids.contains(&id) {
+            transaction.execute("UPDATE tracks SET modified_at_ns = -1 WHERE id = ?1", [id])?;
+        }
+    }
+    transaction.execute_batch("PRAGMA user_version = 2;")?;
+    transaction.commit()?;
+    Ok(())
+}
+
 pub(super) fn upsert_track(
     transaction: &Transaction<'_>,
     storage_root_id: StorageRootId,
@@ -454,10 +669,11 @@ pub(super) fn upsert_track(
     let id = transaction.query_row(
         "INSERT INTO tracks (
              storage_root_id, path, path_key, title, artist, album, album_artist,
-             track_number, disc_number, duration_ms, sample_rate_hz, bit_depth,
-             channels, file_size_bytes, modified_at_ns, added_at_ms, updated_at_ms
+             year, genre, track_number, disc_number, duration_ms, sample_rate_hz,
+             bit_depth, channels, file_size_bytes, modified_at_ns, added_at_ms, updated_at_ms
          ) VALUES (
-             ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?16
+             ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17,
+             ?18, ?18
          )
          ON CONFLICT(storage_root_id, path_key) DO UPDATE SET
              path = excluded.path,
@@ -465,6 +681,8 @@ pub(super) fn upsert_track(
              artist = excluded.artist,
              album = excluded.album,
              album_artist = excluded.album_artist,
+             year = excluded.year,
+             genre = excluded.genre,
              track_number = excluded.track_number,
              disc_number = excluded.disc_number,
              duration_ms = excluded.duration_ms,
@@ -483,6 +701,8 @@ pub(super) fn upsert_track(
             metadata.artist,
             metadata.album,
             metadata.album_artist,
+            metadata.year,
+            metadata.genre,
             track_number,
             disc_number,
             metadata.duration_ms,
@@ -604,7 +824,7 @@ fn storage_root_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<StorageRoo
 }
 
 fn track_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Track> {
-    let file_size_bytes = row.get::<_, i64>(13)?;
+    let file_size_bytes = row.get::<_, i64>(15)?;
     Ok(Track {
         id: row.get(0)?,
         storage_root_id: row.get(1)?,
@@ -613,18 +833,35 @@ fn track_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Track> {
         artist: row.get(4)?,
         album: row.get(5)?,
         album_artist: row.get(6)?,
-        track_number: row.get::<_, Option<i64>>(7)?.map(|value| value as u32),
-        disc_number: row.get::<_, Option<i64>>(8)?.map(|value| value as u32),
-        duration_ms: row.get(9)?,
-        sample_rate_hz: row.get::<_, Option<i64>>(10)?.map(|value| value as u32),
-        bit_depth: row.get::<_, Option<i64>>(11)?.map(|value| value as u8),
-        channels: row.get::<_, Option<i64>>(12)?.map(|value| value as u8),
+        year: row.get::<_, Option<i64>>(7)?.map(|value| value as u32),
+        genre: row.get(8)?,
+        track_number: row.get::<_, Option<i64>>(9)?.map(|value| value as u32),
+        disc_number: row.get::<_, Option<i64>>(10)?.map(|value| value as u32),
+        duration_ms: row.get(11)?,
+        sample_rate_hz: row.get::<_, Option<i64>>(12)?.map(|value| value as u32),
+        bit_depth: row.get::<_, Option<i64>>(13)?.map(|value| value as u8),
+        channels: row.get::<_, Option<i64>>(14)?.map(|value| value as u8),
         file_size_bytes: file_size_bytes as u64,
-        modified_at_ns: row.get(14)?,
-        cover_art_path: row.get::<_, Option<String>>(15)?.map(PathBuf::from),
-        cover_art_mime_type: row.get(16)?,
-        added_at_ms: row.get(17)?,
-        updated_at_ms: row.get(18)?,
+        modified_at_ns: row.get(16)?,
+        cover_art_path: row.get::<_, Option<String>>(17)?.map(PathBuf::from),
+        cover_art_mime_type: row.get(18)?,
+        added_at_ms: row.get(19)?,
+        updated_at_ms: row.get(20)?,
+    })
+}
+
+fn album_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Album> {
+    Ok(Album {
+        title: row.get(0)?,
+        artist: row.get(1)?,
+        year: row.get::<_, Option<i64>>(2)?.map(|value| value as u32),
+        track_count: row.get::<_, i64>(3)? as u64,
+        total_duration_ms: row.get::<_, i64>(4)? as u64,
+        max_sample_rate_hz: row.get::<_, Option<i64>>(5)?.map(|value| value as u32),
+        max_bit_depth: row.get::<_, Option<i64>>(6)?.map(|value| value as u8),
+        cover_art_path: row.get::<_, Option<String>>(7)?.map(PathBuf::from),
+        latest_added_at_ms: row.get(8)?,
+        genres: Vec::new(),
     })
 }
 
@@ -710,6 +947,8 @@ mod tests {
             artist: Some(artist.to_string()),
             album: album.map(str::to_string),
             album_artist: album_artist.map(str::to_string),
+            year: Some(2024),
+            genre: Some("Electronic".to_string()),
             track_number: Some(1),
             disc_number: Some(1),
             duration_ms: Some(1_000),
@@ -802,7 +1041,7 @@ mod tests {
         assert_eq!(
             store.root_summary(first_root.id).unwrap(),
             LibrarySummary {
-                album_count: 2,
+                album_count: 3,
                 track_count: 4,
                 file_size_bytes: 40,
             }
@@ -810,10 +1049,237 @@ mod tests {
         assert_eq!(
             store.catalog_summary().unwrap(),
             LibrarySummary {
-                album_count: 3,
+                album_count: 4,
                 track_count: 5,
                 file_size_bytes: 65,
             }
+        );
+    }
+
+    #[test]
+    fn groups_albums_with_unknown_bucket_genres_and_cover_fallback() {
+        let temp = tempdir().unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let first = insert_track(
+            &mut store,
+            &root,
+            &test_file(&root, "first.wav", 1, 10),
+            &test_metadata("First", "Artist", Some("Album"), None),
+        );
+        let second = insert_track(
+            &mut store,
+            &root,
+            &test_file(&root, "second.wav", 2, 20),
+            &test_metadata("Second", "Artist", Some("Album"), None),
+        );
+        let mut unknown = test_metadata("Loose", "", None, None);
+        unknown.genre = None;
+        insert_track(
+            &mut store,
+            &root,
+            &test_file(&root, "loose.wav", 3, 30),
+            &unknown,
+        );
+        let cover = temp.path().join("album.cover");
+        let transaction = store.connection.transaction().unwrap();
+        set_track_cover(
+            &transaction,
+            second,
+            cover.to_str().unwrap(),
+            Some("image/jpeg"),
+        )
+        .unwrap();
+        transaction.commit().unwrap();
+
+        let albums = store.albums(AlbumSortOrder::Title).unwrap();
+
+        assert_eq!(albums.len(), 2);
+        assert_eq!(albums[0].title, "Album");
+        assert_eq!(albums[0].artist, "Artist");
+        assert_eq!(albums[0].track_count, 2);
+        assert_eq!(albums[0].cover_art_path.as_ref(), Some(&cover));
+        assert_eq!(albums[0].genres, ["Electronic"]);
+        assert_eq!(albums[1].title, UNKNOWN_ALBUM);
+        assert_eq!(albums[1].artist, UNKNOWN_ARTIST);
+        assert!(albums[1].cover_art_path.is_none());
+        assert_ne!(first, second);
+        assert_eq!(store.genres().unwrap(), ["Electronic"]);
+    }
+
+    #[test]
+    fn all_tracks_implements_every_mvp_sort_order() {
+        let temp = tempdir().unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let mut beta = test_metadata("Beta", "Alpha", Some("Zulu"), None);
+        beta.year = Some(2020);
+        beta.duration_ms = Some(3_000);
+        let beta_id = insert_track(
+            &mut store,
+            &root,
+            &test_file(&root, "beta.wav", 1, 10),
+            &beta,
+        );
+        let mut alpha = test_metadata("Alpha", "Zulu", Some("Alpha"), None);
+        alpha.year = Some(2024);
+        alpha.duration_ms = Some(1_000);
+        let alpha_id = insert_track(
+            &mut store,
+            &root,
+            &test_file(&root, "alpha.wav", 2, 10),
+            &alpha,
+        );
+        store
+            .connection
+            .execute(
+                "UPDATE tracks
+                 SET added_at_ms = CASE id WHEN ?1 THEN 100 WHEN ?2 THEN 200 END",
+                params![beta_id, alpha_id],
+            )
+            .unwrap();
+
+        let titles = |sort_order| {
+            store
+                .all_tracks(sort_order)
+                .unwrap()
+                .into_iter()
+                .map(|track| track.title.unwrap())
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(
+            titles(TrackSortOrder::Title),
+            ["Alpha".to_string(), "Beta".to_string()]
+        );
+        assert_eq!(
+            titles(TrackSortOrder::Artist),
+            ["Beta".to_string(), "Alpha".to_string()]
+        );
+        assert_eq!(
+            titles(TrackSortOrder::Album),
+            ["Alpha".to_string(), "Beta".to_string()]
+        );
+        assert_eq!(
+            titles(TrackSortOrder::DateAdded),
+            ["Alpha".to_string(), "Beta".to_string()]
+        );
+        assert_eq!(
+            titles(TrackSortOrder::ReleaseYear),
+            ["Alpha".to_string(), "Beta".to_string()]
+        );
+        assert_eq!(
+            titles(TrackSortOrder::Duration),
+            ["Beta".to_string(), "Alpha".to_string()]
+        );
+    }
+
+    #[test]
+    fn orders_album_tracks_by_disc_then_track_number() {
+        let temp = tempdir().unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+
+        for (name, disc, track) in [("Disc Two", 2, 1), ("Second", 1, 2), ("First", 1, 1)] {
+            let mut metadata = test_metadata(name, "Artist", Some("Album"), None);
+            metadata.disc_number = Some(disc);
+            metadata.track_number = Some(track);
+            insert_track(
+                &mut store,
+                &root,
+                &test_file(&root, &format!("{name}.wav"), i64::from(track), 10),
+                &metadata,
+            );
+        }
+
+        let titles = store
+            .tracks_for_album("Artist", "Album")
+            .unwrap()
+            .into_iter()
+            .map(|track| track.title.unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(titles, ["First", "Second", "Disc Two"]);
+    }
+
+    #[test]
+    fn renames_a_storage_root() {
+        let temp = tempdir().unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(temp.path(), "Before").unwrap();
+
+        let renamed = store.rename_storage_root(root.id, "After").unwrap();
+
+        assert_eq!(renamed.display_name, "After");
+        assert_eq!(
+            store.storage_root(root.id).unwrap().unwrap().display_name,
+            "After"
+        );
+    }
+
+    #[test]
+    fn migrates_v1_and_backfills_year_and_genre_from_existing_files() {
+        let temp = tempdir().unwrap();
+        let track_path = temp.path().join("track.wav");
+        metadata::write_test_wav(&track_path, "Track", "Artist", "Album").unwrap();
+        let database_path = temp.path().join("library.sqlite");
+        let connection = Connection::open(&database_path).unwrap();
+        let v1_schema = SCHEMA
+            .replace("    year                    INTEGER,\n", "")
+            .replace("    genre                   TEXT,\n", "")
+            .replace("PRAGMA user_version = 2;", "PRAGMA user_version = 1;");
+        connection.execute_batch(&v1_schema).unwrap();
+        connection
+            .execute(
+                "INSERT INTO storage_roots (
+                     id, path, path_key, display_name, added_at_ms, is_reachable,
+                     is_case_sensitive
+                 ) VALUES (1, ?1, ?1, 'Music', 1, 1, 1)",
+                [temp.path().to_str().unwrap()],
+            )
+            .unwrap();
+        connection
+            .execute(
+                "INSERT INTO tracks (
+                     storage_root_id, path, path_key, title, artist, album,
+                     file_size_bytes, modified_at_ns, added_at_ms, updated_at_ms
+                 ) VALUES (1, ?1, ?1, 'Track', 'Artist', 'Album', 1, 1, 1, 1)",
+                [track_path.to_str().unwrap()],
+            )
+            .unwrap();
+        let missing_path = temp.path().join("missing.wav");
+        connection
+            .execute(
+                "INSERT INTO tracks (
+                     storage_root_id, path, path_key, title, artist, album,
+                     file_size_bytes, modified_at_ns, added_at_ms, updated_at_ms
+                 ) VALUES (1, ?1, ?1, 'Missing', 'Artist', 'Album', 1, 1, 1, 1)",
+                [missing_path.to_str().unwrap()],
+            )
+            .unwrap();
+        drop(connection);
+
+        let store = LibraryStore::open(&database_path).unwrap();
+        let tracks = store.tracks_for_root(1).unwrap();
+        let track = tracks
+            .iter()
+            .find(|track| track.path == track_path)
+            .unwrap();
+        let missing = tracks
+            .iter()
+            .find(|track| track.path == missing_path)
+            .unwrap();
+
+        assert_eq!(track.year, Some(2024));
+        assert_eq!(track.genre.as_deref(), Some("Electronic"));
+        assert_eq!(missing.year, None);
+        assert_eq!(missing.genre, None);
+        assert_eq!(missing.modified_at_ns, -1);
+        assert_eq!(
+            store
+                .connection
+                .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
+                .unwrap(),
+            2
         );
     }
 

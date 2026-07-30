@@ -207,6 +207,19 @@ impl PlaybackRow {
         self.source_path.is_some()
     }
 
+    pub(crate) fn is_now_playing(&self, path: &Path) -> bool {
+        self.source_path.as_deref() == Some(path)
+            && matches!(
+                self.playback_state,
+                PlaybackState::Loading | PlaybackState::Playing | PlaybackState::Paused
+            )
+    }
+
+    pub(crate) fn play_library_path(&mut self, path: PathBuf, cx: &mut Context<Self>) {
+        self.error = None;
+        self.play_file(path, cx);
+    }
+
     pub(crate) fn handle_drop(&mut self, paths: &ExternalPaths, cx: &mut Context<Self>) {
         if paths.paths().len() != 1 {
             self.error = Some("Drop one audio file at a time.".to_string());

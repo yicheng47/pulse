@@ -1,5 +1,6 @@
 mod assets;
 pub mod library;
+mod library_ui;
 mod menu;
 mod playback_row;
 mod preferences;

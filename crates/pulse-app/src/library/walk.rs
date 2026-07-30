@@ -25,41 +25,65 @@ pub(super) struct WalkResult {
     pub errors: Vec<WalkError>,
 }
 
+#[cfg(test)]
 pub(super) fn walk_music_files<F>(
     root: &Path,
     is_case_sensitive: bool,
-    mut on_discovered: F,
+    on_discovered: F,
 ) -> io::Result<WalkResult>
 where
     F: FnMut(usize, &Path),
+{
+    walk_music_files_until(root, is_case_sensitive, on_discovered, || false)
+        .map(|result| result.expect("non-cancellable walk cannot be cancelled"))
+}
+
+pub(super) fn walk_music_files_until<F, C>(
+    root: &Path,
+    is_case_sensitive: bool,
+    mut on_discovered: F,
+    mut is_cancelled: C,
+) -> io::Result<Option<WalkResult>>
+where
+    F: FnMut(usize, &Path),
+    C: FnMut() -> bool,
 {
     let mut result = WalkResult {
         files: Vec::new(),
         errors: Vec::new(),
     };
-    walk_directory(
+    let completed = walk_directory(
         root,
         is_case_sensitive,
         true,
         &mut result,
         &mut on_discovered,
+        &mut is_cancelled,
     )?;
+    if !completed {
+        return Ok(None);
+    }
     result
         .files
         .sort_by(|left, right| left.path_key.cmp(&right.path_key));
-    Ok(result)
+    Ok(Some(result))
 }
 
-fn walk_directory<F>(
+fn walk_directory<F, C>(
     directory: &Path,
     is_case_sensitive: bool,
     is_root: bool,
     result: &mut WalkResult,
     on_discovered: &mut F,
-) -> io::Result<()>
+    is_cancelled: &mut C,
+) -> io::Result<bool>
 where
     F: FnMut(usize, &Path),
+    C: FnMut() -> bool,
 {
+    if is_cancelled() {
+        return Ok(false);
+    }
     let entries = match fs::read_dir(directory) {
         Ok(entries) => entries,
         Err(error) if is_root => return Err(error),
@@ -68,11 +92,14 @@ where
                 path: directory.to_path_buf(),
                 message: error.to_string(),
             });
-            return Ok(());
+            return Ok(true);
         }
     };
 
     for entry in entries {
+        if is_cancelled() {
+            return Ok(false);
+        }
         let entry = match entry {
             Ok(entry) => entry,
             Err(error) => {
@@ -99,7 +126,16 @@ where
             continue;
         }
         if file_type.is_dir() {
-            walk_directory(&path, is_case_sensitive, false, result, on_discovered)?;
+            if !walk_directory(
+                &path,
+                is_case_sensitive,
+                false,
+                result,
+                on_discovered,
+                is_cancelled,
+            )? {
+                return Ok(false);
+            }
             continue;
         }
         if !file_type.is_file() || !is_supported_music_file(&path) {
@@ -119,7 +155,7 @@ where
         }
     }
 
-    Ok(())
+    Ok(true)
 }
 
 fn discovered_file(path: PathBuf, is_case_sensitive: bool) -> Result<DiscoveredFile, LibraryError> {
