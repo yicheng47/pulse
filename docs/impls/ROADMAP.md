@@ -28,6 +28,7 @@ Each stage should have a focused implementation note once work starts. A stage i
 | 7.5 | [`0010-app-shell.md`](0010-app-shell.md) | App chrome merged: sidebar, top bar, routed body, docked playback row, macOS menu. Includes the P1 `font-kit` fix. Nav/shortcut/drop manual checks still open. |
 | 8 | [`0011-output-device-management.md`](0011-output-device-management.md) | Output Device Popover merged (PR #8): live enumeration, UID persistence, capability line, failure fallbacks. Device list verified against real hardware; by-ear and unplug/hog checks still open. |
 | 9-10 | [`0012-library-scan-and-store.md`](0012-library-scan-and-store.md) | Merged as PR #9. Headless `pulse-app::library`: storage roots, incremental scanner with progress, Lofty tag/cover extraction, SQLite store. Measured on the real NAS: 4,904 tracks, 7.9× incremental speedup, zero errors. The Storage screen itself is stage 11. |
+| 11 | [`0013-library-ui.md`](0013-library-ui.md) | Merged as PR #10. Albums, Album Detail, Tracks, Playlists-empty, and full Storage surfaces over schema v2 (year/genre, album and track queries, root rename, scan cancel). Manual acceptance pass still open — see Current. |
 
 ## In Progress
 
@@ -39,7 +40,7 @@ Each stage should have a focused implementation note once work starts. A stage i
 
 | Stage | Impl Note | Goal | Boundary |
 |-------|-----------|------|----------|
-| 11 | [`0013-library-ui.md`](0013-library-ui.md) | Implement the MVP library UI over the 0012 backend. | Read-mostly UI plus storage management. No queue/playlist wiring (stage 12), no search implementation (popover designed, deferred), no loading/failure hardening beyond the designed states (stage 13). |
+| — | [`IMPL_LOG.md`](IMPL_LOG.md) (2026-07-31 entry) | Manual acceptance pass over stages 6-11. | Human-only: hardware smoke, shell shortcuts, device by-ear checks, the full stage 11 first-run/scan/browse/play flow, failure states, and the visual pass against the `.pen`. Stage 12 does not start until this is done; findings triage into fix-now vs stage 13. |
 
 ## MVP Path
 
