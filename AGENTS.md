@@ -89,6 +89,7 @@ When you do enumerate (because the choice genuinely depends on the user's prefer
 
 ## Project-specific rules
 
+- **Standing push authorization for `main` doc commits (overrides universal rule 1's push clause, granted 2026-08-01).** After committing docs (`docs/**`), design (`design/**`), or `AGENTS.md` changes directly to `main`, push `main` immediately — no separate ask needed. This keeps local and origin `main` in sync so mission branches and PR diffs stay clean. Everything else is unchanged: code goes through feature branches and PRs with review + CI, commits themselves still require the user's ask, and nothing beyond `main` doc pushes is covered.
 - **Append to `docs/impls/IMPL_LOG.md` at the end of each working session.** Newest entry at the bottom, dated, short: what happened, what's next, blockers. Record decisions, gotchas, and dead ends that the code and `git log` don't explain on their own — this project is early and most of the context is not yet in the code.
 - **Music only, PCM only.** No DSD, no video, no streaming integration. Don't scope-creep these back in.
 - **No libmpv, no FFmpeg, no GPL deps** — keeps App Store eligibility and paid closed-source distribution open.
