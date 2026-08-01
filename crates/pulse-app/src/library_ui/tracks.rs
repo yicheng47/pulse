@@ -1,12 +1,12 @@
 use gpui::{
-    AnyElement, ClickEvent, Context, FontWeight, IntoElement, StatefulInteractiveElement, Window,
-    div, prelude::*, px, svg,
+    AnyElement, ClickEvent, Context, FontWeight, IntoElement, MouseButton, MouseDownEvent,
+    StatefulInteractiveElement, Window, div, prelude::*, px, svg,
 };
 
 use super::{
-    LibraryView, current_time_ms,
+    LibraryView, TrackMenu, TrackSurface, current_time_ms,
     view_model::{
-        FilterChip, filter_tracks, format_duration, format_label, is_hi_res, quality_label,
+        FilterChip, PaginationItem, format_duration, format_label, is_hi_res, quality_label,
         track_album, track_artist, track_title,
     },
 };
@@ -22,21 +22,13 @@ impl LibraryView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let now_ms = current_time_ms();
-        let visible = filter_tracks(
-            &self.tracks,
-            &self.track_filter,
-            self.artist_filter.as_deref(),
-            now_ms,
-        )
-        .into_iter()
-        .cloned()
-        .collect::<Vec<_>>();
-        let meta = if self.tracks.is_empty() {
+        let visible = self.tracks.clone();
+        let meta = if self.catalog_summary.track_count == 0 {
             "No tracks yet".to_string()
         } else {
             format!(
                 "{} tracks · {} albums{}",
-                self.tracks.len(),
+                self.track_pagination.total_items(),
                 self.catalog_summary.album_count,
                 self.artist_filter
                     .as_ref()
@@ -128,7 +120,7 @@ impl LibraryView {
                                     .font_family(theme::FONT_SANS)
                                     .text_size(px(13.))
                                     .text_color(theme::text_muted())
-                                    .child(if self.tracks.is_empty() {
+                                    .child(if self.catalog_summary.track_count == 0 {
                                         "No tracks yet"
                                     } else {
                                         "No tracks match this filter"
@@ -137,7 +129,10 @@ impl LibraryView {
                             } else {
                                 rows.into_any_element()
                             }),
-                    ),
+                    )
+                    .when(self.track_pagination.page_count() > 1, |table| {
+                        table.child(self.render_track_pagination(cx))
+                    }),
             )
             .into_any_element()
     }
@@ -185,8 +180,7 @@ impl LibraryView {
             })
             .cursor_pointer()
             .on_click(cx.listener(move |this, _, _, cx| {
-                this.track_filter = chip.clone();
-                cx.notify();
+                this.set_track_filter(chip.clone(), cx);
             }))
             .font_family(theme::FONT_SANS)
             .text_size(px(12.))
@@ -250,8 +244,7 @@ impl LibraryView {
             .when(active, |hint| {
                 hint.cursor_pointer()
                     .on_click(cx.listener(|this, _, _, cx| {
-                        this.artist_filter = None;
-                        cx.notify();
+                        this.set_artist_filter(None, cx);
                     }))
             })
             .child(
@@ -290,8 +283,6 @@ impl LibraryView {
         let playing = self.is_now_playing(&track.path, cx);
         let selected = self.selected_track_id == Some(track.id);
         let track_id = track.id;
-        let play_path = track.path.clone();
-        let cover_art_path = track.cover_art_path.clone();
         let artist = track_artist(&track).to_string();
         let artist_for_filter = artist.clone();
         let format = quality_label(track.bit_depth, track.sample_rate_hz)
@@ -312,13 +303,23 @@ impl LibraryView {
             .when(selected || playing, |row| row.bg(theme::bg_selected()))
             .cursor_pointer()
             .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
-                this.selected_track_id = Some(track_id);
-                this.select_path(play_path.clone(), cover_art_path.clone(), cx);
-                if event.click_count() == 2 {
-                    this.play_path(play_path.clone(), cover_art_path.clone(), cx);
-                }
-                cx.notify();
+                this.activate_visible_track(track_id, event.click_count() == 2, cx);
             }))
+            .on_mouse_down(
+                MouseButton::Right,
+                cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                    this.selected_track_id = Some(track_id);
+                    this.playlist_menu = None;
+                    this.track_menu = Some(TrackMenu {
+                        track_id,
+                        surface: TrackSurface::Tracks,
+                        anchor: event.position,
+                        flyout_open: false,
+                    });
+                    window.focus(&this.input_focus, cx);
+                    cx.notify();
+                }),
+            )
             .child(
                 div()
                     .flex()
@@ -370,8 +371,7 @@ impl LibraryView {
                     .truncate()
                     .cursor_pointer()
                     .on_click(cx.listener(move |this, _, _, cx| {
-                        this.artist_filter = Some(artist_for_filter.clone());
-                        cx.notify();
+                        this.set_artist_filter(Some(artist_for_filter.clone()), cx);
                     }))
                     .font_family(theme::FONT_SANS)
                     .text_size(px(12.))
@@ -417,6 +417,137 @@ impl LibraryView {
                     .text_color(theme::text_secondary())
                     .child(added),
             )
+    }
+
+    fn render_track_pagination(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let (start, end) = self
+            .track_pagination
+            .range()
+            .expect("pagination is only rendered for non-empty results");
+        let current_page = self.track_pagination.current_page();
+        let can_previous = self.track_pagination.can_previous();
+        let can_next = self.track_pagination.can_next();
+        let mut controls = div().flex().items_center().gap(px(4.));
+        controls = controls.child(
+            div()
+                .id("tracks-page-previous")
+                .flex()
+                .items_center()
+                .justify_center()
+                .size(px(28.))
+                .rounded(px(theme::RADIUS_SM))
+                .border_1()
+                .border_color(theme::border())
+                .opacity(if can_previous { 1.0 } else { 0.4 })
+                .when(can_previous, |button| {
+                    button
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            this.set_track_page(current_page - 1, cx);
+                        }))
+                })
+                .child(
+                    svg()
+                        .path("icons/chevron-left.svg")
+                        .size(px(13.))
+                        .text_color(theme::text_muted()),
+                ),
+        );
+        for (index, item) in self.track_pagination.items().into_iter().enumerate() {
+            controls = controls.child(match item {
+                PaginationItem::Page(page) => {
+                    let active = page == current_page;
+                    div()
+                        .id(format!("tracks-page-{}", page + 1))
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .size(px(28.))
+                        .rounded(px(theme::RADIUS_SM))
+                        .when(active, |button| {
+                            button
+                                .border_1()
+                                .border_color(theme::accent())
+                                .bg(theme::accent_soft())
+                        })
+                        .when(!active, |button| {
+                            button.cursor_pointer().on_click(
+                                cx.listener(move |this, _, _, cx| this.set_track_page(page, cx)),
+                            )
+                        })
+                        .font_family(theme::FONT_MONO)
+                        .font_weight(FontWeight::BOLD)
+                        .text_size(px(10.))
+                        .text_color(if active {
+                            theme::accent()
+                        } else {
+                            theme::text_secondary()
+                        })
+                        .child((page + 1).to_string())
+                        .into_any_element()
+                }
+                PaginationItem::Ellipsis => div()
+                    .id(format!("tracks-page-ellipsis-{index}"))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .size(px(28.))
+                    .font_family(theme::FONT_MONO)
+                    .font_weight(FontWeight::BOLD)
+                    .text_size(px(10.))
+                    .text_color(theme::text_secondary())
+                    .child("…")
+                    .into_any_element(),
+            });
+        }
+        controls = controls.child(
+            div()
+                .id("tracks-page-next")
+                .flex()
+                .items_center()
+                .justify_center()
+                .size(px(28.))
+                .rounded(px(theme::RADIUS_SM))
+                .border_1()
+                .border_color(theme::border())
+                .opacity(if can_next { 1.0 } else { 0.4 })
+                .when(can_next, |button| {
+                    button
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            this.set_track_page(current_page + 1, cx);
+                        }))
+                })
+                .child(
+                    svg()
+                        .path("icons/chevron-right.svg")
+                        .size(px(13.))
+                        .text_color(theme::text_secondary()),
+                ),
+        );
+
+        div()
+            .flex()
+            .items_center()
+            .justify_between()
+            .w_full()
+            .h(px(59.))
+            .flex_none()
+            .px(px(14.))
+            .border_t_1()
+            .border_color(theme::border())
+            .child(
+                div()
+                    .font_family(theme::FONT_MONO)
+                    .font_weight(FontWeight::BOLD)
+                    .text_size(px(9.))
+                    .text_color(theme::text_muted())
+                    .child(format!(
+                        "{start}–{end} OF {} TRACKS",
+                        self.track_pagination.total_items()
+                    )),
+            )
+            .child(controls)
     }
 }
 
