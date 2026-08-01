@@ -63,7 +63,8 @@ impl LibraryView {
                     .flex()
                     .justify_between()
                     .w_full()
-                    .h(px(63.))
+                    .min_h(px(63.))
+                    .pb(px(10.))
                     .flex_none()
                     .child(
                         div()
@@ -287,7 +288,10 @@ impl LibraryView {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let playing = self.is_now_playing(&track.path, cx);
+        let selected = self.selected_track_id == Some(track.id);
+        let track_id = track.id;
         let play_path = track.path.clone();
+        let cover_art_path = track.cover_art_path.clone();
         let artist = track_artist(&track).to_string();
         let artist_for_filter = artist.clone();
         let format = quality_label(track.bit_depth, track.sample_rate_hz)
@@ -305,12 +309,15 @@ impl LibraryView {
             .flex_none()
             .border_t_1()
             .border_color(theme::border())
-            .when(playing, |row| row.bg(theme::bg_selected()))
+            .when(selected || playing, |row| row.bg(theme::bg_selected()))
             .cursor_pointer()
             .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
+                this.selected_track_id = Some(track_id);
+                this.select_path(play_path.clone(), cover_art_path.clone(), cx);
                 if event.click_count() == 2 {
-                    this.play_path(play_path.clone(), cx);
+                    this.play_path(play_path.clone(), cover_art_path.clone(), cx);
                 }
+                cx.notify();
             }))
             .child(
                 div()

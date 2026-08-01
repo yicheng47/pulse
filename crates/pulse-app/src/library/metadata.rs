@@ -1,4 +1,9 @@
-use std::{fs::File, io::BufReader, path::Path};
+use std::{
+    fs::{self, File},
+    io,
+    io::BufReader,
+    path::{Path, PathBuf},
+};
 
 use lofty::{
     config::ParseOptions,
@@ -80,6 +85,61 @@ pub(super) fn extract_metadata(path: &Path) -> Result<AudioMetadata, MetadataErr
         channels: properties.channels(),
         artwork: embedded_artwork(&tagged_file),
     })
+}
+
+pub(super) fn folder_artwork(path: &Path) -> io::Result<Option<EmbeddedArtwork>> {
+    const STEMS: &[&str] = &["cover", "folder", "front"];
+    const EXTENSIONS: &[&str] = &["jpg", "jpeg", "png"];
+
+    let Some(directory) = path.parent() else {
+        return Ok(None);
+    };
+    let mut best: Option<(usize, PathBuf, &'static str)> = None;
+    for entry in fs::read_dir(directory)? {
+        let entry = entry?;
+        if !entry.file_type()?.is_file() {
+            continue;
+        }
+        let candidate = entry.path();
+        let Some(stem) = candidate.file_stem().and_then(|stem| stem.to_str()) else {
+            continue;
+        };
+        let Some(extension) = candidate
+            .extension()
+            .and_then(|extension| extension.to_str())
+        else {
+            continue;
+        };
+        let stem = stem.to_ascii_lowercase();
+        let extension = extension.to_ascii_lowercase();
+        let Some(stem_rank) = STEMS.iter().position(|allowed| *allowed == stem) else {
+            continue;
+        };
+        let Some(extension_rank) = EXTENSIONS.iter().position(|allowed| *allowed == extension)
+        else {
+            continue;
+        };
+        let rank = stem_rank * EXTENSIONS.len() + extension_rank;
+        if best
+            .as_ref()
+            .is_none_or(|(best_rank, _, _)| rank < *best_rank)
+        {
+            let mime_type = if extension == "png" {
+                "image/png"
+            } else {
+                "image/jpeg"
+            };
+            best = Some((rank, candidate, mime_type));
+        }
+    }
+
+    let Some((_, path, mime_type)) = best else {
+        return Ok(None);
+    };
+    Ok(Some(EmbeddedArtwork {
+        data: fs::read(path)?,
+        mime_type: Some(mime_type.to_string()),
+    }))
 }
 
 fn read_pcm_file(path: &Path) -> Result<TaggedFile, MetadataError> {

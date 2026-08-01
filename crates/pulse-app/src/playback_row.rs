@@ -8,8 +8,8 @@ use std::{
 
 use gpui::{
     Bounds, Context, ExternalPaths, FontWeight, IntoElement, MouseButton, MouseDownEvent,
-    MouseMoveEvent, MouseUpEvent, Pixels, Render, Window, canvas, div, prelude::*, px, relative,
-    svg,
+    MouseMoveEvent, MouseUpEvent, ObjectFit, Pixels, Render, Window, canvas, div, img, prelude::*,
+    px, relative, svg,
 };
 use pulse_engine::{
     EngineError, PcmFormat, PlaybackCommand, PlaybackController, PlaybackEvent, PlaybackState,
@@ -27,6 +27,7 @@ struct PendingDeviceChange {
     success_message: Option<DeviceMessage>,
 }
 
+#[derive(Clone)]
 struct DeviceMessage {
     text: String,
     is_error: bool,
@@ -38,12 +39,14 @@ pub struct PlaybackRow {
     event_rx: Option<Receiver<PlaybackEvent>>,
     playback_state: PlaybackState,
     source_path: Option<PathBuf>,
+    cover_art_path: Option<PathBuf>,
     title: String,
     secondary: String,
     format: Option<PcmFormat>,
     devices: Vec<device::Device>,
     active_device: Option<device::Device>,
     device_capabilities: Option<device::OutputDeviceCapabilities>,
+    device_capability_message: Option<DeviceMessage>,
     pending_device_change: Option<PendingDeviceChange>,
     device_message: Option<DeviceMessage>,
     output_popover_open: bool,
@@ -81,12 +84,14 @@ impl PlaybackRow {
             event_rx: None,
             playback_state: PlaybackState::Idle,
             source_path: None,
+            cover_art_path: None,
             title: "No track loaded".to_string(),
             secondary: "Drop FLAC, ALAC, AIFF, or WAV".to_string(),
             format: None,
             devices: Vec::new(),
             active_device: None,
             device_capabilities: None,
+            device_capability_message: None,
             pending_device_change: None,
             device_message: None,
             output_popover_open: false,
@@ -102,6 +107,7 @@ impl PlaybackRow {
 
     fn initialize_output(&mut self) {
         self.device_message = None;
+        self.device_capability_message = None;
         let devices = match device::list_output_devices() {
             Ok(devices) => devices,
             Err(error) => {
@@ -162,13 +168,25 @@ impl PlaybackRow {
     }
 
     fn update_device_capabilities(&mut self, output_device: &device::Device) {
-        match device::output_device_capabilities(output_device.id) {
+        self.apply_device_capabilities_result(
+            output_device,
+            device::output_device_capabilities(output_device.id),
+        );
+    }
+
+    fn apply_device_capabilities_result(
+        &mut self,
+        output_device: &device::Device,
+        result: Result<device::OutputDeviceCapabilities, EngineError>,
+    ) {
+        self.device_capability_message = None;
+        match result {
             Ok(capabilities) => {
                 self.device_capabilities = Some(capabilities);
             }
             Err(EngineError::NoOutputCapabilities(_)) => {
                 self.device_capabilities = None;
-                self.append_device_message(DeviceMessage {
+                self.device_capability_message = Some(DeviceMessage {
                     text: format!(
                         "{} does not advertise a signed-integer PCM physical format Pulse can use.",
                         output_device.name
@@ -178,7 +196,7 @@ impl PlaybackRow {
             }
             Err(error) => {
                 self.device_capabilities = None;
-                self.append_device_message(DeviceMessage {
+                self.device_capability_message = Some(DeviceMessage {
                     text: format!(
                         "Could not query {} capabilities: {error}",
                         output_device.name
@@ -189,14 +207,16 @@ impl PlaybackRow {
         }
     }
 
-    fn append_device_message(&mut self, message: DeviceMessage) {
-        self.device_message = Some(match self.device_message.take() {
-            Some(current) => DeviceMessage {
-                text: format!("{} {}", current.text, message.text),
-                is_error: current.is_error || message.is_error,
-            },
-            None => message,
-        });
+    fn displayed_device_message(&self) -> Option<DeviceMessage> {
+        match (&self.device_message, &self.device_capability_message) {
+            (Some(message), Some(capability)) => Some(DeviceMessage {
+                text: format!("{} {}", message.text, capability.text),
+                is_error: message.is_error || capability.is_error,
+            }),
+            (Some(message), None) => Some(message.clone()),
+            (None, Some(capability)) => Some(capability.clone()),
+            (None, None) => None,
+        }
     }
 
     pub(crate) fn error(&self) -> Option<&str> {
@@ -215,9 +235,26 @@ impl PlaybackRow {
             )
     }
 
-    pub(crate) fn play_library_path(&mut self, path: PathBuf, cx: &mut Context<Self>) {
+    pub(crate) fn play_library_path(
+        &mut self,
+        path: PathBuf,
+        cover_art_path: Option<PathBuf>,
+        cx: &mut Context<Self>,
+    ) {
+        self.apply_library_context(&path, cover_art_path);
         self.error = None;
         self.play_file(path, cx);
+    }
+
+    pub(crate) fn select_library_path(
+        &mut self,
+        path: PathBuf,
+        cover_art_path: Option<PathBuf>,
+        cx: &mut Context<Self>,
+    ) {
+        if self.apply_library_selection(path, cover_art_path) {
+            cx.notify();
+        }
     }
 
     pub(crate) fn handle_drop(&mut self, paths: &ExternalPaths, cx: &mut Context<Self>) {
@@ -242,6 +279,7 @@ impl PlaybackRow {
         }
 
         self.error = None;
+        self.cover_art_path = None;
         self.play_file(path.clone(), cx);
     }
 
@@ -268,12 +306,38 @@ impl PlaybackRow {
         match self.playback_state {
             PlaybackState::Playing => Some(PlaybackCommand::Pause),
             PlaybackState::Paused => Some(PlaybackCommand::Resume),
-            PlaybackState::Ended | PlaybackState::Error => self
+            PlaybackState::Idle | PlaybackState::Ended | PlaybackState::Error => self
                 .source_path
                 .clone()
                 .map(|path| PlaybackCommand::PlayFile { path }),
-            PlaybackState::Idle | PlaybackState::Loading | PlaybackState::Stopping => None,
+            PlaybackState::Loading | PlaybackState::Stopping => None,
         }
+    }
+
+    fn apply_library_selection(&mut self, path: PathBuf, cover_art_path: Option<PathBuf>) -> bool {
+        if matches!(
+            self.playback_state,
+            PlaybackState::Loading
+                | PlaybackState::Playing
+                | PlaybackState::Paused
+                | PlaybackState::Stopping
+        ) {
+            return false;
+        }
+        self.apply_library_context(&path, cover_art_path);
+        self.playback_state = PlaybackState::Idle;
+        self.format = None;
+        self.position_ms = 0;
+        self.duration_ms = None;
+        self.error = None;
+        true
+    }
+
+    fn apply_library_context(&mut self, path: &Path, cover_art_path: Option<PathBuf>) {
+        self.title = track_title(path);
+        self.secondary = track_secondary(path);
+        self.source_path = Some(path.to_path_buf());
+        self.cover_art_path = cover_art_path;
     }
 
     fn send_command(&mut self, command: PlaybackCommand, cx: &mut Context<Self>) {
@@ -469,6 +533,7 @@ impl PlaybackRow {
         }
         self.error = None;
         self.device_message = None;
+        self.device_capability_message = None;
         self.pending_device_change = Some(PendingDeviceChange {
             device: output_device.clone(),
             persist,
@@ -569,6 +634,17 @@ impl PlaybackRow {
     }
 
     fn render_now_playing(&self) -> impl IntoElement {
+        let cover = match &self.cover_art_path {
+            Some(path) => img(path.clone())
+                .size_full()
+                .object_fit(ObjectFit::Cover)
+                .into_any_element(),
+            None => svg()
+                .path("icons/list-music.svg")
+                .size(px(22.))
+                .text_color(theme::text_muted())
+                .into_any_element(),
+        };
         div()
             .flex()
             .items_center()
@@ -586,12 +662,7 @@ impl PlaybackRow {
                     .border_1()
                     .border_color(theme::border_strong())
                     .bg(theme::bg_elevated())
-                    .child(
-                        svg()
-                            .path("icons/list-music.svg")
-                            .size(px(22.))
-                            .text_color(theme::text_muted()),
-                    ),
+                    .child(cover),
             )
             .child(
                 div()
@@ -771,7 +842,7 @@ impl PlaybackRow {
                     .whitespace_nowrap()
                     .child(device),
             );
-        if let Some(message) = &self.device_message {
+        if let Some(message) = self.displayed_device_message() {
             output_details = output_details.child(
                 div()
                     .w_full()
@@ -784,7 +855,7 @@ impl PlaybackRow {
                     })
                     .overflow_hidden()
                     .whitespace_nowrap()
-                    .child(message.text.clone()),
+                    .child(message.text),
             );
         }
 
@@ -812,8 +883,7 @@ impl PlaybackRow {
             .child(
                 svg().path("icons/speaker.svg").size(px(17.)).text_color(
                     if self
-                        .device_message
-                        .as_ref()
+                        .displayed_device_message()
                         .is_some_and(|message| message.is_error)
                     {
                         theme::danger()
@@ -1019,7 +1089,7 @@ impl PlaybackRow {
                     }),
             );
 
-        if let Some(message) = &self.device_message {
+        if let Some(message) = self.displayed_device_message() {
             popover = popover.child(
                 div()
                     .w_full()
@@ -1030,7 +1100,7 @@ impl PlaybackRow {
                     } else {
                         theme::warning()
                     })
-                    .child(message.text.clone()),
+                    .child(message.text),
             );
         }
 
@@ -1187,11 +1257,11 @@ fn resolve_output_device(
 }
 
 fn format_device_capabilities(capabilities: device::OutputDeviceCapabilities) -> String {
-    format!(
-        "Up to {}-bit / {}",
-        capabilities.max_bits_per_channel,
-        format_sample_rate(capabilities.max_sample_rate.round() as u32)
-    )
+    let sample_rate = format_sample_rate(capabilities.max_sample_rate.round() as u32);
+    match capabilities.max_bits_per_channel {
+        Some(bits) => format!("Up to {bits}-bit / {sample_rate}"),
+        None => format!("Up to {sample_rate}"),
+    }
 }
 
 fn transport_icon(path: &'static str) -> impl IntoElement {
@@ -1394,10 +1464,41 @@ mod tests {
     fn formats_advertised_output_capabilities_without_playback_claims() {
         assert_eq!(
             format_device_capabilities(device::OutputDeviceCapabilities {
-                max_bits_per_channel: 24,
+                max_bits_per_channel: Some(24),
                 max_sample_rate: 192_000.0,
             }),
             "Up to 24-bit / 192 kHz"
+        );
+        assert_eq!(
+            format_device_capabilities(device::OutputDeviceCapabilities {
+                max_bits_per_channel: None,
+                max_sample_rate: 48_000.0,
+            }),
+            "Up to 48 kHz"
+        );
+    }
+
+    #[test]
+    fn repeated_capability_refresh_replaces_its_message() {
+        let mut row = PlaybackRow::initial();
+        let airpods = output_device(9, "airpods", "AirPods Pro");
+        row.device_message = Some(DeviceMessage {
+            text: "Using the saved output device.".to_string(),
+            is_error: false,
+        });
+
+        row.apply_device_capabilities_result(
+            &airpods,
+            Err(EngineError::NoOutputCapabilities(airpods.id)),
+        );
+        row.apply_device_capabilities_result(
+            &airpods,
+            Err(EngineError::NoOutputCapabilities(airpods.id)),
+        );
+
+        assert_eq!(
+            row.displayed_device_message().unwrap().text,
+            "Using the saved output device. AirPods Pro does not advertise a signed-integer PCM physical format Pulse can use."
         );
     }
 
@@ -1495,6 +1596,46 @@ mod tests {
                 path: PathBuf::from("/Music/track.flac")
             })
         );
+    }
+
+    #[test]
+    fn selecting_a_library_track_loads_the_idle_row_for_playback() {
+        let mut row = PlaybackRow::initial();
+        let path = PathBuf::from("/Music/Blonde/Nights.flac");
+        let cover = PathBuf::from("/Cache/nights.cover");
+
+        assert!(row.apply_library_selection(path.clone(), Some(cover.clone())));
+
+        assert_eq!(row.source_path.as_ref(), Some(&path));
+        assert_eq!(row.cover_art_path.as_ref(), Some(&cover));
+        assert_eq!(row.title, "Nights");
+        assert_eq!(row.secondary, "Blonde");
+        assert_eq!(row.playback_state, PlaybackState::Idle);
+        assert_eq!(
+            row.toggle_command(),
+            Some(PlaybackCommand::PlayFile { path })
+        );
+    }
+
+    #[test]
+    fn selecting_a_row_does_not_replace_the_active_playback_source() {
+        let mut row = PlaybackRow::initial();
+        let playing = PathBuf::from("/Music/Blonde/Nights.flac");
+        let playing_cover = PathBuf::from("/Cache/nights.cover");
+        row.source_path = Some(playing.clone());
+        row.cover_art_path = Some(playing_cover.clone());
+        row.title = "Nights".to_string();
+        row.playback_state = PlaybackState::Playing;
+
+        assert!(!row.apply_library_selection(
+            PathBuf::from("/Music/Blonde/Solo.flac"),
+            Some(PathBuf::from("/Cache/solo.cover")),
+        ));
+
+        assert_eq!(row.source_path.as_ref(), Some(&playing));
+        assert_eq!(row.cover_art_path.as_ref(), Some(&playing_cover));
+        assert_eq!(row.title, "Nights");
+        assert_eq!(row.toggle_command(), Some(PlaybackCommand::Pause));
     }
 
     fn output_device(id: device::DeviceId, uid: &str, name: &str) -> device::Device {

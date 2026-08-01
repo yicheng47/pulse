@@ -27,7 +27,7 @@ pub struct FormatValidation {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct OutputDeviceCapabilities {
-    pub max_bits_per_channel: u32,
+    pub max_bits_per_channel: Option<u32>,
     pub max_sample_rate: f64,
 }
 

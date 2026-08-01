@@ -63,12 +63,14 @@ impl LibraryView {
             .child(
                 div()
                     .flex()
+                    .items_start()
                     .justify_between()
                     .w_full()
-                    .h(px(63.))
+                    .min_h(px(63.))
+                    .pb(px(10.))
                     .flex_none()
                     .child(render_page_title("Albums", meta))
-                    .child(render_view_toggle()),
+                    .child(render_view_toggle(self.albums_as_grid, cx)),
             );
 
         if self.albums.is_empty() {
@@ -92,10 +94,49 @@ impl LibraryView {
             FilterChip::All => "All albums",
             filter => filter.label(),
         };
-        let mut grid = div().flex().flex_wrap().gap(px(14.)).w_full().pb(px(24.));
-        for (index, album) in visible.iter().cloned().enumerate() {
-            grid = grid.child(self.render_album_card(index, album, cx));
-        }
+        let browser = if visible.is_empty() {
+            render_no_filter_matches("No albums match this filter").into_any_element()
+        } else if self.albums_as_grid {
+            let mut grid = div().flex().flex_wrap().gap(px(14.)).w_full().pb(px(24.));
+            for (index, album) in visible.iter().cloned().enumerate() {
+                grid = grid.child(self.render_album_card(index, album, cx));
+            }
+            div()
+                .id("albums-grid-scroll")
+                .flex_1()
+                .min_h_0()
+                .overflow_y_scroll()
+                .track_scroll(&self.albums_scroll)
+                .child(grid)
+                .into_any_element()
+        } else {
+            let mut rows = div().flex().flex_col().w_full();
+            for (index, album) in visible.iter().cloned().enumerate() {
+                rows = rows.child(self.render_album_list_row(index, album, cx));
+            }
+            div()
+                .flex()
+                .flex_col()
+                .flex_1()
+                .min_h_0()
+                .w_full()
+                .overflow_hidden()
+                .rounded(px(theme::RADIUS_MD))
+                .border_1()
+                .border_color(theme::border())
+                .bg(theme::bg_surface())
+                .child(render_album_list_header())
+                .child(
+                    div()
+                        .id("albums-list-scroll")
+                        .flex_1()
+                        .min_h_0()
+                        .overflow_y_scroll()
+                        .track_scroll(&self.albums_scroll)
+                        .child(rows),
+                )
+                .into_any_element()
+        };
 
         body.child(
             div()
@@ -128,20 +169,7 @@ impl LibraryView {
                                 .child(format!("{} shown", visible.len())),
                         ),
                 )
-                .child(
-                    div()
-                        .id("albums-grid-scroll")
-                        .flex_1()
-                        .min_h_0()
-                        .overflow_y_scroll()
-                        .track_scroll(&self.albums_scroll)
-                        .child(if visible.is_empty() {
-                            render_no_filter_matches("No albums match this filter")
-                                .into_any_element()
-                        } else {
-                            grid.into_any_element()
-                        }),
-                ),
+                .child(browser),
         )
         .into_any_element()
     }
@@ -381,11 +409,105 @@ impl LibraryView {
             )
     }
 
+    fn render_album_list_row(
+        &self,
+        index: usize,
+        album: Album,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let detail = album.clone();
+        let quality = quality_label(album.max_bit_depth, album.max_sample_rate_hz);
+        let year = album
+            .year
+            .map(|year| year.to_string())
+            .unwrap_or_else(|| "—".to_string());
+
+        div()
+            .id(format!("album-list-row-{index}"))
+            .flex()
+            .items_center()
+            .w_full()
+            .h(px(58.))
+            .flex_none()
+            .border_t_1()
+            .border_color(theme::border())
+            .cursor_pointer()
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.open_album(detail.clone(), cx);
+            }))
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .w(px(430.))
+                    .h_full()
+                    .pl(px(14.))
+                    .child(render_cover(album.cover_art_path.as_deref(), 42., 42., 18.))
+                    .child(
+                        div()
+                            .min_w_0()
+                            .ml(px(12.))
+                            .truncate()
+                            .font_family(theme::FONT_SANS)
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_size(px(13.))
+                            .text_color(theme::text_primary())
+                            .child(album.title),
+                    ),
+            )
+            .child(
+                div()
+                    .w(px(240.))
+                    .pr(px(14.))
+                    .truncate()
+                    .font_family(theme::FONT_SANS)
+                    .text_size(px(12.))
+                    .text_color(theme::text_secondary())
+                    .child(album.artist),
+            )
+            .child(
+                div()
+                    .w(px(100.))
+                    .font_family(theme::FONT_MONO)
+                    .text_size(px(11.))
+                    .text_color(theme::text_secondary())
+                    .child(year),
+            )
+            .child(
+                div()
+                    .w(px(100.))
+                    .font_family(theme::FONT_MONO)
+                    .text_size(px(11.))
+                    .text_color(theme::text_secondary())
+                    .child(album.track_count.to_string()),
+            )
+            .child(
+                div()
+                    .w(px(120.))
+                    .font_family(theme::FONT_MONO)
+                    .text_size(px(11.))
+                    .text_color(theme::text_secondary())
+                    .child(format_album_duration(album.total_duration_ms)),
+            )
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .flex_1()
+                    .min_w_0()
+                    .when_some(quality, |cell, quality| {
+                        cell.child(render_quality_badge(quality))
+                    }),
+            )
+    }
+
     fn render_album_detail(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let detail = self.album_detail.as_ref().expect("album detail exists");
         let album = detail.album.clone();
         let tracks = detail.tracks.clone();
-        let first_track = tracks.first().map(|track| track.path.clone());
+        let first_track = tracks
+            .first()
+            .map(|track| (track.path.clone(), track.cover_art_path.clone()));
         let total_minutes = album.total_duration_ms.div_ceil(60_000);
         let formats = tracks
             .iter()
@@ -412,6 +534,9 @@ impl LibraryView {
             .id("album-detail-track-scroll")
             .flex()
             .flex_col()
+            .flex_1()
+            .min_h_0()
+            .track_scroll(&self.album_detail_scroll)
             .overflow_y_scroll();
         for (index, track) in tracks.into_iter().enumerate() {
             rows = rows.child(self.render_album_track_row(index, track, cx));
@@ -424,6 +549,7 @@ impl LibraryView {
             .flex_1()
             .min_h_0()
             .w_full()
+            .gap(px(18.))
             .px(px(28.))
             .pt(px(22.))
             .pb(px(24.))
@@ -439,6 +565,7 @@ impl LibraryView {
                     .cursor_pointer()
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.album_detail = None;
+                        this.selected_album_track_id = None;
                         cx.notify();
                     }))
                     .child(
@@ -449,7 +576,8 @@ impl LibraryView {
                     )
                     .child(
                         div()
-                            .font_family(theme::FONT_SANS)
+                            .font_family(theme::FONT_DISPLAY)
+                            .font_weight(FontWeight::BOLD)
                             .text_size(px(13.))
                             .text_color(theme::text_muted())
                             .child("Albums"),
@@ -458,22 +586,33 @@ impl LibraryView {
             .child(
                 div()
                     .flex()
-                    .h(px(208.))
+                    .items_end()
+                    .gap(px(24.))
                     .w_full()
                     .flex_none()
-                    .pt(px(18.))
-                    .child(render_cover(
-                        album.cover_art_path.as_deref(),
-                        190.,
-                        190.,
-                        42.,
-                    ))
+                    .child(
+                        div()
+                            .flex()
+                            .size(px(190.))
+                            .flex_none()
+                            .overflow_hidden()
+                            .rounded(px(theme::RADIUS_MD))
+                            .border_1()
+                            .border_color(theme::border())
+                            .child(render_cover(
+                                album.cover_art_path.as_deref(),
+                                190.,
+                                190.,
+                                42.,
+                            )),
+                    )
                     .child(
                         div()
                             .flex()
                             .flex_col()
-                            .ml(px(24.))
-                            .pt(px(23.))
+                            .flex_1()
+                            .min_w_0()
+                            .gap(px(8.))
                             .child(
                                 div()
                                     .font_family(theme::FONT_MONO)
@@ -484,7 +623,8 @@ impl LibraryView {
                             )
                             .child(
                                 div()
-                                    .mt(px(4.))
+                                    .w_full()
+                                    .truncate()
                                     .font_family(theme::FONT_DISPLAY)
                                     .font_weight(FontWeight::BOLD)
                                     .text_size(px(38.))
@@ -495,17 +635,22 @@ impl LibraryView {
                                 div()
                                     .flex()
                                     .items_center()
+                                    .w_full()
+                                    .min_w_0()
                                     .gap(px(8.))
-                                    .mt(px(2.))
                                     .child(
                                         div()
+                                            .flex_none()
                                             .font_family(theme::FONT_SANS)
+                                            .font_weight(FontWeight::SEMIBOLD)
                                             .text_size(px(14.))
                                             .text_color(theme::text_primary())
                                             .child(album.artist.clone()),
                                     )
                                     .child(
                                         div()
+                                            .min_w_0()
+                                            .truncate()
                                             .font_family(theme::FONT_SANS)
                                             .text_size(px(13.))
                                             .text_color(theme::text_secondary())
@@ -525,7 +670,6 @@ impl LibraryView {
                                     .flex()
                                     .items_center()
                                     .gap(px(8.))
-                                    .mt(px(8.))
                                     .when_some(quality.clone(), |row, quality| {
                                         row.child(render_quality_badge(format!(
                                             "{formats} {quality}"
@@ -541,7 +685,6 @@ impl LibraryView {
                                     .flex()
                                     .items_center()
                                     .gap(px(10.))
-                                    .mt(px(8.))
                                     .child(
                                         div()
                                             .id("play-album")
@@ -552,10 +695,14 @@ impl LibraryView {
                                             .px(px(16.))
                                             .rounded(px(theme::RADIUS_MD))
                                             .bg(theme::accent())
-                                            .when_some(first_track, |button, path| {
+                                            .when_some(first_track, |button, (path, cover)| {
                                                 button.cursor_pointer().on_click(cx.listener(
                                                     move |this, _, _, cx| {
-                                                        this.play_path(path.clone(), cx);
+                                                        this.play_path(
+                                                            path.clone(),
+                                                            cover.clone(),
+                                                            cx,
+                                                        );
                                                     },
                                                 ))
                                             })
@@ -582,6 +729,8 @@ impl LibraryView {
                                             .h(px(36.))
                                             .px(px(14.))
                                             .rounded(px(theme::RADIUS_MD))
+                                            .border_1()
+                                            .border_color(theme::border())
                                             .bg(theme::bg_muted())
                                             .opacity(0.5)
                                             .child(
@@ -598,6 +747,24 @@ impl LibraryView {
                                                     .text_color(theme::text_secondary())
                                                     .child("Shuffle"),
                                             ),
+                                    )
+                                    .child(
+                                        div()
+                                            .flex()
+                                            .items_center()
+                                            .justify_center()
+                                            .size(px(36.))
+                                            .rounded(px(theme::RADIUS_MD))
+                                            .border_1()
+                                            .border_color(theme::border())
+                                            .bg(theme::bg_muted())
+                                            .opacity(0.5)
+                                            .child(
+                                                svg()
+                                                    .path("icons/ellipsis.svg")
+                                                    .size(px(16.))
+                                                    .text_color(theme::text_secondary()),
+                                            ),
                                     ),
                             ),
                     ),
@@ -613,7 +780,10 @@ impl LibraryView {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let playing = self.is_now_playing(&track.path, cx);
+        let selected = self.selected_album_track_id == Some(track.id);
+        let track_id = track.id;
         let path = track.path.clone();
+        let cover_art_path = track.cover_art_path.clone();
         let number = track
             .track_number
             .map(|number| number.to_string())
@@ -627,14 +797,22 @@ impl LibraryView {
             .w_full()
             .h(px(38.))
             .flex_none()
-            .border_t_1()
-            .border_color(theme::border())
-            .when(playing, |row| row.bg(theme::bg_selected()))
+            .border_b_1()
+            .border_color(if playing {
+                theme::accent()
+            } else {
+                theme::border()
+            })
+            .when(playing, |row| row.border_l_2())
+            .when(selected || playing, |row| row.bg(theme::bg_selected()))
             .cursor_pointer()
             .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
+                this.selected_album_track_id = Some(track_id);
+                this.select_path(path.clone(), cover_art_path.clone(), cx);
                 if event.click_count() == 2 {
-                    this.play_path(path.clone(), cx);
+                    this.play_path(path.clone(), cover_art_path.clone(), cx);
                 }
+                cx.notify();
             }))
             .child(
                 div()
@@ -728,7 +906,7 @@ pub(super) fn render_cover(
     match cover_path {
         Some(path) => base
             .child(
-                img(path.to_string_lossy().into_owned())
+                img(path.to_path_buf())
                     .size_full()
                     .object_fit(ObjectFit::Cover),
             )
@@ -765,7 +943,7 @@ fn render_page_title(title: &'static str, meta: String) -> impl IntoElement {
         )
 }
 
-fn render_view_toggle() -> impl IntoElement {
+fn render_view_toggle(albums_as_grid: bool, cx: &mut Context<LibraryView>) -> impl IntoElement {
     div()
         .flex()
         .items_center()
@@ -778,29 +956,88 @@ fn render_view_toggle() -> impl IntoElement {
         .bg(theme::bg_inset())
         .child(
             div()
+                .id("albums-grid-view")
                 .flex()
                 .items_center()
                 .h(px(27.))
                 .px(px(9.))
                 .rounded(px(theme::RADIUS_SM))
-                .bg(theme::accent_soft())
+                .when(albums_as_grid, |button| button.bg(theme::accent_soft()))
+                .cursor_pointer()
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.albums_as_grid = true;
+                    cx.notify();
+                }))
                 .font_family(theme::FONT_SANS)
                 .text_size(px(12.))
-                .text_color(theme::accent())
+                .text_color(if albums_as_grid {
+                    theme::accent()
+                } else {
+                    theme::text_secondary()
+                })
                 .child("Grid"),
         )
         .child(
             div()
+                .id("albums-list-view")
                 .flex()
                 .items_center()
                 .h(px(27.))
                 .px(px(9.))
-                .opacity(0.5)
+                .rounded(px(theme::RADIUS_SM))
+                .when(!albums_as_grid, |button| button.bg(theme::accent_soft()))
+                .cursor_pointer()
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.albums_as_grid = false;
+                    cx.notify();
+                }))
                 .font_family(theme::FONT_SANS)
                 .text_size(px(12.))
-                .text_color(theme::text_secondary())
+                .text_color(if albums_as_grid {
+                    theme::text_secondary()
+                } else {
+                    theme::accent()
+                })
                 .child("List"),
         )
+}
+
+fn render_album_list_header() -> impl IntoElement {
+    div()
+        .flex()
+        .items_center()
+        .w_full()
+        .h(px(30.))
+        .flex_none()
+        .bg(theme::bg_surface_alt())
+        .child(
+            div()
+                .w(px(430.))
+                .pl(px(14.))
+                .font_family(theme::FONT_MONO)
+                .font_weight(FontWeight::BOLD)
+                .text_size(px(9.))
+                .text_color(theme::text_muted())
+                .child("ALBUM"),
+        )
+        .child(table_header_cell("ARTIST", 240.))
+        .child(table_header_cell("YEAR", 100.))
+        .child(table_header_cell("TRACKS", 100.))
+        .child(table_header_cell("DURATION", 120.))
+        .child(
+            div()
+                .flex_1()
+                .font_family(theme::FONT_MONO)
+                .font_weight(FontWeight::BOLD)
+                .text_size(px(9.))
+                .text_color(theme::text_muted())
+                .child("QUALITY"),
+        )
+}
+
+fn format_album_duration(duration_ms: u64) -> String {
+    let total_seconds = duration_ms / 1_000;
+    format!("{}:{:02}", total_seconds / 60, total_seconds % 60)
 }
 
 fn render_no_filter_matches(message: &'static str) -> impl IntoElement {
@@ -840,6 +1077,8 @@ fn render_hi_res_badge() -> impl IntoElement {
         .h(px(21.))
         .px(px(7.))
         .rounded(px(theme::RADIUS_SM))
+        .border_1()
+        .border_color(theme::primary())
         .bg(theme::primary_soft())
         .font_family(theme::FONT_MONO)
         .font_weight(FontWeight::BOLD)
@@ -880,5 +1119,16 @@ fn album_sort_label(sort: AlbumSortOrder) -> &'static str {
         AlbumSortOrder::DateAdded => "DATE ADDED",
         AlbumSortOrder::ReleaseYear => "YEAR",
         AlbumSortOrder::Duration => "DURATION",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::format_album_duration;
+
+    #[test]
+    fn formats_album_duration_for_the_list_view() {
+        assert_eq!(format_album_duration(0), "0:00");
+        assert_eq!(format_album_duration(3_661_000), "61:01");
     }
 }

@@ -25,8 +25,8 @@ use objc2_core_audio::{
 };
 use objc2_core_audio_types::{
     AudioBuffer, AudioBufferList, AudioStreamBasicDescription, AudioValueRange,
-    kAudioFormatFlagIsFloat, kAudioFormatFlagIsSignedInteger, kAudioFormatLinearPCM,
-    kAudioStreamAnyRate,
+    kAudioFormatFlagIsFloat, kAudioFormatFlagIsNonMixable, kAudioFormatFlagIsSignedInteger,
+    kAudioFormatLinearPCM, kAudioStreamAnyRate,
 };
 use objc2_core_foundation::{CFRetained, CFString};
 
@@ -284,7 +284,7 @@ pub(crate) fn set_matching_physical_format(
 
 pub(crate) fn output_device_capabilities(
     device_id: AudioObjectID,
-) -> Result<Option<(u32, f64)>, EngineError> {
+) -> Result<Option<(Option<u32>, f64)>, EngineError> {
     let mut formats = Vec::new();
     for stream_id in output_streams(device_id)? {
         formats.extend(available_physical_formats(stream_id)?);
@@ -446,22 +446,34 @@ fn matching_physical_format(
 
 fn maximum_physical_format_capabilities(
     formats: &[AudioStreamRangedDescription],
-) -> Option<(u32, f64)> {
+) -> Option<(Option<u32>, f64)> {
     let mut maximum: Option<(u32, f64)> = None;
+    let mut maximum_mixable_float_rate: Option<f64> = None;
 
     for ranged_format in formats {
         let format = ranged_format.mFormat;
-        if format.mFormatID != kAudioFormatLinearPCM
-            || format.mFormatFlags & kAudioFormatFlagIsFloat != 0
-            || format.mFormatFlags & kAudioFormatFlagIsSignedInteger == 0
-        {
+        if format.mFormatID != kAudioFormatLinearPCM {
             continue;
         }
 
         let sample_rate = format
             .mSampleRate
             .max(ranged_format.mSampleRateRange.mMaximum);
-        if format.mBitsPerChannel == 0 || !sample_rate.is_finite() || sample_rate <= 0.0 {
+        if !sample_rate.is_finite() || sample_rate <= 0.0 {
+            continue;
+        }
+
+        if format.mFormatFlags & kAudioFormatFlagIsFloat != 0
+            && format.mFormatFlags & kAudioFormatFlagIsNonMixable == 0
+        {
+            maximum_mixable_float_rate = Some(
+                maximum_mixable_float_rate.map_or(sample_rate, |maximum| maximum.max(sample_rate)),
+            );
+            continue;
+        }
+
+        if format.mFormatFlags & kAudioFormatFlagIsSignedInteger == 0 || format.mBitsPerChannel == 0
+        {
             continue;
         }
 
@@ -475,6 +487,8 @@ fn maximum_physical_format_capabilities(
     }
 
     maximum
+        .map(|(bits, rate)| (Some(bits), rate))
+        .or_else(|| maximum_mixable_float_rate.map(|rate| (None, rate)))
 }
 
 fn set_physical_format(
@@ -681,7 +695,26 @@ mod tests {
 
         assert_eq!(
             maximum_physical_format_capabilities(&formats),
-            Some((32, 192_000.0))
+            Some((Some(32), 192_000.0))
+        );
+    }
+
+    #[test]
+    fn maximum_capabilities_fall_back_to_mixable_float_sample_rate() {
+        let formats = [
+            ranged_format(0.0, 44_100.0, 48_000.0, 32, kAudioFormatFlagIsFloat),
+            ranged_format(
+                0.0,
+                44_100.0,
+                192_000.0,
+                32,
+                kAudioFormatFlagIsFloat | kAudioFormatFlagIsNonMixable,
+            ),
+        ];
+
+        assert_eq!(
+            maximum_physical_format_capabilities(&formats),
+            Some((None, 48_000.0))
         );
     }
 
