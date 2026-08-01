@@ -46,7 +46,7 @@ Each stage should have a focused implementation note once work starts. A stage i
 
 | Stage | Impl Note | Goal | Notes |
 |-------|-----------|------|-------|
-| 12 | — | Wire now-playing, queue, and playlists. | Playback row uses Stage 6 controller state. Manual playlists support create/rename/delete/add/remove/reorder/play. Queue supports next/previous and queue count. Proposed home for search implementation (popover `A3JuUc` already designed). |
+| 12 | [`0014-queue-playlists-search.md`](0014-queue-playlists-search.md) | Wire queue, playlists, and search. | App-side transient queue with next/previous, auto-advance, and the badge count. Playlist CRUD/reorder over schema v3 with the name dialog (`Lr7A3`) and track context menu (`cYA3i`). LIKE-based search behind the designed popover (`A3JuUc`). Shuffle/Repeat and the queue drawer stay out. |
 | 13 | — | Add MVP states and failure handling. | Loading, empty, offline storage, scan failure, decode failure, hogged device, unavailable device, and missing-file states. No silent failure. |
 | 14 | — | MVP hardening and v0 release. | Hardware smoke matrix, scanner/library regression tests, CLI smoke tests, basic packaging, release notes, and final product-design cleanup for shipped surfaces. |
 
