@@ -86,9 +86,11 @@ impl LibraryView {
                                 theme::accent_soft()
                             })
                             .when(!scanning, |button| {
-                                button.cursor_pointer().on_click(
-                                    cx.listener(|this, _, _, cx| this.choose_storage_folder(cx)),
-                                )
+                                button.cursor_pointer().on_click(cx.listener(
+                                    |this, _, window, cx| {
+                                        this.begin_add_storage(window, cx);
+                                    },
+                                ))
                             })
                             .opacity(if scanning { 0.5 } else { 1.0 })
                             .child(
@@ -261,8 +263,8 @@ impl LibraryView {
                             .border_color(theme::accent())
                             .bg(theme::accent_soft())
                             .cursor_pointer()
-                            .on_click(cx.listener(|this, _, _, cx| {
-                                this.choose_storage_folder(cx);
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                this.begin_add_storage(window, cx);
                             }))
                             .child(
                                 svg()
@@ -922,7 +924,7 @@ impl LibraryView {
     pub(super) fn render_modal(&self, _window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         match self.modal.as_ref().expect("modal exists") {
             Modal::AddStorage(draft) => self.render_add_storage_modal(
-                draft.path.display().to_string(),
+                draft.path.as_ref().map(|path| path.display().to_string()),
                 draft.display_name.clone(),
                 draft.scan_now,
                 cx,
@@ -931,34 +933,45 @@ impl LibraryView {
                 root_id,
                 display_name,
             } => self.render_remove_storage_modal(*root_id, display_name.clone(), cx),
+            Modal::PlaylistName { mode, name } => {
+                self.render_playlist_name_modal(*mode, name.clone(), cx)
+            }
+            Modal::DeletePlaylist {
+                playlist_id,
+                name,
+                entry_count,
+            } => self.render_delete_playlist_modal(*playlist_id, name.clone(), *entry_count, cx),
         }
     }
 
     fn render_add_storage_modal(
         &self,
-        path: String,
+        path: Option<String>,
         display_name: String,
         scan_now: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let path_selected = path.is_some();
+        let can_confirm = path_selected && !display_name.trim().is_empty();
+        let path = path.unwrap_or_else(|| "Choose a folder".to_string());
         render_modal_scrim(
             div()
                 .flex()
                 .flex_col()
                 .w(px(520.))
-                .h(px(439.))
+                .h(px(452.))
                 .overflow_hidden()
                 .rounded(px(theme::RADIUS_LG))
                 .border_1()
                 .border_color(theme::border_strong())
                 .bg(theme::bg_surface())
-                .child(render_modal_header("Add Storage", cx))
+                .child(render_add_storage_header(cx))
                 .child(
                     div()
                         .flex()
                         .flex_col()
                         .flex_1()
-                        .gap(px(17.))
+                        .gap(px(14.))
                         .p(px(22.))
                         .child(render_field_label("FOLDER"))
                         .child(
@@ -980,11 +993,23 @@ impl LibraryView {
                                         .border_color(theme::border())
                                         .bg(theme::bg_inset())
                                         .child(
+                                            svg()
+                                                .path("icons/folder.svg")
+                                                .size(px(15.))
+                                                .flex_none()
+                                                .text_color(theme::text_muted()),
+                                        )
+                                        .child(
                                             div()
+                                                .ml(px(8.))
                                                 .truncate()
                                                 .font_family(theme::FONT_MONO)
                                                 .text_size(px(10.))
-                                                .text_color(theme::text_secondary())
+                                                .text_color(if path_selected {
+                                                    theme::text_secondary()
+                                                } else {
+                                                    theme::text_muted()
+                                                })
                                                 .child(path),
                                         ),
                                 )
@@ -1001,14 +1026,13 @@ impl LibraryView {
                                         .border_color(theme::border())
                                         .cursor_pointer()
                                         .on_click(cx.listener(|this, _, _, cx| {
-                                            this.modal = None;
                                             this.choose_storage_folder(cx);
                                         }))
                                         .font_family(theme::FONT_DISPLAY)
                                         .font_weight(FontWeight::SEMIBOLD)
                                         .text_size(px(12.))
                                         .text_color(theme::text_secondary())
-                                        .child("Choose"),
+                                        .child("Choose…"),
                                 ),
                         )
                         .child(render_field_label("DISPLAY NAME"))
@@ -1035,16 +1059,46 @@ impl LibraryView {
                         )
                         .child(
                             div()
-                                .font_family(theme::FONT_SANS)
-                                .text_size(px(11.))
-                                .text_color(theme::text_muted())
-                                .child("This name is only used inside Pulse. Your files stay where they are."),
+                                .flex()
+                                .items_center()
+                                .gap(px(10.))
+                                .w_full()
+                                .min_h(px(56.))
+                                .px(px(12.))
+                                .rounded(px(theme::RADIUS_SM))
+                                .border_1()
+                                .border_color(theme::border())
+                                .bg(theme::bg_muted())
+                                .child(
+                                    div()
+                                        .flex()
+                                        .items_center()
+                                        .justify_center()
+                                        .size(px(18.))
+                                        .flex_none()
+                                        .rounded_full()
+                                        .border_1()
+                                        .border_color(theme::primary())
+                                        .font_family(theme::FONT_MONO)
+                                        .font_weight(FontWeight::BOLD)
+                                        .text_size(px(10.))
+                                        .text_color(theme::primary())
+                                        .child("i"),
+                                )
+                                .child(
+                                    div()
+                                        .font_family(theme::FONT_SANS)
+                                        .text_size(px(11.))
+                                        .line_height(px(16.))
+                                        .text_color(theme::text_secondary())
+                                        .child("Pulse indexes FLAC, ALAC, AIFF and WAV. Other files in this folder are ignored."),
+                                ),
                         )
                         .child(
                             div()
                                 .id("scan-storage-now")
                                 .flex()
-                                .items_center()
+                                .items_start()
                                 .gap(px(9.))
                                 .cursor_pointer()
                                 .on_click(cx.listener(|this, _, _, cx| {
@@ -1059,6 +1113,7 @@ impl LibraryView {
                                         .items_center()
                                         .justify_center()
                                         .size(px(17.))
+                                        .mt(px(1.))
                                         .rounded(px(3.))
                                         .border_1()
                                         .border_color(if scan_now {
@@ -1067,7 +1122,7 @@ impl LibraryView {
                                             theme::border_strong()
                                         })
                                         .bg(if scan_now {
-                                            theme::accent_soft()
+                                            theme::accent()
                                         } else {
                                             theme::bg_inset()
                                         })
@@ -1076,16 +1131,30 @@ impl LibraryView {
                                                 svg()
                                                     .path("icons/check.svg")
                                                     .size(px(12.))
-                                                    .text_color(theme::accent()),
+                                                    .text_color(theme::bg_inset()),
                                             )
                                         }),
                                 )
                                 .child(
                                     div()
-                                        .font_family(theme::FONT_SANS)
-                                        .text_size(px(12.))
-                                        .text_color(theme::text_secondary())
-                                        .child("Scan this root now"),
+                                        .flex()
+                                        .flex_col()
+                                        .gap(px(2.))
+                                        .child(
+                                            div()
+                                                .font_family(theme::FONT_SANS)
+                                                .font_weight(FontWeight::SEMIBOLD)
+                                                .text_size(px(12.))
+                                                .text_color(theme::text_primary())
+                                                .child("Scan this root now"),
+                                        )
+                                        .child(
+                                            div()
+                                                .font_family(theme::FONT_SANS)
+                                                .text_size(px(10.))
+                                                .text_color(theme::text_muted())
+                                                .child("Large network folders can take several minutes."),
+                                        ),
                                 ),
                         ),
                 )
@@ -1110,15 +1179,42 @@ impl LibraryView {
                                 .h(px(34.))
                                 .px(px(14.))
                                 .rounded(px(theme::RADIUS_SM))
-                                .bg(theme::accent())
-                                .cursor_pointer()
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.confirm_add_storage(cx);
-                                }))
+                                .gap(px(7.))
+                                .bg(if can_confirm {
+                                    theme::accent_soft()
+                                } else {
+                                    theme::bg_muted()
+                                })
+                                .border_1()
+                                .border_color(if can_confirm {
+                                    theme::accent()
+                                } else {
+                                    theme::border()
+                                })
+                                .opacity(if can_confirm { 1.0 } else { 0.5 })
+                                .when(can_confirm, |button| {
+                                    button.cursor_pointer().on_click(cx.listener(
+                                        |this, _, _, cx| this.confirm_add_storage(cx),
+                                    ))
+                                })
+                                .child(
+                                    svg()
+                                        .path("icons/plus.svg")
+                                        .size(px(14.))
+                                        .text_color(if can_confirm {
+                                            theme::accent()
+                                        } else {
+                                            theme::text_muted()
+                                        }),
+                                )
                                 .font_family(theme::FONT_DISPLAY)
                                 .font_weight(FontWeight::BOLD)
                                 .text_size(px(13.))
-                                .text_color(theme::bg_inset())
+                                .text_color(if can_confirm {
+                                    theme::text_primary()
+                                } else {
+                                    theme::text_muted()
+                                })
                                 .child("Add Storage"),
                         ),
                 ),
@@ -1360,7 +1456,7 @@ fn render_scan_progress(progress: ScanProgressView) -> impl IntoElement {
         )
 }
 
-fn render_modal_scrim(modal: impl IntoElement) -> AnyElement {
+pub(super) fn render_modal_scrim(modal: impl IntoElement) -> AnyElement {
     div()
         .absolute()
         .left_0()
@@ -1374,7 +1470,10 @@ fn render_modal_scrim(modal: impl IntoElement) -> AnyElement {
         .into_any_element()
 }
 
-fn render_modal_header(title: &'static str, cx: &mut Context<LibraryView>) -> impl IntoElement {
+pub(super) fn render_modal_header(
+    title: &'static str,
+    cx: &mut Context<LibraryView>,
+) -> impl IntoElement {
     div()
         .flex()
         .items_center()
@@ -1417,7 +1516,60 @@ fn render_modal_header(title: &'static str, cx: &mut Context<LibraryView>) -> im
         )
 }
 
-fn render_field_label(label: &'static str) -> impl IntoElement {
+fn render_add_storage_header(cx: &mut Context<LibraryView>) -> impl IntoElement {
+    div()
+        .flex()
+        .items_center()
+        .justify_between()
+        .h(px(76.))
+        .flex_none()
+        .px(px(22.))
+        .border_b_1()
+        .border_color(theme::border())
+        .child(
+            div()
+                .flex()
+                .flex_col()
+                .gap(px(2.))
+                .child(
+                    div()
+                        .font_family(theme::FONT_DISPLAY)
+                        .font_weight(FontWeight::BOLD)
+                        .text_size(px(20.))
+                        .text_color(theme::text_primary())
+                        .child("Add Storage Root"),
+                )
+                .child(
+                    div()
+                        .font_family(theme::FONT_SANS)
+                        .text_size(px(11.))
+                        .text_color(theme::text_secondary())
+                        .child("Pulse indexes audio files in this folder into your library."),
+                ),
+        )
+        .child(
+            div()
+                .id("close-add-storage")
+                .flex()
+                .items_center()
+                .justify_center()
+                .size(px(28.))
+                .rounded(px(theme::RADIUS_SM))
+                .cursor_pointer()
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.modal = None;
+                    cx.notify();
+                }))
+                .child(
+                    svg()
+                        .path("icons/x.svg")
+                        .size(px(16.))
+                        .text_color(theme::text_muted()),
+                ),
+        )
+}
+
+pub(super) fn render_field_label(label: &'static str) -> impl IntoElement {
     div()
         .mb(px(-10.))
         .font_family(theme::FONT_MONO)
@@ -1427,7 +1579,7 @@ fn render_field_label(label: &'static str) -> impl IntoElement {
         .child(label)
 }
 
-fn render_cancel_modal_button(cx: &mut Context<LibraryView>) -> impl IntoElement {
+pub(super) fn render_cancel_modal_button(cx: &mut Context<LibraryView>) -> impl IntoElement {
     div()
         .id("cancel-storage-modal")
         .flex()

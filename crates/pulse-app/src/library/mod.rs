@@ -20,6 +20,7 @@ use walk::walk_music_files_until;
 
 pub type StorageRootId = i64;
 pub type TrackId = i64;
+pub type PlaylistId = i64;
 
 pub const UNKNOWN_ALBUM: &str = "Unknown Album";
 pub const UNKNOWN_ARTIST: &str = "Unknown Artist";
@@ -61,6 +62,20 @@ pub struct Track {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum TrackQueryFilter {
+    All,
+    HiRes,
+    AddedSince(i64),
+    Genre(String),
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct TrackPage {
+    pub tracks: Vec<Track>,
+    pub total_count: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Album {
     pub title: String,
     pub artist: String,
@@ -72,6 +87,35 @@ pub struct Album {
     pub cover_art_path: Option<PathBuf>,
     pub latest_added_at_ms: i64,
     pub genres: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Playlist {
+    pub id: PlaylistId,
+    pub name: String,
+    pub created_at_ms: i64,
+    pub updated_at_ms: i64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PlaylistSummary {
+    pub playlist: Playlist,
+    pub track_count: u64,
+    pub total_duration_ms: u64,
+    pub cover_art_path: Option<PathBuf>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PlaylistTrack {
+    pub position: usize,
+    pub track: Track,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct LibrarySearchResults {
+    pub albums: Vec<Album>,
+    pub tracks: Vec<Track>,
+    pub playlists: Vec<PlaylistSummary>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -217,6 +261,13 @@ pub enum LibraryError {
     UnsupportedSchemaVersion(i64),
     #[error("storage root {0} was not found")]
     StorageRootNotFound(StorageRootId),
+    #[error("playlist {0} was not found")]
+    PlaylistNotFound(PlaylistId),
+    #[error("playlist {playlist_id} has no entry at position {position}")]
+    PlaylistEntryNotFound {
+        playlist_id: PlaylistId,
+        position: usize,
+    },
     #[error("file modified time is too large to store: {}", .0.display())]
     FileTimestampOutOfRange(PathBuf),
     #[error("{0} is too large to store")]
@@ -898,9 +949,10 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "agent-runnable Stage 11 library proof; run with --ignored --nocapture"]
-    fn stage_11_library_ui_proof() {
+    #[ignore = "agent-runnable Stage 12 library proof; run with --ignored --nocapture"]
+    fn stage_12_library_ui_proof() {
         use crate::library_ui::view_model::root_row_state;
+        use crate::queue::QueueState;
 
         let temp = tempdir().unwrap();
         let database_path = temp.path().join("library.sqlite");
@@ -959,7 +1011,7 @@ mod tests {
         .unwrap();
         drop(store);
 
-        let store = LibraryStore::open(&database_path).unwrap();
+        let mut store = LibraryStore::open(&database_path).unwrap();
         let albums = store.albums(AlbumSortOrder::Title).unwrap();
         println!("album count: {}", albums.len());
         let proof_album = albums
@@ -991,8 +1043,38 @@ mod tests {
             );
         }
 
+        let playlist = store.create_playlist("Proof Playlist").unwrap();
+        let track_ids = ordered_tracks
+            .iter()
+            .map(|track| track.id)
+            .collect::<Vec<_>>();
+        store
+            .append_playlist_tracks(playlist.id, &track_ids)
+            .unwrap();
+        store.move_playlist_entry(playlist.id, 0, 1).unwrap();
+        let playlist_tracks = store
+            .playlist_tracks(playlist.id)
+            .unwrap()
+            .into_iter()
+            .map(|entry| entry.track)
+            .collect::<Vec<_>>();
+        println!("playlist after first-to-last reorder:");
+        for track in &playlist_tracks {
+            println!("  {}", track.title.as_deref().unwrap_or("Untitled"));
+        }
+        println!("queue order when playing from the middle row:");
+        let mut queue = QueueState::from_tracks(&playlist_tracks, 1);
+        if let Some(track) = queue.current() {
+            println!("  {}", track.title);
+        }
+        while let Some(track) = queue.advance() {
+            println!("  {}", track.title);
+        }
+
         assert_eq!(albums.len(), 2);
         assert_eq!(ordered_tracks.len(), 2);
+        assert_eq!(playlist_tracks.len(), 2);
+        assert_eq!(queue.remaining_count(), 0);
         assert!(
             !store
                 .storage_root(offline_root.id)

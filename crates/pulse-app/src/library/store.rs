@@ -6,18 +6,22 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use rusqlite::{Connection, OptionalExtension, Transaction, params};
+use rusqlite::{
+    Connection, OptionalExtension, Transaction, params, params_from_iter, types::Value,
+};
 
 use super::{
-    Album, AlbumSortOrder, LibraryError, LibrarySummary, ScanHistoryEntry, ScanOutcome,
-    StorageRoot, StorageRootId, Track, TrackId, TrackSortOrder, UNKNOWN_ALBUM, UNKNOWN_ARTIST,
+    Album, AlbumSortOrder, LibraryError, LibrarySearchResults, LibrarySummary, Playlist,
+    PlaylistId, PlaylistSummary, PlaylistTrack, ScanHistoryEntry, ScanOutcome, StorageRoot,
+    StorageRootId, Track, TrackId, TrackPage, TrackQueryFilter, TrackSortOrder, UNKNOWN_ALBUM,
+    UNKNOWN_ARTIST,
     metadata::{self, AudioMetadata},
     path::normalize_storage_root,
     system_time_ms,
     walk::DiscoveredFile,
 };
 
-const SCHEMA_VERSION: i64 = 2;
+const SCHEMA_VERSION: i64 = 3;
 
 const SCHEMA: &str = r#"
 BEGIN IMMEDIATE;
@@ -83,10 +87,26 @@ CREATE TABLE scan_history (
 CREATE INDEX scan_history_root_started_idx
     ON scan_history(storage_root_id, started_at_ms DESC);
 
--- FTS5 is deliberately deferred. Search will add an FTS table and backfill it
--- from tracks when that stage starts; the base catalog does not need an index it cannot query.
+CREATE TABLE playlists (
+    id              INTEGER PRIMARY KEY,
+    name            TEXT NOT NULL,
+    created_at_ms   INTEGER NOT NULL,
+    updated_at_ms   INTEGER NOT NULL
+);
 
-PRAGMA user_version = 2;
+CREATE TABLE playlist_tracks (
+    playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+    track_id    INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+    position    INTEGER NOT NULL,
+    PRIMARY KEY (playlist_id, position)
+);
+
+CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
+
+-- FTS5 is deliberately deferred. MVP search uses capped LIKE queries whose
+-- result types can be preserved when an FTS table is added later.
+
+PRAGMA user_version = 3;
 COMMIT;
 "#;
 
@@ -144,7 +164,11 @@ impl LibraryStore {
             connection.query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))?;
         match version {
             0 => connection.execute_batch(SCHEMA)?,
-            1 => migrate_v1_to_v2(&mut connection)?,
+            1 => {
+                migrate_v1_to_v2(&mut connection)?;
+                migrate_v2_to_v3(&mut connection)?;
+            }
+            2 => migrate_v2_to_v3(&mut connection)?,
             SCHEMA_VERSION => {}
             version => return Err(LibraryError::UnsupportedSchemaVersion(version)),
         }
@@ -356,22 +380,7 @@ impl LibraryStore {
     }
 
     pub fn all_tracks(&self, sort_order: TrackSortOrder) -> Result<Vec<Track>, LibraryError> {
-        let order_by = match sort_order {
-            TrackSortOrder::Title => {
-                "COALESCE(NULLIF(trim(title), ''), path) COLLATE NOCASE, path_key"
-            }
-            TrackSortOrder::Artist => {
-                "COALESCE(NULLIF(trim(artist), ''), 'Unknown Artist') COLLATE NOCASE,
-                 COALESCE(NULLIF(trim(title), ''), path) COLLATE NOCASE, path_key"
-            }
-            TrackSortOrder::Album => {
-                "COALESCE(NULLIF(trim(album), ''), 'Unknown Album') COLLATE NOCASE,
-                 COALESCE(disc_number, 1), COALESCE(track_number, 2147483647), path_key"
-            }
-            TrackSortOrder::DateAdded => "added_at_ms DESC, path_key",
-            TrackSortOrder::ReleaseYear => "year IS NULL, year DESC, path_key",
-            TrackSortOrder::Duration => "duration_ms IS NULL, duration_ms DESC, path_key",
-        };
+        let order_by = track_order_by(sort_order);
         let sql = format!(
             "SELECT id, storage_root_id, path, title, artist, album, album_artist,
                     year, genre, track_number, disc_number, duration_ms, sample_rate_hz,
@@ -383,6 +392,75 @@ impl LibraryStore {
         let mut statement = self.connection.prepare(&sql)?;
         let tracks = statement
             .query_map([], track_from_row)?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(tracks)
+    }
+
+    pub fn track_page(
+        &self,
+        sort_order: TrackSortOrder,
+        filter: &TrackQueryFilter,
+        artist_filter: Option<&str>,
+        limit: usize,
+        offset: usize,
+    ) -> Result<TrackPage, LibraryError> {
+        assert!(limit > 0, "track page size must be positive");
+
+        let (where_clause, mut parameters) = track_filter_clause(filter, artist_filter);
+
+        let count_sql = format!("SELECT COUNT(*) FROM tracks{where_clause}");
+        let total_count =
+            self.connection
+                .query_row(&count_sql, params_from_iter(parameters.iter()), |row| {
+                    row.get::<_, i64>(0)
+                })?;
+        let total_count = usize::try_from(total_count)
+            .map_err(|_| LibraryError::IntegerOutOfRange("track count"))?;
+        let last_offset = total_count.saturating_sub(1) / limit * limit;
+        let offset = offset.min(last_offset);
+
+        let sql = format!(
+            "SELECT id, storage_root_id, path, title, artist, album, album_artist,
+                    year, genre, track_number, disc_number, duration_ms, sample_rate_hz,
+                    bit_depth, channels, file_size_bytes, modified_at_ns, cover_art_path,
+                    cover_art_mime_type, added_at_ms, updated_at_ms
+             FROM tracks{where_clause}
+             ORDER BY {}
+             LIMIT ? OFFSET ?",
+            track_order_by(sort_order)
+        );
+        parameters.push(Value::Integer(usize_to_i64(limit, "track page limit")?));
+        parameters.push(Value::Integer(usize_to_i64(offset, "track page offset")?));
+        let mut statement = self.connection.prepare(&sql)?;
+        let tracks = statement
+            .query_map(params_from_iter(parameters.iter()), track_from_row)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(TrackPage {
+            tracks,
+            total_count,
+        })
+    }
+
+    pub fn matching_tracks(
+        &self,
+        sort_order: TrackSortOrder,
+        filter: &TrackQueryFilter,
+        artist_filter: Option<&str>,
+    ) -> Result<Vec<Track>, LibraryError> {
+        let (where_clause, parameters) = track_filter_clause(filter, artist_filter);
+        let sql = format!(
+            "SELECT id, storage_root_id, path, title, artist, album, album_artist,
+                    year, genre, track_number, disc_number, duration_ms, sample_rate_hz,
+                    bit_depth, channels, file_size_bytes, modified_at_ns, cover_art_path,
+                    cover_art_mime_type, added_at_ms, updated_at_ms
+             FROM tracks{where_clause}
+             ORDER BY {}",
+            track_order_by(sort_order)
+        );
+        let mut statement = self.connection.prepare(&sql)?;
+        let tracks = statement
+            .query_map(params_from_iter(parameters.iter()), track_from_row)?
             .collect::<Result<Vec<_>, _>>()?;
         Ok(tracks)
     }
@@ -494,6 +572,301 @@ impl LibraryStore {
             .query_map(params![storage_root_id, limit], scan_history_from_row)?
             .collect::<Result<Vec<_>, _>>()?;
         Ok(scans)
+    }
+
+    pub fn create_playlist(&mut self, name: &str) -> Result<Playlist, LibraryError> {
+        let now_ms = system_time_ms(SystemTime::now())?;
+        let id = self.connection.query_row(
+            "INSERT INTO playlists (name, created_at_ms, updated_at_ms)
+             VALUES (?1, ?2, ?2)
+             RETURNING id",
+            params![name, now_ms],
+            |row| row.get(0),
+        )?;
+        self.playlist(id)?.ok_or(LibraryError::PlaylistNotFound(id))
+    }
+
+    pub fn playlist(&self, playlist_id: PlaylistId) -> Result<Option<Playlist>, LibraryError> {
+        self.connection
+            .query_row(
+                "SELECT id, name, created_at_ms, updated_at_ms
+                 FROM playlists
+                 WHERE id = ?1",
+                [playlist_id],
+                playlist_from_row,
+            )
+            .optional()
+            .map_err(Into::into)
+    }
+
+    pub fn rename_playlist(
+        &mut self,
+        playlist_id: PlaylistId,
+        name: &str,
+    ) -> Result<Playlist, LibraryError> {
+        let now_ms = system_time_ms(SystemTime::now())?;
+        let updated = self.connection.execute(
+            "UPDATE playlists SET name = ?2, updated_at_ms = ?3 WHERE id = ?1",
+            params![playlist_id, name, now_ms],
+        )?;
+        if updated == 0 {
+            return Err(LibraryError::PlaylistNotFound(playlist_id));
+        }
+        self.playlist(playlist_id)?
+            .ok_or(LibraryError::PlaylistNotFound(playlist_id))
+    }
+
+    pub fn delete_playlist(&mut self, playlist_id: PlaylistId) -> Result<(), LibraryError> {
+        let deleted = self
+            .connection
+            .execute("DELETE FROM playlists WHERE id = ?1", [playlist_id])?;
+        if deleted == 0 {
+            return Err(LibraryError::PlaylistNotFound(playlist_id));
+        }
+        Ok(())
+    }
+
+    pub fn append_playlist_tracks(
+        &mut self,
+        playlist_id: PlaylistId,
+        track_ids: &[TrackId],
+    ) -> Result<(), LibraryError> {
+        let transaction = self.connection.transaction()?;
+        require_playlist(&transaction, playlist_id)?;
+        if track_ids.is_empty() {
+            transaction.commit()?;
+            return Ok(());
+        }
+        let next_position = transaction.query_row(
+            "SELECT COALESCE(MAX(position), -1) + 1
+             FROM playlist_tracks
+             WHERE playlist_id = ?1",
+            [playlist_id],
+            |row| row.get::<_, i64>(0),
+        )?;
+        for (offset, track_id) in track_ids.iter().enumerate() {
+            let offset = usize_to_i64(offset, "playlist position")?;
+            transaction.execute(
+                "INSERT INTO playlist_tracks (playlist_id, track_id, position)
+                 VALUES (?1, ?2, ?3)",
+                params![playlist_id, track_id, next_position + offset],
+            )?;
+        }
+        touch_playlist(&transaction, playlist_id)?;
+        transaction.commit()?;
+        Ok(())
+    }
+
+    pub fn remove_playlist_entry(
+        &mut self,
+        playlist_id: PlaylistId,
+        position: usize,
+    ) -> Result<(), LibraryError> {
+        let transaction = self.connection.transaction()?;
+        require_playlist(&transaction, playlist_id)?;
+        let mut entries = playlist_entry_ids(&transaction, playlist_id)?;
+        let Some(index) = entries
+            .iter()
+            .position(|(stored_position, _)| *stored_position == position)
+        else {
+            return Err(LibraryError::PlaylistEntryNotFound {
+                playlist_id,
+                position,
+            });
+        };
+        entries.remove(index);
+        replace_playlist_entries(&transaction, playlist_id, &entries)?;
+        touch_playlist(&transaction, playlist_id)?;
+        transaction.commit()?;
+        Ok(())
+    }
+
+    /// Moves the entry at a stored position to a zero-based index in the ordered entries.
+    pub fn move_playlist_entry(
+        &mut self,
+        playlist_id: PlaylistId,
+        from_position: usize,
+        to_position: usize,
+    ) -> Result<(), LibraryError> {
+        let transaction = self.connection.transaction()?;
+        require_playlist(&transaction, playlist_id)?;
+        let mut entries = playlist_entry_ids(&transaction, playlist_id)?;
+        let Some(from_index) = entries
+            .iter()
+            .position(|(stored_position, _)| *stored_position == from_position)
+        else {
+            return Err(LibraryError::PlaylistEntryNotFound {
+                playlist_id,
+                position: from_position,
+            });
+        };
+        if to_position >= entries.len() {
+            return Err(LibraryError::PlaylistEntryNotFound {
+                playlist_id,
+                position: to_position,
+            });
+        }
+        if from_index != to_position {
+            let entry = entries.remove(from_index);
+            entries.insert(to_position, entry);
+            replace_playlist_entries(&transaction, playlist_id, &entries)?;
+            touch_playlist(&transaction, playlist_id)?;
+        }
+        transaction.commit()?;
+        Ok(())
+    }
+
+    pub fn playlists(&self) -> Result<Vec<PlaylistSummary>, LibraryError> {
+        let mut statement = self.connection.prepare(
+            "SELECT p.id, p.name, p.created_at_ms, p.updated_at_ms,
+                    COUNT(pt.track_id), COALESCE(SUM(t.duration_ms), 0),
+                    (
+                        SELECT t2.cover_art_path
+                        FROM playlist_tracks pt2
+                        JOIN tracks t2 ON t2.id = pt2.track_id
+                        WHERE pt2.playlist_id = p.id AND t2.cover_art_path IS NOT NULL
+                        ORDER BY pt2.position
+                        LIMIT 1
+                    )
+             FROM playlists p
+             LEFT JOIN playlist_tracks pt ON pt.playlist_id = p.id
+             LEFT JOIN tracks t ON t.id = pt.track_id
+             GROUP BY p.id
+             ORDER BY p.updated_at_ms DESC, p.id DESC",
+        )?;
+        let playlists = statement
+            .query_map([], playlist_summary_from_row)?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(playlists)
+    }
+
+    pub fn playlist_tracks(
+        &self,
+        playlist_id: PlaylistId,
+    ) -> Result<Vec<PlaylistTrack>, LibraryError> {
+        if self.playlist(playlist_id)?.is_none() {
+            return Err(LibraryError::PlaylistNotFound(playlist_id));
+        }
+        let mut statement = self.connection.prepare(
+            "SELECT pt.position,
+                    t.id, t.storage_root_id, t.path, t.title, t.artist, t.album, t.album_artist,
+                    t.year, t.genre, t.track_number, t.disc_number, t.duration_ms,
+                    t.sample_rate_hz, t.bit_depth, t.channels, t.file_size_bytes,
+                    t.modified_at_ns, t.cover_art_path, t.cover_art_mime_type,
+                    t.added_at_ms, t.updated_at_ms
+             FROM playlist_tracks pt
+             JOIN tracks t ON t.id = pt.track_id
+             WHERE pt.playlist_id = ?1
+             ORDER BY pt.position",
+        )?;
+        let tracks = statement
+            .query_map([playlist_id], |row| {
+                let position = row.get::<_, i64>(0)?;
+                Ok(PlaylistTrack {
+                    position: usize::try_from(position).map_err(|error| {
+                        rusqlite::Error::FromSqlConversionFailure(
+                            0,
+                            rusqlite::types::Type::Integer,
+                            Box::new(error),
+                        )
+                    })?,
+                    track: track_from_row_at(row, 1)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(tracks)
+    }
+
+    pub fn search(&self, query: &str) -> Result<LibrarySearchResults, LibraryError> {
+        let query = query.trim();
+        if query.is_empty() {
+            return Ok(LibrarySearchResults::default());
+        }
+        let pattern = like_pattern(query);
+
+        let mut albums_statement = self.connection.prepare(
+            "WITH normalized AS (
+                 SELECT id, title, artist, album, album_artist,
+                        COALESCE(NULLIF(trim(album_artist), ''),
+                                 NULLIF(trim(artist), ''), ?1) AS album_owner,
+                        COALESCE(NULLIF(trim(album), ''), ?2) AS album_title,
+                        year, duration_ms, sample_rate_hz, bit_depth, cover_art_path, added_at_ms
+                 FROM tracks
+             ), matching_albums AS (
+                 SELECT DISTINCT album_owner, album_title
+                 FROM normalized
+                 WHERE COALESCE(title, '') LIKE ?3 ESCAPE '\\'
+                    OR COALESCE(artist, '') LIKE ?3 ESCAPE '\\'
+                    OR COALESCE(album, '') LIKE ?3 ESCAPE '\\'
+                    OR COALESCE(album_artist, '') LIKE ?3 ESCAPE '\\'
+             )
+             SELECT n.album_title, n.album_owner, MIN(n.year), COUNT(*),
+                    COALESCE(SUM(n.duration_ms), 0), MAX(n.sample_rate_hz), MAX(n.bit_depth),
+                    substr(MIN(
+                        CASE WHEN n.cover_art_path IS NOT NULL
+                             THEN printf('%020lld%s', n.id, n.cover_art_path)
+                        END
+                    ), 21),
+                    MAX(n.added_at_ms)
+             FROM normalized n
+             JOIN matching_albums m
+               ON m.album_owner = n.album_owner AND m.album_title = n.album_title
+             GROUP BY n.album_owner, n.album_title
+             ORDER BY n.album_title COLLATE NOCASE, n.album_owner COLLATE NOCASE
+             LIMIT 3",
+        )?;
+        let albums = albums_statement
+            .query_map(
+                params![UNKNOWN_ARTIST, UNKNOWN_ALBUM, pattern],
+                album_from_row,
+            )?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let mut tracks_statement = self.connection.prepare(
+            "SELECT id, storage_root_id, path, title, artist, album, album_artist,
+                    year, genre, track_number, disc_number, duration_ms, sample_rate_hz,
+                    bit_depth, channels, file_size_bytes, modified_at_ns, cover_art_path,
+                    cover_art_mime_type, added_at_ms, updated_at_ms
+             FROM tracks
+             WHERE COALESCE(title, '') LIKE ?1 ESCAPE '\\'
+                OR COALESCE(artist, '') LIKE ?1 ESCAPE '\\'
+                OR COALESCE(album, '') LIKE ?1 ESCAPE '\\'
+                OR COALESCE(album_artist, '') LIKE ?1 ESCAPE '\\'
+             ORDER BY COALESCE(NULLIF(trim(title), ''), path) COLLATE NOCASE, path_key
+             LIMIT 5",
+        )?;
+        let tracks = tracks_statement
+            .query_map([&pattern], track_from_row)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let mut playlists_statement = self.connection.prepare(
+            "SELECT p.id, p.name, p.created_at_ms, p.updated_at_ms,
+                    COUNT(pt.track_id), COALESCE(SUM(t.duration_ms), 0),
+                    (
+                        SELECT t2.cover_art_path
+                        FROM playlist_tracks pt2
+                        JOIN tracks t2 ON t2.id = pt2.track_id
+                        WHERE pt2.playlist_id = p.id AND t2.cover_art_path IS NOT NULL
+                        ORDER BY pt2.position
+                        LIMIT 1
+                    )
+             FROM playlists p
+             LEFT JOIN playlist_tracks pt ON pt.playlist_id = p.id
+             LEFT JOIN tracks t ON t.id = pt.track_id
+             WHERE p.name LIKE ?1 ESCAPE '\\'
+             GROUP BY p.id
+             ORDER BY p.name COLLATE NOCASE, p.id
+             LIMIT 3",
+        )?;
+        let playlists = playlists_statement
+            .query_map([&pattern], playlist_summary_from_row)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(LibrarySearchResults {
+            albums,
+            tracks,
+            playlists,
+        })
     }
 
     pub(super) fn begin_scan(
@@ -652,6 +1025,116 @@ fn migrate_v1_to_v2(connection: &mut Connection) -> Result<(), LibraryError> {
     transaction.execute_batch("PRAGMA user_version = 2;")?;
     transaction.commit()?;
     Ok(())
+}
+
+fn migrate_v2_to_v3(connection: &mut Connection) -> Result<(), LibraryError> {
+    let transaction = connection.transaction()?;
+    transaction.execute_batch(
+        "CREATE TABLE IF NOT EXISTS playlists (
+             id              INTEGER PRIMARY KEY,
+             name            TEXT NOT NULL,
+             created_at_ms   INTEGER NOT NULL,
+             updated_at_ms   INTEGER NOT NULL
+         );
+
+         CREATE TABLE IF NOT EXISTS playlist_tracks (
+             playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+             track_id    INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+             position    INTEGER NOT NULL,
+             PRIMARY KEY (playlist_id, position)
+         );
+
+         CREATE INDEX IF NOT EXISTS playlist_tracks_track_id_idx
+             ON playlist_tracks(track_id);
+
+         PRAGMA user_version = 3;",
+    )?;
+    transaction.commit()?;
+    Ok(())
+}
+
+fn require_playlist(
+    transaction: &Transaction<'_>,
+    playlist_id: PlaylistId,
+) -> Result<(), LibraryError> {
+    let exists = transaction
+        .query_row(
+            "SELECT 1 FROM playlists WHERE id = ?1",
+            [playlist_id],
+            |_| Ok(()),
+        )
+        .optional()?;
+    if exists.is_none() {
+        return Err(LibraryError::PlaylistNotFound(playlist_id));
+    }
+    Ok(())
+}
+
+fn playlist_entry_ids(
+    transaction: &Transaction<'_>,
+    playlist_id: PlaylistId,
+) -> Result<Vec<(usize, TrackId)>, LibraryError> {
+    let mut statement = transaction.prepare(
+        "SELECT position, track_id
+         FROM playlist_tracks
+         WHERE playlist_id = ?1
+         ORDER BY position",
+    )?;
+    let rows = statement.query_map([playlist_id], |row| {
+        let position = row.get::<_, i64>(0)?;
+        let position = usize::try_from(position).map_err(|error| {
+            rusqlite::Error::FromSqlConversionFailure(
+                0,
+                rusqlite::types::Type::Integer,
+                Box::new(error),
+            )
+        })?;
+        Ok((position, row.get(1)?))
+    })?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+fn replace_playlist_entries(
+    transaction: &Transaction<'_>,
+    playlist_id: PlaylistId,
+    entries: &[(usize, TrackId)],
+) -> Result<(), LibraryError> {
+    transaction.execute(
+        "DELETE FROM playlist_tracks WHERE playlist_id = ?1",
+        [playlist_id],
+    )?;
+    for (position, (_, track_id)) in entries.iter().enumerate() {
+        transaction.execute(
+            "INSERT INTO playlist_tracks (playlist_id, track_id, position)
+             VALUES (?1, ?2, ?3)",
+            params![
+                playlist_id,
+                track_id,
+                usize_to_i64(position, "playlist position")?
+            ],
+        )?;
+    }
+    Ok(())
+}
+
+fn touch_playlist(
+    transaction: &Transaction<'_>,
+    playlist_id: PlaylistId,
+) -> Result<(), LibraryError> {
+    let now_ms = system_time_ms(SystemTime::now())?;
+    transaction.execute(
+        "UPDATE playlists SET updated_at_ms = ?2 WHERE id = ?1",
+        params![playlist_id, now_ms],
+    )?;
+    Ok(())
+}
+
+fn like_pattern(query: &str) -> String {
+    let escaped = query
+        .replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_");
+    format!("%{escaped}%")
 }
 
 pub(super) fn upsert_track(
@@ -827,29 +1310,65 @@ fn storage_root_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<StorageRoo
 }
 
 fn track_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Track> {
-    let file_size_bytes = row.get::<_, i64>(15)?;
+    track_from_row_at(row, 0)
+}
+
+fn track_from_row_at(row: &rusqlite::Row<'_>, offset: usize) -> rusqlite::Result<Track> {
+    let file_size_bytes = row.get::<_, i64>(offset + 15)?;
     Ok(Track {
-        id: row.get(0)?,
-        storage_root_id: row.get(1)?,
-        path: PathBuf::from(row.get::<_, String>(2)?),
-        title: row.get(3)?,
-        artist: row.get(4)?,
-        album: row.get(5)?,
-        album_artist: row.get(6)?,
-        year: row.get::<_, Option<i64>>(7)?.map(|value| value as u32),
-        genre: row.get(8)?,
-        track_number: row.get::<_, Option<i64>>(9)?.map(|value| value as u32),
-        disc_number: row.get::<_, Option<i64>>(10)?.map(|value| value as u32),
-        duration_ms: row.get(11)?,
-        sample_rate_hz: row.get::<_, Option<i64>>(12)?.map(|value| value as u32),
-        bit_depth: row.get::<_, Option<i64>>(13)?.map(|value| value as u8),
-        channels: row.get::<_, Option<i64>>(14)?.map(|value| value as u8),
+        id: row.get(offset)?,
+        storage_root_id: row.get(offset + 1)?,
+        path: PathBuf::from(row.get::<_, String>(offset + 2)?),
+        title: row.get(offset + 3)?,
+        artist: row.get(offset + 4)?,
+        album: row.get(offset + 5)?,
+        album_artist: row.get(offset + 6)?,
+        year: row
+            .get::<_, Option<i64>>(offset + 7)?
+            .map(|value| value as u32),
+        genre: row.get(offset + 8)?,
+        track_number: row
+            .get::<_, Option<i64>>(offset + 9)?
+            .map(|value| value as u32),
+        disc_number: row
+            .get::<_, Option<i64>>(offset + 10)?
+            .map(|value| value as u32),
+        duration_ms: row.get(offset + 11)?,
+        sample_rate_hz: row
+            .get::<_, Option<i64>>(offset + 12)?
+            .map(|value| value as u32),
+        bit_depth: row
+            .get::<_, Option<i64>>(offset + 13)?
+            .map(|value| value as u8),
+        channels: row
+            .get::<_, Option<i64>>(offset + 14)?
+            .map(|value| value as u8),
         file_size_bytes: file_size_bytes as u64,
-        modified_at_ns: row.get(16)?,
-        cover_art_path: row.get::<_, Option<String>>(17)?.map(PathBuf::from),
-        cover_art_mime_type: row.get(18)?,
-        added_at_ms: row.get(19)?,
-        updated_at_ms: row.get(20)?,
+        modified_at_ns: row.get(offset + 16)?,
+        cover_art_path: row
+            .get::<_, Option<String>>(offset + 17)?
+            .map(PathBuf::from),
+        cover_art_mime_type: row.get(offset + 18)?,
+        added_at_ms: row.get(offset + 19)?,
+        updated_at_ms: row.get(offset + 20)?,
+    })
+}
+
+fn playlist_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Playlist> {
+    Ok(Playlist {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        created_at_ms: row.get(2)?,
+        updated_at_ms: row.get(3)?,
+    })
+}
+
+fn playlist_summary_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<PlaylistSummary> {
+    Ok(PlaylistSummary {
+        playlist: playlist_from_row(row)?,
+        track_count: row.get::<_, i64>(4)? as u64,
+        total_duration_ms: row.get::<_, i64>(5)? as u64,
+        cover_art_path: row.get::<_, Option<String>>(6)?.map(PathBuf::from),
     })
 }
 
@@ -866,6 +1385,55 @@ fn album_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Album> {
         latest_added_at_ms: row.get(8)?,
         genres: Vec::new(),
     })
+}
+
+fn track_order_by(sort_order: TrackSortOrder) -> &'static str {
+    match sort_order {
+        TrackSortOrder::Title => "COALESCE(NULLIF(trim(title), ''), path) COLLATE NOCASE, path_key",
+        TrackSortOrder::Artist => {
+            "COALESCE(NULLIF(trim(artist), ''), 'Unknown Artist') COLLATE NOCASE,
+             COALESCE(NULLIF(trim(title), ''), path) COLLATE NOCASE, path_key"
+        }
+        TrackSortOrder::Album => {
+            "COALESCE(NULLIF(trim(album), ''), 'Unknown Album') COLLATE NOCASE,
+             COALESCE(disc_number, 1), COALESCE(track_number, 2147483647), path_key"
+        }
+        TrackSortOrder::DateAdded => "added_at_ms DESC, path_key",
+        TrackSortOrder::ReleaseYear => "year IS NULL, year DESC, path_key",
+        TrackSortOrder::Duration => "duration_ms IS NULL, duration_ms DESC, path_key",
+    }
+}
+
+fn track_filter_clause(
+    filter: &TrackQueryFilter,
+    artist_filter: Option<&str>,
+) -> (String, Vec<Value>) {
+    let mut clauses = Vec::new();
+    let mut parameters = Vec::new();
+    match filter {
+        TrackQueryFilter::All => {}
+        TrackQueryFilter::HiRes => {
+            clauses.push("(bit_depth > 16 OR sample_rate_hz > 48000)");
+        }
+        TrackQueryFilter::AddedSince(timestamp_ms) => {
+            clauses.push("added_at_ms >= ?");
+            parameters.push(Value::Integer(*timestamp_ms));
+        }
+        TrackQueryFilter::Genre(genre) => {
+            clauses.push("trim(genre) = ? COLLATE NOCASE");
+            parameters.push(Value::Text(genre.clone()));
+        }
+    }
+    if let Some(artist) = artist_filter {
+        clauses.push("COALESCE(NULLIF(trim(artist), ''), 'Unknown Artist') = ? COLLATE NOCASE");
+        parameters.push(Value::Text(artist.to_string()));
+    }
+    let where_clause = if clauses.is_empty() {
+        String::new()
+    } else {
+        format!(" WHERE {}", clauses.join(" AND "))
+    };
+    (where_clause, parameters)
 }
 
 fn summary_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<LibrarySummary> {
@@ -926,6 +1494,33 @@ mod tests {
 
     use super::*;
     use crate::library::{metadata::EmbeddedArtwork, path::path_identity};
+
+    const PLAYLIST_SCHEMA: &str = r#"CREATE TABLE playlists (
+    id              INTEGER PRIMARY KEY,
+    name            TEXT NOT NULL,
+    created_at_ms   INTEGER NOT NULL,
+    updated_at_ms   INTEGER NOT NULL
+);
+
+CREATE TABLE playlist_tracks (
+    playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+    track_id    INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+    position    INTEGER NOT NULL,
+    PRIMARY KEY (playlist_id, position)
+);
+
+CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
+
+"#;
+
+    fn pre_v3_schema(version: i64) -> String {
+        let schema = SCHEMA.replace(PLAYLIST_SCHEMA, "");
+        assert_ne!(schema, SCHEMA);
+        schema.replace(
+            "PRAGMA user_version = 3;",
+            &format!("PRAGMA user_version = {version};"),
+        )
+    }
 
     fn test_file(root: &StorageRoot, name: &str, modified_at_ns: i64, size: u64) -> DiscoveredFile {
         let path = root.path.join(name);
@@ -1241,6 +1836,129 @@ mod tests {
     }
 
     #[test]
+    fn track_pages_apply_backend_filters_counts_and_offsets() {
+        let temp = tempdir().unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        for (index, (title, artist, genre, bit_depth, sample_rate_hz, added_at_ms)) in [
+            ("Alpha", "Artist A", "Jazz", 16, 44_100, 100),
+            ("Bravo", "Artist B", "Rock", 24, 44_100, 200),
+            ("Charlie", "Artist A", "Jazz", 16, 96_000, 300),
+            ("Delta", "Artist B", "Jazz", 16, 44_100, 400),
+            ("Echo", "Artist A", "Rock", 16, 44_100, 500),
+            ("Foxtrot", "Artist B", "Rock", 16, 44_100, 600),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let mut metadata = test_metadata(title, artist, Some("Album"), None);
+            metadata.genre = Some(genre.to_string());
+            metadata.bit_depth = Some(bit_depth);
+            metadata.sample_rate_hz = Some(sample_rate_hz);
+            let id = insert_track(
+                &mut store,
+                &root,
+                &test_file(&root, &format!("{title}.wav"), index as i64, 10),
+                &metadata,
+            );
+            store
+                .connection
+                .execute(
+                    "UPDATE tracks SET added_at_ms = ?2 WHERE id = ?1",
+                    params![id, added_at_ms],
+                )
+                .unwrap();
+        }
+
+        let page = store
+            .track_page(TrackSortOrder::Title, &TrackQueryFilter::All, None, 2, 2)
+            .unwrap();
+        assert_eq!(page.total_count, 6);
+        let first_track_on_page = page.tracks[0].id;
+        assert_eq!(
+            page.tracks
+                .into_iter()
+                .map(|track| track.title.unwrap())
+                .collect::<Vec<_>>(),
+            ["Charlie", "Delta"]
+        );
+
+        let artist = store
+            .track_page(
+                TrackSortOrder::Title,
+                &TrackQueryFilter::All,
+                Some("artist a"),
+                50,
+                0,
+            )
+            .unwrap();
+        assert_eq!(artist.total_count, 3);
+        let jazz = store
+            .track_page(
+                TrackSortOrder::Title,
+                &TrackQueryFilter::Genre("jazz".to_string()),
+                None,
+                50,
+                0,
+            )
+            .unwrap();
+        assert_eq!(jazz.total_count, 3);
+        let hi_res = store
+            .track_page(TrackSortOrder::Title, &TrackQueryFilter::HiRes, None, 50, 0)
+            .unwrap();
+        assert_eq!(hi_res.total_count, 2);
+        let recent = store
+            .track_page(
+                TrackSortOrder::Title,
+                &TrackQueryFilter::AddedSince(400),
+                None,
+                50,
+                0,
+            )
+            .unwrap();
+        assert_eq!(recent.total_count, 3);
+
+        let clamped = store
+            .track_page(TrackSortOrder::Title, &TrackQueryFilter::All, None, 2, 100)
+            .unwrap();
+        assert_eq!(
+            clamped
+                .tracks
+                .into_iter()
+                .map(|track| track.title.unwrap())
+                .collect::<Vec<_>>(),
+            ["Echo", "Foxtrot"]
+        );
+
+        let queue = store
+            .matching_tracks(TrackSortOrder::Title, &TrackQueryFilter::All, None)
+            .unwrap();
+        assert_eq!(queue.len(), 6);
+        assert_eq!(
+            queue
+                .iter()
+                .position(|track| track.id == first_track_on_page),
+            Some(2)
+        );
+
+        let matching = store
+            .matching_tracks(
+                TrackSortOrder::Title,
+                &TrackQueryFilter::Genre("jazz".to_string()),
+                None,
+            )
+            .unwrap();
+        assert_eq!(matching.len(), 3);
+        assert_eq!(
+            matching
+                .into_iter()
+                .map(|track| track.title.unwrap())
+                .collect::<Vec<_>>(),
+            ["Alpha", "Charlie", "Delta"]
+        );
+    }
+
+    #[test]
     fn orders_album_tracks_by_disc_then_track_number() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
@@ -1283,16 +2001,319 @@ mod tests {
     }
 
     #[test]
+    fn playlist_crud_allows_duplicate_names() {
+        let mut store = LibraryStore::open_in_memory().unwrap();
+
+        let first = store.create_playlist("Night Drive").unwrap();
+        let second = store.create_playlist("Night Drive").unwrap();
+        let renamed = store.rename_playlist(first.id, "Night Drive").unwrap();
+
+        assert_ne!(first.id, second.id);
+        assert_eq!(renamed.name, "Night Drive");
+        assert_eq!(store.playlists().unwrap().len(), 2);
+
+        store.delete_playlist(first.id).unwrap();
+        assert!(store.playlist(first.id).unwrap().is_none());
+        assert_eq!(store.playlists().unwrap().len(), 1);
+        assert!(matches!(
+            store.delete_playlist(first.id),
+            Err(LibraryError::PlaylistNotFound(id)) if id == first.id
+        ));
+    }
+
+    #[test]
+    fn playlist_entries_allow_duplicates_and_remove_with_contiguous_positions() {
+        let temp = tempdir().unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let first = insert_track(
+            &mut store,
+            &root,
+            &test_file(&root, "first.wav", 1, 10),
+            &test_metadata("First", "Artist", Some("Album"), None),
+        );
+        let second = insert_track(
+            &mut store,
+            &root,
+            &test_file(&root, "second.wav", 2, 10),
+            &test_metadata("Second", "Artist", Some("Album"), None),
+        );
+        let playlist = store.create_playlist("Duplicates").unwrap();
+
+        store
+            .append_playlist_tracks(playlist.id, &[first, first, second])
+            .unwrap();
+        let entries = store.playlist_tracks(playlist.id).unwrap();
+        assert_eq!(
+            entries
+                .iter()
+                .map(|entry| (entry.position, entry.track.id))
+                .collect::<Vec<_>>(),
+            [(0, first), (1, first), (2, second)]
+        );
+
+        store.remove_playlist_entry(playlist.id, 1).unwrap();
+        let entries = store.playlist_tracks(playlist.id).unwrap();
+        assert_eq!(
+            entries
+                .iter()
+                .map(|entry| (entry.position, entry.track.id))
+                .collect::<Vec<_>>(),
+            [(0, first), (1, second)]
+        );
+    }
+
+    #[test]
+    fn playlist_moves_first_last_and_middle_with_contiguous_positions() {
+        let temp = tempdir().unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let mut ids = Vec::new();
+        for (index, title) in ["A", "B", "C", "D"].into_iter().enumerate() {
+            ids.push(insert_track(
+                &mut store,
+                &root,
+                &test_file(&root, &format!("{title}.wav"), index as i64, 10),
+                &test_metadata(title, "Artist", Some("Album"), None),
+            ));
+        }
+        let playlist = store.create_playlist("Order").unwrap();
+        store.append_playlist_tracks(playlist.id, &ids).unwrap();
+        let titles = |store: &LibraryStore| {
+            store
+                .playlist_tracks(playlist.id)
+                .unwrap()
+                .into_iter()
+                .map(|entry| (entry.position, entry.track.title.unwrap()))
+                .collect::<Vec<_>>()
+        };
+
+        store.move_playlist_entry(playlist.id, 0, 3).unwrap();
+        assert_eq!(
+            titles(&store),
+            [
+                (0, "B".into()),
+                (1, "C".into()),
+                (2, "D".into()),
+                (3, "A".into())
+            ]
+        );
+
+        store.move_playlist_entry(playlist.id, 3, 0).unwrap();
+        assert_eq!(
+            titles(&store),
+            [
+                (0, "A".into()),
+                (1, "B".into()),
+                (2, "C".into()),
+                (3, "D".into())
+            ]
+        );
+
+        store.move_playlist_entry(playlist.id, 1, 2).unwrap();
+        assert_eq!(
+            titles(&store),
+            [
+                (0, "A".into()),
+                (1, "C".into()),
+                (2, "B".into()),
+                (3, "D".into())
+            ]
+        );
+    }
+
+    #[test]
+    fn playlist_entries_cascade_from_tracks_and_playlists() {
+        let temp = tempdir().unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let track = insert_track(
+            &mut store,
+            &root,
+            &test_file(&root, "track.wav", 1, 10),
+            &test_metadata("Track", "Artist", Some("Album"), None),
+        );
+        let first = store.create_playlist("First").unwrap();
+        let second = store.create_playlist("Second").unwrap();
+        store.append_playlist_tracks(first.id, &[track]).unwrap();
+        store.append_playlist_tracks(second.id, &[track]).unwrap();
+
+        let transaction = store.connection.transaction().unwrap();
+        delete_track(&transaction, track).unwrap();
+        transaction.commit().unwrap();
+        assert!(store.playlist_tracks(first.id).unwrap().is_empty());
+        assert!(store.playlist_tracks(second.id).unwrap().is_empty());
+
+        let replacement = insert_track(
+            &mut store,
+            &root,
+            &test_file(&root, "replacement.wav", 2, 10),
+            &test_metadata("Replacement", "Artist", Some("Album"), None),
+        );
+        store
+            .append_playlist_tracks(first.id, &[replacement])
+            .unwrap();
+        store.delete_playlist(first.id).unwrap();
+        let remaining: i64 = store
+            .connection
+            .query_row(
+                "SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id = ?1",
+                [first.id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(remaining, 0);
+    }
+
+    #[test]
+    fn playlist_listing_aggregates_duration_count_and_first_available_cover() {
+        let temp = tempdir().unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let mut ids = Vec::new();
+        for (index, duration) in [1_000, 2_000, 3_000].into_iter().enumerate() {
+            let mut metadata =
+                test_metadata(&format!("Track {index}"), "Artist", Some("Album"), None);
+            metadata.duration_ms = Some(duration);
+            ids.push(insert_track(
+                &mut store,
+                &root,
+                &test_file(&root, &format!("{index}.wav"), index as i64, 10),
+                &metadata,
+            ));
+        }
+        let first_cover = temp.path().join("first.cover");
+        let later_cover = temp.path().join("later.cover");
+        let transaction = store.connection.transaction().unwrap();
+        set_track_cover(
+            &transaction,
+            ids[1],
+            first_cover.to_str().unwrap(),
+            Some("image/jpeg"),
+        )
+        .unwrap();
+        set_track_cover(
+            &transaction,
+            ids[2],
+            later_cover.to_str().unwrap(),
+            Some("image/jpeg"),
+        )
+        .unwrap();
+        transaction.commit().unwrap();
+        let playlist = store.create_playlist("Aggregate").unwrap();
+        store.append_playlist_tracks(playlist.id, &ids).unwrap();
+        let empty = store.create_playlist("Empty").unwrap();
+
+        let playlists = store.playlists().unwrap();
+        let aggregate = playlists
+            .iter()
+            .find(|summary| summary.playlist.id == playlist.id)
+            .unwrap();
+        assert_eq!(aggregate.track_count, 3);
+        assert_eq!(aggregate.total_duration_ms, 6_000);
+        assert_eq!(aggregate.cover_art_path.as_ref(), Some(&first_cover));
+        let empty = playlists
+            .iter()
+            .find(|summary| summary.playlist.id == empty.id)
+            .unwrap();
+        assert_eq!(empty.track_count, 0);
+        assert_eq!(empty.total_duration_ms, 0);
+        assert!(empty.cover_art_path.is_none());
+    }
+
+    #[test]
+    fn search_matches_case_insensitive_fields_cjk_substrings_and_album_artist() {
+        let temp = tempdir().unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        insert_track(
+            &mut store,
+            &root,
+            &test_file(&root, "frank.wav", 1, 10),
+            &test_metadata("Nights", "Frank Ocean", Some("Blonde"), None),
+        );
+        insert_track(
+            &mut store,
+            &root,
+            &test_file(&root, "cjk.wav", 2, 10),
+            &test_metadata("天空", "王菲", Some("菲靡靡之音"), None),
+        );
+        insert_track(
+            &mut store,
+            &root,
+            &test_file(&root, "collective.wav", 3, 10),
+            &test_metadata(
+                "Guest Song",
+                "Guest Singer",
+                Some("Compilation"),
+                Some("The Collective"),
+            ),
+        );
+        store.create_playlist("Frank favorites").unwrap();
+
+        let frank = store.search("FRANK").unwrap();
+        assert_eq!(frank.tracks.len(), 1);
+        assert_eq!(frank.albums.len(), 1);
+        assert_eq!(frank.playlists.len(), 1);
+
+        let cjk = store.search("菲").unwrap();
+        assert_eq!(cjk.tracks[0].artist.as_deref(), Some("王菲"));
+        assert_eq!(cjk.albums[0].title, "菲靡靡之音");
+
+        let album_artist = store.search("collective").unwrap();
+        assert_eq!(album_artist.tracks.len(), 1);
+        assert_eq!(album_artist.albums[0].artist, "The Collective");
+
+        assert_eq!(
+            store.search("gibberish").unwrap(),
+            LibrarySearchResults::default()
+        );
+        assert_eq!(
+            store.search("   ").unwrap(),
+            LibrarySearchResults::default()
+        );
+    }
+
+    #[test]
+    fn search_caps_each_result_group() {
+        let temp = tempdir().unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        for index in 0..7 {
+            insert_track(
+                &mut store,
+                &root,
+                &test_file(&root, &format!("cap-{index}.wav"), index, 10),
+                &test_metadata(
+                    &format!("Cap Track {index}"),
+                    "Cap Artist",
+                    Some(&format!("Cap Album {index}")),
+                    None,
+                ),
+            );
+        }
+        for index in 0..4 {
+            store
+                .create_playlist(&format!("Cap Playlist {index}"))
+                .unwrap();
+        }
+
+        let results = store.search("cap").unwrap();
+        assert_eq!(results.albums.len(), 3);
+        assert_eq!(results.tracks.len(), 5);
+        assert_eq!(results.playlists.len(), 3);
+    }
+
+    #[test]
     fn migrates_v1_and_backfills_year_and_genre_from_existing_files() {
         let temp = tempdir().unwrap();
         let track_path = temp.path().join("track.wav");
         metadata::write_test_wav(&track_path, "Track", "Artist", "Album").unwrap();
         let database_path = temp.path().join("library.sqlite");
         let connection = Connection::open(&database_path).unwrap();
-        let v1_schema = SCHEMA
+        let v1_schema = pre_v3_schema(1)
             .replace("    year                    INTEGER,\n", "")
-            .replace("    genre                   TEXT,\n", "")
-            .replace("PRAGMA user_version = 2;", "PRAGMA user_version = 1;");
+            .replace("    genre                   TEXT,\n", "");
         connection.execute_batch(&v1_schema).unwrap();
         connection
             .execute(
@@ -1345,7 +2366,28 @@ mod tests {
                 .connection
                 .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
                 .unwrap(),
-            2
+            3
+        );
+    }
+
+    #[test]
+    fn migrates_v2_to_v3_and_creates_playlist_tables() {
+        let temp = tempdir().unwrap();
+        let database_path = temp.path().join("library.sqlite");
+        let connection = Connection::open(&database_path).unwrap();
+        connection.execute_batch(&pre_v3_schema(2)).unwrap();
+        drop(connection);
+
+        let mut store = LibraryStore::open(&database_path).unwrap();
+        let playlist = store.create_playlist("Migrated").unwrap();
+
+        assert_eq!(store.playlist(playlist.id).unwrap(), Some(playlist));
+        assert_eq!(
+            store
+                .connection
+                .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
+                .unwrap(),
+            3
         );
     }
 

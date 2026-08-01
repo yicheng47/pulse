@@ -13,6 +13,7 @@ actions!(
         ShowAll,
         Minimize,
         CloseWindow,
+        FocusSearch,
         Quit
     ]
 );
@@ -43,6 +44,7 @@ pub fn install(cx: &mut App) {
         KeyBinding::new("cmd-alt-h", HideOthers, None),
         KeyBinding::new("cmd-m", Minimize, None),
         KeyBinding::new("cmd-w", CloseWindow, None),
+        KeyBinding::new("cmd-f", FocusSearch, None),
     ]);
 
     // About has no handler on purpose: no About surface is designed yet, and
@@ -59,6 +61,7 @@ pub fn install(cx: &mut App) {
             MenuItem::separator(),
             MenuItem::action("Quit Pulse", Quit),
         ]),
+        Menu::new("Edit").items([MenuItem::action("Search", FocusSearch)]),
         Menu::new("Window").items([
             MenuItem::action("Minimize", Minimize),
             MenuItem::action("Close Window", CloseWindow),

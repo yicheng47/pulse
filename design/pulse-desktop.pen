@@ -3131,6 +3131,223 @@
                               ]
                             }
                           ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "anKuW",
+                          "name": "Album Pagination",
+                          "width": "fill_container",
+                          "height": 44,
+                          "stroke": "$border",
+                          "strokeWidth": {
+                            "top": 1
+                          },
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "TtE3W",
+                              "name": "Album Pagination Range",
+                              "fill": "$text-muted",
+                              "content": "1–10 OF 1,106 ALBUMS",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 9,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "oTx0L",
+                              "name": "Album Pagination Controls",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "q5khB9",
+                                  "name": "Previous Album Page",
+                                  "width": 28,
+                                  "height": 28,
+                                  "cornerRadius": "$radius-sm",
+                                  "stroke": "$border",
+                                  "strokeWidth": 1,
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "id": "l1b1l",
+                                      "name": "Previous Album Page Icon",
+                                      "width": 13,
+                                      "height": 13,
+                                      "icon": "chevron-left",
+                                      "library": "lucide",
+                                      "fill": "$text-muted"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "FbUnL",
+                                  "name": "Album Page 1",
+                                  "width": 28,
+                                  "height": 28,
+                                  "fill": "$accent-soft",
+                                  "cornerRadius": "$radius-sm",
+                                  "stroke": "$accent",
+                                  "strokeWidth": 1,
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "K8xBG",
+                                      "name": "Album Page 1 Label",
+                                      "fill": "$accent",
+                                      "content": "1",
+                                      "fontFamily": "$font-mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "jL7Bs",
+                                  "name": "Album Page 2",
+                                  "width": 28,
+                                  "height": 28,
+                                  "cornerRadius": "$radius-sm",
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "Uww0K",
+                                      "name": "Album Page 2 Label",
+                                      "fill": "$text-secondary",
+                                      "content": "2",
+                                      "fontFamily": "$font-mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "VzH0c",
+                                  "name": "Album Page 3",
+                                  "width": 28,
+                                  "height": 28,
+                                  "cornerRadius": "$radius-sm",
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "ROSrt",
+                                      "name": "Album Page 3 Label",
+                                      "fill": "$text-secondary",
+                                      "content": "3",
+                                      "fontFamily": "$font-mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "WvxsE",
+                                  "name": "Album Page 4",
+                                  "width": 28,
+                                  "height": 28,
+                                  "cornerRadius": "$radius-sm",
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "v8gAJW",
+                                      "name": "Album Page 4 Label",
+                                      "fill": "$text-secondary",
+                                      "content": "4",
+                                      "fontFamily": "$font-mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "z4Wfpg",
+                                  "name": "Album Page …",
+                                  "width": 28,
+                                  "height": 28,
+                                  "cornerRadius": "$radius-sm",
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "rMjhO",
+                                      "name": "Album Page … Label",
+                                      "fill": "$text-secondary",
+                                      "content": "…",
+                                      "fontFamily": "$font-mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "KlccX",
+                                  "name": "Album Page 111",
+                                  "width": 28,
+                                  "height": 28,
+                                  "cornerRadius": "$radius-sm",
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "UhYx6",
+                                      "name": "Album Page 111 Label",
+                                      "fill": "$text-secondary",
+                                      "content": "111",
+                                      "fontFamily": "$font-mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "yHveW",
+                                  "name": "Next Album Page",
+                                  "width": 28,
+                                  "height": 28,
+                                  "cornerRadius": "$radius-sm",
+                                  "stroke": "$border",
+                                  "strokeWidth": 1,
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "id": "F1D3l",
+                                      "name": "Next Album Page Icon",
+                                      "width": 13,
+                                      "height": 13,
+                                      "icon": "chevron-right",
+                                      "library": "lucide",
+                                      "fill": "$text-secondary"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
                         }
                       ]
                     }
@@ -9267,6 +9484,228 @@
                                       "fontFamily": "Geist Mono",
                                       "fontSize": 11,
                                       "fontWeight": "700"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "JlGjV",
+                              "name": "Pagination Footer",
+                              "width": "fill_container",
+                              "height": 59,
+                              "fill": "$bg-surface",
+                              "stroke": "$border",
+                              "strokeWidth": {
+                                "top": 1
+                              },
+                              "padding": [
+                                0,
+                                14
+                              ],
+                              "justifyContent": "space_between",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "O2kqD3",
+                                  "name": "Pagination Range",
+                                  "fill": "$text-muted",
+                                  "content": "1–50 OF 12,482 TRACKS",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 9,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "q9U4Jf",
+                                  "name": "Pagination Controls",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "DnwdE",
+                                      "name": "Previous Page",
+                                      "width": 28,
+                                      "height": 28,
+                                      "cornerRadius": "$radius-sm",
+                                      "stroke": "$border",
+                                      "strokeWidth": 1,
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "Jzxoc",
+                                          "name": "Previous Page Icon",
+                                          "width": 13,
+                                          "height": 13,
+                                          "icon": "chevron-left",
+                                          "library": "lucide",
+                                          "fill": "$text-muted"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "zhr9Z",
+                                      "name": "Page 1",
+                                      "width": 28,
+                                      "height": 28,
+                                      "fill": "$accent-soft",
+                                      "cornerRadius": "$radius-sm",
+                                      "stroke": "$accent",
+                                      "strokeWidth": 1,
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "zUqX9",
+                                          "name": "Page 1 Label",
+                                          "fill": "$accent",
+                                          "content": "1",
+                                          "fontFamily": "$font-mono",
+                                          "fontSize": 10,
+                                          "fontWeight": "600"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "GWFBc",
+                                      "name": "Page 2",
+                                      "width": 28,
+                                      "height": 28,
+                                      "cornerRadius": "$radius-sm",
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "mUD26",
+                                          "name": "Page 2 Label",
+                                          "fill": "$text-secondary",
+                                          "content": "2",
+                                          "fontFamily": "$font-mono",
+                                          "fontSize": 10,
+                                          "fontWeight": "600"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "SdH9k",
+                                      "name": "Page 3",
+                                      "width": 28,
+                                      "height": 28,
+                                      "cornerRadius": "$radius-sm",
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "z2fgH",
+                                          "name": "Page 3 Label",
+                                          "fill": "$text-secondary",
+                                          "content": "3",
+                                          "fontFamily": "$font-mono",
+                                          "fontSize": 10,
+                                          "fontWeight": "600"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "Ge9Ji",
+                                      "name": "Page 4",
+                                      "width": 28,
+                                      "height": 28,
+                                      "cornerRadius": "$radius-sm",
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "evUzt",
+                                          "name": "Page 4 Label",
+                                          "fill": "$text-secondary",
+                                          "content": "4",
+                                          "fontFamily": "$font-mono",
+                                          "fontSize": 10,
+                                          "fontWeight": "600"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "xUav8",
+                                      "name": "Page …",
+                                      "width": 28,
+                                      "height": 28,
+                                      "cornerRadius": "$radius-sm",
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "M20vP",
+                                          "name": "Page … Label",
+                                          "fill": "$text-secondary",
+                                          "content": "…",
+                                          "fontFamily": "$font-mono",
+                                          "fontSize": 10,
+                                          "fontWeight": "600"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "VpXah",
+                                      "name": "Page 250",
+                                      "width": 28,
+                                      "height": 28,
+                                      "cornerRadius": "$radius-sm",
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "mgeHj",
+                                          "name": "Page 250 Label",
+                                          "fill": "$text-secondary",
+                                          "content": "250",
+                                          "fontFamily": "$font-mono",
+                                          "fontSize": 10,
+                                          "fontWeight": "600"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "MSYt9",
+                                      "name": "Next Page",
+                                      "width": 28,
+                                      "height": 28,
+                                      "cornerRadius": "$radius-sm",
+                                      "stroke": "$border",
+                                      "strokeWidth": 1,
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "N2Kdk9",
+                                          "name": "Next Page Icon",
+                                          "width": 13,
+                                          "height": 13,
+                                          "icon": "chevron-right",
+                                          "library": "lucide",
+                                          "fill": "$text-secondary"
+                                        }
+                                      ]
                                     }
                                   ]
                                 }

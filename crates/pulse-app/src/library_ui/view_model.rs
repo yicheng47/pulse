@@ -1,11 +1,90 @@
 use std::path::Path;
 
 use crate::library::{
-    Album, ScanHistoryEntry, ScanOutcome, ScanProgress, StorageRoot, Track, UNKNOWN_ALBUM,
-    UNKNOWN_ARTIST,
+    Album, LibrarySearchResults, ScanHistoryEntry, ScanOutcome, ScanProgress, StorageRoot, Track,
+    TrackQueryFilter, UNKNOWN_ALBUM, UNKNOWN_ARTIST,
 };
 
 const RECENTLY_ADDED_WINDOW_MS: i64 = 30 * 24 * 60 * 60 * 1_000;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SearchSelection {
+    Album(usize),
+    Track(usize),
+    Playlist(usize),
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct SearchViewModel {
+    pub results: LibrarySearchResults,
+    selected_index: Option<usize>,
+}
+
+impl SearchViewModel {
+    pub fn set_results(&mut self, results: LibrarySearchResults) {
+        self.results = results;
+        self.selected_index = (self.result_count() > 0).then_some(0);
+    }
+
+    pub fn clear(&mut self) {
+        self.results = LibrarySearchResults::default();
+        self.selected_index = None;
+    }
+
+    pub fn result_count(&self) -> usize {
+        self.results.albums.len() + self.results.tracks.len() + self.results.playlists.len()
+    }
+
+    pub fn selected_index(&self) -> Option<usize> {
+        self.selected_index
+    }
+
+    pub fn selected(&self) -> Option<SearchSelection> {
+        let index = self.selected_index?;
+        if index < self.results.albums.len() {
+            return Some(SearchSelection::Album(index));
+        }
+        let index = index - self.results.albums.len();
+        if index < self.results.tracks.len() {
+            return Some(SearchSelection::Track(index));
+        }
+        let index = index - self.results.tracks.len();
+        (index < self.results.playlists.len()).then_some(SearchSelection::Playlist(index))
+    }
+
+    pub fn move_next(&mut self) {
+        let count = self.result_count();
+        if count == 0 {
+            self.selected_index = None;
+            return;
+        }
+        self.selected_index = Some(self.selected_index.map_or(0, |index| (index + 1) % count));
+    }
+
+    pub fn move_previous(&mut self) {
+        let count = self.result_count();
+        if count == 0 {
+            self.selected_index = None;
+            return;
+        }
+        self.selected_index = Some(match self.selected_index {
+            Some(0) | None => count - 1,
+            Some(index) => index - 1,
+        });
+    }
+
+    pub fn album_index(&self, index: usize) -> usize {
+        index
+    }
+
+    pub fn track_index(&self, index: usize) -> usize {
+        self.results.albums.len() + index
+    }
+
+    pub fn playlist_index(&self, index: usize) -> usize {
+        self.results.albums.len() + self.results.tracks.len() + index
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FilterChip {
@@ -23,6 +102,124 @@ impl FilterChip {
             Self::RecentlyAdded => "Recently Added",
             Self::Genre(genre) => genre,
         }
+    }
+
+    pub fn track_query_filter(&self, now_ms: i64) -> TrackQueryFilter {
+        match self {
+            Self::All => TrackQueryFilter::All,
+            Self::HiRes => TrackQueryFilter::HiRes,
+            Self::RecentlyAdded => {
+                TrackQueryFilter::AddedSince(now_ms.saturating_sub(RECENTLY_ADDED_WINDOW_MS))
+            }
+            Self::Genre(genre) => TrackQueryFilter::Genre(genre.clone()),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PaginationItem {
+    Page(usize),
+    Ellipsis,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Pagination {
+    page: usize,
+    page_size: usize,
+    total_items: usize,
+}
+
+impl Pagination {
+    pub fn new(page_size: usize) -> Self {
+        assert!(page_size > 0, "page size must be positive");
+        Self {
+            page: 0,
+            page_size,
+            total_items: 0,
+        }
+    }
+
+    pub fn current_page(&self) -> usize {
+        self.page
+    }
+
+    pub fn page_size(&self) -> usize {
+        self.page_size
+    }
+
+    pub fn total_items(&self) -> usize {
+        self.total_items
+    }
+
+    pub fn page_count(&self) -> usize {
+        self.total_items.div_ceil(self.page_size)
+    }
+
+    pub fn offset(&self) -> usize {
+        self.page * self.page_size
+    }
+
+    pub fn range(&self) -> Option<(usize, usize)> {
+        if self.total_items == 0 {
+            return None;
+        }
+        let start = self.offset() + 1;
+        Some((start, (start + self.page_size - 1).min(self.total_items)))
+    }
+
+    pub fn can_previous(&self) -> bool {
+        self.page > 0
+    }
+
+    pub fn can_next(&self) -> bool {
+        self.page + 1 < self.page_count()
+    }
+
+    pub fn reset(&mut self) {
+        self.page = 0;
+    }
+
+    pub fn set_total_items(&mut self, total_items: usize) {
+        self.total_items = total_items;
+        self.page = self.page.min(self.page_count().saturating_sub(1));
+    }
+
+    pub fn set_page(&mut self, page: usize) -> bool {
+        if page >= self.page_count() || page == self.page {
+            return false;
+        }
+        self.page = page;
+        true
+    }
+
+    pub fn items(&self) -> Vec<PaginationItem> {
+        let page_count = self.page_count();
+        if page_count <= 7 {
+            return (0..page_count).map(PaginationItem::Page).collect();
+        }
+        if self.page <= 3 {
+            return (0..4)
+                .map(PaginationItem::Page)
+                .chain([
+                    PaginationItem::Ellipsis,
+                    PaginationItem::Page(page_count - 1),
+                ])
+                .collect();
+        }
+        if self.page + 4 >= page_count {
+            return [PaginationItem::Page(0), PaginationItem::Ellipsis]
+                .into_iter()
+                .chain((page_count - 4..page_count).map(PaginationItem::Page))
+                .collect();
+        }
+        [PaginationItem::Page(0), PaginationItem::Ellipsis]
+            .into_iter()
+            .chain((self.page - 1..=self.page + 1).map(PaginationItem::Page))
+            .chain([
+                PaginationItem::Ellipsis,
+                PaginationItem::Page(page_count - 1),
+            ])
+            .collect()
     }
 }
 
@@ -145,6 +342,7 @@ pub fn filter_albums<'a>(albums: &'a [Album], chip: &FilterChip, now_ms: i64) ->
         .collect()
 }
 
+#[cfg(test)]
 pub fn filter_tracks<'a>(
     tracks: &'a [Track],
     chip: &FilterChip,
@@ -232,7 +430,7 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
-    use crate::library::{ScanProgressAction, StorageRootId};
+    use crate::library::{Playlist, PlaylistSummary, ScanProgressAction, StorageRootId};
 
     fn root(is_reachable: bool) -> StorageRoot {
         StorageRoot {
@@ -442,6 +640,117 @@ mod tests {
         assert_eq!(
             filter_albums(&albums, &FilterChip::Genre("jazz".to_string()), now).len(),
             1
+        );
+    }
+
+    #[test]
+    fn search_selection_flattens_groups_and_moves_with_wraparound() {
+        let album = |title: &str| Album {
+            title: title.to_string(),
+            artist: "Artist".to_string(),
+            year: Some(2024),
+            track_count: 1,
+            total_duration_ms: 60_000,
+            max_sample_rate_hz: Some(44_100),
+            max_bit_depth: Some(16),
+            cover_art_path: None,
+            latest_added_at_ms: 1,
+            genres: Vec::new(),
+        };
+        let playlist = |id, name: &str| PlaylistSummary {
+            playlist: Playlist {
+                id,
+                name: name.to_string(),
+                created_at_ms: 1,
+                updated_at_ms: 1,
+            },
+            track_count: 0,
+            total_duration_ms: 0,
+            cover_art_path: None,
+        };
+        let mut model = SearchViewModel::default();
+        model.set_results(LibrarySearchResults {
+            albums: vec![album("First"), album("Second")],
+            tracks: vec![track(1, "Artist", None, 16, 44_100, 1)],
+            playlists: vec![playlist(1, "First"), playlist(2, "Second")],
+        });
+
+        assert_eq!(model.selected(), Some(SearchSelection::Album(0)));
+        model.move_next();
+        assert_eq!(model.selected(), Some(SearchSelection::Album(1)));
+        model.move_next();
+        assert_eq!(model.selected(), Some(SearchSelection::Track(0)));
+        model.move_next();
+        assert_eq!(model.selected(), Some(SearchSelection::Playlist(0)));
+        model.move_previous();
+        assert_eq!(model.selected(), Some(SearchSelection::Track(0)));
+
+        model.move_previous();
+        model.move_previous();
+        model.move_previous();
+        assert_eq!(model.selected(), Some(SearchSelection::Playlist(1)));
+        assert_eq!(model.selected_index(), Some(4));
+    }
+
+    #[test]
+    fn search_selection_clears_for_empty_results() {
+        let mut model = SearchViewModel::default();
+        model.set_results(LibrarySearchResults::default());
+        model.move_next();
+        model.move_previous();
+
+        assert_eq!(model.result_count(), 0);
+        assert_eq!(model.selected(), None);
+    }
+
+    #[test]
+    fn pagination_clamps_ranges_and_moves_between_pages() {
+        let mut pagination = Pagination::new(50);
+        pagination.set_total_items(206);
+
+        assert_eq!(pagination.page_count(), 5);
+        assert_eq!(pagination.range(), Some((1, 50)));
+        assert!(!pagination.can_previous());
+        assert!(pagination.can_next());
+        assert!(pagination.set_page(4));
+        assert_eq!(pagination.offset(), 200);
+        assert_eq!(pagination.range(), Some((201, 206)));
+        assert!(pagination.can_previous());
+        assert!(!pagination.can_next());
+
+        pagination.set_total_items(12);
+        assert_eq!(pagination.current_page(), 0);
+        assert_eq!(pagination.range(), Some((1, 12)));
+    }
+
+    #[test]
+    fn pagination_items_match_the_compact_design() {
+        let mut pagination = Pagination::new(50);
+        pagination.set_total_items(12_482);
+
+        assert_eq!(
+            pagination.items(),
+            vec![
+                PaginationItem::Page(0),
+                PaginationItem::Page(1),
+                PaginationItem::Page(2),
+                PaginationItem::Page(3),
+                PaginationItem::Ellipsis,
+                PaginationItem::Page(249),
+            ]
+        );
+        assert!(pagination.set_page(124));
+        assert_eq!(
+            pagination.items(),
+            vec![
+                PaginationItem::Page(0),
+                PaginationItem::Ellipsis,
+                PaginationItem::Page(123),
+                PaginationItem::Page(124),
+                PaginationItem::Page(125),
+                PaginationItem::Ellipsis,
+                PaginationItem::Page(249),
+            ]
         );
     }
 }

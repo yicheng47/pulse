@@ -1,12 +1,12 @@
 use std::{collections::BTreeSet, path::Path};
 
 use gpui::{
-    AnyElement, ClickEvent, Context, FontWeight, IntoElement, ObjectFit,
-    StatefulInteractiveElement, Window, div, img, prelude::*, px, svg,
+    AnyElement, ClickEvent, Context, FontWeight, IntoElement, MouseButton, MouseDownEvent,
+    ObjectFit, StatefulInteractiveElement, Window, div, img, prelude::*, px, svg,
 };
 
 use super::{
-    LibraryView, current_time_ms,
+    LibraryView, TrackMenu, TrackSurface, current_time_ms,
     view_model::{
         FilterChip, filter_albums, format_duration, format_label, is_hi_res, quality_label,
         track_artist, track_title,
@@ -14,8 +14,13 @@ use super::{
 };
 use crate::{
     library::{Album, AlbumSortOrder, Track},
+    shell::SIDEBAR_WIDTH,
     theme,
 };
+
+const ALBUM_BODY_HORIZONTAL_PADDING: f32 = 28.;
+const ALBUM_GRID_GAP: f32 = 14.;
+const ALBUM_CARD_MIN_WIDTH: f32 = 200.;
 
 impl LibraryView {
     pub(super) fn render_albums(
@@ -26,11 +31,11 @@ impl LibraryView {
         if self.album_detail.is_some() {
             self.render_album_detail(window, cx)
         } else {
-            self.render_album_grid(cx)
+            self.render_album_grid(window, cx)
         }
     }
 
-    fn render_album_grid(&mut self, cx: &mut Context<Self>) -> AnyElement {
+    fn render_album_grid(&mut self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
         let now_ms = current_time_ms();
         let visible = filter_albums(&self.albums, &self.album_filter, now_ms)
             .into_iter()
@@ -57,7 +62,7 @@ impl LibraryView {
             .flex_1()
             .min_h_0()
             .w_full()
-            .px(px(28.))
+            .px(px(ALBUM_BODY_HORIZONTAL_PADDING))
             .pt(px(26.))
             .pb(px(24.))
             .child(
@@ -89,15 +94,17 @@ impl LibraryView {
                 .child(self.render_album_sort(cx)),
         );
 
-        let section_title = match &self.album_filter {
-            FilterChip::All if self.album_sort == AlbumSortOrder::DateAdded => "Recently added",
-            FilterChip::All => "All albums",
-            filter => filter.label(),
-        };
+        let section_title = album_section_title(&self.album_filter);
         let browser = if visible.is_empty() {
             render_no_filter_matches("No albums match this filter").into_any_element()
         } else if self.albums_as_grid {
-            let mut grid = div().flex().flex_wrap().gap(px(14.)).w_full().pb(px(24.));
+            let columns = album_grid_columns(f32::from(window.viewport_size().width));
+            let mut grid = div()
+                .grid()
+                .grid_cols(columns)
+                .gap(px(ALBUM_GRID_GAP))
+                .w_full()
+                .pb(px(24.));
             for (index, album) in visible.iter().cloned().enumerate() {
                 grid = grid.child(self.render_album_card(index, album, cx));
             }
@@ -358,9 +365,8 @@ impl LibraryView {
             .id(format!("album-card-{index}"))
             .flex()
             .flex_col()
-            .w(px(218.4))
-            .h(px(226.))
-            .flex_none()
+            .w_full()
+            .min_h(px(226.))
             .p(px(12.))
             .rounded(px(theme::RADIUS_MD))
             .border_1()
@@ -370,7 +376,7 @@ impl LibraryView {
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.open_album(album.clone(), cx);
             }))
-            .child(render_cover(cover.as_deref(), 194.4, 140., 30.))
+            .child(render_cover(cover.as_deref(), 194.4, 140., 30.).w_full())
             .child(
                 div()
                     .flex()
@@ -505,9 +511,7 @@ impl LibraryView {
         let detail = self.album_detail.as_ref().expect("album detail exists");
         let album = detail.album.clone();
         let tracks = detail.tracks.clone();
-        let first_track = tracks
-            .first()
-            .map(|track| (track.path.clone(), track.cover_art_path.clone()));
+        let has_tracks = !tracks.is_empty();
         let total_minutes = album.total_duration_ms.div_ceil(60_000);
         let formats = tracks
             .iter()
@@ -695,14 +699,11 @@ impl LibraryView {
                                             .px(px(16.))
                                             .rounded(px(theme::RADIUS_MD))
                                             .bg(theme::accent())
-                                            .when_some(first_track, |button, (path, cover)| {
+                                            .opacity(if has_tracks { 1.0 } else { 0.45 })
+                                            .when(has_tracks, |button| {
                                                 button.cursor_pointer().on_click(cx.listener(
-                                                    move |this, _, _, cx| {
-                                                        this.play_path(
-                                                            path.clone(),
-                                                            cover.clone(),
-                                                            cx,
-                                                        );
+                                                    |this, _, _, cx| {
+                                                        this.play_album(cx);
                                                     },
                                                 ))
                                             })
@@ -782,8 +783,6 @@ impl LibraryView {
         let playing = self.is_now_playing(&track.path, cx);
         let selected = self.selected_album_track_id == Some(track.id);
         let track_id = track.id;
-        let path = track.path.clone();
-        let cover_art_path = track.cover_art_path.clone();
         let number = track
             .track_number
             .map(|number| number.to_string())
@@ -807,13 +806,23 @@ impl LibraryView {
             .when(selected || playing, |row| row.bg(theme::bg_selected()))
             .cursor_pointer()
             .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
-                this.selected_album_track_id = Some(track_id);
-                this.select_path(path.clone(), cover_art_path.clone(), cx);
-                if event.click_count() == 2 {
-                    this.play_path(path.clone(), cover_art_path.clone(), cx);
-                }
-                cx.notify();
+                this.activate_album_track(index, event.click_count() == 2, cx);
             }))
+            .on_mouse_down(
+                MouseButton::Right,
+                cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                    this.selected_album_track_id = Some(track_id);
+                    this.playlist_menu = None;
+                    this.track_menu = Some(TrackMenu {
+                        track_id,
+                        surface: TrackSurface::Album,
+                        anchor: event.position,
+                        flyout_open: false,
+                    });
+                    window.focus(&this.input_focus, cx);
+                    cx.notify();
+                }),
+            )
             .child(
                 div()
                     .flex()
@@ -892,7 +901,7 @@ pub(super) fn render_cover(
     width: f32,
     height: f32,
     icon_size: f32,
-) -> AnyElement {
+) -> gpui::Div {
     let base = div()
         .flex()
         .items_center()
@@ -904,21 +913,17 @@ pub(super) fn render_cover(
         .rounded(px(theme::RADIUS_SM))
         .bg(theme::bg_muted());
     match cover_path {
-        Some(path) => base
-            .child(
-                img(path.to_path_buf())
-                    .size_full()
-                    .object_fit(ObjectFit::Cover),
-            )
-            .into_any_element(),
-        None => base
-            .child(
-                svg()
-                    .path("icons/disc-3.svg")
-                    .size(px(icon_size))
-                    .text_color(theme::text_muted()),
-            )
-            .into_any_element(),
+        Some(path) => base.child(
+            img(path.to_path_buf())
+                .size_full()
+                .object_fit(ObjectFit::Cover),
+        ),
+        None => base.child(
+            svg()
+                .path("icons/disc-3.svg")
+                .size(px(icon_size))
+                .text_color(theme::text_muted()),
+        ),
     }
 }
 
@@ -1035,6 +1040,13 @@ fn render_album_list_header() -> impl IntoElement {
         )
 }
 
+fn album_grid_columns(viewport_width: f32) -> u16 {
+    let content_width =
+        (viewport_width - SIDEBAR_WIDTH - ALBUM_BODY_HORIZONTAL_PADDING * 2.).max(0.);
+    (((content_width + ALBUM_GRID_GAP) / (ALBUM_CARD_MIN_WIDTH + ALBUM_GRID_GAP)).floor() as u16)
+        .max(1)
+}
+
 fn format_album_duration(duration_ms: u64) -> String {
     let total_seconds = duration_ms / 1_000;
     format!("{}:{:02}", total_seconds / 60, total_seconds % 60)
@@ -1095,14 +1107,14 @@ fn render_album_track_header() -> impl IntoElement {
         .h(px(30.))
         .flex_none()
         .bg(theme::bg_surface_alt())
-        .child(table_header_cell("#", 56.))
+        .child(table_header_cell("#", 56.).pl(px(16.)))
         .child(table_header_cell("TITLE", 700.))
         .child(table_header_cell("ARTIST", 234.))
         .child(table_header_cell("TIME", 66.))
         .child(table_header_cell("FORMAT", 76.))
 }
 
-fn table_header_cell(label: &'static str, width: f32) -> impl IntoElement {
+fn table_header_cell(label: &'static str, width: f32) -> gpui::Div {
     div()
         .w(px(width))
         .font_family(theme::FONT_MONO)
@@ -1122,13 +1134,48 @@ fn album_sort_label(sort: AlbumSortOrder) -> &'static str {
     }
 }
 
+fn album_section_title(filter: &FilterChip) -> &str {
+    match filter {
+        FilterChip::All => "All albums",
+        filter => filter.label(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::format_album_duration;
+    use super::{
+        ALBUM_BODY_HORIZONTAL_PADDING, ALBUM_CARD_MIN_WIDTH, ALBUM_GRID_GAP, album_grid_columns,
+        album_section_title, format_album_duration,
+    };
+    use crate::library_ui::view_model::FilterChip;
+    use crate::shell::SIDEBAR_WIDTH;
+
+    #[test]
+    fn album_grid_respects_the_card_minimum_across_window_sizes() {
+        assert_eq!(album_grid_columns(1440.), 5);
+        assert_eq!(album_grid_columns(1600.), 6);
+
+        let five_column_threshold = SIDEBAR_WIDTH
+            + ALBUM_BODY_HORIZONTAL_PADDING * 2.
+            + ALBUM_CARD_MIN_WIDTH * 5.
+            + ALBUM_GRID_GAP * 4.;
+        assert_eq!(album_grid_columns(five_column_threshold - 1.), 4);
+        assert_eq!(album_grid_columns(five_column_threshold), 5);
+        assert_eq!(album_grid_columns(0.), 1);
+    }
 
     #[test]
     fn formats_album_duration_for_the_list_view() {
         assert_eq!(format_album_duration(0), "0:00");
         assert_eq!(format_album_duration(3_661_000), "61:01");
+    }
+
+    #[test]
+    fn album_section_heading_follows_the_active_filter() {
+        assert_eq!(album_section_title(&FilterChip::All), "All albums");
+        assert_eq!(
+            album_section_title(&FilterChip::RecentlyAdded),
+            "Recently Added"
+        );
     }
 }

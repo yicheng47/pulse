@@ -16,7 +16,12 @@ use pulse_engine::{
     device,
 };
 
-use crate::{preferences, theme};
+use crate::{
+    library::Track,
+    preferences,
+    queue::{PreviousAction, QueueState, TrackRef},
+    theme,
+};
 
 const EVENT_POLL_INTERVAL: Duration = Duration::from_millis(16);
 const SUPPORTED_EXTENSIONS: &[&str] = &["flac", "m4a", "aif", "aiff", "wav"];
@@ -40,6 +45,7 @@ pub struct PlaybackRow {
     playback_state: PlaybackState,
     source_path: Option<PathBuf>,
     cover_art_path: Option<PathBuf>,
+    queue: QueueState,
     title: String,
     secondary: String,
     format: Option<PcmFormat>,
@@ -85,6 +91,7 @@ impl PlaybackRow {
             playback_state: PlaybackState::Idle,
             source_path: None,
             cover_art_path: None,
+            queue: QueueState::default(),
             title: "No track loaded".to_string(),
             secondary: "Drop FLAC, ALAC, AIFF, or WAV".to_string(),
             format: None,
@@ -235,24 +242,31 @@ impl PlaybackRow {
             )
     }
 
-    pub(crate) fn play_library_path(
+    pub(crate) fn play_library_tracks(
         &mut self,
-        path: PathBuf,
-        cover_art_path: Option<PathBuf>,
+        tracks: &[Track],
+        start_index: usize,
         cx: &mut Context<Self>,
     ) {
-        self.apply_library_context(&path, cover_art_path);
-        self.error = None;
-        self.play_file(path, cx);
+        self.queue = QueueState::from_tracks(tracks, start_index);
+        let Some(track) = self.queue.current().cloned() else {
+            return;
+        };
+        self.play_queue_track(track, cx);
     }
 
-    pub(crate) fn select_library_path(
+    pub(crate) fn select_library_tracks(
         &mut self,
-        path: PathBuf,
-        cover_art_path: Option<PathBuf>,
+        tracks: &[Track],
+        start_index: usize,
         cx: &mut Context<Self>,
     ) {
-        if self.apply_library_selection(path, cover_art_path) {
+        let queue = QueueState::from_tracks(tracks, start_index);
+        let Some(track) = queue.current().cloned() else {
+            return;
+        };
+        if self.apply_track_selection(&track) {
+            self.queue = queue;
             cx.notify();
         }
     }
@@ -280,6 +294,7 @@ impl PlaybackRow {
 
         self.error = None;
         self.cover_art_path = None;
+        self.queue = QueueState::default();
         self.play_file(path.clone(), cx);
     }
 
@@ -302,6 +317,25 @@ impl PlaybackRow {
         }
     }
 
+    fn next_track(&mut self, cx: &mut Context<Self>) {
+        if let Some(track) = self.queue.advance() {
+            self.play_queue_track(track, cx);
+        }
+    }
+
+    fn previous_track(&mut self, cx: &mut Context<Self>) {
+        match self.queue.previous(self.position_ms) {
+            Some(PreviousAction::Restart(track) | PreviousAction::PlayPrevious(track)) => {
+                self.play_queue_track(track, cx);
+            }
+            None => {
+                if let Some(path) = self.source_path.clone() {
+                    self.play_file(path, cx);
+                }
+            }
+        }
+    }
+
     fn toggle_command(&self) -> Option<PlaybackCommand> {
         match self.playback_state {
             PlaybackState::Playing => Some(PlaybackCommand::Pause),
@@ -314,7 +348,7 @@ impl PlaybackRow {
         }
     }
 
-    fn apply_library_selection(&mut self, path: PathBuf, cover_art_path: Option<PathBuf>) -> bool {
+    fn apply_track_selection(&mut self, track: &TrackRef) -> bool {
         if matches!(
             self.playback_state,
             PlaybackState::Loading
@@ -324,7 +358,7 @@ impl PlaybackRow {
         ) {
             return false;
         }
-        self.apply_library_context(&path, cover_art_path);
+        self.apply_track_context(track);
         self.playback_state = PlaybackState::Idle;
         self.format = None;
         self.position_ms = 0;
@@ -333,11 +367,17 @@ impl PlaybackRow {
         true
     }
 
-    fn apply_library_context(&mut self, path: &Path, cover_art_path: Option<PathBuf>) {
-        self.title = track_title(path);
-        self.secondary = track_secondary(path);
-        self.source_path = Some(path.to_path_buf());
-        self.cover_art_path = cover_art_path;
+    fn apply_track_context(&mut self, track: &TrackRef) {
+        self.title = track.title.clone();
+        self.secondary = track.secondary();
+        self.source_path = Some(track.path.clone());
+        self.cover_art_path = track.cover_art_path.clone();
+    }
+
+    fn play_queue_track(&mut self, track: TrackRef, cx: &mut Context<Self>) {
+        self.apply_track_context(&track);
+        self.error = None;
+        self.play_file(track.path, cx);
     }
 
     fn send_command(&mut self, command: PlaybackCommand, cx: &mut Context<Self>) {
@@ -363,7 +403,11 @@ impl PlaybackRow {
                     break;
                 }
             };
+            let ended = event == PlaybackEvent::Ended;
             self.handle_event(event);
+            if ended && let Some(track) = self.queue.advance() {
+                self.play_queue_track(track, cx);
+            }
             changed = true;
         }
 
@@ -378,8 +422,17 @@ impl PlaybackRow {
                 self.playback_state = state;
             }
             PlaybackEvent::NowPlaying { source, format } => {
-                self.title = track_title(&source.path);
-                self.secondary = track_secondary(&source.path);
+                if let Some(track) = self
+                    .queue
+                    .current()
+                    .filter(|track| track.path == source.path)
+                    .cloned()
+                {
+                    self.apply_track_context(&track);
+                } else {
+                    self.title = track_title(&source.path);
+                    self.secondary = track_secondary(&source.path);
+                }
                 self.source_path = Some(source.path);
                 self.duration_ms = source.duration_ms;
                 self.format = Some(format);
@@ -698,6 +751,16 @@ impl PlaybackRow {
     fn render_transport(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let progress = self.displayed_fraction();
         let track_bounds = Rc::clone(&self.track_bounds);
+        let previous_enabled = self.source_path.is_some()
+            && !matches!(
+                self.playback_state,
+                PlaybackState::Loading | PlaybackState::Stopping
+            );
+        let next_enabled = self.queue.can_advance()
+            && !matches!(
+                self.playback_state,
+                PlaybackState::Loading | PlaybackState::Stopping
+            );
         let play_icon = if self.playback_state == PlaybackState::Playing {
             "icons/pause.svg"
         } else {
@@ -718,7 +781,28 @@ impl PlaybackRow {
                     .justify_center()
                     .gap(px(12.))
                     .child(transport_icon("icons/shuffle.svg"))
-                    .child(transport_icon("icons/skip-back.svg"))
+                    .child(
+                        div()
+                            .id("playback-previous")
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .size(px(17.))
+                            .opacity(if previous_enabled { 1.0 } else { 0.35 })
+                            .when(previous_enabled, |button| {
+                                button
+                                    .cursor_pointer()
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        this.previous_track(cx);
+                                    }))
+                            })
+                            .child(
+                                svg()
+                                    .path("icons/skip-back.svg")
+                                    .size(px(17.))
+                                    .text_color(theme::text_secondary()),
+                            ),
+                    )
                     .child(
                         div()
                             .id("playback-toggle")
@@ -737,7 +821,26 @@ impl PlaybackRow {
                                     .text_color(theme::bg_inset()),
                             ),
                     )
-                    .child(transport_icon("icons/skip-forward.svg"))
+                    .child(
+                        div()
+                            .id("playback-next")
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .size(px(17.))
+                            .opacity(if next_enabled { 1.0 } else { 0.35 })
+                            .when(next_enabled, |button| {
+                                button
+                                    .cursor_pointer()
+                                    .on_click(cx.listener(|this, _, _, cx| this.next_track(cx)))
+                            })
+                            .child(
+                                svg()
+                                    .path("icons/skip-forward.svg")
+                                    .size(px(17.))
+                                    .text_color(theme::text_secondary()),
+                            ),
+                    )
                     .child(transport_icon("icons/repeat-2.svg")),
             )
             .child(
@@ -798,6 +901,7 @@ impl PlaybackRow {
     }
 
     fn render_output(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let remaining = self.queue.remaining_count();
         let (quality, quality_color) = self
             .format
             .map(|format| {
@@ -920,32 +1024,38 @@ impl PlaybackRow {
                             .size(px(17.))
                             .text_color(theme::text_secondary()),
                     )
-                    .child(
-                        div()
-                            .absolute()
-                            .top(px(-2.))
-                            .right(px(-2.))
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .size(px(20.))
-                            .rounded(px(10.))
-                            .bg(theme::bg_surface())
-                            .child(
-                                div()
-                                    .flex()
-                                    .items_center()
-                                    .justify_center()
-                                    .size(px(16.))
-                                    .rounded(px(8.))
-                                    .bg(theme::accent())
-                                    .font_family(theme::FONT_MONO)
-                                    .font_weight(FontWeight::BOLD)
-                                    .text_size(px(10.))
-                                    .text_color(theme::bg_inset())
-                                    .child(if self.source_path.is_some() { "1" } else { "0" }),
-                            ),
-                    ),
+                    .when(remaining > 0, |button| {
+                        button.child(
+                            div()
+                                .absolute()
+                                .top(px(-2.))
+                                .right(px(-2.))
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .h(px(20.))
+                                .min_w(px(20.))
+                                .px(px(2.))
+                                .rounded(px(10.))
+                                .bg(theme::bg_surface())
+                                .child(
+                                    div()
+                                        .flex()
+                                        .items_center()
+                                        .justify_center()
+                                        .h(px(16.))
+                                        .min_w(px(16.))
+                                        .px(px(3.))
+                                        .rounded(px(8.))
+                                        .bg(theme::accent())
+                                        .font_family(theme::FONT_MONO)
+                                        .font_weight(FontWeight::BOLD)
+                                        .text_size(px(10.))
+                                        .text_color(theme::bg_inset())
+                                        .child(remaining.to_string()),
+                                ),
+                        )
+                    }),
             )
     }
 
@@ -1603,13 +1713,21 @@ mod tests {
         let mut row = PlaybackRow::initial();
         let path = PathBuf::from("/Music/Blonde/Nights.flac");
         let cover = PathBuf::from("/Cache/nights.cover");
+        let track = TrackRef {
+            id: 1,
+            path: path.clone(),
+            title: "Nights".to_string(),
+            artist: "Frank Ocean".to_string(),
+            album: "Blonde".to_string(),
+            cover_art_path: Some(cover.clone()),
+        };
 
-        assert!(row.apply_library_selection(path.clone(), Some(cover.clone())));
+        assert!(row.apply_track_selection(&track));
 
         assert_eq!(row.source_path.as_ref(), Some(&path));
         assert_eq!(row.cover_art_path.as_ref(), Some(&cover));
         assert_eq!(row.title, "Nights");
-        assert_eq!(row.secondary, "Blonde");
+        assert_eq!(row.secondary, "Frank Ocean - Blonde");
         assert_eq!(row.playback_state, PlaybackState::Idle);
         assert_eq!(
             row.toggle_command(),
@@ -1626,16 +1744,66 @@ mod tests {
         row.cover_art_path = Some(playing_cover.clone());
         row.title = "Nights".to_string();
         row.playback_state = PlaybackState::Playing;
+        let selection = TrackRef {
+            id: 2,
+            path: PathBuf::from("/Music/Blonde/Solo.flac"),
+            title: "Solo".to_string(),
+            artist: "Frank Ocean".to_string(),
+            album: "Blonde".to_string(),
+            cover_art_path: Some(PathBuf::from("/Cache/solo.cover")),
+        };
 
-        assert!(!row.apply_library_selection(
-            PathBuf::from("/Music/Blonde/Solo.flac"),
-            Some(PathBuf::from("/Cache/solo.cover")),
-        ));
+        assert!(!row.apply_track_selection(&selection));
 
         assert_eq!(row.source_path.as_ref(), Some(&playing));
         assert_eq!(row.cover_art_path.as_ref(), Some(&playing_cover));
         assert_eq!(row.title, "Nights");
         assert_eq!(row.toggle_command(), Some(PlaybackCommand::Pause));
+    }
+
+    #[test]
+    fn now_playing_keeps_library_artist_and_album_metadata() {
+        let mut row = PlaybackRow::initial();
+        let track = Track {
+            id: 1,
+            storage_root_id: 1,
+            path: PathBuf::from("/Music/菲靡靡之音/天空.flac"),
+            title: Some("天空".to_string()),
+            artist: Some("王菲".to_string()),
+            album: Some("菲靡靡之音".to_string()),
+            album_artist: None,
+            year: Some(1995),
+            genre: None,
+            track_number: Some(1),
+            disc_number: Some(1),
+            duration_ms: Some(240_000),
+            sample_rate_hz: Some(44_100),
+            bit_depth: Some(16),
+            channels: Some(2),
+            file_size_bytes: 1,
+            modified_at_ns: 1,
+            cover_art_path: Some(PathBuf::from("/Cache/cover")),
+            cover_art_mime_type: Some("image/jpeg".to_string()),
+            added_at_ms: 1,
+            updated_at_ms: 1,
+        };
+        row.queue = QueueState::from_tracks(std::slice::from_ref(&track), 0);
+
+        row.handle_event(PlaybackEvent::NowPlaying {
+            source: pulse_engine::PlayableSource {
+                path: track.path,
+                duration_ms: Some(240_000),
+            },
+            format: PcmFormat {
+                sample_rate: 44_100,
+                bits_per_sample: 16,
+                channels: 2,
+            },
+        });
+
+        assert_eq!(row.title, "天空");
+        assert_eq!(row.secondary, "王菲 - 菲靡靡之音");
+        assert_eq!(row.cover_art_path, Some(PathBuf::from("/Cache/cover")));
     }
 
     fn output_device(id: device::DeviceId, uid: &str, name: &str) -> device::Device {
