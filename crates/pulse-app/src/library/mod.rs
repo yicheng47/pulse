@@ -377,14 +377,61 @@ where
         let mut action = ScanProgressAction::Skipped;
 
         if let Some(current) = current.filter(|track| track.modified_at_ns == file.modified_at_ns) {
-            if current.path_text == file.path_text {
-                skipped += 1;
-            } else {
+            let mut changed = false;
+            let mut artwork_failed = false;
+            if current.path_text != file.path_text {
                 let transaction = store.connection.transaction()?;
                 update_track_path(&transaction, current.id, &file.path_text, now_ms)?;
                 transaction.commit()?;
+                changed = true;
+            }
+            if current.cover_art_path.is_none() {
+                match discover_folder_artwork(&file.path) {
+                    Ok(Some(artwork)) => {
+                        let transaction = store.connection.transaction()?;
+                        match cache_artwork(
+                            &transaction,
+                            cover_cache_directory,
+                            current.id,
+                            artwork,
+                        ) {
+                            Ok(()) => {
+                                transaction.commit()?;
+                                changed = true;
+                            }
+                            Err(ArtworkError::Cache(message)) => {
+                                transaction.commit()?;
+                                errors.push(ScanFileError {
+                                    path: file.path.clone(),
+                                    message,
+                                });
+                                artwork_failed = true;
+                            }
+                            Err(ArtworkError::Database(error)) => {
+                                drop(transaction);
+                                return Err(error);
+                            }
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(ArtworkError::Cache(message)) => {
+                        errors.push(ScanFileError {
+                            path: file.path.clone(),
+                            message,
+                        });
+                        artwork_failed = true;
+                    }
+                    Err(ArtworkError::Database(error)) => return Err(error),
+                }
+            }
+            if changed {
                 updated += 1;
                 action = ScanProgressAction::Updated;
+            } else if !artwork_failed {
+                skipped += 1;
+            }
+            if artwork_failed {
+                action = ScanProgressAction::Failed;
             }
         } else {
             match metadata::extract_metadata(&file.path) {
@@ -392,16 +439,20 @@ where
                     let previous_cover = current
                         .and_then(|track| track.cover_art_path.as_ref())
                         .cloned();
-                    let has_artwork = metadata.artwork.is_some();
                     let transaction = store.connection.transaction()?;
                     let track_id = upsert_track(&transaction, root.id, &file, &metadata, now_ms)?;
-                    let artwork_result = match metadata.artwork {
+                    let artwork = match metadata.artwork {
+                        Some(artwork) => Ok(Some(artwork)),
+                        None => discover_folder_artwork(&file.path),
+                    };
+                    let has_artwork = artwork.as_ref().is_ok_and(|artwork| artwork.is_some());
+                    let artwork_result = artwork.and_then(|artwork| match artwork {
                         Some(artwork) => {
                             cache_artwork(&transaction, cover_cache_directory, track_id, artwork)
                         }
                         None => clear_track_cover(&transaction, track_id)
                             .map_err(ArtworkError::Database),
-                    };
+                    });
                     match artwork_result {
                         Ok(()) => {
                             transaction.commit()?;
@@ -594,6 +645,15 @@ fn cache_artwork(
     .map_err(ArtworkError::Database)
 }
 
+fn discover_folder_artwork(path: &Path) -> Result<Option<metadata::EmbeddedArtwork>, ArtworkError> {
+    metadata::folder_artwork(path).map_err(|error| {
+        ArtworkError::Cache(format!(
+            "failed to read folder art beside {}: {error}",
+            path.display()
+        ))
+    })
+}
+
 #[derive(Debug)]
 enum ArtworkError {
     Cache(String),
@@ -720,6 +780,20 @@ mod tests {
     use tempfile::tempdir;
 
     use super::*;
+
+    const TEST_PNG: &[u8] = &[
+        0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, b'I', b'H', b'D',
+        b'R', 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f,
+        0x15, 0xc4, 0x89, 0x00, 0x00, 0x00, 0x0d, b'I', b'D', b'A', b'T', 0x08, 0xd7, 0x63, 0xf8,
+        0xcf, 0xc0, 0xf0, 0x1f, 0x00, 0x05, 0x00, 0x01, 0xff, 0x89, 0x99, 0x3d, 0x1d, 0x00, 0x00,
+        0x00, 0x00, b'I', b'E', b'N', b'D', 0xae, 0x42, 0x60, 0x82,
+    ];
+
+    fn test_art(marker: u8) -> Vec<u8> {
+        let mut art = TEST_PNG.to_vec();
+        art.push(marker);
+        art
+    }
 
     #[test]
     fn scan_is_incremental_removes_missing_tracks_and_preserves_offline_roots() {
@@ -1093,6 +1167,124 @@ mod tests {
         assert_eq!(tracks.len(), 1);
         assert_eq!(tracks[0].title.as_deref(), Some("Track"));
         assert!(tracks[0].cover_art_path.is_none());
+    }
+
+    #[test]
+    fn folder_art_prefers_conventional_names_and_extensions() {
+        let temp = tempdir().unwrap();
+        let music = temp.path().join("music");
+        let cache = temp.path().join("covers");
+        fs::create_dir(&music).unwrap();
+        metadata::write_test_wav(&music.join("track.wav"), "Track", "Artist", "Album").unwrap();
+        fs::write(music.join("front.png"), test_art(4)).unwrap();
+        fs::write(music.join("Folder.JPEG"), test_art(3)).unwrap();
+        fs::write(music.join("cover.png"), test_art(2)).unwrap();
+        fs::write(music.join("COVER.JPG"), test_art(1)).unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(&music, "Music").unwrap();
+
+        scan_storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
+
+        let track = &store.tracks_for_root(root.id).unwrap()[0];
+        assert_eq!(track.cover_art_mime_type.as_deref(), Some("image/jpeg"));
+        assert_eq!(
+            fs::read(track.cover_art_path.as_ref().unwrap()).unwrap(),
+            test_art(1)
+        );
+    }
+
+    #[test]
+    fn folder_art_ignores_booklet_scans() {
+        let temp = tempdir().unwrap();
+        let music = temp.path().join("music");
+        let cache = temp.path().join("covers");
+        fs::create_dir(&music).unwrap();
+        metadata::write_test_wav(&music.join("track.wav"), "Track", "Artist", "Album").unwrap();
+        fs::write(music.join("P001.jpg"), TEST_PNG).unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(&music, "Music").unwrap();
+
+        scan_storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
+
+        assert!(
+            store.tracks_for_root(root.id).unwrap()[0]
+                .cover_art_path
+                .is_none()
+        );
+        assert!(!cache.exists());
+    }
+
+    #[test]
+    fn incremental_scan_fills_missing_cover_without_rereading_audio() {
+        let temp = tempdir().unwrap();
+        let music = temp.path().join("music");
+        let cache = temp.path().join("covers");
+        fs::create_dir(&music).unwrap();
+        let track_path = music.join("track.wav");
+        metadata::write_test_wav(&track_path, "Track", "Artist", "Album").unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(&music, "Music").unwrap();
+        scan_storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
+        assert!(
+            store.tracks_for_root(root.id).unwrap()[0]
+                .cover_art_path
+                .is_none()
+        );
+        let modified = fs::metadata(&track_path).unwrap().modified().unwrap();
+        fs::write(&track_path, b"invalid audio that must remain mtime-skipped").unwrap();
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&track_path)
+            .unwrap()
+            .set_times(fs::FileTimes::new().set_modified(modified))
+            .unwrap();
+        fs::write(music.join("Folder.PNG"), test_art(1)).unwrap();
+
+        let report = scan_storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
+
+        assert_eq!((report.updated, report.skipped), (1, 0));
+        let track = &store.tracks_for_root(root.id).unwrap()[0];
+        assert_eq!(track.cover_art_mime_type.as_deref(), Some("image/png"));
+        assert_eq!(
+            fs::read(track.cover_art_path.as_ref().unwrap()).unwrap(),
+            test_art(1)
+        );
+    }
+
+    #[test]
+    fn folder_art_rescan_replaces_the_stable_cache_file() {
+        let temp = tempdir().unwrap();
+        let music = temp.path().join("music");
+        let cache = temp.path().join("covers");
+        fs::create_dir(&music).unwrap();
+        let track_path = music.join("track.wav");
+        let art_path = music.join("folder.png");
+        metadata::write_test_wav(&track_path, "Track", "Artist", "Album").unwrap();
+        fs::write(&art_path, test_art(1)).unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(&music, "Music").unwrap();
+        scan_storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
+        let first_track = store.tracks_for_root(root.id).unwrap().remove(0);
+        let first_cover_path = first_track.cover_art_path.unwrap();
+
+        fs::write(&art_path, test_art(2)).unwrap();
+        let previous_modified = fs::metadata(&track_path).unwrap().modified().unwrap();
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&track_path)
+            .unwrap()
+            .set_times(
+                fs::FileTimes::new().set_modified(previous_modified + Duration::from_secs(2)),
+            )
+            .unwrap();
+        let report = scan_storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
+        let track = &store.tracks_for_root(root.id).unwrap()[0];
+
+        assert_eq!(report.updated, 1);
+        assert_eq!(track.id, first_track.id);
+        assert_eq!(track.cover_art_path.as_ref(), Some(&first_cover_path));
+        assert_eq!(fs::read(&first_cover_path).unwrap(), test_art(2));
+        assert_eq!(fs::read_dir(cache).unwrap().count(), 1);
     }
 
     #[test]

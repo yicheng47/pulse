@@ -24,7 +24,7 @@ use gpui::{
 use crate::{
     library::{
         Album, AlbumSortOrder, LibraryError, LibraryStore, LibrarySummary, ScanHistoryEntry,
-        ScanProgress, StorageRoot, StorageRootId, Track, TrackSortOrder,
+        ScanProgress, StorageRoot, StorageRootId, Track, TrackId, TrackSortOrder,
         scan_storage_root_cancellable,
     },
     playback_row::PlaybackRow,
@@ -103,12 +103,16 @@ pub(crate) struct LibraryView {
     roots: Vec<StorageRootView>,
     selected_root_id: Option<StorageRootId>,
     album_detail: Option<AlbumDetail>,
+    selected_album_track_id: Option<TrackId>,
+    selected_track_id: Option<TrackId>,
     album_sort: AlbumSortOrder,
+    albums_as_grid: bool,
     track_sort: TrackSortOrder,
     album_filter: FilterChip,
     track_filter: FilterChip,
     artist_filter: Option<String>,
     albums_scroll: ScrollHandle,
+    album_detail_scroll: ScrollHandle,
     tracks_scroll: ScrollHandle,
     scan: Option<ActiveScan>,
     scan_tx: Sender<ScanWorkerEvent>,
@@ -139,12 +143,16 @@ impl LibraryView {
             roots: Vec::new(),
             selected_root_id: None,
             album_detail: None,
+            selected_album_track_id: None,
+            selected_track_id: None,
             album_sort: AlbumSortOrder::DateAdded,
+            albums_as_grid: true,
             track_sort: TrackSortOrder::DateAdded,
             album_filter: FilterChip::All,
             track_filter: FilterChip::All,
             artist_filter: None,
             albums_scroll: ScrollHandle::new(),
+            album_detail_scroll: ScrollHandle::new(),
             tracks_scroll: ScrollHandle::new(),
             scan: None,
             scan_tx,
@@ -175,6 +183,7 @@ impl LibraryView {
     pub(crate) fn set_destination(&mut self, destination: Destination, cx: &mut Context<Self>) {
         if destination != self.destination && destination == Destination::Albums {
             self.album_detail = None;
+            self.selected_album_track_id = None;
         }
         self.destination = destination;
         cx.notify();
@@ -226,6 +235,19 @@ impl LibraryView {
             } else {
                 self.album_detail = None;
             }
+        }
+        if self
+            .selected_track_id
+            .is_some_and(|selected| !self.tracks.iter().any(|track| track.id == selected))
+        {
+            self.selected_track_id = None;
+        }
+        if self.selected_album_track_id.is_some_and(|selected| {
+            self.album_detail
+                .as_ref()
+                .is_none_or(|detail| !detail.tracks.iter().any(|track| track.id == selected))
+        }) {
+            self.selected_album_track_id = None;
         }
         Ok(())
     }
@@ -290,13 +312,32 @@ impl LibraryView {
             });
             tracks
         };
+        self.album_detail_scroll = ScrollHandle::new();
         self.album_detail = Some(AlbumDetail { album, tracks });
+        self.selected_album_track_id = None;
         cx.notify();
     }
 
-    fn play_path(&mut self, path: PathBuf, cx: &mut Context<Self>) {
-        self.row
-            .update(cx, |row, cx| row.play_library_path(path, cx));
+    fn play_path(
+        &mut self,
+        path: PathBuf,
+        cover_art_path: Option<PathBuf>,
+        cx: &mut Context<Self>,
+    ) {
+        self.row.update(cx, |row, cx| {
+            row.play_library_path(path, cover_art_path, cx)
+        });
+    }
+
+    fn select_path(
+        &mut self,
+        path: PathBuf,
+        cover_art_path: Option<PathBuf>,
+        cx: &mut Context<Self>,
+    ) {
+        self.row.update(cx, |row, cx| {
+            row.select_library_path(path, cover_art_path, cx)
+        });
     }
 
     fn choose_storage_folder(&mut self, cx: &mut Context<Self>) {

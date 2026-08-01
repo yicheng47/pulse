@@ -7,6 +7,7 @@ use gpui::{
 use crate::{library_ui::LibraryView, playback_row::PlaybackRow, theme};
 
 const SIDEBAR_WIDTH: f32 = 236.0;
+const SIDEBAR_TOP_PADDING: f32 = 44.0;
 const TOP_BAR_HEIGHT: f32 = 74.0;
 const SEARCH_WIDTH: f32 = 420.0;
 
@@ -80,7 +81,7 @@ impl Shell {
             .w(px(SIDEBAR_WIDTH))
             .h_full()
             .gap(px(22.))
-            .pt(px(24.))
+            .pt(px(SIDEBAR_TOP_PADDING))
             .pr(px(14.))
             .pb(px(16.))
             .pl(px(14.))

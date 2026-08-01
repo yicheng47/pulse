@@ -20,7 +20,8 @@ impl LibraryView {
                     .items_start()
                     .justify_between()
                     .w_full()
-                    .h(px(63.))
+                    .min_h(px(63.))
+                    .pb(px(10.))
                     .flex_none()
                     .child(
                         div()
