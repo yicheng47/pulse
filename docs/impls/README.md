@@ -8,11 +8,8 @@ Active notes:
 
 - [`ROADMAP.md`](ROADMAP.md) - canonical implementation stage order.
 - [`IMPL_LOG.md`](IMPL_LOG.md) - running progress record. Append an entry per working session: what happened, what's next, blockers.
-- [`0005-product-design.md`](0005-product-design.md) - fifth stage: Pencil-led product design. Partially complete; more surfaces still need design passes.
-- [`0009-playback-row.md`](0009-playback-row.md) - stage 7 playback row MVP; implementation complete, physical Matrix hardware validation outstanding.
-- [`0010-app-shell.md`](0010-app-shell.md) - sidebar, top bar, and routed body; the chrome stages 8-13 drop into.
-- [`0011-output-device-management.md`](0011-output-device-management.md) - stage 8: device list, selection, and UID persistence through the Output Device Popover.
-- [`0012-library-scan-and-store.md`](0012-library-scan-and-store.md) - headless half of stages 9-10: storage roots, file scan, tag extraction, and the SQLite store. No UI.
+- [`MANUAL_ACCEPTANCE_CHECKLIST.md`](MANUAL_ACCEPTANCE_CHECKLIST.md) - the human-only MVP acceptance gate; 96 checks across playback, hardware, library, queue, playlists, and search.
+- [`0015-mvp-states-and-hardening.md`](0015-mvp-states-and-hardening.md) - stage 13: loading states, decode failure, hogged/unavailable device, and missing-file handling.
 
 Archived notes:
 
@@ -23,3 +20,10 @@ Archived notes:
 - [`archive/0006-playback-controller.md`](archive/0006-playback-controller.md) - sixth stage: UI-agnostic playback controller inside `pulse-engine`.
 - [`archive/0007-gpui-native-ui-pivot.md`](archive/0007-gpui-native-ui-pivot.md) - app shell pivoted from Tauri 2 + React to a native GPUI `crates/pulse-app`. Applied; rules now in [`arch/tech-stack.md`](../arch/tech-stack.md).
 - [`archive/0008-gpui-ce-dependency.md`](archive/0008-gpui-ce-dependency.md) - swapped the abandoned crates.io `gpui` for rev-pinned GPUI-CE. Applied; rules now in [`arch/tech-stack.md`](../arch/tech-stack.md).
+- [`archive/0005-product-design.md`](archive/0005-product-design.md) - Pencil-led product design baseline. Retired 2026-08-01 as too broad to close; every surface it named now exists.
+- [`archive/0009-playback-row.md`](archive/0009-playback-row.md) - stage 7: playback row MVP.
+- [`archive/0010-app-shell.md`](archive/0010-app-shell.md) - stage 7.5: sidebar, top bar, routed body, macOS menu.
+- [`archive/0011-output-device-management.md`](archive/0011-output-device-management.md) - stage 8: device list, selection, UID persistence.
+- [`archive/0012-library-scan-and-store.md`](archive/0012-library-scan-and-store.md) - stages 9-10: storage roots, scanner, SQLite store.
+- [`archive/0013-library-ui.md`](archive/0013-library-ui.md) - stage 11: Albums, Album Detail, Tracks, Storage surfaces.
+- [`archive/0014-queue-playlists-search.md`](archive/0014-queue-playlists-search.md) - stage 12: queue, playlists, search.

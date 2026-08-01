@@ -128,17 +128,16 @@ Covered enough to guide MVP implementation:
 - Storage page.
 - Playback row direction.
 
-Still needs design detail before implementation:
+Designed and shipped since that baseline: output device popover, album detail, search results, playlist create/rename dialog and track context menu, storage add/scanning/offline/scan-failure/empty states, and first-run empty states for Albums and Playlists.
 
-- Output device settings surface.
-- Search results and empty states.
-- Album detail.
-- Track detail or inspector behavior.
-- Playlist editing flows.
-- Storage add/edit/rescan states.
-- Error states for missing storage, hogged device, decode failure, and scan failure.
+Still needs a design pass before implementation — all of it belongs to stage 13:
+
 - Loading states.
-- Queue drawer or queue detail.
+- Decode-failure presentation (a track that will not play).
+- Hogged-device and unavailable-device presentation beyond today's plain error text.
+- Missing-file state (row present in the library, file gone from disk).
+
+Deliberately undesigned and out of the MVP: track detail/inspector, queue drawer, a Devices page (the popover is the device surface), and a Settings screen (the sidebar footer item stays inert).
 
 ## Acceptance Criteria
 
