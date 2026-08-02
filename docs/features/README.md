@@ -4,4 +4,5 @@ Product features that are not part of a numbered roadmap stage. Roadmap stages l
 
 Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phases, and verification.
 
+- [`02-macos-packaging.md`](02-macos-packaging.md) - P0, issue #19. Hand-rolled `.app` bundling, Developer ID signing, notarization, DMG, and tag-triggered release CI. Bundle identifier `com.wycstudios.pulse`.
 - [`01-volume-control.md`](01-volume-control.md) - P1, issue #17. Software gain in the engine's float32 render path with a unity default, mute, and a playback-row slider. Hardware/device volume and a fixed-output purist mode are explicitly future work. Blocked on a Pencil pass for the playback bar.
