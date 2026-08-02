@@ -4,6 +4,11 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TARGET_TRIPLE="aarch64-apple-darwin"
+# Deliberately conservative rather than measured: gpui itself builds against a
+# 10.15.7 deployment target upstream, so 12.0 leaves headroom. Pulse has never
+# been launched on anything older than the current OS, and objc2's runtime
+# message sending means no compile-time availability check would catch a
+# too-new API. Raise this rather than guess if an old-OS report appears.
 MINIMUM_SYSTEM_VERSION="12.0"
 BINARY_NAME="pulse-app"
 APP_BUNDLE="$ROOT_DIR/target/release/Pulse.app"
