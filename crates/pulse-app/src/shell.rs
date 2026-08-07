@@ -504,8 +504,9 @@ impl Shell {
             .into_any_element()
     }
 
-    fn render_search(&self, cx: &mut Context<Self>) -> AnyElement {
+    fn render_search(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
         let query = self.search_query.clone();
+        let focused = self.search_focus.is_focused(window);
         let input_entity = cx.entity();
         let mut search = div()
             .absolute()
@@ -531,7 +532,7 @@ impl Shell {
                     .border_1()
                     .border_color(theme::border())
                     .bg(theme::bg_inset())
-                    .cursor_pointer()
+                    .cursor_text()
                     .on_click(cx.listener(|this, _, window, cx| {
                         this.focus_search(window, cx);
                     }))
@@ -544,20 +545,32 @@ impl Shell {
                     )
                     .child(
                         div()
+                            .flex()
+                            .items_center()
                             .flex_1()
                             .min_w_0()
-                            .truncate()
-                            .font_family(theme::FONT_SANS)
-                            .text_size(px(13.))
-                            .text_color(if query.is_empty() {
-                                theme::text_muted()
-                            } else {
-                                theme::text_primary()
+                            .when(query.is_empty() && focused, |text| {
+                                text.child(crate::components::input_caret())
                             })
-                            .child(if query.is_empty() {
-                                "Search library".to_string()
-                            } else {
-                                query
+                            .child(
+                                div()
+                                    .min_w_0()
+                                    .truncate()
+                                    .font_family(theme::FONT_SANS)
+                                    .text_size(px(13.))
+                                    .text_color(if query.is_empty() {
+                                        theme::text_muted()
+                                    } else {
+                                        theme::text_primary()
+                                    })
+                                    .child(if query.is_empty() {
+                                        "Search library".to_string()
+                                    } else {
+                                        query.clone()
+                                    }),
+                            )
+                            .when(!query.is_empty() && focused, |text| {
+                                text.child(crate::components::input_caret())
                             }),
                     )
                     .child(
@@ -738,19 +751,7 @@ impl Shell {
             ))
             .child(div().flex_1())
             .when_some(quality, |row, quality| {
-                row.child(
-                    div()
-                        .h(px(18.))
-                        .px(px(6.))
-                        .rounded(px(theme::RADIUS_SM))
-                        .border_1()
-                        .border_color(theme::quality_border())
-                        .font_family(theme::FONT_MONO)
-                        .font_weight(FontWeight::BOLD)
-                        .text_size(px(9.))
-                        .text_color(theme::quality())
-                        .child(quality),
-                )
+                row.child(crate::components::quality_badge(quality))
             })
     }
 
@@ -897,7 +898,7 @@ impl EntityInputHandler for Shell {
 }
 
 impl Render for Shell {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .id("window-drop-target")
             .flex()
@@ -941,7 +942,7 @@ impl Render for Shell {
                     ))
                     .child(self.render_body(cx))
                     .child(self.row.clone())
-                    .child(self.render_search(cx)),
+                    .child(self.render_search(window, cx)),
             )
     }
 }
@@ -1008,14 +1009,6 @@ fn render_settings_footer() -> impl IntoElement {
                 .text_size(px(14.))
                 .text_color(theme::text_secondary())
                 .child("Settings"),
-        )
-        .child(div().flex_1())
-        .child(
-            svg()
-                .path("icons/chevrons-left.svg")
-                .size(px(17.))
-                .flex_none()
-                .text_color(theme::text_muted()),
         )
 }
 

@@ -212,11 +212,11 @@ fn wait_for_state(events: &Receiver<PlaybackEvent>, expected: PlaybackState) -> 
     loop {
         match events.recv().context("playback controller stopped")? {
             PlaybackEvent::StateChanged(state) if state == expected => return Ok(()),
-            PlaybackEvent::Ended => bail!("playback ended before reaching {expected:?}"),
+            PlaybackEvent::Ended { .. } => bail!("playback ended before reaching {expected:?}"),
             PlaybackEvent::CommandRejected { command, state } => {
                 bail!("{command} rejected while {state:?}")
             }
-            PlaybackEvent::Error { message } => bail!(message),
+            PlaybackEvent::Error { message, .. } => bail!(message),
             _ => {}
         }
     }
@@ -225,11 +225,11 @@ fn wait_for_state(events: &Receiver<PlaybackEvent>, expected: PlaybackState) -> 
 fn wait_for_completion(events: &Receiver<PlaybackEvent>) -> Result<()> {
     loop {
         match events.recv().context("playback controller stopped")? {
-            PlaybackEvent::Ended => return Ok(()),
+            PlaybackEvent::Ended { .. } => return Ok(()),
             PlaybackEvent::CommandRejected { command, state } => {
                 bail!("{command} rejected while {state:?}")
             }
-            PlaybackEvent::Error { message } => bail!(message),
+            PlaybackEvent::Error { message, .. } => bail!(message),
             _ => {}
         }
     }

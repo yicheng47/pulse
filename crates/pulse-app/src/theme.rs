@@ -51,7 +51,7 @@ pub fn accent_soft() -> Rgba {
 }
 
 pub fn bg_selected() -> Rgba {
-    rgb(0x1a1117)
+    rgb(0x241019)
 }
 
 pub fn primary() -> Rgba {

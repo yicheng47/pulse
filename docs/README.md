@@ -15,6 +15,7 @@ Current architecture docs:
 
 - `arch/tech-stack.md` - stack choices and constraints.
 - `arch/pulse-engine.md` - engine crate structure and module responsibilities.
+- `arch/thread-model.md` - which thread owns what, cross-thread data flow, and the single-process decision.
 - `product/vision.md` - broad product direction and constraints.
 - `product/mvp.md` - first usable desktop release scope.
 - `impls/ROADMAP.md` - canonical implementation stage order.

@@ -118,5 +118,5 @@ impl Drop for AuhalSink {
 }
 
 fn audio_unit_error(error: coreaudio::Error) -> EngineError {
-    EngineError::UnsupportedFormat(format!("audio unit: {error}"))
+    EngineError::AudioUnit(error.to_string())
 }

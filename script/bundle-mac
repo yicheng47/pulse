@@ -12,7 +12,9 @@ TARGET_TRIPLE="aarch64-apple-darwin"
 MINIMUM_SYSTEM_VERSION="12.0"
 BINARY_NAME="pulse-app"
 APP_BUNDLE="$ROOT_DIR/target/release/Pulse.app"
-ICON_SOURCE="$ROOT_DIR/crates/pulse-app/assets/app-icon/v06cM3.png"
+# dock.png carries the Apple icon-grid margin; v06cM3.png is the full-bleed
+# in-app brand mark and must not be used for the Dock/icns.
+ICON_SOURCE="$ROOT_DIR/crates/pulse-app/assets/app-icon/dock.png"
 
 workspace_version() {
     awk '

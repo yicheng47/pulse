@@ -1,4 +1,4 @@
-mod metadata;
+pub(crate) mod metadata;
 mod path;
 mod store;
 mod walk;
@@ -10,7 +10,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub use store::LibraryStore;
+pub use store::{BackfillProgress, LibraryStore};
 use store::{
     CompletedScan, clear_track_cover, delete_track, finish_completed_scan, set_track_cover,
     update_track_path, upsert_track,
@@ -76,6 +76,20 @@ pub struct TrackPage {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum AlbumQueryFilter {
+    All,
+    HiRes,
+    AddedSince(i64),
+    Genre(String),
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct AlbumPage {
+    pub albums: Vec<Album>,
+    pub total_count: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Album {
     pub title: String,
     pub artist: String,
@@ -86,7 +100,6 @@ pub struct Album {
     pub max_bit_depth: Option<u8>,
     pub cover_art_path: Option<PathBuf>,
     pub latest_added_at_ms: i64,
-    pub genres: Vec<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -446,7 +459,7 @@ where
                             current.id,
                             artwork,
                         ) {
-                            Ok(()) => {
+                            Ok(_) => {
                                 transaction.commit()?;
                                 changed = true;
                             }
@@ -496,16 +509,17 @@ where
                         Some(artwork) => Ok(Some(artwork)),
                         None => discover_folder_artwork(&file.path),
                     };
-                    let has_artwork = artwork.as_ref().is_ok_and(|artwork| artwork.is_some());
                     let artwork_result = artwork.and_then(|artwork| match artwork {
                         Some(artwork) => {
                             cache_artwork(&transaction, cover_cache_directory, track_id, artwork)
+                                .map(Some)
                         }
                         None => clear_track_cover(&transaction, track_id)
+                            .map(|()| None)
                             .map_err(ArtworkError::Database),
                     });
                     match artwork_result {
-                        Ok(()) => {
+                        Ok(new_cover) => {
                             transaction.commit()?;
                             if current.is_some() {
                                 updated += 1;
@@ -514,8 +528,9 @@ where
                                 added += 1;
                                 action = ScanProgressAction::Added;
                             }
-                            if !has_artwork
-                                && let Some(path) = previous_cover
+                            let stale_cover = previous_cover
+                                .filter(|previous| new_cover.as_ref() != Some(previous));
+                            if let Some(path) = stale_cover
                                 && let Err(error) = remove_cached_file(&path)
                             {
                                 errors.push(ScanFileError {
@@ -654,26 +669,34 @@ where
     Ok(Some(report))
 }
 
+/// Cover cache paths are content-unique (`{id}-{fingerprint}.cover`): the
+/// bytes behind a given path never change, so path-keyed image caches (gpui's)
+/// can never show stale art, including after a removed root recycles track
+/// ids. Returns the cached path so callers can delete a superseded one.
 fn cache_artwork(
     transaction: &rusqlite::Transaction<'_>,
     cover_cache_directory: &Path,
     track_id: TrackId,
     artwork: metadata::EmbeddedArtwork,
-) -> Result<(), ArtworkError> {
+) -> Result<PathBuf, ArtworkError> {
     fs::create_dir_all(cover_cache_directory).map_err(|error| {
         ArtworkError::Cache(format!(
             "failed to create cover cache {}: {error}",
             cover_cache_directory.display()
         ))
     })?;
-    let path = cover_cache_directory.join(format!("{track_id}.cover"));
+    let file_name = format!(
+        "{track_id}-{:016x}.cover",
+        artwork_fingerprint(&artwork.data)
+    );
+    let path = cover_cache_directory.join(&file_name);
     let path_text = path.to_str().ok_or_else(|| {
         ArtworkError::Cache(format!(
             "cover cache path is not valid Unicode: {}",
             path.display()
         ))
     })?;
-    let temporary_path = cover_cache_directory.join(format!(".{track_id}.cover.tmp"));
+    let temporary_path = cover_cache_directory.join(format!(".{file_name}.tmp"));
     fs::write(&temporary_path, artwork.data).map_err(|error| {
         ArtworkError::Cache(format!(
             "failed to stage cover art at {}: {error}",
@@ -693,7 +716,18 @@ fn cache_artwork(
         path_text,
         artwork.mime_type.as_deref(),
     )
-    .map_err(ArtworkError::Database)
+    .map_err(ArtworkError::Database)?;
+    Ok(path)
+}
+
+/// FNV-1a, deterministic across runs so an unchanged cover keeps its path.
+fn artwork_fingerprint(data: &[u8]) -> u64 {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in data {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    hash
 }
 
 fn discover_folder_artwork(path: &Path) -> Result<Option<metadata::EmbeddedArtwork>, ArtworkError> {
@@ -1334,7 +1368,7 @@ mod tests {
     }
 
     #[test]
-    fn folder_art_rescan_replaces_the_stable_cache_file() {
+    fn folder_art_rescan_moves_the_cover_to_a_new_content_unique_path() {
         let temp = tempdir().unwrap();
         let music = temp.path().join("music");
         let cache = temp.path().join("covers");
@@ -1364,13 +1398,21 @@ mod tests {
 
         assert_eq!(report.updated, 1);
         assert_eq!(track.id, first_track.id);
-        assert_eq!(track.cover_art_path.as_ref(), Some(&first_cover_path));
-        assert_eq!(fs::read(&first_cover_path).unwrap(), test_art(2));
+        let second_cover_path = track.cover_art_path.as_ref().unwrap();
+        assert_ne!(
+            second_cover_path, &first_cover_path,
+            "changed art must live at a new path so path-keyed image caches refresh"
+        );
+        assert_eq!(fs::read(second_cover_path).unwrap(), test_art(2));
+        assert!(
+            !first_cover_path.exists(),
+            "the superseded cover file is removed"
+        );
         assert_eq!(fs::read_dir(cache).unwrap().count(), 1);
     }
 
     #[test]
-    fn cover_cache_uses_one_stable_track_key_and_overwrites_it() {
+    fn cover_cache_paths_are_content_unique_and_deterministic() {
         let temp = tempdir().unwrap();
         let music = temp.path().join("music");
         let cache = temp.path().join("covers");
@@ -1381,44 +1423,32 @@ mod tests {
         scan_storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
         let track_id = store.tracks_for_root(root.id).unwrap()[0].id;
 
-        {
+        let cache_bytes = |store: &mut LibraryStore, data: Vec<u8>, mime: &str| {
             let transaction = store.connection.transaction().unwrap();
-            cache_artwork(
+            let path = cache_artwork(
                 &transaction,
                 &cache,
                 track_id,
                 metadata::EmbeddedArtwork {
-                    data: vec![1, 2, 3],
-                    mime_type: Some("image/png".to_string()),
+                    data,
+                    mime_type: Some(mime.to_string()),
                 },
             )
             .unwrap();
             transaction.commit().unwrap();
-        }
-        let first_path = store.tracks_for_root(root.id).unwrap()[0]
-            .cover_art_path
-            .clone()
-            .unwrap();
-        {
-            let transaction = store.connection.transaction().unwrap();
-            cache_artwork(
-                &transaction,
-                &cache,
-                track_id,
-                metadata::EmbeddedArtwork {
-                    data: vec![9, 8],
-                    mime_type: Some("image/jpeg".to_string()),
-                },
-            )
-            .unwrap();
-            transaction.commit().unwrap();
-        }
-        let track = &store.tracks_for_root(root.id).unwrap()[0];
+            path
+        };
 
-        assert_eq!(track.cover_art_path.as_ref(), Some(&first_path));
+        let first = cache_bytes(&mut store, vec![1, 2, 3], "image/png");
+        let same_again = cache_bytes(&mut store, vec![1, 2, 3], "image/png");
+        let changed = cache_bytes(&mut store, vec![9, 8], "image/jpeg");
+
+        assert_eq!(first, same_again, "identical bytes keep a stable path");
+        assert_ne!(first, changed, "different bytes get a different path");
+        assert_eq!(fs::read(&changed).unwrap(), [9, 8]);
+        let track = &store.tracks_for_root(root.id).unwrap()[0];
+        assert_eq!(track.cover_art_path.as_ref(), Some(&changed));
         assert_eq!(track.cover_art_mime_type.as_deref(), Some("image/jpeg"));
-        assert_eq!(fs::read(first_path).unwrap(), [9, 8]);
-        assert_eq!(fs::read_dir(cache).unwrap().count(), 1);
     }
 
     #[test]

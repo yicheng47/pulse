@@ -21,7 +21,9 @@ impl LibraryView {
             .iter()
             .map(|playlist| playlist.track_count)
             .sum::<u64>();
-        let meta = if self.playlists.is_empty() {
+        let meta = if self.playlists.is_empty() && self.is_library_loading() {
+            "Loading…".to_string()
+        } else if self.playlists.is_empty() {
             "No playlists yet".to_string()
         } else {
             format!(
@@ -134,7 +136,9 @@ impl LibraryView {
                             .child(self.playlists.len().to_string()),
                     ),
             )
-            .child(if self.playlists.is_empty() {
+            .child(if self.playlists.is_empty() && self.is_library_loading() {
+                super::list_loading_placeholder("Loading playlists…")
+            } else if self.playlists.is_empty() {
                 render_playlist_empty(cx).into_any_element()
             } else {
                 div()
@@ -469,6 +473,7 @@ impl LibraryView {
         let position = entry.position;
         let track_id = track.id;
         let playing = self.is_now_playing(&track.path, cx);
+        let missing = self.is_track_missing(track.id, cx);
         let selected = self.selected_playlist_position == Some(position);
         let quality = quality_label(track.bit_depth, track.sample_rate_hz)
             .unwrap_or_else(|| format_label(&track.path).to_string());
@@ -519,17 +524,27 @@ impl LibraryView {
                     .gap(px(3.))
                     .child(
                         div()
+                            .flex()
+                            .items_center()
+                            .gap(px(8.))
                             .w_full()
-                            .truncate()
-                            .font_family(theme::FONT_SANS)
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .text_size(px(13.))
-                            .text_color(if playing {
-                                theme::accent()
-                            } else {
-                                theme::text_primary()
-                            })
-                            .child(track_title(&track)),
+                            .child(
+                                div()
+                                    .min_w_0()
+                                    .truncate()
+                                    .font_family(theme::FONT_SANS)
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .text_size(px(13.))
+                                    .text_color(if playing {
+                                        theme::accent()
+                                    } else if missing {
+                                        theme::text_muted()
+                                    } else {
+                                        theme::text_primary()
+                                    })
+                                    .child(track_title(&track)),
+                            )
+                            .when(missing, |title| title.child(super::missing_file_badge())),
                     )
                     .child(
                         div()
@@ -558,22 +573,7 @@ impl LibraryView {
                     .text_color(theme::text_secondary())
                     .child(format_duration(track.duration_ms)),
             )
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .h(px(18.))
-                    .px(px(6.))
-                    .rounded(px(theme::RADIUS_SM))
-                    .border_1()
-                    .border_color(theme::quality_border())
-                    .bg(theme::quality_soft())
-                    .font_family(theme::FONT_MONO)
-                    .font_weight(FontWeight::BOLD)
-                    .text_size(px(9.))
-                    .text_color(theme::quality())
-                    .child(quality),
-            )
+            .child(crate::components::quality_badge(quality))
     }
 
     pub(super) fn render_playlist_name_modal(
@@ -601,30 +601,15 @@ impl LibraryView {
                     div()
                         .flex()
                         .flex_col()
-                        .gap(px(8.))
-                        .p(px(20.))
+                        .gap(px(14.))
+                        .p(px(22.))
                         .child(super::storage::render_field_label("NAME"))
-                        .child(
-                            div()
-                                .id("playlist-name-input")
-                                .flex()
-                                .items_center()
-                                .h(px(36.))
-                                .w_full()
-                                .px(px(10.))
-                                .rounded(px(theme::RADIUS_SM))
-                                .border_1()
-                                .border_color(theme::accent())
-                                .bg(theme::bg_inset())
-                                .track_focus(&self.input_focus)
-                                .on_key_down(cx.listener(|this, event, _, cx| {
-                                    this.handle_text_input(event, cx);
-                                }))
-                                .font_family(theme::FONT_SANS)
-                                .text_size(px(12.))
-                                .text_color(theme::text_primary())
-                                .child(name),
-                        )
+                        .child(super::render_text_input(
+                            "playlist-name-input",
+                            name,
+                            &self.input_focus,
+                            cx,
+                        ))
                         .child(
                             div()
                                 .font_family(theme::FONT_SANS)
@@ -641,29 +626,15 @@ impl LibraryView {
                         .gap(px(9.))
                         .h(px(62.))
                         .flex_none()
-                        .px(px(20.))
+                        .px(px(22.))
                         .border_t_1()
                         .border_color(theme::border())
                         .child(super::storage::render_cancel_modal_button(cx))
                         .child(
-                            div()
-                                .id("confirm-playlist-name")
-                                .flex()
-                                .items_center()
-                                .justify_center()
-                                .h(px(34.))
-                                .px(px(14.))
-                                .rounded(px(theme::RADIUS_SM))
-                                .bg(theme::accent())
-                                .cursor_pointer()
+                            crate::components::primary_button("confirm-playlist-name", confirm)
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     this.confirm_playlist_name(cx);
-                                }))
-                                .font_family(theme::FONT_DISPLAY)
-                                .font_weight(FontWeight::BOLD)
-                                .text_size(px(13.))
-                                .text_color(theme::bg_inset())
-                                .child(confirm),
+                                })),
                         ),
                 ),
         )
@@ -725,24 +696,13 @@ impl LibraryView {
                         .border_color(theme::border())
                         .child(super::storage::render_cancel_modal_button(cx))
                         .child(
-                            div()
-                                .id(format!("confirm-delete-playlist-{playlist_id}"))
-                                .flex()
-                                .items_center()
-                                .justify_center()
-                                .h(px(34.))
-                                .px(px(14.))
-                                .rounded(px(theme::RADIUS_SM))
-                                .bg(theme::danger())
-                                .cursor_pointer()
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.confirm_delete_playlist(cx);
-                                }))
-                                .font_family(theme::FONT_DISPLAY)
-                                .font_weight(FontWeight::BOLD)
-                                .text_size(px(13.))
-                                .text_color(theme::bg_inset())
-                                .child("Delete Playlist"),
+                            crate::components::danger_button(
+                                format!("confirm-delete-playlist-{playlist_id}"),
+                                "Delete Playlist",
+                            )
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.confirm_delete_playlist(cx);
+                            })),
                         ),
                 ),
         )

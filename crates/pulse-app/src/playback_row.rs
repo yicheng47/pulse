@@ -1,5 +1,6 @@
 use std::{
     cell::Cell,
+    collections::HashSet,
     path::{Path, PathBuf},
     rc::Rc,
     sync::mpsc::{Receiver, Sender, TryRecvError},
@@ -12,18 +13,20 @@ use gpui::{
     px, relative, svg,
 };
 use pulse_engine::{
-    EngineError, PcmFormat, PlaybackCommand, PlaybackController, PlaybackEvent, PlaybackState,
-    device,
+    EngineError, PcmFormat, PlaybackCommand, PlaybackController, PlaybackErrorKind, PlaybackEvent,
+    PlaybackState, device,
 };
 
 use crate::{
-    library::Track,
+    library::{Track, TrackId},
     preferences,
     queue::{PreviousAction, QueueState, TrackRef},
     theme,
 };
 
 const EVENT_POLL_INTERVAL: Duration = Duration::from_millis(16);
+/// Polls between active-device presence checks while playing (~2 s at 16 ms).
+const DEVICE_WATCH_POLLS: u32 = 125;
 const SUPPORTED_EXTENSIONS: &[&str] = &["flac", "m4a", "aif", "aiff", "wav"];
 
 struct PendingDeviceChange {
@@ -36,6 +39,47 @@ struct PendingDeviceChange {
 struct DeviceMessage {
     text: String,
     is_error: bool,
+}
+
+/// A visible playback report shown above the row. `Skip` means playback
+/// continued past an unplayable queue entry; the other two mean it stopped.
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum PlaybackNotice {
+    Skip { text: String },
+    Stopped { text: String },
+    DeviceFailure { text: String },
+}
+
+#[derive(Clone, Copy)]
+enum SkipReason {
+    Missing,
+    Undecodable,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct RetryTarget {
+    path: PathBuf,
+    position_ms: u64,
+}
+
+/// A dispatched `PlayFile` and its resume position. `confirmed` flips when
+/// `NowPlaying` proves the controller is working on this source; until then
+/// stale `Position` events from the previous track must not touch it.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct PlayAttempt {
+    target: RetryTarget,
+    confirmed: bool,
+}
+
+#[cfg(target_os = "macos")]
+fn app_name_for_pid(pid: i32) -> Option<String> {
+    let app = objc2_app_kit::NSRunningApplication::runningApplicationWithProcessIdentifier(pid)?;
+    app.localizedName().map(|name| name.to_string())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn app_name_for_pid(_pid: i32) -> Option<String> {
+    None
 }
 
 pub struct PlaybackRow {
@@ -60,6 +104,14 @@ pub struct PlaybackRow {
     position_ms: u64,
     duration_ms: Option<u64>,
     error: Option<String>,
+    notice: Option<PlaybackNotice>,
+    missing_track_ids: HashSet<TrackId>,
+    /// PlayFile commands sent to the controller; terminal events stamped with
+    /// an older attempt belong to a superseded play and are dropped.
+    dispatched_plays: u64,
+    current_play: Option<PlayAttempt>,
+    retry: Option<RetryTarget>,
+    pending_seek_ms: Option<u64>,
     track_bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
     scrubbing: bool,
     scrub_fraction: Option<f32>,
@@ -71,9 +123,18 @@ impl PlaybackRow {
         row.initialize_output();
 
         cx.spawn(async move |this, cx| {
+            let mut polls: u32 = 0;
             loop {
                 cx.background_executor().timer(EVENT_POLL_INTERVAL).await;
-                if this.update(cx, |this, cx| this.drain_events(cx)).is_err() {
+                polls = polls.wrapping_add(1);
+                let watch_device = polls.is_multiple_of(DEVICE_WATCH_POLLS);
+                let update = this.update(cx, |this, cx| {
+                    this.drain_events(cx);
+                    if watch_device {
+                        this.check_active_device_presence(cx);
+                    }
+                });
+                if update.is_err() {
                     break;
                 }
             }
@@ -93,7 +154,7 @@ impl PlaybackRow {
             cover_art_path: None,
             queue: QueueState::default(),
             title: "No track loaded".to_string(),
-            secondary: "Drop FLAC, ALAC, AIFF, or WAV".to_string(),
+            secondary: "Choose a track from your library".to_string(),
             format: None,
             devices: Vec::new(),
             active_device: None,
@@ -106,6 +167,12 @@ impl PlaybackRow {
             position_ms: 0,
             duration_ms: None,
             error: None,
+            notice: None,
+            missing_track_ids: HashSet::new(),
+            dispatched_plays: 0,
+            current_play: None,
+            retry: None,
+            pending_seek_ms: None,
             track_bounds: Rc::new(Cell::new(None)),
             scrubbing: false,
             scrub_fraction: None,
@@ -230,6 +297,25 @@ impl PlaybackRow {
         self.error.as_deref()
     }
 
+    /// Library rows marked unplayable because their file was gone at play
+    /// time. Marks are runtime-only — rows are never deleted, per the
+    /// offline-root guarantee.
+    pub(crate) fn is_track_missing(&self, track_id: TrackId) -> bool {
+        self.missing_track_ids.contains(&track_id)
+    }
+
+    /// Marks go stale whenever library rows change under them — a completed
+    /// scan re-verifies file presence, and a removed root recycles track ids.
+    pub(crate) fn clear_missing_marks(&mut self) {
+        self.missing_track_ids.clear();
+    }
+
+    fn dismiss_notice(&mut self, cx: &mut Context<Self>) {
+        self.notice = None;
+        self.retry = None;
+        cx.notify();
+    }
+
     pub(crate) fn has_track(&self) -> bool {
         self.source_path.is_some()
     }
@@ -249,6 +335,8 @@ impl PlaybackRow {
         cx: &mut Context<Self>,
     ) {
         self.queue = QueueState::from_tracks(tracks, start_index);
+        self.notice = None;
+        self.retry = None;
         let Some(track) = self.queue.current().cloned() else {
             return;
         };
@@ -293,6 +381,9 @@ impl PlaybackRow {
         }
 
         self.error = None;
+        self.notice = None;
+        self.retry = None;
+        self.pending_seek_ms = None;
         self.cover_art_path = None;
         self.queue = QueueState::default();
         self.play_file(path.clone(), cx);
@@ -308,22 +399,52 @@ impl PlaybackRow {
             }
         }
 
+        self.record_play_attempt(&path);
         self.send_command(PlaybackCommand::PlayFile { path }, cx);
     }
 
+    /// Tracks what the controller is actually working on, so a device-failure
+    /// retry replays the attempted file — `source_path`/`position_ms` still
+    /// describe the previous track while a new one is loading.
+    fn record_play_attempt(&mut self, path: &Path) {
+        self.current_play = Some(PlayAttempt {
+            target: RetryTarget {
+                path: path.to_path_buf(),
+                position_ms: self.pending_seek_ms.unwrap_or(0),
+            },
+            confirmed: false,
+        });
+    }
+
     fn toggle_playback(&mut self, cx: &mut Context<Self>) {
-        if let Some(command) = self.toggle_command() {
+        if let Some(command) = self.prepare_toggle_command() {
             self.send_command(command, cx);
         }
     }
 
+    /// Transport play from Idle/Ended/Error dispatches a `PlayFile` restart,
+    /// which must be recorded as a fresh attempt like every other dispatch.
+    fn prepare_toggle_command(&mut self) -> Option<PlaybackCommand> {
+        let command = self.toggle_command()?;
+        if let PlaybackCommand::PlayFile { path } = &command {
+            self.pending_seek_ms = None;
+            let path = path.clone();
+            self.record_play_attempt(&path);
+        }
+        Some(command)
+    }
+
     fn next_track(&mut self, cx: &mut Context<Self>) {
+        self.notice = None;
+        self.retry = None;
         if let Some(track) = self.queue.advance() {
             self.play_queue_track(track, cx);
         }
     }
 
     fn previous_track(&mut self, cx: &mut Context<Self>) {
+        self.notice = None;
+        self.retry = None;
         match self.queue.previous(self.position_ms) {
             Some(PreviousAction::Restart(track) | PreviousAction::PlayPrevious(track)) => {
                 self.play_queue_track(track, cx);
@@ -341,11 +462,22 @@ impl PlaybackRow {
             PlaybackState::Playing => Some(PlaybackCommand::Pause),
             PlaybackState::Paused => Some(PlaybackCommand::Resume),
             PlaybackState::Idle | PlaybackState::Ended | PlaybackState::Error => self
-                .source_path
-                .clone()
+                .restart_path()
                 .map(|path| PlaybackCommand::PlayFile { path }),
             PlaybackState::Loading | PlaybackState::Stopping => None,
         }
+    }
+
+    /// The file transport Play restarts. In Error state the failed attempt is
+    /// the target, keeping Play and Try again in agreement when a new file
+    /// failed before any NowPlaying updated `source_path`.
+    fn restart_path(&self) -> Option<PathBuf> {
+        if self.playback_state == PlaybackState::Error
+            && let Some(attempt) = &self.current_play
+        {
+            return Some(attempt.target.path.clone());
+        }
+        self.source_path.clone()
     }
 
     fn apply_track_selection(&mut self, track: &TrackRef) -> bool {
@@ -375,18 +507,137 @@ impl PlaybackRow {
     }
 
     fn play_queue_track(&mut self, track: TrackRef, cx: &mut Context<Self>) {
-        self.apply_track_context(&track);
+        self.pending_seek_ms = None;
+        match self.next_playable(track) {
+            Some(track) => {
+                self.apply_track_context(&track);
+                self.error = None;
+                self.play_file(track.path, cx);
+            }
+            None => cx.notify(),
+        }
+    }
+
+    /// Cheap existence check at play time: marks and skips entries whose file
+    /// is gone, and reports when that empties the rest of the queue.
+    fn next_playable(&mut self, first: TrackRef) -> Option<TrackRef> {
+        let mut candidate = first;
+        loop {
+            if candidate.path.is_file() {
+                return Some(candidate);
+            }
+            self.missing_track_ids.insert(candidate.id);
+            match self.queue.skip_failed() {
+                Some(next) => {
+                    self.note_skip(&candidate, SkipReason::Missing);
+                    candidate = next;
+                }
+                None => {
+                    self.note_queue_stopped(&candidate);
+                    return None;
+                }
+            }
+        }
+    }
+
+    /// A track-scoped playback failure: mark the entry if its file is gone,
+    /// then hand back the next entry to try, or report why the queue stopped.
+    fn handle_track_failure(&mut self) -> Option<TrackRef> {
+        let failed = self.queue.current().cloned()?;
+        let reason = if failed.path.is_file() {
+            SkipReason::Undecodable
+        } else {
+            self.missing_track_ids.insert(failed.id);
+            SkipReason::Missing
+        };
+        match self.queue.skip_failed() {
+            Some(next) => {
+                self.note_skip(&failed, reason);
+                Some(next)
+            }
+            None => {
+                self.note_queue_stopped(&failed);
+                None
+            }
+        }
+    }
+
+    fn note_skip(&mut self, track: &TrackRef, reason: SkipReason) {
+        let text = if self.queue.skipped_count() > 1 {
+            format!(
+                "Skipped {} tracks that could not be played.",
+                self.queue.skipped_count()
+            )
+        } else {
+            let reason = match reason {
+                SkipReason::Missing => "its file is missing",
+                SkipReason::Undecodable => "its file could not be decoded",
+            };
+            format!("Skipped “{}” — {reason}.", track.title)
+        };
+        self.notice = Some(PlaybackNotice::Skip { text });
+    }
+
+    fn note_queue_stopped(&mut self, last: &TrackRef) {
+        let text = if self.queue.nothing_played() && self.queue.skipped_count() > 1 {
+            "Playback stopped — none of the queued tracks could be played.".to_string()
+        } else if self.queue.skipped_count() > 1 {
+            format!(
+                "Playback stopped — {} tracks could not be played.",
+                self.queue.skipped_count()
+            )
+        } else {
+            format!("Playback stopped — “{}” could not be played.", last.title)
+        };
+        self.notice = Some(PlaybackNotice::Stopped { text });
+    }
+
+    fn handle_device_failure(&mut self, message: &str, hog_pid: Option<i32>) {
+        let device_name = self
+            .active_device
+            .as_ref()
+            .map(|device| device.name.clone())
+            .unwrap_or_else(|| "the output device".to_string());
+        let text = match hog_pid {
+            Some(pid) => {
+                let app = app_name_for_pid(pid).unwrap_or_else(|| "Another app".to_string());
+                format!(
+                    "{app} is using {device_name} exclusively. Quit it or choose another output, then try again."
+                )
+            }
+            None => format!("Playback stopped on {device_name}: {message}"),
+        };
+        self.retry = self
+            .current_play
+            .as_ref()
+            .map(|attempt| attempt.target.clone());
+        self.notice = Some(PlaybackNotice::DeviceFailure { text });
+    }
+
+    fn retry_playback(&mut self, cx: &mut Context<Self>) {
+        let Some(retry) = self.retry.take() else {
+            return;
+        };
+        self.notice = None;
         self.error = None;
-        self.play_file(track.path, cx);
+        // Re-resolve the output first: after a disconnect the saved device is
+        // gone and refresh falls back to the system default visibly.
+        self.refresh_output_devices(cx);
+        self.pending_seek_ms = (retry.position_ms > 0).then_some(retry.position_ms);
+        self.play_file(retry.path, cx);
+        cx.notify();
     }
 
     fn send_command(&mut self, command: PlaybackCommand, cx: &mut Context<Self>) {
         let Some(command_tx) = &self.command_tx else {
             return;
         };
+        let is_play = matches!(command, PlaybackCommand::PlayFile { .. });
         if command_tx.send(command).is_err() {
             self.error = Some("Playback engine disconnected.".to_string());
             cx.notify();
+        } else if is_play {
+            self.dispatched_plays += 1;
         }
     }
 
@@ -403,10 +654,13 @@ impl PlaybackRow {
                     break;
                 }
             };
-            let ended = event == PlaybackEvent::Ended;
-            self.handle_event(event);
-            if ended && let Some(track) = self.queue.advance() {
+            if let Some(track) = self.handle_event(event) {
                 self.play_queue_track(track, cx);
+            }
+            if self.playback_state == PlaybackState::Playing
+                && let Some(position_ms) = self.pending_seek_ms.take()
+            {
+                self.send_command(PlaybackCommand::Seek { position_ms }, cx);
             }
             changed = true;
         }
@@ -416,12 +670,33 @@ impl PlaybackRow {
         }
     }
 
-    fn handle_event(&mut self, event: PlaybackEvent) {
+    /// Applies one controller event; returns the next queue entry to play
+    /// when the event calls for an advance (track ended or failed).
+    fn handle_event(&mut self, event: PlaybackEvent) -> Option<TrackRef> {
         match event {
             PlaybackEvent::StateChanged(state) => {
                 self.playback_state = state;
             }
             PlaybackEvent::NowPlaying { source, format } => {
+                match &mut self.current_play {
+                    Some(attempt) if attempt.target.path == source.path => {
+                        attempt.confirmed = true;
+                    }
+                    // A mismatched NowPlaying against an unconfirmed attempt
+                    // is a stale event from a superseded play — ignore it
+                    // entirely so display state and the retry target stay on
+                    // the dispatched attempt.
+                    Some(attempt) if !attempt.confirmed => return None,
+                    _ => {
+                        self.current_play = Some(PlayAttempt {
+                            target: RetryTarget {
+                                path: source.path.clone(),
+                                position_ms: 0,
+                            },
+                            confirmed: true,
+                        });
+                    }
+                }
                 if let Some(track) = self
                     .queue
                     .current()
@@ -429,6 +704,8 @@ impl PlaybackRow {
                     .cloned()
                 {
                     self.apply_track_context(&track);
+                    self.queue.mark_started();
+                    self.missing_track_ids.remove(&track.id);
                 } else {
                     self.title = track_title(&source.path);
                     self.secondary = track_secondary(&source.path);
@@ -445,15 +722,24 @@ impl PlaybackRow {
             } => {
                 self.position_ms = position_ms;
                 self.duration_ms = duration_ms;
+                if let Some(attempt) = &mut self.current_play
+                    && attempt.confirmed
+                {
+                    attempt.target.position_ms = position_ms;
+                }
             }
             PlaybackEvent::OutputDeviceChanged { device_id } => {
                 self.complete_output_device_change(device_id);
             }
-            PlaybackEvent::Ended => {
+            PlaybackEvent::Ended { attempt } => {
+                if attempt != self.dispatched_plays {
+                    return None;
+                }
                 self.playback_state = PlaybackState::Ended;
                 if let Some(duration_ms) = self.duration_ms {
                     self.position_ms = duration_ms;
                 }
+                return self.queue.advance();
             }
             PlaybackEvent::CommandRejected { command, state } => {
                 self.error = Some(format!(
@@ -461,16 +747,60 @@ impl PlaybackRow {
                     playback_state_label(state)
                 ));
             }
-            PlaybackEvent::Error { message } => {
+            PlaybackEvent::Error {
+                attempt,
+                kind,
+                message,
+            } => {
+                // Output-device change failures are not play-scoped; handle
+                // them before the attempt staleness guard.
                 if let Some(pending) = self.pending_device_change.take() {
                     self.device_message = Some(DeviceMessage {
                         text: format!("Could not switch to {}: {message}", pending.device.name),
                         is_error: true,
                     });
+                    self.error = Some(message);
+                    return None;
                 }
-                self.error = Some(message);
+                if attempt != self.dispatched_plays {
+                    return None;
+                }
+                // Advisory: teardown already reached Idle/Ended, playback is
+                // not stopping because of this (see PlaybackEvent::Error docs).
+                if matches!(
+                    self.playback_state,
+                    PlaybackState::Idle | PlaybackState::Ended
+                ) {
+                    self.error = Some(message);
+                    return None;
+                }
+                match kind {
+                    PlaybackErrorKind::Track if self.queue.current().is_some() => {
+                        self.error = None;
+                        return self.handle_track_failure();
+                    }
+                    PlaybackErrorKind::Track => {
+                        // Before NowPlaying, `title` still describes the
+                        // previous row; the attempted file is the one that
+                        // failed.
+                        let name = self
+                            .current_play
+                            .as_ref()
+                            .map(|attempt| track_title(&attempt.target.path))
+                            .unwrap_or_else(|| self.title.clone());
+                        self.notice = Some(PlaybackNotice::Stopped {
+                            text: format!("Could not play “{name}” — {message}."),
+                        });
+                        self.error = Some(message);
+                    }
+                    PlaybackErrorKind::Device { hog_pid } => {
+                        self.handle_device_failure(&message, hog_pid);
+                        self.error = Some(message);
+                    }
+                }
             }
         }
+        None
     }
 
     fn complete_output_device_change(&mut self, device_id: device::DeviceId) {
@@ -504,6 +834,48 @@ impl PlaybackRow {
         self.active_device = Some(output_device.clone());
         self.device_message = pending.success_message;
         output_device
+    }
+
+    fn check_active_device_presence(&mut self, cx: &mut Context<Self>) {
+        if !matches!(
+            self.playback_state,
+            PlaybackState::Playing | PlaybackState::Loading
+        ) {
+            return;
+        }
+        let Ok(devices) = device::list_output_devices() else {
+            return;
+        };
+        if self.note_device_loss(devices) {
+            self.send_command(PlaybackCommand::Stop, cx);
+            cx.notify();
+        }
+    }
+
+    /// Returns true when the active output device is no longer attached; the
+    /// engine has no mid-playback device-loss signal, so the row watches for
+    /// it while playing.
+    fn note_device_loss(&mut self, devices: Vec<device::Device>) -> bool {
+        let Some(active) = self.active_device.clone() else {
+            self.devices = devices;
+            return false;
+        };
+        let attached = devices.iter().any(|device| device.uid == active.uid);
+        self.devices = devices;
+        if attached {
+            return false;
+        }
+        self.retry = self
+            .current_play
+            .as_ref()
+            .map(|attempt| attempt.target.clone());
+        self.notice = Some(PlaybackNotice::DeviceFailure {
+            text: format!(
+                "{} was disconnected. Reconnect it or choose another output, then try again.",
+                active.name
+            ),
+        });
+        true
     }
 
     fn toggle_output_popover(&mut self, cx: &mut Context<Self>) {
@@ -583,6 +955,8 @@ impl PlaybackRow {
     ) {
         if persist {
             self.output_popover_open = false;
+            self.notice = None;
+            self.retry = None;
         }
         self.error = None;
         self.device_message = None;
@@ -1327,19 +1701,97 @@ impl Render for PlaybackRow {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .flex()
-            .items_center()
-            .gap(px(22.))
+            .flex_col()
             .w_full()
-            .h(px(92.))
             .flex_none()
+            .when_some(self.notice.clone(), |column, notice| {
+                column.child(self.render_notice(notice, cx))
+            })
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(22.))
+                    .w_full()
+                    .h(px(92.))
+                    .flex_none()
+                    .px(px(20.))
+                    .py(px(12.))
+                    .border_t_1()
+                    .border_color(theme::border())
+                    .bg(theme::bg_surface())
+                    .child(self.render_now_playing())
+                    .child(self.render_transport(cx))
+                    .child(self.render_output(cx)),
+            )
+    }
+}
+
+impl PlaybackRow {
+    fn render_notice(&self, notice: PlaybackNotice, cx: &mut Context<Self>) -> impl IntoElement {
+        let (text, is_error, recovery) = match notice {
+            PlaybackNotice::Skip { text } => (text, false, false),
+            PlaybackNotice::Stopped { text } => (text, true, false),
+            PlaybackNotice::DeviceFailure { text } => (text, true, true),
+        };
+        div()
+            .flex()
+            .items_center()
+            .gap(px(12.))
+            .w_full()
             .px(px(20.))
-            .py(px(12.))
+            .py(px(7.))
             .border_t_1()
             .border_color(theme::border())
             .bg(theme::bg_surface())
-            .child(self.render_now_playing())
-            .child(self.render_transport(cx))
-            .child(self.render_output(cx))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .truncate()
+                    .font_family(theme::FONT_SANS)
+                    .text_size(px(12.))
+                    .text_color(if is_error {
+                        theme::danger()
+                    } else {
+                        theme::warning()
+                    })
+                    .child(text),
+            )
+            .when(recovery, |banner| {
+                banner
+                    .child(
+                        crate::components::compact_secondary_button(
+                            "playback-notice-retry",
+                            "Try again",
+                        )
+                        .on_click(cx.listener(|this, _, _, cx| this.retry_playback(cx))),
+                    )
+                    .child(
+                        crate::components::compact_secondary_button(
+                            "playback-notice-outputs",
+                            "Choose output",
+                        )
+                        .on_click(cx.listener(|this, _, _, cx| this.toggle_output_popover(cx))),
+                    )
+            })
+            .child(
+                div()
+                    .id("playback-notice-dismiss")
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .size(px(20.))
+                    .flex_none()
+                    .cursor_pointer()
+                    .on_click(cx.listener(|this, _, _, cx| this.dismiss_notice(cx)))
+                    .child(
+                        svg()
+                            .path("icons/x.svg")
+                            .size(px(13.))
+                            .text_color(theme::text_muted()),
+                    ),
+            )
     }
 }
 
@@ -1644,6 +2096,8 @@ mod tests {
         });
 
         row.handle_event(PlaybackEvent::Error {
+            attempt: 0,
+            kind: PlaybackErrorKind::Device { hog_pid: Some(42) },
             message: "device hogged by pid 42".to_string(),
         });
 
@@ -1682,7 +2136,7 @@ mod tests {
         assert_eq!(row.displayed_fraction(), 0.5);
         assert!(row.error.is_none());
 
-        row.handle_event(PlaybackEvent::Ended);
+        row.handle_event(PlaybackEvent::Ended { attempt: 0 });
         assert_eq!(row.playback_state, PlaybackState::Ended);
         assert_eq!(row.position_ms, 268_000);
     }
@@ -1812,5 +2266,626 @@ mod tests {
             uid: uid.to_string(),
             name: name.to_string(),
         }
+    }
+
+    fn library_track(id: crate::library::TrackId, path: PathBuf, title: &str) -> Track {
+        Track {
+            id,
+            storage_root_id: 1,
+            path,
+            title: Some(title.to_string()),
+            artist: Some("Artist".to_string()),
+            album: Some("Album".to_string()),
+            album_artist: None,
+            year: None,
+            genre: None,
+            track_number: None,
+            disc_number: None,
+            duration_ms: Some(1_000),
+            sample_rate_hz: Some(44_100),
+            bit_depth: Some(16),
+            channels: Some(2),
+            file_size_bytes: 1,
+            modified_at_ns: 1,
+            cover_art_path: None,
+            cover_art_mime_type: None,
+            added_at_ms: 1,
+            updated_at_ms: 1,
+        }
+    }
+
+    fn wav_tracks(directory: &Path, names: &[&str]) -> Vec<Track> {
+        names
+            .iter()
+            .enumerate()
+            .map(|(index, name)| {
+                let path = directory.join(format!("{name}.wav"));
+                crate::library::metadata::write_test_wav(&path, name, "Artist", "Album").unwrap();
+                library_track(index as i64 + 1, path, name)
+            })
+            .collect()
+    }
+
+    fn truncate_wav(path: &Path) {
+        let bytes = std::fs::read(path).unwrap();
+        std::fs::write(path, &bytes[..20]).unwrap();
+    }
+
+    fn now_playing(path: &str) -> PlaybackEvent {
+        PlaybackEvent::NowPlaying {
+            source: pulse_engine::PlayableSource {
+                path: PathBuf::from(path),
+                duration_ms: Some(268_000),
+            },
+            format: PcmFormat {
+                sample_rate: 44_100,
+                bits_per_sample: 16,
+                channels: 2,
+            },
+        }
+    }
+
+    #[test]
+    fn a_real_truncated_wav_decode_error_maps_to_a_track_scoped_kind() {
+        let temp = tempfile::tempdir().unwrap();
+        let tracks = wav_tracks(temp.path(), &["corrupt"]);
+        truncate_wav(&tracks[0].path);
+
+        let error = pulse_engine::decode::open(&tracks[0].path)
+            .map(|_| ())
+            .unwrap_err();
+        assert_eq!(PlaybackErrorKind::from(&error), PlaybackErrorKind::Track);
+    }
+
+    #[test]
+    fn engine_errors_map_to_the_kinds_that_drive_queue_behavior() {
+        assert_eq!(
+            PlaybackErrorKind::from(&EngineError::Hogged(i32::MAX)),
+            PlaybackErrorKind::Device {
+                hog_pid: Some(i32::MAX)
+            }
+        );
+        // Audio-unit/device start failures must never skip the queue.
+        assert_eq!(
+            PlaybackErrorKind::from(&EngineError::AudioUnit(
+                "the requested device was not found".into()
+            )),
+            PlaybackErrorKind::Device { hog_pid: None }
+        );
+        assert_eq!(
+            PlaybackErrorKind::from(&EngineError::Os {
+                call: "AudioUnitRender",
+                status: -10863
+            }),
+            PlaybackErrorKind::Device { hog_pid: None }
+        );
+        // Format problems belong to the track and are skippable.
+        assert_eq!(
+            PlaybackErrorKind::from(&EngineError::UnsupportedFormat(
+                "20-bit PCM is not supported by the AUHAL packer".into()
+            )),
+            PlaybackErrorKind::Track
+        );
+    }
+
+    #[test]
+    fn a_decode_failure_mid_queue_skips_to_the_next_entry_and_reports() {
+        let temp = tempfile::tempdir().unwrap();
+        let tracks = wav_tracks(temp.path(), &["corrupt", "good", "later"]);
+        truncate_wav(&tracks[0].path);
+        let mut row = PlaybackRow::initial();
+        row.queue = QueueState::from_tracks(&tracks, 0);
+        let error = pulse_engine::decode::open(&tracks[0].path)
+            .map(|_| ())
+            .unwrap_err();
+        let kind = PlaybackErrorKind::from(&error);
+        let message = error.to_string();
+
+        assert!(
+            row.handle_event(PlaybackEvent::StateChanged(PlaybackState::Loading))
+                .is_none()
+        );
+        assert!(
+            row.handle_event(PlaybackEvent::StateChanged(PlaybackState::Error))
+                .is_none()
+        );
+        let next = row
+            .handle_event(PlaybackEvent::Error {
+                attempt: 0,
+                kind,
+                message,
+            })
+            .unwrap();
+
+        assert_eq!(next.title, "good");
+        assert_eq!(row.next_playable(next).unwrap().title, "good");
+        assert_eq!(
+            row.notice,
+            Some(PlaybackNotice::Skip {
+                text: "Skipped “corrupt” — its file could not be decoded.".to_string()
+            })
+        );
+        assert!(!row.is_track_missing(1), "a corrupt file is not missing");
+        assert!(row.error.is_none(), "the queue keeps playing");
+    }
+
+    #[test]
+    fn missing_files_are_marked_and_skipped_at_play_time() {
+        let temp = tempfile::tempdir().unwrap();
+        let tracks = wav_tracks(temp.path(), &["gone-1", "gone-2", "present"]);
+        std::fs::remove_file(&tracks[0].path).unwrap();
+        std::fs::remove_file(&tracks[1].path).unwrap();
+        let mut row = PlaybackRow::initial();
+        row.queue = QueueState::from_tracks(&tracks, 0);
+
+        let first = row.queue.current().cloned().unwrap();
+        let playable = row.next_playable(first).unwrap();
+
+        assert_eq!(playable.title, "present");
+        assert_eq!(row.queue.current().unwrap().title, "present");
+        assert!(row.is_track_missing(1));
+        assert!(row.is_track_missing(2));
+        assert!(!row.is_track_missing(3));
+        assert_eq!(
+            row.notice,
+            Some(PlaybackNotice::Skip {
+                text: "Skipped 2 tracks that could not be played.".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn a_queue_where_every_file_is_gone_stops_with_a_poison_message() {
+        let temp = tempfile::tempdir().unwrap();
+        let tracks = wav_tracks(temp.path(), &["gone-1", "gone-2"]);
+        std::fs::remove_file(&tracks[0].path).unwrap();
+        std::fs::remove_file(&tracks[1].path).unwrap();
+        let mut row = PlaybackRow::initial();
+        row.queue = QueueState::from_tracks(&tracks, 0);
+
+        let first = row.queue.current().cloned().unwrap();
+        assert!(row.next_playable(first).is_none());
+        assert!(row.is_track_missing(1));
+        assert!(row.is_track_missing(2));
+        assert_eq!(
+            row.notice,
+            Some(PlaybackNotice::Stopped {
+                text: "Playback stopped — none of the queued tracks could be played.".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn a_trailing_failure_after_played_tracks_is_not_reported_as_poison() {
+        let temp = tempfile::tempdir().unwrap();
+        let tracks = wav_tracks(temp.path(), &["played", "gone"]);
+        std::fs::remove_file(&tracks[1].path).unwrap();
+        let mut row = PlaybackRow::initial();
+        row.queue = QueueState::from_tracks(&tracks, 0);
+        row.queue.mark_started();
+
+        let next = row
+            .handle_event(PlaybackEvent::Ended { attempt: 0 })
+            .expect("the queue advances past the ended track");
+        assert!(row.next_playable(next).is_none());
+        assert_eq!(
+            row.notice,
+            Some(PlaybackNotice::Stopped {
+                text: "Playback stopped — “gone” could not be played.".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn now_playing_clears_the_missing_mark_for_a_recovered_queue_track() {
+        let temp = tempfile::tempdir().unwrap();
+        let tracks = wav_tracks(temp.path(), &["recovered"]);
+        let mut row = PlaybackRow::initial();
+        row.queue = QueueState::from_tracks(&tracks, 0);
+        row.missing_track_ids.insert(1);
+
+        let _ = row.handle_event(PlaybackEvent::NowPlaying {
+            source: pulse_engine::PlayableSource {
+                path: tracks[0].path.clone(),
+                duration_ms: Some(1_000),
+            },
+            format: PcmFormat {
+                sample_rate: 44_100,
+                bits_per_sample: 16,
+                channels: 2,
+            },
+        });
+
+        assert!(!row.is_track_missing(1));
+        assert!(!row.queue.nothing_played());
+    }
+
+    #[test]
+    fn a_hogged_device_reports_plain_language_with_a_retry_target() {
+        let mut row = PlaybackRow::initial();
+        row.active_device = Some(output_device(9, "matrix", "mini-i Series"));
+        row.record_play_attempt(Path::new("/Music/track.flac"));
+        let _ = row.handle_event(now_playing("/Music/track.flac"));
+        row.playback_state = PlaybackState::Playing;
+        let _ = row.handle_event(PlaybackEvent::Position {
+            position_ms: 42_000,
+            duration_ms: Some(268_000),
+        });
+
+        let outcome = row.handle_event(PlaybackEvent::Error {
+            attempt: 0,
+            kind: (&EngineError::Hogged(i32::MAX)).into(),
+            message: EngineError::Hogged(i32::MAX).to_string(),
+        });
+
+        assert!(outcome.is_none(), "device failures never skip the queue");
+        assert_eq!(
+            row.notice,
+            Some(PlaybackNotice::DeviceFailure {
+                text: "Another app is using mini-i Series exclusively. Quit it or choose another output, then try again.".to_string()
+            })
+        );
+        assert_eq!(
+            row.retry,
+            Some(RetryTarget {
+                path: PathBuf::from("/Music/track.flac"),
+                position_ms: 42_000,
+            })
+        );
+    }
+
+    #[test]
+    fn a_device_failure_while_loading_a_new_file_retries_that_file_from_zero() {
+        let mut row = PlaybackRow::initial();
+        row.active_device = Some(output_device(9, "matrix", "mini-i Series"));
+        // A previous track was playing at 42 s when the user dropped a new
+        // file; source_path and position_ms still describe the old track
+        // while the new one loads.
+        row.source_path = Some(PathBuf::from("/Music/old.flac"));
+        row.position_ms = 42_000;
+        row.record_play_attempt(Path::new("/Music/dropped.flac"));
+        row.playback_state = PlaybackState::Loading;
+
+        let _ = row.handle_event(PlaybackEvent::StateChanged(PlaybackState::Error));
+        let outcome = row.handle_event(PlaybackEvent::Error {
+            attempt: 0,
+            kind: (&EngineError::Hogged(i32::MAX)).into(),
+            message: EngineError::Hogged(i32::MAX).to_string(),
+        });
+
+        assert!(outcome.is_none());
+        assert_eq!(
+            row.retry,
+            Some(RetryTarget {
+                path: PathBuf::from("/Music/dropped.flac"),
+                position_ms: 0,
+            })
+        );
+        // Transport Play must restart the same file Try again targets.
+        assert_eq!(
+            row.prepare_toggle_command(),
+            Some(PlaybackCommand::PlayFile {
+                path: PathBuf::from("/Music/dropped.flac")
+            })
+        );
+    }
+
+    #[test]
+    fn a_device_failure_during_auto_advance_retries_the_next_track_from_zero() {
+        let temp = tempfile::tempdir().unwrap();
+        let tracks = wav_tracks(temp.path(), &["finished", "next"]);
+        let mut row = PlaybackRow::initial();
+        row.active_device = Some(output_device(9, "matrix", "mini-i Series"));
+        row.queue = QueueState::from_tracks(&tracks, 0);
+        row.record_play_attempt(&tracks[0].path);
+        let _ = row.handle_event(now_playing(tracks[0].path.to_str().unwrap()));
+        row.playback_state = PlaybackState::Playing;
+        let _ = row.handle_event(PlaybackEvent::Position {
+            position_ms: 180_000,
+            duration_ms: Some(180_000),
+        });
+
+        let next = row
+            .handle_event(PlaybackEvent::Ended { attempt: 0 })
+            .expect("the queue advances");
+        row.record_play_attempt(&next.path);
+        let _ = row.handle_event(PlaybackEvent::StateChanged(PlaybackState::Loading));
+
+        let outcome = row.handle_event(PlaybackEvent::Error {
+            attempt: 0,
+            kind: (&EngineError::Hogged(i32::MAX)).into(),
+            message: EngineError::Hogged(i32::MAX).to_string(),
+        });
+
+        assert!(outcome.is_none());
+        assert_eq!(
+            row.retry,
+            Some(RetryTarget {
+                path: tracks[1].path.clone(),
+                position_ms: 0,
+            })
+        );
+    }
+
+    #[test]
+    fn transport_play_from_an_idle_selection_records_the_attempt() {
+        let mut row = PlaybackRow::initial();
+        row.active_device = Some(output_device(9, "matrix", "mini-i Series"));
+        let track = TrackRef {
+            id: 1,
+            path: PathBuf::from("/Music/selected.flac"),
+            title: "Selected".to_string(),
+            artist: "Artist".to_string(),
+            album: "Album".to_string(),
+            cover_art_path: None,
+        };
+        assert!(row.apply_track_selection(&track));
+
+        let command = row.prepare_toggle_command().unwrap();
+        assert_eq!(
+            command,
+            PlaybackCommand::PlayFile {
+                path: PathBuf::from("/Music/selected.flac")
+            }
+        );
+        assert_eq!(
+            row.current_play,
+            Some(PlayAttempt {
+                target: RetryTarget {
+                    path: PathBuf::from("/Music/selected.flac"),
+                    position_ms: 0,
+                },
+                confirmed: false,
+            })
+        );
+
+        let _ = row.handle_event(PlaybackEvent::StateChanged(PlaybackState::Loading));
+        let _ = row.handle_event(PlaybackEvent::StateChanged(PlaybackState::Error));
+        let _ = row.handle_event(PlaybackEvent::Error {
+            attempt: 0,
+            kind: (&EngineError::Hogged(i32::MAX)).into(),
+            message: EngineError::Hogged(i32::MAX).to_string(),
+        });
+        assert_eq!(
+            row.retry,
+            Some(RetryTarget {
+                path: PathBuf::from("/Music/selected.flac"),
+                position_ms: 0,
+            })
+        );
+    }
+
+    #[test]
+    fn replaying_an_ended_track_restarts_the_attempt_from_zero() {
+        let mut row = PlaybackRow::initial();
+        row.record_play_attempt(Path::new("/Music/track.flac"));
+        let _ = row.handle_event(now_playing("/Music/track.flac"));
+        row.playback_state = PlaybackState::Playing;
+        let _ = row.handle_event(PlaybackEvent::Position {
+            position_ms: 268_000,
+            duration_ms: Some(268_000),
+        });
+        let _ = row.handle_event(PlaybackEvent::Ended { attempt: 0 });
+
+        let command = row.prepare_toggle_command().unwrap();
+        assert!(matches!(command, PlaybackCommand::PlayFile { .. }));
+        assert_eq!(
+            row.current_play,
+            Some(PlayAttempt {
+                target: RetryTarget {
+                    path: PathBuf::from("/Music/track.flac"),
+                    position_ms: 0,
+                },
+                confirmed: false,
+            })
+        );
+    }
+
+    #[test]
+    fn stale_terminal_events_from_a_superseded_play_are_ignored() {
+        let temp = tempfile::tempdir().unwrap();
+        let tracks = wav_tracks(temp.path(), &["b1", "b2"]);
+        let mut row = PlaybackRow::initial();
+        row.active_device = Some(output_device(9, "matrix", "mini-i Series"));
+        // Play A happened (attempt 1), then the user started queue B
+        // (attempt 2) before A's terminal events drained.
+        row.queue = QueueState::from_tracks(&tracks, 0);
+        row.dispatched_plays = 2;
+        row.playback_state = PlaybackState::Loading;
+
+        let stale_track_error = row.handle_event(PlaybackEvent::Error {
+            attempt: 1,
+            kind: PlaybackErrorKind::Track,
+            message: "decode: stale failure from A".to_string(),
+        });
+        assert!(stale_track_error.is_none(), "stale error must not skip B");
+        assert_eq!(row.queue.current().unwrap().title, "b1");
+        assert!(row.notice.is_none());
+
+        let stale_ended = row.handle_event(PlaybackEvent::Ended { attempt: 1 });
+        assert!(stale_ended.is_none(), "stale Ended must not advance B");
+        assert_eq!(row.queue.current().unwrap().title, "b1");
+        assert_eq!(row.playback_state, PlaybackState::Loading);
+
+        let stale_device_error = row.handle_event(PlaybackEvent::Error {
+            attempt: 1,
+            kind: PlaybackErrorKind::Device { hog_pid: None },
+            message: "stale device failure from A".to_string(),
+        });
+        assert!(stale_device_error.is_none());
+        assert!(
+            row.notice.is_none(),
+            "no failure notice for a superseded play"
+        );
+        assert!(row.retry.is_none());
+
+        let current = row.handle_event(PlaybackEvent::Error {
+            attempt: 2,
+            kind: PlaybackErrorKind::Track,
+            message: "decode: real failure for B".to_string(),
+        });
+        assert_eq!(
+            current.unwrap().title,
+            "b2",
+            "current-attempt errors still drive the queue"
+        );
+    }
+
+    #[test]
+    fn a_stale_now_playing_does_not_replace_an_unconfirmed_attempt() {
+        let mut row = PlaybackRow::initial();
+        row.active_device = Some(output_device(9, "matrix", "mini-i Series"));
+        // The old track's NowPlaying was already queued when the user
+        // dispatched a new file; it must not steal the retry target back.
+        row.record_play_attempt(Path::new("/Music/new.flac"));
+        let _ = row.handle_event(now_playing("/Music/old.flac"));
+        assert_eq!(row.source_path, None, "stale NowPlaying is ignored fully");
+        assert_eq!(row.title, "No track loaded");
+
+        let _ = row.handle_event(PlaybackEvent::StateChanged(PlaybackState::Loading));
+        let _ = row.handle_event(PlaybackEvent::StateChanged(PlaybackState::Error));
+        let _ = row.handle_event(PlaybackEvent::Error {
+            attempt: 0,
+            kind: (&EngineError::Hogged(i32::MAX)).into(),
+            message: EngineError::Hogged(i32::MAX).to_string(),
+        });
+
+        assert_eq!(
+            row.retry,
+            Some(RetryTarget {
+                path: PathBuf::from("/Music/new.flac"),
+                position_ms: 0,
+            })
+        );
+        // Transport Play and Try again must agree on the failed file.
+        assert_eq!(
+            row.prepare_toggle_command(),
+            Some(PlaybackCommand::PlayFile {
+                path: PathBuf::from("/Music/new.flac")
+            })
+        );
+    }
+
+    #[test]
+    fn a_direct_file_decode_failure_before_now_playing_names_the_attempted_file() {
+        let temp = tempfile::tempdir().unwrap();
+        let tracks = wav_tracks(temp.path(), &["corrupt"]);
+        truncate_wav(&tracks[0].path);
+        let error = pulse_engine::decode::open(&tracks[0].path)
+            .map(|_| ())
+            .unwrap_err();
+        let kind = PlaybackErrorKind::from(&error);
+        let message = error.to_string();
+        let mut row = PlaybackRow::initial();
+        assert_eq!(row.title, "No track loaded");
+
+        // A dropped file fails at decoder open, before any NowPlaying.
+        row.record_play_attempt(&tracks[0].path);
+        let _ = row.handle_event(PlaybackEvent::StateChanged(PlaybackState::Loading));
+        let _ = row.handle_event(PlaybackEvent::StateChanged(PlaybackState::Error));
+        let _ = row.handle_event(PlaybackEvent::Error {
+            attempt: 0,
+            kind,
+            message: message.clone(),
+        });
+
+        match &row.notice {
+            Some(PlaybackNotice::Stopped { text }) => {
+                assert!(text.contains("“corrupt”"), "{text}");
+                assert!(!text.contains("No track loaded"), "{text}");
+            }
+            other => panic!("expected a Stopped notice, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn stale_position_events_do_not_move_an_unconfirmed_attempt() {
+        let mut row = PlaybackRow::initial();
+        row.active_device = Some(output_device(9, "matrix", "mini-i Series"));
+        // A new file was dispatched while the old track's last Position
+        // event was still queued; it must not move the new attempt.
+        row.record_play_attempt(Path::new("/Music/new.flac"));
+        let _ = row.handle_event(PlaybackEvent::Position {
+            position_ms: 42_000,
+            duration_ms: Some(268_000),
+        });
+        let _ = row.handle_event(PlaybackEvent::StateChanged(PlaybackState::Loading));
+        let _ = row.handle_event(PlaybackEvent::Error {
+            attempt: 0,
+            kind: (&EngineError::Hogged(i32::MAX)).into(),
+            message: EngineError::Hogged(i32::MAX).to_string(),
+        });
+
+        assert_eq!(
+            row.retry,
+            Some(RetryTarget {
+                path: PathBuf::from("/Music/new.flac"),
+                position_ms: 0,
+            })
+        );
+    }
+
+    #[test]
+    fn losing_the_active_device_mid_playback_stops_with_a_recovery_notice() {
+        let mut row = PlaybackRow::initial();
+        row.active_device = Some(output_device(9, "matrix", "mini-i Series"));
+        row.record_play_attempt(Path::new("/Music/track.flac"));
+        let _ = row.handle_event(now_playing("/Music/track.flac"));
+        row.playback_state = PlaybackState::Playing;
+        let _ = row.handle_event(PlaybackEvent::Position {
+            position_ms: 10_000,
+            duration_ms: Some(268_000),
+        });
+
+        let still_attached = vec![
+            output_device(1, "built-in", "Mac Speakers"),
+            output_device(9, "matrix", "mini-i Series"),
+        ];
+        assert!(!row.note_device_loss(still_attached));
+        assert!(row.notice.is_none());
+
+        let unplugged = vec![output_device(1, "built-in", "Mac Speakers")];
+        assert!(row.note_device_loss(unplugged));
+        assert_eq!(
+            row.notice,
+            Some(PlaybackNotice::DeviceFailure {
+                text: "mini-i Series was disconnected. Reconnect it or choose another output, then try again.".to_string()
+            })
+        );
+        assert_eq!(
+            row.retry,
+            Some(RetryTarget {
+                path: PathBuf::from("/Music/track.flac"),
+                position_ms: 10_000,
+            })
+        );
+        assert_eq!(row.devices.len(), 1);
+    }
+
+    #[test]
+    fn advisory_errors_after_teardown_do_not_disturb_the_queue_report() {
+        let temp = tempfile::tempdir().unwrap();
+        let tracks = wav_tracks(temp.path(), &["only"]);
+        let mut row = PlaybackRow::initial();
+        row.queue = QueueState::from_tracks(&tracks, 0);
+        row.playback_state = PlaybackState::Ended;
+        row.notice = Some(PlaybackNotice::Skip {
+            text: "Skipped “gone” — its file is missing.".to_string(),
+        });
+
+        let outcome = row.handle_event(PlaybackEvent::Error {
+            attempt: 0,
+            kind: PlaybackErrorKind::Track,
+            message: "decode: backend stop failed".to_string(),
+        });
+
+        assert!(outcome.is_none());
+        assert_eq!(
+            row.notice,
+            Some(PlaybackNotice::Skip {
+                text: "Skipped “gone” — its file is missing.".to_string()
+            })
+        );
+        assert_eq!(row.error.as_deref(), Some("decode: backend stop failed"));
     }
 }

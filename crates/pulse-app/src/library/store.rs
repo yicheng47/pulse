@@ -7,14 +7,15 @@ use std::{
 };
 
 use rusqlite::{
-    Connection, OptionalExtension, Transaction, params, params_from_iter, types::Value,
+    Connection, OptionalExtension, Transaction, functions::FunctionFlags, params, params_from_iter,
+    types::Value,
 };
 
 use super::{
-    Album, AlbumSortOrder, LibraryError, LibrarySearchResults, LibrarySummary, Playlist,
-    PlaylistId, PlaylistSummary, PlaylistTrack, ScanHistoryEntry, ScanOutcome, StorageRoot,
-    StorageRootId, Track, TrackId, TrackPage, TrackQueryFilter, TrackSortOrder, UNKNOWN_ALBUM,
-    UNKNOWN_ARTIST,
+    Album, AlbumPage, AlbumQueryFilter, AlbumSortOrder, LibraryError, LibrarySearchResults,
+    LibrarySummary, Playlist, PlaylistId, PlaylistSummary, PlaylistTrack, ScanHistoryEntry,
+    ScanOutcome, StorageRoot, StorageRootId, Track, TrackId, TrackPage, TrackQueryFilter,
+    TrackSortOrder, UNKNOWN_ALBUM, UNKNOWN_ARTIST,
     metadata::{self, AudioMetadata},
     path::normalize_storage_root,
     system_time_ms,
@@ -115,6 +116,14 @@ pub struct LibraryStore {
     scan_session_id: String,
 }
 
+/// Progress of the v1→v2 year/genre backfill, which re-reads every track file
+/// and can block for a while on a large network library.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct BackfillProgress {
+    pub processed: usize,
+    pub total: usize,
+}
+
 #[derive(Debug)]
 pub(super) struct ExistingTrack {
     pub id: TrackId,
@@ -126,6 +135,13 @@ pub(super) struct ExistingTrack {
 
 impl LibraryStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, LibraryError> {
+        Self::open_with_progress(path, |_| {})
+    }
+
+    pub fn open_with_progress(
+        path: impl AsRef<Path>,
+        on_backfill_progress: impl FnMut(BackfillProgress),
+    ) -> Result<Self, LibraryError> {
         let path = path.as_ref();
         if let Some(parent) = path
             .parent()
@@ -139,6 +155,7 @@ impl LibraryStore {
         Self::from_connection(
             Connection::open(path)?,
             process_scan_session_id().to_owned(),
+            on_backfill_progress,
         )
     }
 
@@ -146,12 +163,14 @@ impl LibraryStore {
         Self::from_connection(
             Connection::open_in_memory()?,
             process_scan_session_id().to_owned(),
+            |_| {},
         )
     }
 
     fn from_connection(
         mut connection: Connection,
         scan_session_id: String,
+        on_backfill_progress: impl FnMut(BackfillProgress),
     ) -> Result<Self, LibraryError> {
         connection.busy_timeout(Duration::from_secs(5))?;
         connection.execute_batch(
@@ -159,13 +178,31 @@ impl LibraryStore {
              PRAGMA journal_mode = WAL;
              PRAGMA synchronous = NORMAL;",
         )?;
+        // Exact-membership genre predicate for SQL queries, sharing
+        // `genre_tag_members` with the chip enumeration in `genres()` so both
+        // sides split and trim identically and LIKE wildcards never apply.
+        connection.create_scalar_function(
+            "genre_has_member",
+            2,
+            FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+            |ctx| {
+                let Some(tag) = ctx.get::<Option<String>>(0)? else {
+                    return Ok(false);
+                };
+                let member = ctx.get::<String>(1)?;
+                Ok(
+                    genre_tag_members(&tag)
+                        .any(|candidate| candidate.eq_ignore_ascii_case(&member)),
+                )
+            },
+        )?;
 
         let version =
             connection.query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))?;
         match version {
             0 => connection.execute_batch(SCHEMA)?,
             1 => {
-                migrate_v1_to_v2(&mut connection)?;
+                migrate_v1_to_v2(&mut connection, on_backfill_progress)?;
                 migrate_v2_to_v3(&mut connection)?;
             }
             2 => migrate_v2_to_v3(&mut connection)?,
@@ -281,6 +318,23 @@ impl LibraryStore {
                 })?
                 .collect::<Result<Vec<_>, _>>()?
         };
+        // Children are deleted explicitly, in dependency order — related data
+        // removal is owned here, not by schema cascades (standing preference,
+        // 2026-08-07; the dormant CASCADE clauses leave with the repo-layer
+        // refactor's schema rebuild).
+        transaction.execute(
+            "DELETE FROM playlist_tracks
+             WHERE track_id IN (SELECT id FROM tracks WHERE storage_root_id = ?1)",
+            [storage_root_id],
+        )?;
+        transaction.execute(
+            "DELETE FROM scan_history WHERE storage_root_id = ?1",
+            [storage_root_id],
+        )?;
+        transaction.execute(
+            "DELETE FROM tracks WHERE storage_root_id = ?1",
+            [storage_root_id],
+        )?;
         let deleted =
             transaction.execute("DELETE FROM storage_roots WHERE id = ?1", [storage_root_id])?;
         if deleted == 0 {
@@ -310,15 +364,7 @@ impl LibraryStore {
     }
 
     pub fn albums(&self, sort_order: AlbumSortOrder) -> Result<Vec<Album>, LibraryError> {
-        let order_by = match sort_order {
-            AlbumSortOrder::Title => "album_title COLLATE NOCASE, album_owner COLLATE NOCASE",
-            AlbumSortOrder::Artist => "album_owner COLLATE NOCASE, album_title COLLATE NOCASE",
-            AlbumSortOrder::DateAdded => "latest_added_at_ms DESC, album_title COLLATE NOCASE",
-            AlbumSortOrder::ReleaseYear => {
-                "album_year IS NULL, album_year DESC, album_title COLLATE NOCASE"
-            }
-            AlbumSortOrder::Duration => "total_duration_ms DESC, album_title COLLATE NOCASE",
-        };
+        let order_by = album_order_by(sort_order);
         let sql = format!(
             "WITH normalized AS (
                  SELECT id,
@@ -344,39 +390,96 @@ impl LibraryStore {
              ORDER BY {order_by}"
         );
         let mut statement = self.connection.prepare(&sql)?;
-        let mut albums = statement
+        let albums = statement
             .query_map(params![UNKNOWN_ARTIST, UNKNOWN_ALBUM], album_from_row)?
             .collect::<Result<Vec<_>, _>>()?;
-
-        let mut genres_by_album = HashMap::<(String, String), Vec<String>>::new();
-        let mut genres_statement = self.connection.prepare(
-            "SELECT
-                 COALESCE(NULLIF(trim(album_artist), ''), NULLIF(trim(artist), ''), ?1),
-                 COALESCE(NULLIF(trim(album), ''), ?2),
-                 trim(genre)
-             FROM tracks
-             WHERE genre IS NOT NULL AND trim(genre) <> ''
-             GROUP BY 1, 2, 3
-             ORDER BY trim(genre) COLLATE NOCASE",
-        )?;
-        let genre_rows =
-            genres_statement.query_map(params![UNKNOWN_ARTIST, UNKNOWN_ALBUM], |row| {
-                Ok((
-                    (row.get::<_, String>(0)?, row.get::<_, String>(1)?),
-                    row.get::<_, String>(2)?,
-                ))
-            })?;
-        for row in genre_rows {
-            let (key, genre) = row?;
-            genres_by_album.entry(key).or_default().push(genre);
-        }
-        for album in &mut albums {
-            album.genres = genres_by_album
-                .remove(&(album.artist.clone(), album.title.clone()))
-                .unwrap_or_default();
-        }
-
         Ok(albums)
+    }
+
+    /// One page of the grouped album catalog, filtered in SQL so the grid's
+    /// infinite scroll never has to load the whole library.
+    pub fn album_page(
+        &self,
+        sort_order: AlbumSortOrder,
+        filter: &AlbumQueryFilter,
+        limit: usize,
+        offset: usize,
+    ) -> Result<AlbumPage, LibraryError> {
+        assert!(limit > 0, "album page size must be positive");
+        let order_by = album_order_by(sort_order);
+        let normalized_cte = "WITH normalized AS (
+                 SELECT id,
+                        COALESCE(NULLIF(trim(album_artist), ''),
+                                 NULLIF(trim(artist), ''), ?) AS album_owner,
+                        COALESCE(NULLIF(trim(album), ''), ?) AS album_title,
+                        year, genre, duration_ms, sample_rate_hz, bit_depth,
+                        cover_art_path, added_at_ms
+                 FROM tracks
+             )";
+        let (having, filter_parameter) = match filter {
+            AlbumQueryFilter::All => ("", None),
+            AlbumQueryFilter::HiRes => (
+                "HAVING MAX(bit_depth) > 16 OR MAX(sample_rate_hz) > 48000",
+                None,
+            ),
+            AlbumQueryFilter::AddedSince(since) => {
+                ("HAVING MAX(added_at_ms) >= ?", Some(Value::Integer(*since)))
+            }
+            AlbumQueryFilter::Genre(genre) => (
+                "HAVING SUM(genre_has_member(genre, ?)) > 0",
+                Some(Value::Text(genre.clone())),
+            ),
+        };
+        let mut parameters = vec![
+            Value::Text(UNKNOWN_ARTIST.to_string()),
+            Value::Text(UNKNOWN_ALBUM.to_string()),
+        ];
+        parameters.extend(filter_parameter);
+
+        let count_sql = format!(
+            "{normalized_cte}
+             SELECT COUNT(*) FROM (
+                 SELECT 1 FROM normalized GROUP BY album_owner, album_title {having}
+             )"
+        );
+        let total_count =
+            self.connection
+                .query_row(&count_sql, params_from_iter(parameters.iter()), |row| {
+                    row.get::<_, i64>(0)
+                })?;
+        let total_count = usize::try_from(total_count)
+            .map_err(|_| LibraryError::IntegerOutOfRange("album count"))?;
+        let offset = offset.min(total_count);
+
+        let sql = format!(
+            "{normalized_cte}
+             SELECT album_title, album_owner, MIN(year) AS album_year,
+                    COUNT(*) AS track_count,
+                    COALESCE(SUM(duration_ms), 0) AS total_duration_ms,
+                    MAX(sample_rate_hz) AS max_sample_rate_hz,
+                    MAX(bit_depth) AS max_bit_depth,
+                    substr(MIN(
+                        CASE WHEN cover_art_path IS NOT NULL
+                             THEN printf('%020lld%s', id, cover_art_path)
+                        END
+                    ), 21) AS cover_art_path,
+                    MAX(added_at_ms) AS latest_added_at_ms
+             FROM normalized
+             GROUP BY album_owner, album_title {having}
+             ORDER BY {order_by}
+             LIMIT ? OFFSET ?"
+        );
+        parameters.push(Value::Integer(usize_to_i64(limit, "album page limit")?));
+        parameters.push(Value::Integer(usize_to_i64(offset, "album page offset")?));
+        let mut statement = self.connection.prepare(&sql)?;
+        let albums = statement
+            .query_map(params_from_iter(parameters.iter()), album_from_row)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(AlbumPage {
+            albums,
+            total_count,
+        })
     }
 
     pub fn all_tracks(&self, sort_order: TrackSortOrder) -> Result<Vec<Track>, LibraryError> {
@@ -487,17 +590,46 @@ impl LibraryStore {
         Ok(tracks)
     }
 
+    /// Distinct normalized artists with track counts, for the artist-filter
+    /// popover. Normalization matches the artist-filter query clause.
+    pub fn artists(&self) -> Result<Vec<(String, u64)>, LibraryError> {
+        let mut statement = self.connection.prepare(
+            "SELECT COALESCE(NULLIF(trim(artist), ''), ?1) AS artist_name, COUNT(*)
+             FROM tracks
+             GROUP BY artist_name COLLATE NOCASE
+             ORDER BY artist_name COLLATE NOCASE, artist_name",
+        )?;
+        let artists = statement
+            .query_map([UNKNOWN_ARTIST], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as u64))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(artists)
+    }
+
+    /// Distinct individual genres. Stores like Qobuz write one comma-separated
+    /// list into the tag ("Musiques du monde, J-pop, Japon"), so the stored
+    /// strings are split into members here rather than surfaced verbatim.
     pub fn genres(&self) -> Result<Vec<String>, LibraryError> {
         let mut statement = self.connection.prepare(
             "SELECT trim(genre)
              FROM tracks
              WHERE genre IS NOT NULL AND trim(genre) <> ''
-             GROUP BY trim(genre) COLLATE NOCASE
-             ORDER BY trim(genre) COLLATE NOCASE",
+             GROUP BY trim(genre) COLLATE NOCASE",
         )?;
-        let genres = statement
+        let stored: Vec<String> = statement
             .query_map([], |row| row.get(0))?
             .collect::<Result<Vec<_>, _>>()?;
+
+        let mut genres: Vec<String> = Vec::new();
+        for value in &stored {
+            for member in genre_tag_members(value) {
+                if !genres.iter().any(|seen| seen.eq_ignore_ascii_case(member)) {
+                    genres.push(member.to_string());
+                }
+            }
+        }
+        genres.sort_by_key(|genre| genre.to_lowercase());
         Ok(genres)
     }
 
@@ -617,12 +749,16 @@ impl LibraryStore {
     }
 
     pub fn delete_playlist(&mut self, playlist_id: PlaylistId) -> Result<(), LibraryError> {
-        let deleted = self
-            .connection
-            .execute("DELETE FROM playlists WHERE id = ?1", [playlist_id])?;
+        let transaction = self.connection.transaction()?;
+        transaction.execute(
+            "DELETE FROM playlist_tracks WHERE playlist_id = ?1",
+            [playlist_id],
+        )?;
+        let deleted = transaction.execute("DELETE FROM playlists WHERE id = ?1", [playlist_id])?;
         if deleted == 0 {
             return Err(LibraryError::PlaylistNotFound(playlist_id));
         }
+        transaction.commit()?;
         Ok(())
     }
 
@@ -981,7 +1117,10 @@ impl LibraryStore {
     }
 }
 
-fn migrate_v1_to_v2(connection: &mut Connection) -> Result<(), LibraryError> {
+fn migrate_v1_to_v2(
+    connection: &mut Connection,
+    mut on_progress: impl FnMut(BackfillProgress),
+) -> Result<(), LibraryError> {
     let existing_tracks = {
         let mut statement = connection.prepare("SELECT id, path FROM tracks ORDER BY id")?;
         statement
@@ -993,14 +1132,24 @@ fn migrate_v1_to_v2(connection: &mut Connection) -> Result<(), LibraryError> {
             })?
             .collect::<Result<Vec<_>, _>>()?
     };
+    let total = existing_tracks.len();
     let backfill = existing_tracks
         .iter()
-        .filter_map(|(id, path)| {
+        .enumerate()
+        .filter_map(|(index, (id, path))| {
+            on_progress(BackfillProgress {
+                processed: index,
+                total,
+            });
             metadata::extract_metadata(path)
                 .ok()
                 .map(|metadata| (*id, metadata.year, metadata.genre))
         })
         .collect::<Vec<_>>();
+    on_progress(BackfillProgress {
+        processed: total,
+        total,
+    });
     let backfilled_ids = backfill
         .iter()
         .map(|(id, _, _)| *id)
@@ -1249,6 +1398,10 @@ pub(super) fn delete_track(
     transaction: &Transaction<'_>,
     track_id: TrackId,
 ) -> Result<(), LibraryError> {
+    transaction.execute(
+        "DELETE FROM playlist_tracks WHERE track_id = ?1",
+        [track_id],
+    )?;
     transaction.execute("DELETE FROM tracks WHERE id = ?1", [track_id])?;
     Ok(())
 }
@@ -1372,6 +1525,22 @@ fn playlist_summary_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Playli
     })
 }
 
+/// Every sort ends with the exact (album_title, album_owner) pair — the GROUP
+/// BY key — so the order is total and LIMIT/OFFSET paging can never duplicate
+/// or drop a tied group between queries.
+fn album_order_by(sort_order: AlbumSortOrder) -> String {
+    let display = match sort_order {
+        AlbumSortOrder::Title => "album_title COLLATE NOCASE, album_owner COLLATE NOCASE",
+        AlbumSortOrder::Artist => "album_owner COLLATE NOCASE, album_title COLLATE NOCASE",
+        AlbumSortOrder::DateAdded => "latest_added_at_ms DESC, album_title COLLATE NOCASE",
+        AlbumSortOrder::ReleaseYear => {
+            "album_year IS NULL, album_year DESC, album_title COLLATE NOCASE"
+        }
+        AlbumSortOrder::Duration => "total_duration_ms DESC, album_title COLLATE NOCASE",
+    };
+    format!("{display}, album_title, album_owner")
+}
+
 fn album_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Album> {
     Ok(Album {
         title: row.get(0)?,
@@ -1383,7 +1552,6 @@ fn album_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Album> {
         max_bit_depth: row.get::<_, Option<i64>>(6)?.map(|value| value as u8),
         cover_art_path: row.get::<_, Option<String>>(7)?.map(PathBuf::from),
         latest_added_at_ms: row.get(8)?,
-        genres: Vec::new(),
     })
 }
 
@@ -1404,6 +1572,21 @@ fn track_order_by(sort_order: TrackSortOrder) -> &'static str {
     }
 }
 
+/// Splits a stored genre tag into its trimmed, non-empty comma members. The
+/// single definition of membership: `genres()` enumerates chips with it and
+/// the `genre_has_member` SQL function matches rows with it, so a chip can
+/// never name a member the queries fail to find.
+fn genre_tag_members(tag: &str) -> impl Iterator<Item = &str> {
+    tag.split(',')
+        .map(str::trim)
+        .filter(|member| !member.is_empty())
+}
+
+/// True when the bound parameter is a member of the row's comma-separated
+/// genre tag ("Musiques du monde, J-pop, Japon" matches "J-pop"). Exact
+/// ASCII-case-insensitive equality per member — `%`/`_` are literal.
+const GENRE_MEMBER_CLAUSE: &str = "genre_has_member(genre, ?)";
+
 fn track_filter_clause(
     filter: &TrackQueryFilter,
     artist_filter: Option<&str>,
@@ -1420,7 +1603,7 @@ fn track_filter_clause(
             parameters.push(Value::Integer(*timestamp_ms));
         }
         TrackQueryFilter::Genre(genre) => {
-            clauses.push("trim(genre) = ? COLLATE NOCASE");
+            clauses.push(GENRE_MEMBER_CLAUSE);
             parameters.push(Value::Text(genre.clone()));
         }
     }
@@ -1570,6 +1753,116 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
     }
 
     #[test]
+    fn album_pages_apply_filters_counts_and_offsets() {
+        let temp = tempdir().unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let mut add = |name: &str,
+                       album: &str,
+                       artist: &str,
+                       genre: &str,
+                       bit_depth: u8,
+                       sample_rate_hz: u32,
+                       added_at_ms: i64| {
+            let file = test_file(&root, name, 10, 100);
+            let mut metadata = test_metadata(name, artist, Some(album), Some(artist));
+            metadata.genre = Some(genre.to_string());
+            metadata.bit_depth = Some(bit_depth);
+            metadata.sample_rate_hz = Some(sample_rate_hz);
+            let transaction = store.connection.transaction().unwrap();
+            upsert_track(&transaction, root.id, &file, &metadata, added_at_ms).unwrap();
+            transaction.commit().unwrap();
+        };
+        add("a.wav", "Alpha", "Artist A", "Jazz", 24, 96_000, 1_000);
+        add("b.wav", "Beta", "Artist B", "Rock", 16, 44_100, 2_000);
+        add("g.wav", "Gamma", "Artist C", "Jazz", 16, 44_100, 3_000);
+
+        let titles = |page: &AlbumPage| {
+            page.albums
+                .iter()
+                .map(|album| album.title.clone())
+                .collect::<Vec<_>>()
+        };
+
+        let first = store
+            .album_page(AlbumSortOrder::DateAdded, &AlbumQueryFilter::All, 2, 0)
+            .unwrap();
+        assert_eq!(first.total_count, 3);
+        assert_eq!(titles(&first), ["Gamma", "Beta"]);
+
+        let second = store
+            .album_page(AlbumSortOrder::DateAdded, &AlbumQueryFilter::All, 2, 2)
+            .unwrap();
+        assert_eq!(titles(&second), ["Alpha"]);
+
+        let beyond = store
+            .album_page(AlbumSortOrder::DateAdded, &AlbumQueryFilter::All, 2, 10)
+            .unwrap();
+        assert_eq!(beyond.total_count, 3);
+        assert!(beyond.albums.is_empty());
+
+        let hi_res = store
+            .album_page(AlbumSortOrder::DateAdded, &AlbumQueryFilter::HiRes, 10, 0)
+            .unwrap();
+        assert_eq!(hi_res.total_count, 1);
+        assert_eq!(titles(&hi_res), ["Alpha"]);
+
+        let recent = store
+            .album_page(
+                AlbumSortOrder::DateAdded,
+                &AlbumQueryFilter::AddedSince(2_000),
+                10,
+                0,
+            )
+            .unwrap();
+        assert_eq!(recent.total_count, 2);
+        assert_eq!(titles(&recent), ["Gamma", "Beta"]);
+
+        let genre = store
+            .album_page(
+                AlbumSortOrder::DateAdded,
+                &AlbumQueryFilter::Genre("jazz".to_string()),
+                10,
+                0,
+            )
+            .unwrap();
+        assert_eq!(genre.total_count, 2);
+        assert_eq!(titles(&genre), ["Gamma", "Alpha"]);
+    }
+
+    #[test]
+    fn album_pages_keep_a_total_order_for_tied_sort_keys() {
+        let temp = tempdir().unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        // Three albums tied on every DateAdded/Duration sort key.
+        for (index, album) in ["Tie C", "Tie A", "Tie B"].into_iter().enumerate() {
+            let file = test_file(&root, &format!("{album}.wav"), 10, 100);
+            let metadata = test_metadata("Track", "Artist", Some(album), Some("Artist"));
+            let transaction = store.connection.transaction().unwrap();
+            upsert_track(&transaction, root.id, &file, &metadata, 1_000).unwrap();
+            transaction.commit().unwrap();
+            let _ = index;
+        }
+
+        let mut seen = Vec::new();
+        for offset in [0, 1, 2] {
+            let page = store
+                .album_page(AlbumSortOrder::DateAdded, &AlbumQueryFilter::All, 1, offset)
+                .unwrap();
+            assert_eq!(page.total_count, 3);
+            assert_eq!(page.albums.len(), 1);
+            seen.push(page.albums[0].title.clone());
+        }
+        seen.sort();
+        assert_eq!(
+            seen,
+            ["Tie A", "Tie B", "Tie C"],
+            "paging tied albums must neither duplicate nor drop a group"
+        );
+    }
+
+    #[test]
     fn inserts_and_incrementally_updates_a_track_in_place() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
@@ -1697,7 +1990,6 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
         assert_eq!(albums[0].artist, "Artist");
         assert_eq!(albums[0].track_count, 2);
         assert_eq!(albums[0].cover_art_path.as_ref(), Some(&cover));
-        assert_eq!(albums[0].genres, ["Electronic"]);
         assert_eq!(albums[1].title, UNKNOWN_ALBUM);
         assert_eq!(albums[1].artist, UNKNOWN_ARTIST);
         assert!(albums[1].cover_art_path.is_none());
@@ -1843,7 +2135,7 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
         for (index, (title, artist, genre, bit_depth, sample_rate_hz, added_at_ms)) in [
             ("Alpha", "Artist A", "Jazz", 16, 44_100, 100),
             ("Bravo", "Artist B", "Rock", 24, 44_100, 200),
-            ("Charlie", "Artist A", "Jazz", 16, 96_000, 300),
+            ("Charlie", "Artist A", "Jazz, Modal", 16, 96_000, 300),
             ("Delta", "Artist B", "Jazz", 16, 44_100, 400),
             ("Echo", "Artist A", "Rock", 16, 44_100, 500),
             ("Foxtrot", "Artist B", "Rock", 16, 44_100, 600),
@@ -1902,7 +2194,22 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
                 0,
             )
             .unwrap();
-        assert_eq!(jazz.total_count, 3);
+        assert_eq!(jazz.total_count, 3, "comma-list member still matches");
+        let modal = store
+            .track_page(
+                TrackSortOrder::Title,
+                &TrackQueryFilter::Genre("modal".to_string()),
+                None,
+                50,
+                0,
+            )
+            .unwrap();
+        assert_eq!(modal.total_count, 1, "secondary member of the list matches");
+        assert_eq!(
+            store.genres().unwrap(),
+            ["Jazz", "Modal", "Rock"],
+            "comma lists split into one chip per member"
+        );
         let hi_res = store
             .track_page(TrackSortOrder::Title, &TrackQueryFilter::HiRes, None, 50, 0)
             .unwrap();
@@ -1956,6 +2263,91 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
                 .collect::<Vec<_>>(),
             ["Alpha", "Charlie", "Delta"]
         );
+    }
+
+    #[test]
+    fn genre_membership_is_exact_for_chips_tracks_and_albums() {
+        let temp = tempdir().unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        for (index, (title, album, genre)) in [
+            ("Alpha", "Album One", "Jazz,  Modal"),
+            ("Bravo", "Album Two", "Rock%"),
+            ("Charlie", "Album Three", "Rockabilly"),
+            ("Delta", "Album Four", "R_B"),
+            ("Echo", "Album Five", "RnB"),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let mut metadata = test_metadata(title, "Artist", Some(album), None);
+            metadata.genre = Some(genre.to_string());
+            insert_track(
+                &mut store,
+                &root,
+                &test_file(&root, &format!("{title}.wav"), index as i64, 10),
+                &metadata,
+            );
+        }
+
+        assert_eq!(
+            store.genres().unwrap(),
+            ["Jazz", "Modal", "R_B", "RnB", "Rock%", "Rockabilly"],
+            "chips trim every member, including repeated delimiter whitespace"
+        );
+
+        let tracks_for = |genre: &str| {
+            store
+                .track_page(
+                    TrackSortOrder::Title,
+                    &TrackQueryFilter::Genre(genre.to_string()),
+                    None,
+                    50,
+                    0,
+                )
+                .unwrap()
+                .tracks
+                .into_iter()
+                .map(|track| track.title.unwrap())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            tracks_for("Modal"),
+            ["Alpha"],
+            "a member after repeated delimiter whitespace still matches"
+        );
+        assert_eq!(
+            tracks_for("Rock%"),
+            ["Bravo"],
+            "percent is literal, not a wildcard"
+        );
+        assert_eq!(
+            tracks_for("R_B"),
+            ["Delta"],
+            "underscore is literal, not a wildcard"
+        );
+
+        let albums_for = |genre: &str| {
+            store
+                .album_page(
+                    AlbumSortOrder::Title,
+                    &AlbumQueryFilter::Genre(genre.to_string()),
+                    50,
+                    0,
+                )
+                .unwrap()
+                .albums
+                .into_iter()
+                .map(|album| album.title)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            albums_for("Modal"),
+            ["Album One"],
+            "the album filter matches a secondary comma-list member"
+        );
+        assert_eq!(albums_for("Rock%"), ["Album Two"]);
+        assert_eq!(albums_for("R_B"), ["Album Four"]);
     }
 
     #[test]
@@ -2123,9 +2515,15 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
     }
 
     #[test]
-    fn playlist_entries_cascade_from_tracks_and_playlists() {
+    fn playlist_entries_are_deleted_with_their_tracks_and_playlists() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
+        // With FK enforcement off, the dormant schema cascades cannot mask a
+        // missing application-owned child delete (standing no-cascade rule).
+        store
+            .connection
+            .execute_batch("PRAGMA foreign_keys = OFF")
+            .unwrap();
         let root = store.add_storage_root(temp.path(), "Music").unwrap();
         let track = insert_track(
             &mut store,
@@ -2345,7 +2743,25 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
             .unwrap();
         drop(connection);
 
-        let store = LibraryStore::open(&database_path).unwrap();
+        let mut progress = Vec::new();
+        let store = LibraryStore::open_with_progress(&database_path, |backfill| {
+            progress.push(backfill);
+        })
+        .unwrap();
+        assert_eq!(
+            progress.first(),
+            Some(&BackfillProgress {
+                processed: 0,
+                total: 2
+            })
+        );
+        assert_eq!(
+            progress.last(),
+            Some(&BackfillProgress {
+                processed: 2,
+                total: 2
+            })
+        );
         let tracks = store.tracks_for_root(1).unwrap();
         let track = tracks
             .iter()
@@ -2418,9 +2834,15 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
     }
 
     #[test]
-    fn removing_a_root_cascades_rows_and_returns_cover_paths() {
+    fn removing_a_root_deletes_related_rows_and_returns_cover_paths() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
+        // FK enforcement off: only the explicit application-owned deletes may
+        // be responsible for clearing children.
+        store
+            .connection
+            .execute_batch("PRAGMA foreign_keys = OFF")
+            .unwrap();
         let root = store.add_storage_root(temp.path(), "Music").unwrap();
         let file = test_file(&root, "track.wav", 1, 10);
         let id = insert_track(
@@ -2448,12 +2870,41 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
             transaction.commit().unwrap();
         }
 
+        let playlist = store.create_playlist("Keeper").unwrap();
+        store.append_playlist_tracks(playlist.id, &[id]).unwrap();
+        store.begin_scan(root.id, 100).unwrap();
+
         assert_eq!(
             store.remove_storage_root(root.id).unwrap(),
             vec![cover_path]
         );
         assert!(store.storage_root(root.id).unwrap().is_none());
         assert!(store.tracks_for_root(root.id).unwrap().is_empty());
+        let count = |sql: &str| -> i64 {
+            store
+                .connection
+                .query_row(sql, [root.id], |row| row.get(0))
+                .unwrap()
+        };
+        assert_eq!(
+            count("SELECT COUNT(*) FROM scan_history WHERE storage_root_id = ?1"),
+            0,
+            "scan history is deleted explicitly"
+        );
+        assert_eq!(
+            store
+                .connection
+                .query_row("SELECT COUNT(*) FROM playlist_tracks", [], |row| row
+                    .get::<_, i64>(0))
+                .unwrap(),
+            0,
+            "playlist entries of the root's tracks are deleted explicitly"
+        );
+        assert_eq!(
+            store.playlist(playlist.id).unwrap().unwrap().name,
+            "Keeper",
+            "the playlist itself survives"
+        );
     }
 
     #[test]
@@ -2465,6 +2916,7 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
         let mut first = LibraryStore::from_connection(
             Connection::open(&database_path).unwrap(),
             "first-session".to_string(),
+            |_| {},
         )
         .unwrap();
         let root = first.add_storage_root(&music, "Music").unwrap();
@@ -2475,6 +2927,7 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
         let same_session = LibraryStore::from_connection(
             Connection::open(&database_path).unwrap(),
             "first-session".to_string(),
+            |_| {},
         )
         .unwrap();
         assert_eq!(
@@ -2486,6 +2939,7 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
         let reopened = LibraryStore::from_connection(
             Connection::open(&database_path).unwrap(),
             "second-session".to_string(),
+            |_| {},
         )
         .unwrap();
         assert_eq!(reopened.storage_roots().unwrap(), vec![root]);
