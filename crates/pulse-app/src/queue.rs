@@ -59,13 +59,40 @@ pub(crate) enum PreviousAction {
 pub(crate) struct QueueState {
     entries: Vec<TrackRef>,
     index: Option<usize>,
+    started: bool,
+    skipped: usize,
 }
 
 impl QueueState {
     pub(crate) fn from_tracks(tracks: &[Track], start_index: usize) -> Self {
         let entries = tracks.iter().map(TrackRef::from).collect::<Vec<_>>();
         let index = (start_index < entries.len()).then_some(start_index);
-        Self { entries, index }
+        Self {
+            entries,
+            index,
+            started: false,
+            skipped: 0,
+        }
+    }
+
+    pub(crate) fn mark_started(&mut self) {
+        self.started = true;
+    }
+
+    pub(crate) fn skipped_count(&self) -> usize {
+        self.skipped
+    }
+
+    /// Records the current entry as unplayable and moves to the next one.
+    /// Returns `None` at the end of the queue; `nothing_played` then tells a
+    /// poison queue (every attempted entry failed) from a partial failure.
+    pub(crate) fn skip_failed(&mut self) -> Option<TrackRef> {
+        self.skipped += 1;
+        self.advance()
+    }
+
+    pub(crate) fn nothing_played(&self) -> bool {
+        !self.started && self.skipped > 0
     }
 
     pub(crate) fn current(&self) -> Option<&TrackRef> {
@@ -214,6 +241,38 @@ mod tests {
             queue.previous(0),
             Some(PreviousAction::Restart(TrackRef::from(&tracks[0])))
         );
+    }
+
+    #[test]
+    fn skipping_failed_entries_advances_and_counts_without_marking_playback() {
+        let tracks = [track(1, "corrupt"), track(2, "good"), track(3, "last")];
+        let mut queue = QueueState::from_tracks(&tracks, 0);
+
+        assert_eq!(queue.skip_failed().unwrap().title, "good");
+        assert_eq!(queue.skipped_count(), 1);
+        assert!(queue.nothing_played());
+
+        queue.mark_started();
+        assert!(!queue.nothing_played());
+        assert_eq!(queue.skip_failed().unwrap().title, "last");
+        assert_eq!(queue.skipped_count(), 2);
+    }
+
+    #[test]
+    fn a_queue_where_every_entry_fails_reports_nothing_played() {
+        let tracks = [track(1, "first"), track(2, "second")];
+        let mut queue = QueueState::from_tracks(&tracks, 0);
+
+        assert!(queue.skip_failed().is_some());
+        assert!(queue.skip_failed().is_none());
+        assert_eq!(queue.skipped_count(), 2);
+        assert!(queue.nothing_played());
+    }
+
+    #[test]
+    fn a_fresh_queue_with_no_failures_is_not_poisoned() {
+        let queue = QueueState::from_tracks(&[track(1, "only")], 0);
+        assert!(!queue.nothing_played());
     }
 
     #[test]

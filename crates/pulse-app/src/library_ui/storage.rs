@@ -21,7 +21,9 @@ impl LibraryView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let scanning = self.scan.is_some();
-        let content = if self.roots.is_empty() {
+        let content = if self.roots.is_empty() && self.is_library_loading() {
+            super::list_loading_placeholder("Loading storage…")
+        } else if self.roots.is_empty() {
             self.render_storage_empty(cx)
         } else {
             self.render_storage_workspace(cx)
@@ -695,27 +697,12 @@ impl LibraryView {
             .gap(px(8.))
             .px(px(18.))
             .pt(px(14.))
-            .child(
-                div()
-                    .id("rename-storage-input")
-                    .flex()
-                    .items_center()
-                    .h(px(34.))
-                    .w_full()
-                    .px(px(10.))
-                    .rounded(px(theme::RADIUS_SM))
-                    .border_1()
-                    .border_color(theme::accent())
-                    .bg(theme::bg_inset())
-                    .track_focus(&self.input_focus)
-                    .on_key_down(cx.listener(|this, event, _, cx| {
-                        this.handle_text_input(event, cx);
-                    }))
-                    .font_family(theme::FONT_SANS)
-                    .text_size(px(12.))
-                    .text_color(theme::text_primary())
-                    .child(value),
-            )
+            .child(super::render_text_input(
+                "rename-storage-input",
+                value,
+                &self.input_focus,
+                cx,
+            ))
             .child(
                 div()
                     .flex()
@@ -1036,27 +1023,12 @@ impl LibraryView {
                                 ),
                         )
                         .child(render_field_label("DISPLAY NAME"))
-                        .child(
-                            div()
-                                .id("storage-display-name")
-                                .flex()
-                                .items_center()
-                                .h(px(36.))
-                                .w_full()
-                                .px(px(10.))
-                                .rounded(px(theme::RADIUS_SM))
-                                .border_1()
-                                .border_color(theme::accent())
-                                .bg(theme::bg_inset())
-                                .track_focus(&self.input_focus)
-                                .on_key_down(cx.listener(|this, event, _, cx| {
-                                    this.handle_text_input(event, cx);
-                                }))
-                                .font_family(theme::FONT_SANS)
-                                .text_size(px(12.))
-                                .text_color(theme::text_primary())
-                                .child(display_name),
-                        )
+                        .child(super::render_text_input(
+                            "storage-display-name",
+                            display_name,
+                            &self.input_focus,
+                            cx,
+                        ))
                         .child(
                             div()
                                 .flex()
@@ -1273,24 +1245,13 @@ impl LibraryView {
                         .border_color(theme::border())
                         .child(render_cancel_modal_button(cx))
                         .child(
-                            div()
-                                .id(format!("confirm-remove-storage-{root_id}"))
-                                .flex()
-                                .items_center()
-                                .justify_center()
-                                .h(px(34.))
-                                .px(px(14.))
-                                .rounded(px(theme::RADIUS_SM))
-                                .bg(theme::danger())
-                                .cursor_pointer()
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.confirm_remove_storage(cx);
-                                }))
-                                .font_family(theme::FONT_DISPLAY)
-                                .font_weight(FontWeight::BOLD)
-                                .text_size(px(13.))
-                                .text_color(theme::bg_inset())
-                                .child("Remove"),
+                            crate::components::danger_button(
+                                format!("confirm-remove-storage-{root_id}"),
+                                "Remove",
+                            )
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.confirm_remove_storage(cx);
+                            })),
                         ),
                 ),
         )
@@ -1580,26 +1541,12 @@ pub(super) fn render_field_label(label: &'static str) -> impl IntoElement {
 }
 
 pub(super) fn render_cancel_modal_button(cx: &mut Context<LibraryView>) -> impl IntoElement {
-    div()
-        .id("cancel-storage-modal")
-        .flex()
-        .items_center()
-        .justify_center()
-        .h(px(34.))
-        .px(px(13.))
-        .rounded(px(theme::RADIUS_SM))
-        .border_1()
-        .border_color(theme::border())
-        .cursor_pointer()
-        .on_click(cx.listener(|this, _, _, cx| {
+    crate::components::secondary_button("cancel-storage-modal", "Cancel").on_click(cx.listener(
+        |this, _, _, cx| {
             this.modal = None;
             cx.notify();
-        }))
-        .font_family(theme::FONT_DISPLAY)
-        .font_weight(FontWeight::SEMIBOLD)
-        .text_size(px(13.))
-        .text_color(theme::text_secondary())
-        .child("Cancel")
+        },
+    ))
 }
 
 fn scan_outcome_label(outcome: ScanOutcome) -> &'static str {

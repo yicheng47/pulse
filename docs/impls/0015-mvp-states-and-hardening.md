@@ -15,6 +15,12 @@ Four gaps, each needing a Pencil pass before implementation (standing roadmap ru
 3. **Hogged / unavailable device during playback.** `EngineError::Hogged(pid)` exists. Today's copy is developer-facing ("device hogged by pid 42"). Needs plain-language presentation plus a recovery path (retry, or switch output), and correct handling when the active device disappears mid-playback rather than at launch.
 4. **Missing file.** A library row whose file has been moved or deleted between scans. Playback must fail gracefully with a designed state, and the row should be visually marked. Decide and log: mark-on-play-failure only, or a cheap existence check at play time. Do not delete rows — that would collide with the offline-root guarantee, where files are legitimately absent.
 
+## Decisions (2026-08-07, during implementation)
+
+- Page queries stay synchronous on the UI thread; the query-time list loading state from item 1 is therefore dead by construction and only the app-open state exists. Rationale, measurements, and escape hatches: [`../arch/thread-model.md`](../arch/thread-model.md).
+- Playback errors carry a structured `PlaybackErrorKind` on the event (Option A) rather than the app parsing display strings; auhal start failures got their own `EngineError::AudioUnit` variant in the process.
+- Missing-file handling: cheap existence check at play time plus mark-on-play-failure. Marks clear on root removal and after a scan that actually verified presence (completed, removals not suppressed) — cancelled, offline, or failed scans keep them. Rows are never deleted, per the offline-root guarantee.
+
 ## Scope discipline
 
 - No new engine error variants unless a gap is proven; this is mostly presentation plus queue behavior.
@@ -29,7 +35,7 @@ Four gaps, each needing a Pencil pass before implementation (standing roadmap ru
 
 ## Verification
 
-- `make verify` green (currently 105 passing + 2 ignored).
+- `make verify` green (105 passing + 2 ignored at spec time; 130 by the end of the stage-13 build).
 - Forced-failure fixtures without committing binaries: truncate a generated WAV in a temp dir for decode failure; delete a file after scanning for missing-file; both are unit-testable at the queue/view-model layer.
 - Manual: play a deliberately corrupted file, unplug the DAC mid-playback, hog the device from another process, rename a file after scanning, and cold-launch against the full NAS library to see the loading state.
 

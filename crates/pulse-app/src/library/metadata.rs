@@ -239,7 +239,7 @@ fn embedded_artwork(file: &TaggedFile) -> Option<EmbeddedArtwork> {
 }
 
 #[cfg(test)]
-pub(super) fn write_test_wav(
+pub(crate) fn write_test_wav(
     path: &Path,
     title: &str,
     artist: &str,

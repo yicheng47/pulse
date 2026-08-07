@@ -1,8 +1,8 @@
 use std::path::Path;
 
 use crate::library::{
-    Album, LibrarySearchResults, ScanHistoryEntry, ScanOutcome, ScanProgress, StorageRoot, Track,
-    TrackQueryFilter, UNKNOWN_ALBUM, UNKNOWN_ARTIST,
+    AlbumQueryFilter, LibrarySearchResults, ScanHistoryEntry, ScanOutcome, ScanProgress,
+    StorageRoot, Track, TrackQueryFilter, UNKNOWN_ALBUM, UNKNOWN_ARTIST,
 };
 
 const RECENTLY_ADDED_WINDOW_MS: i64 = 30 * 24 * 60 * 60 * 1_000;
@@ -112,6 +112,17 @@ impl FilterChip {
                 TrackQueryFilter::AddedSince(now_ms.saturating_sub(RECENTLY_ADDED_WINDOW_MS))
             }
             Self::Genre(genre) => TrackQueryFilter::Genre(genre.clone()),
+        }
+    }
+
+    pub fn album_query_filter(&self, now_ms: i64) -> AlbumQueryFilter {
+        match self {
+            Self::All => AlbumQueryFilter::All,
+            Self::HiRes => AlbumQueryFilter::HiRes,
+            Self::RecentlyAdded => {
+                AlbumQueryFilter::AddedSince(now_ms.saturating_sub(RECENTLY_ADDED_WINDOW_MS))
+            }
+            Self::Genre(genre) => AlbumQueryFilter::Genre(genre.clone()),
         }
     }
 }
@@ -325,23 +336,6 @@ pub fn is_hi_res(bit_depth: Option<u8>, sample_rate_hz: Option<u32>) -> bool {
     bit_depth.is_some_and(|depth| depth > 16) || sample_rate_hz.is_some_and(|rate| rate > 48_000)
 }
 
-pub fn filter_albums<'a>(albums: &'a [Album], chip: &FilterChip, now_ms: i64) -> Vec<&'a Album> {
-    albums
-        .iter()
-        .filter(|album| match chip {
-            FilterChip::All => true,
-            FilterChip::HiRes => is_hi_res(album.max_bit_depth, album.max_sample_rate_hz),
-            FilterChip::RecentlyAdded => {
-                album.latest_added_at_ms >= now_ms.saturating_sub(RECENTLY_ADDED_WINDOW_MS)
-            }
-            FilterChip::Genre(genre) => album
-                .genres
-                .iter()
-                .any(|album_genre| album_genre.eq_ignore_ascii_case(genre)),
-        })
-        .collect()
-}
-
 #[cfg(test)]
 pub fn filter_tracks<'a>(
     tracks: &'a [Track],
@@ -430,7 +424,7 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
-    use crate::library::{Playlist, PlaylistSummary, ScanProgressAction, StorageRootId};
+    use crate::library::{Album, Playlist, PlaylistSummary, ScanProgressAction, StorageRootId};
 
     fn root(is_reachable: bool) -> StorageRoot {
         StorageRoot {
@@ -603,43 +597,23 @@ mod tests {
     }
 
     #[test]
-    fn filters_albums_by_quality_recency_and_genre_chips() {
+    fn chip_filters_map_to_album_query_filters() {
         let now = 100 * 24 * 60 * 60 * 1_000;
-        let albums = vec![
-            Album {
-                title: "Recent Jazz".to_string(),
-                artist: "Artist A".to_string(),
-                year: Some(2024),
-                track_count: 1,
-                total_duration_ms: 60_000,
-                max_sample_rate_hz: Some(96_000),
-                max_bit_depth: Some(24),
-                cover_art_path: None,
-                latest_added_at_ms: now - 10 * 24 * 60 * 60 * 1_000,
-                genres: vec!["Jazz".to_string()],
-            },
-            Album {
-                title: "Old Rock".to_string(),
-                artist: "Artist B".to_string(),
-                year: Some(1999),
-                track_count: 1,
-                total_duration_ms: 60_000,
-                max_sample_rate_hz: Some(44_100),
-                max_bit_depth: Some(16),
-                cover_art_path: None,
-                latest_added_at_ms: now - 60 * 24 * 60 * 60 * 1_000,
-                genres: vec!["Rock".to_string()],
-            },
-        ];
-
-        assert_eq!(filter_albums(&albums, &FilterChip::HiRes, now).len(), 1);
         assert_eq!(
-            filter_albums(&albums, &FilterChip::RecentlyAdded, now).len(),
-            1
+            FilterChip::All.album_query_filter(now),
+            AlbumQueryFilter::All
         );
         assert_eq!(
-            filter_albums(&albums, &FilterChip::Genre("jazz".to_string()), now).len(),
-            1
+            FilterChip::HiRes.album_query_filter(now),
+            AlbumQueryFilter::HiRes
+        );
+        assert_eq!(
+            FilterChip::RecentlyAdded.album_query_filter(now),
+            AlbumQueryFilter::AddedSince(now - RECENTLY_ADDED_WINDOW_MS)
+        );
+        assert_eq!(
+            FilterChip::Genre("Jazz".to_string()).album_query_filter(now),
+            AlbumQueryFilter::Genre("Jazz".to_string())
         );
     }
 
@@ -655,7 +629,6 @@ mod tests {
             max_bit_depth: Some(16),
             cover_art_path: None,
             latest_added_at_ms: 1,
-            genres: Vec::new(),
         };
         let playlist = |id, name: &str| PlaylistSummary {
             playlist: Playlist {

@@ -29,7 +29,7 @@ No resource tree, no sidecar, no webview payload. Zed — the reference GPUI app
 
 ## Scope
 
-**Bundle assembly** — `script/bundle-mac` (or equivalent) producing `Pulse.app` from a release build: generate `Pulse.icns` from the existing 1024×1024 `crates/pulse-app/assets/app-icon/v06cM3.png` via `iconutil`, write `Info.plist` (identifier above, `CFBundleShortVersionString` from the workspace version `0.1.0`, `CFBundleName` "Pulse", `LSMinimumSystemVersion`, `NSHighResolutionCapable`, and `LSApplicationCategoryType` music), and place the binary.
+**Bundle assembly** — `script/bundle-mac` (or equivalent) producing `Pulse.app` from a release build: generate `Pulse.icns` from the 1024×1024 `crates/pulse-app/assets/app-icon/dock.png` (the Apple-grid-margined dock variant; `v06cM3.png` stays the full-bleed in-app brand mark) via `iconutil`, write `Info.plist` (identifier above, `CFBundleShortVersionString` from the workspace version `0.1.0`, `CFBundleName` "Pulse", `LSMinimumSystemVersion`, `NSHighResolutionCapable`, and `LSApplicationCategoryType` music), and place the binary.
 
 **Signing, notarization, DMG** — `codesign --options runtime --timestamp` with the Developer ID identity, `xcrun notarytool submit --wait`, `xcrun stapler staple`, and a DMG via `hdiutil`. Each is its own Makefile target so they can be run and debugged independently.
 

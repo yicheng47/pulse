@@ -66,15 +66,25 @@ impl PlaybackController {
         let worker = thread::Builder::new()
             .name("pulse-playback-controller".to_string())
             .spawn(move || {
-                Worker::new(
-                    output_device,
-                    command_rx,
-                    worker_subscribers,
-                    backend_factory,
-                    decoder_factory,
-                    worker_shutdown,
-                )
-                .run();
+                let subscribers = Arc::clone(&worker_subscribers);
+                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    Worker::new(
+                        output_device,
+                        command_rx,
+                        worker_subscribers,
+                        backend_factory,
+                        decoder_factory,
+                        worker_shutdown,
+                    )
+                    .run();
+                }));
+                // On exit — including a panic — drop every subscriber sender
+                // so receivers observe Disconnected instead of waiting on a
+                // dead worker forever.
+                subscribers
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .clear();
             })
             .expect("failed to spawn playback controller worker");
 
@@ -187,6 +197,8 @@ struct PreparedDecoder {
 
 struct Worker {
     state: PlaybackState,
+    /// Count of PlayFile commands processed; stamped on terminal events.
+    attempt: u64,
     output_device: DeviceId,
     current: Option<CurrentTrack>,
     active: Option<ActivePlayback>,
@@ -210,6 +222,7 @@ impl Worker {
     ) -> Self {
         Self {
             state: PlaybackState::Idle,
+            attempt: 0,
             output_device,
             current: None,
             active: None,
@@ -263,6 +276,7 @@ impl Worker {
     }
 
     fn play_file(&mut self, path: PathBuf) -> Result<(), EngineError> {
+        self.attempt += 1;
         self.stop_active()?;
         self.prepared_decoder = None;
         self.current = None;
@@ -349,6 +363,8 @@ impl Worker {
         self.set_state(PlaybackState::Idle);
         if let Some(error) = stop_error {
             self.broadcast(PlaybackEvent::Error {
+                attempt: self.attempt,
+                kind: (&error).into(),
                 message: error.to_string(),
             });
         }
@@ -537,9 +553,13 @@ impl Worker {
             self.emit_position(position_ms);
         }
         self.set_state(PlaybackState::Ended);
-        self.broadcast(PlaybackEvent::Ended);
+        self.broadcast(PlaybackEvent::Ended {
+            attempt: self.attempt,
+        });
         if let Some(error) = stop_error {
             self.broadcast(PlaybackEvent::Error {
+                attempt: self.attempt,
+                kind: (&error).into(),
                 message: error.to_string(),
             });
         }
@@ -551,6 +571,8 @@ impl Worker {
         self.current = None;
         self.set_state(PlaybackState::Error);
         self.broadcast(PlaybackEvent::Error {
+            attempt: self.attempt,
+            kind: (&error).into(),
             message: error.to_string(),
         });
     }
@@ -965,7 +987,7 @@ mod tests {
         let mut ending_events = Vec::new();
         loop {
             let event = events.recv_timeout(Duration::from_secs(1)).unwrap();
-            let ended = event == PlaybackEvent::Ended;
+            let ended = matches!(event, PlaybackEvent::Ended { .. });
             ending_events.push(event);
             if ended {
                 break;
@@ -979,7 +1001,7 @@ mod tests {
                     duration_ms: Some(10_000),
                 },
                 PlaybackEvent::StateChanged(PlaybackState::Ended),
-                PlaybackEvent::Ended,
+                PlaybackEvent::Ended { attempt: 1 },
             ]
         );
 
@@ -1017,10 +1039,14 @@ mod tests {
             })
             .unwrap();
 
-        wait_for(&events, |event| *event == PlaybackEvent::Ended);
+        wait_for(&events, |event| {
+            matches!(event, PlaybackEvent::Ended { .. })
+        });
         assert_eq!(
             events.recv_timeout(Duration::from_secs(1)).unwrap(),
             PlaybackEvent::Error {
+                attempt: 1,
+                kind: crate::PlaybackErrorKind::Track,
                 message: "decode: backend stop failed".to_string(),
             }
         );
@@ -1099,6 +1125,8 @@ mod tests {
         assert_eq!(
             error,
             PlaybackEvent::Error {
+                attempt: 1,
+                kind: crate::PlaybackErrorKind::Device { hog_pid: Some(42) },
                 message: "device hogged by pid 42".to_string()
             }
         );
@@ -1146,6 +1174,8 @@ mod tests {
         assert_eq!(
             error,
             PlaybackEvent::Error {
+                attempt: 1,
+                kind: crate::PlaybackErrorKind::Track,
                 message: "decode: backend stop failed".to_string()
             }
         );
@@ -1185,6 +1215,39 @@ mod tests {
         }
 
         assert_eq!(log.lock().unwrap().stops, 1);
+    }
+
+    #[test]
+    fn a_panicking_worker_disconnects_event_subscribers() {
+        let log = Arc::new(Mutex::new(FakeLog::default()));
+        let backend_log = Arc::clone(&log);
+        let controller = PlaybackController::spawn_with_dependencies(
+            7,
+            Arc::new(move |_| {
+                Ok(Box::new(FakeBackend {
+                    log: Arc::clone(&backend_log),
+                    fed_frames: 0,
+                }))
+            }),
+            Arc::new(|_| panic!("decoder factory exploded")),
+        );
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+
+        loop {
+            match events.recv_timeout(Duration::from_secs(2)) {
+                Ok(_) => {}
+                Err(RecvTimeoutError::Disconnected) => break,
+                Err(RecvTimeoutError::Timeout) => {
+                    panic!("subscribers were not disconnected after a worker panic")
+                }
+            }
+        }
     }
 
     fn fake_controller() -> (PlaybackController, Arc<Mutex<FakeLog>>) {

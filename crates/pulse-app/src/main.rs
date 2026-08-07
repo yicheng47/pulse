@@ -1,4 +1,5 @@
 mod assets;
+mod components;
 pub mod library;
 mod library_ui;
 mod menu;
@@ -21,7 +22,9 @@ fn install_app_icon() {
     use objc2_foundation::NSData;
 
     let main_thread = MainThreadMarker::new().expect("Pulse must start on the main thread");
-    let data = NSData::with_bytes(include_bytes!("../assets/app-icon/v06cM3.png"));
+    // dock.png bakes in the Apple icon-grid margin (content at 824/1024);
+    // the full-bleed v06cM3.png stays for the in-app brand mark.
+    let data = NSData::with_bytes(include_bytes!("../assets/app-icon/dock.png"));
     let image = NSImage::initWithData(NSImage::alloc(), &data).expect("invalid app icon");
     unsafe {
         NSApplication::sharedApplication(main_thread).setApplicationIconImage(Some(&image));
