@@ -11,6 +11,7 @@ use super::{
     },
 };
 use crate::{
+    components,
     library::{Track, TrackSortOrder},
     theme,
 };
@@ -101,10 +102,6 @@ impl LibraryView {
                     .min_h_0()
                     .w_full()
                     .overflow_hidden()
-                    .rounded(px(theme::RADIUS_MD))
-                    .border_1()
-                    .border_color(theme::border())
-                    .bg(theme::bg_surface())
                     .child(render_track_table_header())
                     .child(
                         div()
@@ -445,9 +442,14 @@ impl LibraryView {
             .w_full()
             .h(px(58.))
             .flex_none()
+            .relative()
             .border_t_1()
             .border_color(theme::border())
             .when(selected || playing, |row| row.bg(theme::bg_selected()))
+            .when(playing, |row| {
+                row.child(components::playing_row_glow())
+                    .child(components::playing_row_bar())
+            })
             .cursor_pointer()
             .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
                 this.activate_visible_track(track_id, event.click_count() == 2, cx);
@@ -471,7 +473,7 @@ impl LibraryView {
                 div()
                     .flex()
                     .items_center()
-                    .w(px(442.))
+                    .w(px(456.))
                     .h_full()
                     .pl(px(14.))
                     .child(super::albums::render_cover(
@@ -586,7 +588,6 @@ fn render_track_table_header() -> impl IntoElement {
         .w_full()
         .h(px(33.))
         .flex_none()
-        .bg(theme::bg_surface_alt())
         .child(header_cell("TRACK", 456., 14.))
         .child(header_cell("ARTIST", 162., 0.))
         .child(header_cell("ALBUM", 232., 0.))

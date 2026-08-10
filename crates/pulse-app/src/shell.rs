@@ -703,10 +703,11 @@ impl Shell {
             .h(px(46.))
             .w_full()
             .px(px(14.))
+            .relative()
             .when(selected, |row| {
                 row.bg(theme::bg_selected())
-                    .border_l_2()
-                    .border_color(theme::accent())
+                    .child(crate::components::playing_row_glow())
+                    .child(crate::components::playing_row_bar())
             })
             .cursor_pointer()
             .on_click(cx.listener(move |this, _, window, cx| {
@@ -732,10 +733,11 @@ impl Shell {
             .h(px(44.))
             .w_full()
             .px(px(14.))
+            .relative()
             .when(selected, |row| {
                 row.bg(theme::bg_selected())
-                    .border_l_2()
-                    .border_color(theme::accent())
+                    .child(crate::components::playing_row_glow())
+                    .child(crate::components::playing_row_bar())
             })
             .cursor_pointer()
             .on_click(cx.listener(move |this, _, window, cx| {
@@ -770,10 +772,11 @@ impl Shell {
             .h(px(44.))
             .w_full()
             .px(px(14.))
+            .relative()
             .when(selected, |row| {
                 row.bg(theme::bg_selected())
-                    .border_l_2()
-                    .border_color(theme::accent())
+                    .child(crate::components::playing_row_glow())
+                    .child(crate::components::playing_row_bar())
             })
             .cursor_pointer()
             .on_click(cx.listener(move |this, _, window, cx| {

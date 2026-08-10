@@ -18,6 +18,7 @@ use pulse_engine::{
 };
 
 use crate::{
+    components,
     library::{Track, TrackId},
     preferences,
     queue::{PreviousAction, QueueState, TrackRef},
@@ -1868,10 +1869,14 @@ impl PlaybackRow {
                     .h(px(58.))
                     .flex_none()
                     .px(px(10.))
+                    .relative()
+                    .overflow_hidden()
                     .rounded(px(theme::RADIUS_MD))
                     .border_1()
-                    .border_color(theme::accent())
+                    .border_color(theme::border())
                     .bg(theme::bg_inset())
+                    .child(components::playing_row_glow())
+                    .child(components::playing_row_bar())
                     .child(
                         svg()
                             .path("icons/audio-lines.svg")

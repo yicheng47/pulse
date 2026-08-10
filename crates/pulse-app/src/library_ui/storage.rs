@@ -10,6 +10,7 @@ use super::{
     view_model::{RootRowState, ScanProgressView, format_bytes, format_label, root_row_state},
 };
 use crate::{
+    components,
     library::{ScanOutcome, StorageRootId},
     theme,
 };
@@ -207,10 +208,6 @@ impl LibraryView {
             .w_full()
             .items_center()
             .justify_center()
-            .rounded(px(theme::RADIUS_MD))
-            .border_1()
-            .border_color(theme::border())
-            .bg(theme::bg_surface())
             .child(
                 div()
                     .flex()
@@ -320,10 +317,6 @@ impl LibraryView {
             .min_w_0()
             .h_full()
             .overflow_hidden()
-            .rounded(px(theme::RADIUS_MD))
-            .border_1()
-            .border_color(theme::border())
-            .bg(theme::bg_surface())
             .child(
                 div()
                     .flex()
@@ -332,7 +325,6 @@ impl LibraryView {
                     .h(px(43.))
                     .flex_none()
                     .px(px(14.))
-                    .bg(theme::bg_surface_alt())
                     .font_family(theme::FONT_MONO)
                     .font_weight(FontWeight::BOLD)
                     .text_size(px(10.))
@@ -384,9 +376,14 @@ impl LibraryView {
             .h(px(if failure.is_some() { 68. } else { 58. }))
             .flex_none()
             .px(px(14.))
+            .relative()
             .border_t_1()
             .border_color(theme::border())
-            .when(selected, |row| row.bg(theme::bg_selected()))
+            .when(selected, |row| {
+                row.bg(theme::bg_selected())
+                    .child(components::playing_row_glow())
+                    .child(components::playing_row_bar())
+            })
             .cursor_pointer()
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.select_root(root_id, cx);
@@ -565,10 +562,8 @@ impl LibraryView {
             .h_full()
             .flex_none()
             .overflow_hidden()
-            .rounded(px(theme::RADIUS_MD))
-            .border_1()
+            .border_l_1()
             .border_color(theme::border())
-            .bg(theme::bg_surface_alt())
             .child(
                 div()
                     .flex()
