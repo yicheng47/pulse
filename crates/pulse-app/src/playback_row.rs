@@ -312,8 +312,9 @@ impl PlaybackRow {
     }
 
     /// Library rows marked unplayable because their file was gone at play
-    /// time. Marks are runtime-only — rows are never deleted, per the
-    /// offline-root guarantee.
+    /// time. Marks are runtime-only; when rows are deleted (root removal,
+    /// Delete Album), their marks must be dropped too — track ids are
+    /// recyclable INTEGER PRIMARY KEYs.
     pub(crate) fn is_track_missing(&self, track_id: TrackId) -> bool {
         self.missing_track_ids.contains(&track_id)
     }
@@ -322,6 +323,14 @@ impl PlaybackRow {
     /// scan re-verifies file presence, and a removed root recycles track ids.
     pub(crate) fn clear_missing_marks(&mut self) {
         self.missing_track_ids.clear();
+    }
+
+    /// Rows for these tracks were deleted; drop their marks so a future row
+    /// recycling one of the ids cannot inherit a stale missing flag.
+    pub(crate) fn remove_missing_marks(&mut self, track_ids: &[TrackId]) {
+        for track_id in track_ids {
+            self.missing_track_ids.remove(track_id);
+        }
     }
 
     fn dismiss_notice(&mut self, cx: &mut Context<Self>) {

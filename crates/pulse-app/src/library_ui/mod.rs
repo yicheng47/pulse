@@ -25,10 +25,10 @@ use gpui::{
 
 use crate::{
     library::{
-        Album, AlbumSortOrder, BackfillProgress, LibraryError, LibrarySearchResults, LibraryStore,
-        LibrarySummary, PlaylistId, PlaylistSummary, PlaylistTrack, ScanHistoryEntry, ScanOutcome,
-        ScanProgress, StorageRoot, StorageRootId, Track, TrackId, TrackSortOrder,
-        scan_storage_root_cancellable,
+        Album, AlbumSortOrder, BackfillProgress, DeleteAlbumOutcome, LibraryError,
+        LibrarySearchResults, LibraryStore, LibrarySummary, PlaylistId, PlaylistSummary,
+        PlaylistTrack, ScanHistoryEntry, ScanOutcome, ScanProgress, StorageRoot, StorageRootId,
+        Track, TrackId, TrackSortOrder, delete_album_tracks, scan_storage_root_cancellable,
     },
     playback_row::PlaybackRow,
     preferences,
@@ -75,6 +75,45 @@ fn filter_artists(artists: &[(String, u64)], search: &str) -> Vec<(String, u64)>
         .collect()
 }
 
+/// The user-facing report for a finished album delete. Files and rows can
+/// diverge (cross-filesystem atomicity is impossible) and the post-delete
+/// reload can fail on the same broken database — every part that happened
+/// must survive into the one message the user sees.
+fn delete_album_notice(
+    outcome: &DeleteAlbumOutcome,
+    reload_error: Option<String>,
+) -> Option<String> {
+    let mut parts = Vec::new();
+    if let Some(db_error) = &outcome.db_error {
+        parts.push(format!(
+            "Deleted {} of {} audio files, but updating the library failed: {db_error}. Run \
+             Delete Album again to finish the cleanup.",
+            outcome.deleted_files, outcome.total_files
+        ));
+        if !outcome.failures.is_empty() {
+            parts.push(format!("Could not delete: {}", outcome.failures.join("; ")));
+        }
+    } else if !outcome.failures.is_empty() {
+        parts.push(format!(
+            "Deleted {} of {} audio files. Could not delete: {}",
+            outcome.deleted_files,
+            outcome.total_files,
+            outcome.failures.join("; ")
+        ));
+    }
+    if let Some(reload) = reload_error {
+        if parts.is_empty() {
+            return Some(reload);
+        }
+        parts.push(format!("Reloading the library also failed: {reload}"));
+    }
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join(" "))
+    }
+}
+
 /// Runtime FILE MISSING marks may be cleared only after a scan that verified
 /// presence for every retained row: the walk finished (not cancelled, not
 /// offline/failed) and the missing-row removal pass actually ran.
@@ -100,6 +139,13 @@ enum WorkerEvent {
         store: LibraryStore,
         result: Result<ScanCompletion, String>,
     },
+    DeleteAlbumFinished {
+        store: LibraryStore,
+        result: Result<DeleteAlbumOutcome, String>,
+    },
+    /// The delete worker panicked and the store moved into it is gone; the
+    /// UI must reopen the library to recover.
+    DeleteAlbumPanicked,
     /// The scan worker panicked and the store moved into it is gone; the UI
     /// must reopen the library to recover.
     ScanPanicked {
@@ -140,6 +186,9 @@ enum Modal {
     PlaylistName {
         mode: PlaylistNameMode,
         name: String,
+    },
+    DeleteAlbum {
+        album: Album,
     },
     DeletePlaylist {
         playlist_id: PlaylistId,
@@ -204,6 +253,9 @@ pub(crate) struct LibraryView {
     roots: Vec<StorageRootView>,
     selected_root_id: Option<StorageRootId>,
     album_detail: Option<AlbumDetail>,
+    album_menu_open: bool,
+    album_menu_press_closed: bool,
+    album_delete_in_flight: bool,
     playlists: Vec<PlaylistSummary>,
     selected_playlist_id: Option<PlaylistId>,
     playlist_detail: Option<PlaylistDetail>,
@@ -262,6 +314,9 @@ impl LibraryView {
             roots: Vec::new(),
             selected_root_id: None,
             album_detail: None,
+            album_menu_open: false,
+            album_menu_press_closed: false,
+            album_delete_in_flight: false,
             playlists: Vec::new(),
             selected_playlist_id: None,
             playlist_detail: None,
@@ -335,12 +390,17 @@ impl LibraryView {
     fn store_busy_message(&self) -> String {
         if self.is_library_loading() {
             "Wait for the library to finish opening.".to_string()
+        } else if self.album_delete_in_flight {
+            "Wait for the album delete to finish.".to_string()
         } else {
             "Wait for the active library scan to finish.".to_string()
         }
     }
 
     pub(crate) fn set_destination(&mut self, destination: Destination, cx: &mut Context<Self>) {
+        if destination != self.destination {
+            self.album_menu_open = false;
+        }
         if destination != self.destination && destination == Destination::Albums {
             self.album_detail = None;
             self.selected_album_track_id = None;
@@ -623,6 +683,7 @@ impl LibraryView {
         self.album_detail_scroll = ScrollHandle::new();
         self.album_detail = Some(AlbumDetail { album, tracks });
         self.selected_album_track_id = None;
+        self.album_menu_open = false;
         cx.notify();
     }
 
@@ -961,6 +1022,56 @@ impl LibraryView {
         cx.notify();
     }
 
+    fn request_delete_album(&mut self, cx: &mut Context<Self>) {
+        let Some(detail) = &self.album_detail else {
+            return;
+        };
+        self.album_menu_open = false;
+        self.modal = Some(Modal::DeleteAlbum {
+            album: detail.album.clone(),
+        });
+        cx.notify();
+    }
+
+    /// Spawns the delete worker. The modal stays open in an in-flight state
+    /// until the worker reports back; the store moves into the worker, so a
+    /// scan or second delete cannot start while the job runs. All file I/O
+    /// happens off the UI thread — album audio can live on a slow NAS.
+    fn confirm_delete_album(&mut self, cx: &mut Context<Self>) {
+        if self.album_delete_in_flight {
+            return;
+        }
+        let Some(Modal::DeleteAlbum { album }) = self.modal.as_ref() else {
+            return;
+        };
+        let album = album.clone();
+        let Some(mut store) = self.store.take() else {
+            self.error = Some(self.store_busy_message());
+            cx.notify();
+            return;
+        };
+        self.album_delete_in_flight = true;
+        let sender = self.worker_tx.clone();
+        thread::Builder::new()
+            .name("pulse-album-delete".to_string())
+            .spawn(move || {
+                let outcome = catch_unwind(AssertUnwindSafe(|| {
+                    let result = delete_album_tracks(&mut store, &album.artist, &album.title)
+                        .map_err(|error| error.to_string());
+                    (store, result)
+                }));
+                let _ = match outcome {
+                    Ok((store, result)) => {
+                        sender.send(WorkerEvent::DeleteAlbumFinished { store, result })
+                    }
+                    // The store was consumed by the unwind; the UI reopens it.
+                    Err(_) => sender.send(WorkerEvent::DeleteAlbumPanicked),
+                };
+            })
+            .expect("failed to spawn album delete worker");
+        cx.notify();
+    }
+
     fn add_track_to_playlist(
         &mut self,
         playlist_id: PlaylistId,
@@ -1193,7 +1304,13 @@ impl LibraryView {
         if self.scan.is_some() {
             return;
         }
-        let mut store = self.store.take().expect("store is available before scan");
+        // Defense in depth: a worker (album delete) may own the store even
+        // with no scan active.
+        let Some(mut store) = self.store.take() else {
+            self.error = Some(self.store_busy_message());
+            cx.notify();
+            return;
+        };
         let sender = self.worker_tx.clone();
         let cover_cache_directory = self.cover_cache_directory.clone();
         let cancel = Arc::new(AtomicBool::new(false));
@@ -1299,6 +1416,43 @@ impl LibraryView {
                         Err(error) => self.error = Some(error.clone()),
                     }
                     self.reload_or_show_error();
+                    changed = true;
+                }
+                Ok(WorkerEvent::DeleteAlbumFinished { store, result }) => {
+                    self.store = Some(store);
+                    self.album_delete_in_flight = false;
+                    if matches!(self.modal, Some(Modal::DeleteAlbum { .. })) {
+                        self.modal = None;
+                    }
+                    match result {
+                        Ok(outcome) => {
+                            // Marks may be dropped only for rows that left
+                            // the library: with the commit failed, the files
+                            // are gone but the rows — and their now-correct
+                            // missing marks — remain. Ids are recyclable, so
+                            // marks for committed deletions must go.
+                            if outcome.db_error.is_none() && !outcome.deleted_ids.is_empty() {
+                                self.row.update(cx, |row, _| {
+                                    row.remove_missing_marks(&outcome.deleted_ids);
+                                });
+                            }
+                            self.error = None;
+                            self.reload_or_show_error();
+                            let reload_error = self.error.take();
+                            self.error = delete_album_notice(&outcome, reload_error);
+                        }
+                        Err(error) => self.error = Some(error),
+                    }
+                    changed = true;
+                }
+                Ok(WorkerEvent::DeleteAlbumPanicked) => {
+                    self.album_delete_in_flight = false;
+                    if matches!(self.modal, Some(Modal::DeleteAlbum { .. })) {
+                        self.modal = None;
+                    }
+                    self.error =
+                        Some("The album delete crashed. Reopening the library.".to_string());
+                    self.begin_open_store();
                     changed = true;
                 }
                 Ok(WorkerEvent::ScanPanicked { root_id }) => {
@@ -1776,6 +1930,67 @@ fn current_time_ms() -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn outcome(
+        deleted_files: usize,
+        total_files: usize,
+        failures: Vec<String>,
+        db_error: Option<String>,
+    ) -> DeleteAlbumOutcome {
+        DeleteAlbumOutcome {
+            deleted_ids: Vec::new(),
+            deleted_files,
+            total_files,
+            failures,
+            db_error,
+        }
+    }
+
+    #[test]
+    fn delete_album_notice_preserves_partial_state_when_the_reload_also_fails() {
+        let notice = delete_album_notice(
+            &outcome(3, 5, Vec::new(), Some("no such table".into())),
+            Some("no such table: playlist_tracks".into()),
+        )
+        .unwrap();
+        assert!(notice.contains("Deleted 3 of 5 audio files"));
+        assert!(notice.contains("Run Delete Album again"));
+        assert!(notice.contains("Reloading the library also failed"));
+    }
+
+    #[test]
+    fn delete_album_notice_keeps_file_failures_alongside_a_db_failure() {
+        let notice = delete_album_notice(
+            &outcome(
+                1,
+                3,
+                vec!["b.wav: permission denied".into()],
+                Some("database is locked".into()),
+            ),
+            None,
+        )
+        .unwrap();
+        assert!(notice.contains("Deleted 1 of 3 audio files"));
+        assert!(notice.contains("database is locked"));
+        assert!(notice.contains("b.wav: permission denied"));
+    }
+
+    #[test]
+    fn delete_album_notice_reports_file_failures_and_clean_runs() {
+        let notice =
+            delete_album_notice(&outcome(1, 2, vec!["a.wav: offline".into()], None), None).unwrap();
+        assert!(notice.contains("Deleted 1 of 2 audio files"));
+        assert!(notice.contains("a.wav: offline"));
+
+        assert!(delete_album_notice(&outcome(2, 2, Vec::new(), None), None).is_none());
+        assert_eq!(
+            delete_album_notice(
+                &outcome(2, 2, Vec::new(), None),
+                Some("reload broke".into())
+            ),
+            Some("reload broke".into())
+        );
+    }
 
     #[test]
     fn missing_marks_clear_only_after_presence_verifying_scans() {

@@ -17,6 +17,7 @@ A separate playback process was considered and rejected (2026-08-07). To be prec
 | Core Audio realtime IO | AUHAL (`AuhalSink::start`) | The render callback: drains the ring buffer to the device | While the sink is playing |
 | `pulse-library-open` | `LibraryView::begin_open_store` | `LibraryStore::open` and the v1→v2 metadata backfill, reporting `BackfillProgress` | Until the store opens or fails |
 | `pulse-library-scan` | `LibraryView::start_scan` | The `LibraryStore` (moved in), file walk, metadata extraction, cover cache writes | Until scan completes or is cancelled |
+| `pulse-album-delete` | `LibraryView::confirm_delete_album` | The `LibraryStore` (moved in), audio-file unlinks, row/playlist-entry deletion, cover-cache cleanup | Until the delete reports back |
 
 ## 3. Data Flow
 
@@ -35,7 +36,8 @@ Core Audio realtime IO thread → device (hogged, native rate)
 Main / UI thread
   │  spawn                                  ▲  WorkerEvent (mpsc, drained every 50 ms)
   ▼                                         │
-pulse-library-open / pulse-library-scan ────┘   (LibraryStore moves with the worker and returns in the event)
+pulse-library-open / pulse-library-scan ────┤   (LibraryStore moves with the worker and returns in the event)
+pulse-album-delete ─────────────────────────┘
 ```
 
 The UI thread polls: playback events every 16 ms, worker events every 50 ms, and the active-device watchdog every ~2 s while playing (the engine has no mid-playback device-loss signal, so the row watches for it).
