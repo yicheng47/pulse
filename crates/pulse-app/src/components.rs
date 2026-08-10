@@ -3,7 +3,10 @@
 //! site; compound controls (icon buttons, enabled-state buttons) stay local
 //! to their views.
 
-use gpui::{AnyElement, Div, ElementId, FontWeight, SharedString, Stateful, div, prelude::*, px};
+use gpui::{
+    AnyElement, Div, ElementId, FontWeight, Rgba, SharedString, Stateful, div, linear_color_stop,
+    linear_gradient, prelude::*, px,
+};
 
 use crate::theme;
 
@@ -115,6 +118,42 @@ pub(crate) fn quality_badge(label: impl Into<SharedString>) -> AnyElement {
         .text_size(px(9.))
         .text_color(theme::quality())
         .child(label.into())
+        .into_any_element()
+}
+
+/// Neon glow that bleeds rightward from a playing row's accent bar, fading
+/// out by the row's midpoint. Painted over the row background, under content.
+pub(crate) fn playing_row_glow() -> AnyElement {
+    let from = Rgba {
+        a: 0.15,
+        ..theme::accent()
+    };
+    let to = Rgba {
+        a: 0.,
+        ..theme::accent()
+    };
+    div()
+        .absolute()
+        .inset_0()
+        .bg(linear_gradient(
+            90.,
+            linear_color_stop(from, 0.),
+            linear_color_stop(to, 0.5),
+        ))
+        .into_any_element()
+}
+
+/// The 4px accent bar on a playing row's left edge. Absolute insets resolve
+/// against the parent's content box, which already excludes a border-side
+/// separator — so a full span lands exactly against the hairline.
+pub(crate) fn playing_row_bar() -> AnyElement {
+    div()
+        .absolute()
+        .left_0()
+        .top_0()
+        .bottom_0()
+        .w(px(4.))
+        .bg(theme::accent())
         .into_any_element()
 }
 

@@ -13,6 +13,7 @@ use super::{
     },
 };
 use crate::{
+    components,
     library::{Album, AlbumSortOrder, Track},
     shell::SIDEBAR_WIDTH,
     theme,
@@ -385,10 +386,6 @@ impl LibraryView {
             .flex_1()
             .min_h_0()
             .w_full()
-            .rounded(px(theme::RADIUS_MD))
-            .border_1()
-            .border_color(theme::border())
-            .bg(theme::bg_surface())
             .overflow_hidden()
             .child(render_album_track_header());
         let mut rows = div()
@@ -510,6 +507,7 @@ impl LibraryView {
                                     )
                                     .child(
                                         div()
+                                            .flex_1()
                                             .min_w_0()
                                             .truncate()
                                             .font_family(theme::FONT_SANS)
@@ -652,16 +650,16 @@ impl LibraryView {
             .flex()
             .items_center()
             .w_full()
-            .h(px(38.))
+            .h(px(58.))
             .flex_none()
+            .relative()
             .border_b_1()
-            .border_color(if playing {
-                theme::accent()
-            } else {
-                theme::border()
-            })
-            .when(playing, |row| row.border_l_2())
+            .border_color(theme::border())
             .when(selected || playing, |row| row.bg(theme::bg_selected()))
+            .when(playing, |row| {
+                row.child(components::playing_row_glow())
+                    .child(components::playing_row_bar())
+            })
             .cursor_pointer()
             .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
                 this.activate_album_track(index, event.click_count() == 2, cx);
@@ -862,7 +860,8 @@ fn render_album_track_header() -> impl IntoElement {
         .w_full()
         .h(px(30.))
         .flex_none()
-        .bg(theme::bg_surface_alt())
+        .border_b_1()
+        .border_color(theme::border())
         .child(table_header_cell("#", 56.).pl(px(16.)))
         .child(table_header_cell("TITLE", 700.))
         .child(table_header_cell("ARTIST", 234.))

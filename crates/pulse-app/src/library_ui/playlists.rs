@@ -10,6 +10,7 @@ use super::{
     },
 };
 use crate::{
+    components,
     library::{PlaylistId, PlaylistSummary, PlaylistTrack},
     theme,
 };
@@ -97,10 +98,8 @@ impl LibraryView {
             .h_full()
             .flex_none()
             .overflow_hidden()
-            .rounded(px(theme::RADIUS_MD))
-            .border_1()
+            .border_r_1()
             .border_color(theme::border())
-            .bg(theme::bg_surface())
             .child(
                 div()
                     .flex()
@@ -176,9 +175,14 @@ impl LibraryView {
             .h(px(64.))
             .flex_none()
             .px(px(10.))
+            .relative()
             .border_b_1()
             .border_color(theme::border())
-            .when(selected, |row| row.bg(theme::bg_selected()))
+            .when(selected, |row| {
+                row.bg(theme::bg_selected())
+                    .child(components::playing_row_glow())
+                    .child(components::playing_row_bar())
+            })
             .cursor_pointer()
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.select_playlist(playlist_id, cx);
@@ -271,10 +275,6 @@ impl LibraryView {
             .min_w_0()
             .h_full()
             .overflow_hidden()
-            .rounded(px(theme::RADIUS_MD))
-            .border_1()
-            .border_color(theme::border())
-            .bg(theme::bg_surface_alt())
             .child(
                 div()
                     .flex()
@@ -485,14 +485,14 @@ impl LibraryView {
             .h(px(50.))
             .flex_none()
             .px(px(12.))
+            .relative()
             .border_b_1()
-            .border_color(if playing {
-                theme::accent()
-            } else {
-                theme::border()
-            })
-            .when(playing, |row| row.border_l_2())
+            .border_color(theme::border())
             .when(selected || playing, |row| row.bg(theme::bg_selected()))
+            .when(playing, |row| {
+                row.child(components::playing_row_glow())
+                    .child(components::playing_row_bar())
+            })
             .cursor_pointer()
             .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
                 this.activate_playlist_entry(position, event.click_count() == 2, cx);
@@ -798,10 +798,6 @@ fn render_no_playlist_selected() -> AnyElement {
         .h_full()
         .items_center()
         .justify_center()
-        .rounded(px(theme::RADIUS_MD))
-        .border_1()
-        .border_color(theme::border())
-        .bg(theme::bg_surface_alt())
         .child(
             div()
                 .flex()
