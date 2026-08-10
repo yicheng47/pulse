@@ -272,6 +272,8 @@ pub enum LibraryError {
     NotDirectory(PathBuf),
     #[error("unsupported library schema version {0}")]
     UnsupportedSchemaVersion(i64),
+    #[error("schema migration found rows violating foreign keys in table {0}")]
+    MigrationIntegrity(String),
     #[error("storage root {0} was not found")]
     StorageRootNotFound(StorageRootId),
     #[error("playlist {0} was not found")]
