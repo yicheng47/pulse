@@ -750,8 +750,11 @@ impl LibraryView {
             .scan
             .as_ref()
             .is_some_and(|scan| scan.root_id == root_id);
-        let scan_blocked = self.scan.is_some() && !active_scan;
-        let mutations_blocked = self.scan.is_some();
+        // The store can be absent without a scan running — a worker (album
+        // delete) may own it; every store-touching action must stay blocked.
+        let store_missing = self.store.is_none();
+        let scan_blocked = (self.scan.is_some() || store_missing) && !active_scan;
+        let mutations_blocked = self.scan.is_some() || store_missing;
         let scan_label = match state {
             RootRowState::Offline => "Reconnect",
             RootRowState::Failed { .. } => "Retry",
@@ -918,6 +921,7 @@ impl LibraryView {
             Modal::PlaylistName { mode, name } => {
                 self.render_playlist_name_modal(*mode, name.clone(), cx)
             }
+            Modal::DeleteAlbum { album } => self.render_delete_album_modal(album.clone(), cx),
             Modal::DeletePlaylist {
                 playlist_id,
                 name,

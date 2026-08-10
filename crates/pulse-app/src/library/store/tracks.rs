@@ -616,6 +616,57 @@ mod tests {
     }
 
     #[test]
+    fn delete_tracks_removes_rows_and_playlist_entries_for_only_the_given_tracks() {
+        let temp = tempdir().unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let doomed_first = insert_track(
+            &mut store,
+            &root,
+            &test_file(&root, "doomed-1.wav", 1, 10),
+            &test_metadata("One", "Artist", Some("Doomed"), None),
+        );
+        let doomed_second = insert_track(
+            &mut store,
+            &root,
+            &test_file(&root, "doomed-2.wav", 2, 10),
+            &test_metadata("Two", "Artist", Some("Doomed"), None),
+        );
+        let survivor = insert_track(
+            &mut store,
+            &root,
+            &test_file(&root, "survivor.wav", 3, 10),
+            &test_metadata("Three", "Artist", Some("Kept"), None),
+        );
+        let playlist = store.create_playlist("Mixed").unwrap();
+        store
+            .append_playlist_tracks(playlist.id, &[doomed_first, survivor, doomed_second])
+            .unwrap();
+
+        store.delete_tracks(&[doomed_first, doomed_second]).unwrap();
+
+        assert!(
+            store
+                .tracks_for_album("Artist", "Doomed")
+                .unwrap()
+                .is_empty()
+        );
+        let kept = store.tracks_for_album("Artist", "Kept").unwrap();
+        assert_eq!(
+            kept.iter().map(|track| track.id).collect::<Vec<_>>(),
+            vec![survivor]
+        );
+        let entries = store.playlist_tracks(playlist.id).unwrap();
+        assert_eq!(
+            entries
+                .iter()
+                .map(|entry| entry.track.id)
+                .collect::<Vec<_>>(),
+            vec![survivor]
+        );
+    }
+
+    #[test]
     fn all_tracks_implements_every_mvp_sort_order() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();

@@ -227,6 +227,28 @@ impl LibraryStore {
         tracks::for_album(&self.connection, artist, title)
     }
 
+    /// Acquire and immediately release a write lock, proving the database
+    /// accepts writes before a caller starts irreversible filesystem work.
+    pub fn preflight_write(&mut self) -> Result<(), LibraryError> {
+        let transaction = self
+            .connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        transaction.rollback()?;
+        Ok(())
+    }
+
+    /// Delete a set of tracks and their playlist entries in one transaction.
+    /// Callers own the files: audio and cover-cache deletion happens outside
+    /// the store, mirroring `remove_storage_root`.
+    pub fn delete_tracks(&mut self, track_ids: &[TrackId]) -> Result<(), LibraryError> {
+        let transaction = self.connection.transaction()?;
+        for &track_id in track_ids {
+            tracks::delete_track(&transaction, track_id)?;
+        }
+        transaction.commit()?;
+        Ok(())
+    }
+
     /// Distinct normalized artists with track counts, for the artist-filter
     /// popover. Normalization matches the artist-filter query clause.
     pub fn artists(&self) -> Result<Vec<(String, u64)>, LibraryError> {
@@ -423,6 +445,28 @@ pub(crate) mod testing {
         StorageRoot, TrackId, metadata::AudioMetadata, path::path_identity, walk::DiscoveredFile,
     };
     use super::{LibraryStore, tracks::upsert_track};
+
+    pub fn set_cover(store: &mut LibraryStore, track_id: TrackId, path: &std::path::Path) {
+        let transaction = store.connection.transaction().unwrap();
+        super::tracks::set_track_cover(
+            &transaction,
+            track_id,
+            &path.display().to_string(),
+            Some("image/png"),
+        )
+        .unwrap();
+        transaction.commit().unwrap();
+    }
+
+    /// Drop the playlist_tracks table so the next `delete_tracks` fails after
+    /// `preflight_write` has already succeeded — the post-unlink database
+    /// failure path.
+    pub fn break_playlist_entries(store: &mut LibraryStore) {
+        store
+            .connection
+            .execute("DROP TABLE playlist_tracks", [])
+            .unwrap();
+    }
 
     pub fn test_file(
         root: &StorageRoot,

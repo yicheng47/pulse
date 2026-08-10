@@ -1,8 +1,8 @@
 use std::{collections::BTreeSet, path::Path};
 
 use gpui::{
-    AnyElement, ClickEvent, Context, FontWeight, IntoElement, MouseButton, MouseDownEvent,
-    ObjectFit, StatefulInteractiveElement, Window, div, img, prelude::*, px, svg,
+    AnyElement, ClickEvent, Context, FontWeight, IntoElement, KeyDownEvent, MouseButton,
+    MouseDownEvent, ObjectFit, StatefulInteractiveElement, Window, div, img, prelude::*, px, svg,
 };
 
 use super::{
@@ -424,6 +424,7 @@ impl LibraryView {
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.album_detail = None;
                         this.selected_album_track_id = None;
+                        this.album_menu_open = false;
                         cx.notify();
                     }))
                     .child(
@@ -606,21 +607,55 @@ impl LibraryView {
                                     )
                                     .child(
                                         div()
-                                            .flex()
-                                            .items_center()
-                                            .justify_center()
-                                            .size(px(36.))
-                                            .rounded(px(theme::RADIUS_MD))
-                                            .border_1()
-                                            .border_color(theme::border())
-                                            .bg(theme::bg_muted())
-                                            .opacity(0.5)
+                                            .relative()
                                             .child(
-                                                svg()
-                                                    .path("icons/ellipsis.svg")
-                                                    .size(px(16.))
-                                                    .text_color(theme::text_secondary()),
-                                            ),
+                                                div()
+                                                    .id("album-menu")
+                                                    .flex()
+                                                    .items_center()
+                                                    .justify_center()
+                                                    .size(px(36.))
+                                                    .rounded(px(theme::RADIUS_MD))
+                                                    .border_1()
+                                                    .border_color(theme::border())
+                                                    .bg(theme::bg_muted())
+                                                    .cursor_pointer()
+                                                    // Same press-closed guard as the artist
+                                                    // picker: the open menu's dismiss fires
+                                                    // before this click, which would reopen it.
+                                                    .capture_any_mouse_down(cx.listener(
+                                                        |this, event: &MouseDownEvent, _, _| {
+                                                            if event.button == MouseButton::Left {
+                                                                this.album_menu_press_closed =
+                                                                    this.album_menu_open;
+                                                            }
+                                                        },
+                                                    ))
+                                                    .on_click(cx.listener(|this, _, window, cx| {
+                                                        if std::mem::take(
+                                                            &mut this.album_menu_press_closed,
+                                                        ) {
+                                                            cx.notify();
+                                                            return;
+                                                        }
+                                                        this.album_menu_open = true;
+                                                        window.focus(&this.input_focus, cx);
+                                                        cx.notify();
+                                                    }))
+                                                    .child(
+                                                        svg()
+                                                            .path("icons/ellipsis.svg")
+                                                            .size(px(16.))
+                                                            .text_color(if self.album_menu_open {
+                                                                theme::accent()
+                                                            } else {
+                                                                theme::text_secondary()
+                                                            }),
+                                                    ),
+                                            )
+                                            .when(self.album_menu_open, |wrap| {
+                                                wrap.child(self.render_album_menu(cx))
+                                            }),
                                     ),
                             ),
                     ),
@@ -744,6 +779,213 @@ impl LibraryView {
                     .child(format_duration(track.duration_ms)),
             )
             .child(crate::components::quality_badge(quality))
+    }
+
+    fn render_album_menu(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .absolute()
+            .top(px(42.))
+            .left_0()
+            .w(px(210.))
+            .py(px(6.))
+            .rounded(px(theme::RADIUS_LG))
+            .border_1()
+            .border_color(theme::border_strong())
+            .bg(theme::bg_surface())
+            .occlude()
+            .track_focus(&self.input_focus)
+            .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
+                if event.keystroke.key == "escape" {
+                    this.album_menu_open = false;
+                    cx.notify();
+                }
+            }))
+            .on_mouse_down_out(cx.listener(|this, _, _, cx| {
+                this.album_menu_open = false;
+                cx.notify();
+            }))
+            .child(
+                div()
+                    .id("album-menu-delete")
+                    .flex()
+                    .items_center()
+                    .gap(px(10.))
+                    .h(px(32.))
+                    .w_full()
+                    .px(px(12.))
+                    .cursor_pointer()
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.request_delete_album(cx);
+                    }))
+                    .child(
+                        svg()
+                            .path("icons/trash-2.svg")
+                            .size(px(15.))
+                            .text_color(theme::danger()),
+                    )
+                    .child(
+                        div()
+                            .font_family(theme::FONT_SANS)
+                            .text_size(px(13.))
+                            .text_color(theme::danger())
+                            .child("Delete Album…"),
+                    ),
+            )
+    }
+
+    pub(super) fn render_delete_album_modal(
+        &self,
+        album: Album,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let file_word = if album.track_count == 1 {
+            "file"
+        } else {
+            "files"
+        };
+        super::storage::render_modal_scrim(
+            div()
+                .flex()
+                .flex_col()
+                .w(px(520.))
+                .overflow_hidden()
+                .rounded(px(theme::RADIUS_LG))
+                .border_1()
+                .border_color(theme::border_strong())
+                .bg(theme::bg_surface())
+                .child(if self.album_delete_in_flight {
+                    // Non-dismissible while the worker owns the store: no
+                    // close control until the job reports back.
+                    div()
+                        .flex()
+                        .items_center()
+                        .h(px(58.))
+                        .flex_none()
+                        .px(px(22.))
+                        .border_b_1()
+                        .border_color(theme::border())
+                        .child(
+                            div()
+                                .font_family(theme::FONT_DISPLAY)
+                                .font_weight(FontWeight::BOLD)
+                                .text_size(px(20.))
+                                .text_color(theme::text_primary())
+                                .child("Delete Album"),
+                        )
+                        .into_any_element()
+                } else {
+                    super::storage::render_modal_header("Delete Album", cx).into_any_element()
+                })
+                .child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap(px(14.))
+                        .p(px(22.))
+                        .child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap(px(12.))
+                                .child(render_cover(album.cover_art_path.as_deref(), 44., 44., 18.))
+                                .child(
+                                    div()
+                                        .flex()
+                                        .flex_col()
+                                        .gap(px(2.))
+                                        .flex_1()
+                                        .min_w_0()
+                                        .child(
+                                            div()
+                                                .truncate()
+                                                .font_family(theme::FONT_DISPLAY)
+                                                .font_weight(FontWeight::BOLD)
+                                                .text_size(px(15.))
+                                                .text_color(theme::text_primary())
+                                                .child(album.title.clone()),
+                                        )
+                                        .child(
+                                            div()
+                                                .truncate()
+                                                .font_family(theme::FONT_SANS)
+                                                .text_size(px(12.))
+                                                .text_color(theme::text_secondary())
+                                                .child(format!(
+                                                    "{} · {} tracks · {} min",
+                                                    album.artist,
+                                                    album.track_count,
+                                                    album.total_duration_ms.div_ceil(60_000)
+                                                )),
+                                        ),
+                                ),
+                        )
+                        .child(
+                            div()
+                                .flex()
+                                .items_start()
+                                .gap(px(10.))
+                                .w_full()
+                                .px(px(12.))
+                                .py(px(10.))
+                                .rounded(px(theme::RADIUS_MD))
+                                .border_1()
+                                .border_color(theme::danger())
+                                .bg(theme::danger_soft())
+                                .child(
+                                    svg()
+                                        .path("icons/triangle-alert.svg")
+                                        .size(px(15.))
+                                        .flex_none()
+                                        .mt(px(1.))
+                                        .text_color(theme::danger()),
+                                )
+                                .child(
+                                    div()
+                                        .flex_1()
+                                        .font_family(theme::FONT_SANS)
+                                        .text_size(px(12.))
+                                        .line_height(px(18.))
+                                        .text_color(theme::text_secondary())
+                                        .child(format!(
+                                            "Deletes the album’s {} audio {file_word} from disk \
+                                             and removes its tracks from the library and any \
+                                             playlists. This cannot be undone.",
+                                            album.track_count
+                                        )),
+                                ),
+                        ),
+                )
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .justify_end()
+                        .gap(px(9.))
+                        .h(px(62.))
+                        .flex_none()
+                        .px(px(22.))
+                        .border_t_1()
+                        .border_color(theme::border())
+                        .child(if self.album_delete_in_flight {
+                            crate::components::secondary_button("cancel-delete-album", "Cancel")
+                                .opacity(0.5)
+                                .into_any_element()
+                        } else {
+                            super::storage::render_cancel_modal_button(cx).into_any_element()
+                        })
+                        .child(if self.album_delete_in_flight {
+                            crate::components::danger_button("confirm-delete-album", "Deleting…")
+                                .opacity(0.6)
+                                .into_any_element()
+                        } else {
+                            crate::components::danger_button("confirm-delete-album", "Delete Album")
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.confirm_delete_album(cx);
+                                }))
+                                .into_any_element()
+                        }),
+                ),
+        )
     }
 }
 
