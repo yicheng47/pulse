@@ -8,9 +8,9 @@ use std::{
 };
 
 use gpui::{
-    Bounds, Context, ExternalPaths, FontWeight, IntoElement, MouseButton, MouseDownEvent,
-    MouseMoveEvent, MouseUpEvent, ObjectFit, Pixels, Render, Window, canvas, div, img, prelude::*,
-    px, relative, svg,
+    AnyElement, Bounds, Context, ExternalPaths, FocusHandle, FontWeight, IntoElement, KeyDownEvent,
+    ListSizingBehavior, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ObjectFit,
+    Pixels, Render, Window, canvas, div, img, prelude::*, px, relative, svg, uniform_list,
 };
 use pulse_engine::{
     EngineError, PcmFormat, PlaybackCommand, PlaybackController, PlaybackErrorKind, PlaybackEvent,
@@ -101,6 +101,14 @@ pub struct PlaybackRow {
     device_message: Option<DeviceMessage>,
     output_popover_open: bool,
     output_toggle_press_closed_popover: bool,
+    queue_popover_open: bool,
+    queue_toggle_press_closed_popover: bool,
+    /// Absolute queue index of the hovered up-next row; drives the row fill
+    /// and the ✕ remove affordance.
+    hovered_upcoming: Option<usize>,
+    /// Present only when built with a window context; tests construct the row
+    /// without one.
+    queue_popover_focus: Option<FocusHandle>,
     position_ms: u64,
     duration_ms: Option<u64>,
     error: Option<String>,
@@ -120,6 +128,7 @@ pub struct PlaybackRow {
 impl PlaybackRow {
     pub fn new(cx: &mut Context<Self>) -> Self {
         let mut row = Self::initial();
+        row.queue_popover_focus = Some(cx.focus_handle());
         row.initialize_output();
 
         cx.spawn(async move |this, cx| {
@@ -164,6 +173,10 @@ impl PlaybackRow {
             device_message: None,
             output_popover_open: false,
             output_toggle_press_closed_popover: false,
+            queue_popover_open: false,
+            queue_toggle_press_closed_popover: false,
+            hovered_upcoming: None,
+            queue_popover_focus: None,
             position_ms: 0,
             duration_ms: None,
             error: None,
@@ -507,15 +520,73 @@ impl PlaybackRow {
     }
 
     fn play_queue_track(&mut self, track: TrackRef, cx: &mut Context<Self>) {
-        self.pending_seek_ms = None;
-        match self.next_playable(track) {
-            Some(track) => {
-                self.apply_track_context(&track);
-                self.error = None;
-                self.play_file(track.path, cx);
+        match self.prepare_queue_play(track) {
+            Some(path) => self.play_file(path, cx),
+            // The queue exhausted through unplayable entries. A user-initiated
+            // jump or Next can land here while the superseded track is still
+            // audible; stop it so the Stopped notice is truthful.
+            None => {
+                if self.active_playback_needs_stop() {
+                    self.send_command(PlaybackCommand::Stop, cx);
+                }
+                cx.notify();
             }
-            None => cx.notify(),
         }
+    }
+
+    /// True when the engine is still producing (or about to produce) audio
+    /// for a track the queue has already moved past.
+    fn active_playback_needs_stop(&self) -> bool {
+        matches!(
+            self.playback_state,
+            PlaybackState::Loading | PlaybackState::Playing | PlaybackState::Paused
+        )
+    }
+
+    /// Cx-free half of a queue dispatch: resolves the skip-and-report path
+    /// for missing files, applies the display context, and returns the path
+    /// to hand to `play_file`.
+    fn prepare_queue_play(&mut self, track: TrackRef) -> Option<PathBuf> {
+        self.pending_seek_ms = None;
+        let track = self.next_playable(track)?;
+        self.apply_track_context(&track);
+        self.error = None;
+        Some(track.path)
+    }
+
+    /// Queue-popover row click: the index moves to the clicked entry and it
+    /// plays; nothing is dropped. A jump to a missing entry follows the
+    /// existing skip-and-report path inside `play_queue_track`.
+    fn jump_to_queue_entry(&mut self, index: usize, cx: &mut Context<Self>) {
+        self.notice = None;
+        self.retry = None;
+        if let Some(track) = self.queue.jump_to(index) {
+            self.play_queue_track(track, cx);
+        }
+        cx.notify();
+    }
+
+    fn remove_queue_entry(&mut self, index: usize, cx: &mut Context<Self>) {
+        self.queue.remove_at(index);
+        self.hovered_upcoming = None;
+        cx.notify();
+    }
+
+    fn clear_upcoming_queue(&mut self, cx: &mut Context<Self>) {
+        self.queue.clear_upcoming();
+        self.hovered_upcoming = None;
+        cx.notify();
+    }
+
+    fn toggle_queue_popover(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.queue_popover_open = !self.queue_popover_open;
+        if self.queue_popover_open {
+            self.hovered_upcoming = None;
+            if let Some(focus) = &self.queue_popover_focus {
+                window.focus(focus, cx);
+            }
+        }
+        cx.notify();
     }
 
     /// Cheap existence check at play time: marks and skips entries whose file
@@ -1376,6 +1447,43 @@ impl PlaybackRow {
             speaker = speaker.child(self.render_output_popover(cx));
         }
 
+        let mut queue_button = div()
+            .id("queue-toggle")
+            .relative()
+            .w(px(38.))
+            .h(px(34.))
+            .cursor_pointer()
+            // Same press-closed guard as the output picker and artist filter:
+            // clicking the open trigger closes rather than closes-then-reopens.
+            .capture_any_mouse_down(cx.listener(|this, event: &MouseDownEvent, _, _| {
+                if event.button == MouseButton::Left {
+                    this.queue_toggle_press_closed_popover = this.queue_popover_open;
+                }
+            }))
+            .on_click(cx.listener(|this, _, window, cx| {
+                if std::mem::take(&mut this.queue_toggle_press_closed_popover) {
+                    cx.notify();
+                    return;
+                }
+                this.toggle_queue_popover(window, cx);
+            }))
+            .child(
+                svg()
+                    .path("icons/list-music.svg")
+                    .absolute()
+                    .left_0()
+                    .top(px(8.))
+                    .size(px(17.))
+                    .text_color(if self.queue_popover_open {
+                        theme::accent()
+                    } else {
+                        theme::text_secondary()
+                    }),
+            );
+        if self.queue_popover_open {
+            queue_button = queue_button.child(self.render_queue_popover(cx));
+        }
+
         div()
             .flex()
             .items_center()
@@ -1384,53 +1492,38 @@ impl PlaybackRow {
             .w(px(300.))
             .child(output_details)
             .child(speaker)
-            .child(
-                div()
-                    .relative()
-                    .w(px(38.))
-                    .h(px(34.))
-                    .child(
-                        svg()
-                            .path("icons/list-music.svg")
-                            .absolute()
-                            .left_0()
-                            .top(px(8.))
-                            .size(px(17.))
-                            .text_color(theme::text_secondary()),
-                    )
-                    .when(remaining > 0, |button| {
-                        button.child(
+            .child(queue_button.when(remaining > 0, |button| {
+                button.child(
+                    div()
+                        .absolute()
+                        .top(px(-2.))
+                        .right(px(-2.))
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .h(px(20.))
+                        .min_w(px(20.))
+                        .px(px(2.))
+                        .rounded(px(10.))
+                        .bg(theme::bg_surface())
+                        .child(
                             div()
-                                .absolute()
-                                .top(px(-2.))
-                                .right(px(-2.))
                                 .flex()
                                 .items_center()
                                 .justify_center()
-                                .h(px(20.))
-                                .min_w(px(20.))
-                                .px(px(2.))
-                                .rounded(px(10.))
-                                .bg(theme::bg_surface())
-                                .child(
-                                    div()
-                                        .flex()
-                                        .items_center()
-                                        .justify_center()
-                                        .h(px(16.))
-                                        .min_w(px(16.))
-                                        .px(px(3.))
-                                        .rounded(px(8.))
-                                        .bg(theme::accent())
-                                        .font_family(theme::FONT_MONO)
-                                        .font_weight(FontWeight::BOLD)
-                                        .text_size(px(10.))
-                                        .text_color(theme::bg_inset())
-                                        .child(remaining.to_string()),
-                                ),
-                        )
-                    }),
-            )
+                                .h(px(16.))
+                                .min_w(px(16.))
+                                .px(px(3.))
+                                .rounded(px(8.))
+                                .bg(theme::accent())
+                                .font_family(theme::FONT_MONO)
+                                .font_weight(FontWeight::BOLD)
+                                .text_size(px(10.))
+                                .text_color(theme::bg_inset())
+                                .child(remaining.to_string()),
+                        ),
+                )
+            }))
     }
 
     fn render_output_popover(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -1695,6 +1788,324 @@ impl PlaybackRow {
                 )
             })
     }
+
+    fn render_queue_popover(&self, cx: &mut Context<Self>) -> AnyElement {
+        let upcoming_count = self.queue.remaining_count();
+
+        let mut header = div().flex().items_center().gap(px(10.)).w_full().child(
+            div()
+                .font_family(theme::FONT_DISPLAY)
+                .font_weight(FontWeight::BOLD)
+                .text_size(px(17.))
+                .text_color(theme::text_primary())
+                .child("Queue"),
+        );
+        if upcoming_count > 0 {
+            header = header
+                .child(
+                    div()
+                        .font_family(theme::FONT_MONO)
+                        .font_weight(FontWeight::BOLD)
+                        .text_size(px(10.))
+                        .text_color(theme::text_muted())
+                        .child(format_queue_meta(
+                            upcoming_count,
+                            self.queue.upcoming_duration_ms(),
+                        )),
+                )
+                .child(div().flex_1())
+                .child(
+                    div()
+                        .id("queue-clear")
+                        .flex()
+                        .items_center()
+                        .h(px(23.))
+                        .px(px(8.))
+                        .flex_none()
+                        .rounded(px(theme::RADIUS_SM))
+                        .border_1()
+                        .border_color(theme::border())
+                        .bg(theme::bg_muted())
+                        .cursor_pointer()
+                        .font_family(theme::FONT_DISPLAY)
+                        .font_weight(FontWeight::BOLD)
+                        .text_size(px(12.))
+                        .text_color(theme::text_secondary())
+                        .child("Clear")
+                        .on_click(cx.listener(|this, _, _, cx| this.clear_upcoming_queue(cx))),
+                );
+        }
+
+        let mut popover = div()
+            .id("queue-popover")
+            .absolute()
+            .right_0()
+            .bottom(px(71.))
+            .flex()
+            .flex_col()
+            .gap(px(11.))
+            .w(px(376.))
+            .max_h(px(541.))
+            .p(px(14.))
+            .rounded(px(theme::RADIUS_LG))
+            .border_1()
+            .border_color(theme::border())
+            .bg(theme::bg_surface())
+            .occlude()
+            .on_mouse_down_out(cx.listener(|this, _, _, cx| {
+                this.queue_popover_open = false;
+                cx.notify();
+            }))
+            .child(header);
+
+        if let Some((title, secondary)) = self.now_playing_lines() {
+            popover = popover.child(section_label("NOW PLAYING")).child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(10.))
+                    .w_full()
+                    .h(px(58.))
+                    .flex_none()
+                    .px(px(10.))
+                    .rounded(px(theme::RADIUS_MD))
+                    .border_1()
+                    .border_color(theme::accent())
+                    .bg(theme::bg_inset())
+                    .child(
+                        svg()
+                            .path("icons/audio-lines.svg")
+                            .size(px(16.))
+                            .flex_none()
+                            .text_color(theme::accent()),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_1()
+                            .min_w_0()
+                            .flex_col()
+                            .gap(px(2.))
+                            .child(
+                                div()
+                                    .w_full()
+                                    .truncate()
+                                    .font_family(theme::FONT_DISPLAY)
+                                    .font_weight(FontWeight::BOLD)
+                                    .text_size(px(14.))
+                                    .text_color(theme::text_primary())
+                                    .child(title),
+                            )
+                            .child(
+                                div()
+                                    .w_full()
+                                    .truncate()
+                                    .font_family(theme::FONT_SANS)
+                                    .text_size(px(11.))
+                                    .text_color(theme::text_secondary())
+                                    .child(secondary),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .flex_none()
+                            .font_family(theme::FONT_MONO)
+                            .font_weight(FontWeight::BOLD)
+                            .text_size(px(10.))
+                            .text_color(theme::quality())
+                            .child(format!(
+                                "{} / {}",
+                                format_queue_time(self.displayed_position_ms()),
+                                self.duration_ms
+                                    .map(format_queue_time)
+                                    .unwrap_or_else(|| "--:--".to_string())
+                            )),
+                    ),
+            );
+        }
+
+        popover = popover.child(section_label("UP NEXT"));
+        if upcoming_count == 0 {
+            popover = popover.child(
+                div()
+                    .px(px(10.))
+                    .py(px(6.))
+                    .font_family(theme::FONT_SANS)
+                    .text_size(px(12.))
+                    .text_color(theme::text_muted())
+                    .child("Nothing up next"),
+            );
+        } else {
+            // Virtualized: only the visible rows are built, so a full-library
+            // queue stays cheap through the 100 ms position ticks.
+            popover = popover.child(
+                uniform_list(
+                    "queue-upcoming-list",
+                    upcoming_count,
+                    cx.processor(|this, range: std::ops::Range<usize>, _, cx| {
+                        let visible = this
+                            .queue
+                            .upcoming()
+                            .skip(range.start)
+                            .take(range.len())
+                            .map(|(position, track)| (position, track.clone()))
+                            .collect::<Vec<_>>();
+                        visible
+                            .into_iter()
+                            .map(|(position, track)| this.render_upcoming_row(position, track, cx))
+                            .collect::<Vec<_>>()
+                    }),
+                )
+                .with_sizing_behavior(ListSizingBehavior::Infer)
+                .min_h_0(),
+            );
+        }
+
+        match &self.queue_popover_focus {
+            Some(focus) => popover
+                .track_focus(focus)
+                .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
+                    if event.keystroke.key == "escape" {
+                        this.queue_popover_open = false;
+                        cx.notify();
+                    }
+                }))
+                .into_any_element(),
+            None => popover.into_any_element(),
+        }
+    }
+
+    /// Title and `artist · album` for the popover's NOW PLAYING block, absent
+    /// when nothing is playing.
+    fn now_playing_lines(&self) -> Option<(String, String)> {
+        if !matches!(
+            self.playback_state,
+            PlaybackState::Loading | PlaybackState::Playing | PlaybackState::Paused
+        ) {
+            return None;
+        }
+        match self.queue.current() {
+            Some(track) if self.source_path.as_deref() == Some(track.path.as_path()) => Some((
+                track.title.clone(),
+                format!("{} · {}", track.artist, track.album),
+            )),
+            // A dropped file plays without a queue, and after an exhausted
+            // jump the index points at an entry that never played; the row's
+            // display strings describe what is actually audible.
+            _ => Some((self.title.clone(), self.secondary.clone())),
+        }
+    }
+
+    fn render_upcoming_row(
+        &self,
+        position: usize,
+        track: TrackRef,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let index = position - 1;
+        let hovered = self.hovered_upcoming == Some(index);
+        let duration = track
+            .duration_ms
+            .map(format_queue_time)
+            .unwrap_or_else(|| "--:--".to_string());
+
+        // Uniform 52px stride for the virtualized list: the 50px design row
+        // plus its 2px gap as bottom padding.
+        let row = div()
+            .id(("queue-upcoming", index))
+            .flex()
+            .items_center()
+            .gap(px(10.))
+            .w_full()
+            .h(px(50.))
+            .flex_none()
+            .px(px(10.))
+            .rounded(px(theme::RADIUS_MD))
+            .when(hovered, |row| row.bg(theme::bg_muted()))
+            .cursor_pointer()
+            .on_hover(cx.listener(move |this, &hovered, _, cx| {
+                if hovered {
+                    this.hovered_upcoming = Some(index);
+                } else if this.hovered_upcoming == Some(index) {
+                    this.hovered_upcoming = None;
+                }
+                cx.notify();
+            }))
+            .on_click(cx.listener(move |this, _, _, cx| this.jump_to_queue_entry(index, cx)))
+            .child(
+                div()
+                    .min_w(px(18.))
+                    .flex_none()
+                    .font_family(theme::FONT_MONO)
+                    .text_size(px(11.))
+                    .text_color(theme::text_muted())
+                    .child(position.to_string()),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_1()
+                    .min_w_0()
+                    .flex_col()
+                    .gap(px(1.))
+                    .child(
+                        div()
+                            .w_full()
+                            .truncate()
+                            .font_family(theme::FONT_SANS)
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_size(px(13.))
+                            .text_color(theme::text_primary())
+                            .child(track.title.clone()),
+                    )
+                    .child(
+                        div()
+                            .w_full()
+                            .truncate()
+                            .font_family(theme::FONT_SANS)
+                            .text_size(px(11.))
+                            .text_color(theme::text_secondary())
+                            .child(format!("{} · {}", track.artist, track.album)),
+                    ),
+            )
+            .child(
+                div()
+                    .flex_none()
+                    .font_family(theme::FONT_MONO)
+                    .text_size(px(11.))
+                    .text_color(theme::text_muted())
+                    .child(duration),
+            )
+            .when(hovered, |row| {
+                row.child(
+                    div()
+                        .id(("queue-remove", index))
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .size(px(14.))
+                        .flex_none()
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            cx.stop_propagation();
+                            this.remove_queue_entry(index, cx);
+                        }))
+                        .child(
+                            svg()
+                                .path("icons/x.svg")
+                                .size(px(14.))
+                                .text_color(theme::text_muted()),
+                        ),
+                )
+            });
+
+        div()
+            .w_full()
+            .h(px(52.))
+            .pb(px(2.))
+            .child(row)
+            .into_any_element()
+    }
 }
 
 impl Render for PlaybackRow {
@@ -1898,6 +2309,29 @@ fn format_time(milliseconds: u64) -> String {
     } else {
         format!("{minutes:02}:{seconds:02}")
     }
+}
+
+/// Queue-popover times drop the leading zero on minutes ("1:24", "3:59").
+fn format_queue_time(milliseconds: u64) -> String {
+    let seconds = milliseconds / 1_000;
+    let minutes = seconds / 60;
+    let seconds = seconds % 60;
+    if minutes >= 60 {
+        format!("{}:{:02}:{seconds:02}", minutes / 60, minutes % 60)
+    } else {
+        format!("{minutes}:{seconds:02}")
+    }
+}
+
+/// Header meta line: "N UP NEXT · M MIN". The minutes are the rounded sum of
+/// the known upcoming durations; with no known durations the minutes are
+/// omitted rather than shown as zero.
+fn format_queue_meta(count: usize, total_ms: u64) -> String {
+    if total_ms == 0 {
+        return format!("{count} UP NEXT");
+    }
+    let minutes = ((total_ms + 30_000) / 60_000).max(1);
+    format!("{count} UP NEXT · {minutes} MIN")
 }
 
 fn playback_state_label(state: PlaybackState) -> &'static str {
@@ -2173,6 +2607,7 @@ mod tests {
             title: "Nights".to_string(),
             artist: "Frank Ocean".to_string(),
             album: "Blonde".to_string(),
+            duration_ms: Some(268_000),
             cover_art_path: Some(cover.clone()),
         };
 
@@ -2204,6 +2639,7 @@ mod tests {
             title: "Solo".to_string(),
             artist: "Frank Ocean".to_string(),
             album: "Blonde".to_string(),
+            duration_ms: None,
             cover_art_path: Some(PathBuf::from("/Cache/solo.cover")),
         };
 
@@ -2617,6 +3053,7 @@ mod tests {
             title: "Selected".to_string(),
             artist: "Artist".to_string(),
             album: "Album".to_string(),
+            duration_ms: None,
             cover_art_path: None,
         };
         assert!(row.apply_track_selection(&track));
@@ -2887,5 +3324,188 @@ mod tests {
             })
         );
         assert_eq!(row.error.as_deref(), Some("decode: backend stop failed"));
+    }
+
+    #[test]
+    fn a_jump_to_a_marked_missing_entry_skips_and_reports() {
+        let temp = tempfile::tempdir().unwrap();
+        let tracks = wav_tracks(temp.path(), &["playing", "gone", "after"]);
+        std::fs::remove_file(&tracks[1].path).unwrap();
+        let mut row = PlaybackRow::initial();
+        row.queue = QueueState::from_tracks(&tracks, 0);
+        row.queue.mark_started();
+        row.missing_track_ids.insert(2);
+
+        let target = row.queue.jump_to(1).unwrap();
+        let playable = row.prepare_queue_play(target).unwrap();
+
+        assert_eq!(playable, tracks[2].path);
+        assert_eq!(row.queue.current().unwrap().title, "after");
+        assert!(row.is_track_missing(2));
+        assert_eq!(
+            row.notice,
+            Some(PlaybackNotice::Skip {
+                text: "Skipped “gone” — its file is missing.".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn a_jump_into_an_all_missing_tail_stops_the_active_track() {
+        let temp = tempfile::tempdir().unwrap();
+        let tracks = wav_tracks(temp.path(), &["playing", "gone-1", "gone-2"]);
+        std::fs::remove_file(&tracks[1].path).unwrap();
+        std::fs::remove_file(&tracks[2].path).unwrap();
+        let mut row = PlaybackRow::initial();
+        row.queue = QueueState::from_tracks(&tracks, 0);
+        row.dispatched_plays = 1;
+        row.record_play_attempt(&tracks[0].path);
+        let _ = row.handle_event(now_playing(tracks[0].path.to_str().unwrap()));
+        row.playback_state = PlaybackState::Playing;
+
+        // The user clicks an up-next row whose file and remaining tail are
+        // gone: no new dispatch is possible.
+        let target = row.queue.jump_to(1).unwrap();
+        assert!(row.prepare_queue_play(target).is_none());
+
+        // `play_queue_track` must stop the still-audible superseded track so
+        // the Stopped notice is truthful.
+        assert!(row.active_playback_needs_stop());
+        assert_eq!(
+            row.notice,
+            Some(PlaybackNotice::Stopped {
+                text: "Playback stopped — 2 tracks could not be played.".to_string()
+            })
+        );
+        assert!(row.is_track_missing(2));
+        assert!(row.is_track_missing(3));
+
+        // Until the stop lands, the NOW PLAYING block keeps describing the
+        // audible track, not the missing entry the queue index points at.
+        assert_eq!(
+            row.now_playing_lines(),
+            Some(("playing".to_string(), "Artist - Album".to_string()))
+        );
+        let _ = row.handle_event(PlaybackEvent::StateChanged(PlaybackState::Idle));
+        assert_eq!(row.now_playing_lines(), None);
+
+        // An ended/error event from the stopped track is stale bookkeeping,
+        // not a queue driver, once state left the active set.
+        assert!(
+            row.handle_event(PlaybackEvent::Ended { attempt: 1 })
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn a_natural_queue_end_does_not_ask_for_a_stop() {
+        let temp = tempfile::tempdir().unwrap();
+        let tracks = wav_tracks(temp.path(), &["played", "gone"]);
+        std::fs::remove_file(&tracks[1].path).unwrap();
+        let mut row = PlaybackRow::initial();
+        row.queue = QueueState::from_tracks(&tracks, 0);
+        row.queue.mark_started();
+        row.playback_state = PlaybackState::Ended;
+
+        let next = row
+            .handle_event(PlaybackEvent::Ended { attempt: 0 })
+            .expect("the queue advances past the ended track");
+        assert!(row.prepare_queue_play(next).is_none());
+        assert!(
+            !row.active_playback_needs_stop(),
+            "nothing is audible after a natural end; no Stop command is due"
+        );
+    }
+
+    #[test]
+    fn a_jump_dispatch_supersedes_stale_terminal_events() {
+        let temp = tempfile::tempdir().unwrap();
+        let tracks = wav_tracks(temp.path(), &["playing", "second", "target", "tail"]);
+        let mut row = PlaybackRow::initial();
+        row.queue = QueueState::from_tracks(&tracks, 0);
+        // Entry 0 is playing as dispatch 1.
+        row.dispatched_plays = 1;
+        row.record_play_attempt(&tracks[0].path);
+        let _ = row.handle_event(now_playing(tracks[0].path.to_str().unwrap()));
+        row.playback_state = PlaybackState::Playing;
+
+        // The user clicks the third up-next row. The jump prepares the play;
+        // `play_file`/`send_command` then record the attempt and count the
+        // dispatch, simulated here because tests have no command channel.
+        let target = row.queue.jump_to(2).unwrap();
+        let path = row.prepare_queue_play(target).unwrap();
+        assert_eq!(path, tracks[2].path);
+        row.record_play_attempt(&path);
+        row.dispatched_plays += 1;
+        row.playback_state = PlaybackState::Loading;
+
+        // The superseded track's terminal events drain afterwards; the older
+        // attempt ordinal keeps them from moving the jumped queue.
+        assert!(
+            row.handle_event(PlaybackEvent::Ended { attempt: 1 })
+                .is_none()
+        );
+        assert_eq!(row.queue.current().unwrap().title, "target");
+        assert!(
+            row.handle_event(PlaybackEvent::Error {
+                attempt: 1,
+                kind: PlaybackErrorKind::Track,
+                message: "decode: stale failure".to_string(),
+            })
+            .is_none()
+        );
+        assert_eq!(row.queue.current().unwrap().title, "target");
+        assert!(row.notice.is_none());
+
+        // The jump's own terminal events still drive the queue.
+        let next = row
+            .handle_event(PlaybackEvent::Ended { attempt: 2 })
+            .unwrap();
+        assert_eq!(next.title, "tail");
+    }
+
+    #[test]
+    fn the_now_playing_block_tracks_playback_state_and_queue_context() {
+        let mut row = PlaybackRow::initial();
+        assert_eq!(row.now_playing_lines(), None);
+
+        let temp = tempfile::tempdir().unwrap();
+        let tracks = wav_tracks(temp.path(), &["present"]);
+        row.queue = QueueState::from_tracks(&tracks, 0);
+        row.source_path = Some(tracks[0].path.clone());
+        row.playback_state = PlaybackState::Playing;
+        assert_eq!(
+            row.now_playing_lines(),
+            Some(("present".to_string(), "Artist · Album".to_string()))
+        );
+
+        row.playback_state = PlaybackState::Ended;
+        assert_eq!(row.now_playing_lines(), None);
+
+        // A dropped file plays without a queue; the row's display strings
+        // stand in.
+        row.queue = QueueState::default();
+        row.playback_state = PlaybackState::Playing;
+        row.title = "Dropped".to_string();
+        row.secondary = "Folder".to_string();
+        assert_eq!(
+            row.now_playing_lines(),
+            Some(("Dropped".to_string(), "Folder".to_string()))
+        );
+    }
+
+    #[test]
+    fn formats_queue_times_without_a_leading_minute_zero() {
+        assert_eq!(format_queue_time(0), "0:00");
+        assert_eq!(format_queue_time(84_000), "1:24");
+        assert_eq!(format_queue_time(239_000), "3:59");
+        assert_eq!(format_queue_time(3_661_000), "1:01:01");
+    }
+
+    #[test]
+    fn formats_the_queue_meta_line_and_omits_unknown_minutes() {
+        assert_eq!(format_queue_meta(7, 1_470_000), "7 UP NEXT · 25 MIN");
+        assert_eq!(format_queue_meta(1, 29_000), "1 UP NEXT · 1 MIN");
+        assert_eq!(format_queue_meta(3, 0), "3 UP NEXT");
     }
 }

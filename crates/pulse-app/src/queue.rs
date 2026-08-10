@@ -9,6 +9,7 @@ pub(crate) struct TrackRef {
     pub title: String,
     pub artist: String,
     pub album: String,
+    pub duration_ms: Option<u64>,
     pub cover_art_path: Option<PathBuf>,
 }
 
@@ -44,6 +45,7 @@ impl From<&Track> for TrackRef {
                 .filter(|album| !album.is_empty())
                 .unwrap_or(UNKNOWN_ALBUM)
                 .to_string(),
+            duration_ms: track.duration_ms.and_then(|ms| u64::try_from(ms).ok()),
             cover_art_path: track.cover_art_path.clone(),
         }
     }
@@ -114,6 +116,60 @@ impl QueueState {
         let next = self.entries.get(next_index)?.clone();
         self.index = Some(next_index);
         Some(next)
+    }
+
+    fn upcoming_start(&self) -> usize {
+        match self.index {
+            Some(index) => index + 1,
+            None => self.entries.len(),
+        }
+    }
+
+    /// Upcoming entries paired with their 1-based queue positions (row
+    /// numbering continues past the current track).
+    pub(crate) fn upcoming(&self) -> impl Iterator<Item = (usize, &TrackRef)> {
+        let start = self.upcoming_start().min(self.entries.len());
+        self.entries[start..]
+            .iter()
+            .enumerate()
+            .map(move |(offset, track)| (start + offset + 1, track))
+    }
+
+    /// Sum of the known upcoming durations; unknown durations contribute
+    /// nothing.
+    pub(crate) fn upcoming_duration_ms(&self) -> u64 {
+        self.upcoming()
+            .filter_map(|(_, track)| track.duration_ms)
+            .sum()
+    }
+
+    /// Moves the queue index to `index` and returns that entry to play.
+    /// Nothing is dropped, so Previous still walks back over jumped entries.
+    pub(crate) fn jump_to(&mut self, index: usize) -> Option<TrackRef> {
+        let track = self.entries.get(index)?.clone();
+        self.index = Some(index);
+        Some(track)
+    }
+
+    /// Removes the entry at `index`, renumbering the rest; the current track
+    /// is never removed.
+    pub(crate) fn remove_at(&mut self, index: usize) {
+        if index >= self.entries.len() || Some(index) == self.index {
+            return;
+        }
+        self.entries.remove(index);
+        if let Some(current) = self.index
+            && index < current
+        {
+            self.index = Some(current - 1);
+        }
+    }
+
+    /// Drops every upcoming entry; the current track and the entries behind
+    /// it stay so Previous keeps working.
+    pub(crate) fn clear_upcoming(&mut self) {
+        let start = self.upcoming_start();
+        self.entries.truncate(start);
     }
 
     pub(crate) fn previous(&mut self, position_ms: u64) -> Option<PreviousAction> {
@@ -273,6 +329,152 @@ mod tests {
     fn a_fresh_queue_with_no_failures_is_not_poisoned() {
         let queue = QueueState::from_tracks(&[track(1, "only")], 0);
         assert!(!queue.nothing_played());
+    }
+
+    #[test]
+    fn jump_moves_the_index_without_dropping_entries() {
+        let tracks = [
+            track(1, "first"),
+            track(2, "second"),
+            track(3, "third"),
+            track(4, "fourth"),
+        ];
+        let mut queue = QueueState::from_tracks(&tracks, 0);
+
+        let target = queue.jump_to(2).unwrap();
+
+        assert_eq!(target.title, "third");
+        assert_eq!(queue.current().unwrap().title, "third");
+        assert_eq!(queue.remaining_count(), 1);
+        assert_eq!(
+            queue.paths(),
+            ["/first.flac", "/second.flac", "/third.flac", "/fourth.flac"]
+        );
+        assert_eq!(
+            queue.previous(0),
+            Some(PreviousAction::PlayPrevious(TrackRef::from(&tracks[1]))),
+            "Previous walks back over the jumped entries"
+        );
+    }
+
+    #[test]
+    fn jump_out_of_range_leaves_the_queue_untouched() {
+        let tracks = [track(1, "only")];
+        let mut queue = QueueState::from_tracks(&tracks, 0);
+
+        assert!(queue.jump_to(1).is_none());
+        assert_eq!(queue.current().unwrap().title, "only");
+        assert_eq!(queue.remaining_count(), 0);
+    }
+
+    #[test]
+    fn remove_renumbers_upcoming_entries_and_fixes_the_badge_count() {
+        let tracks = [
+            track(1, "current"),
+            track(2, "doomed"),
+            track(3, "third"),
+            track(4, "fourth"),
+        ];
+        let mut queue = QueueState::from_tracks(&tracks, 0);
+        assert_eq!(queue.remaining_count(), 3);
+
+        queue.remove_at(1);
+
+        assert_eq!(queue.remaining_count(), 2);
+        assert_eq!(
+            queue.paths(),
+            ["/current.flac", "/third.flac", "/fourth.flac"]
+        );
+        assert_eq!(
+            queue
+                .upcoming()
+                .map(|(position, _)| position)
+                .collect::<Vec<_>>(),
+            [2, 3]
+        );
+        assert_eq!(queue.current().unwrap().title, "current");
+    }
+
+    #[test]
+    fn remove_never_touches_the_current_track() {
+        let tracks = [track(1, "current"), track(2, "next")];
+        let mut queue = QueueState::from_tracks(&tracks, 0);
+
+        queue.remove_at(0);
+        queue.remove_at(9);
+
+        assert_eq!(queue.paths(), ["/current.flac", "/next.flac"]);
+        assert_eq!(queue.current().unwrap().title, "current");
+        assert_eq!(queue.remaining_count(), 1);
+    }
+
+    #[test]
+    fn remove_before_the_current_track_keeps_it_current() {
+        let tracks = [track(1, "played"), track(2, "current"), track(3, "next")];
+        let mut queue = QueueState::from_tracks(&tracks, 1);
+
+        queue.remove_at(0);
+
+        assert_eq!(queue.current().unwrap().title, "current");
+        assert_eq!(queue.remaining_count(), 1);
+        assert_eq!(queue.paths(), ["/current.flac", "/next.flac"]);
+    }
+
+    #[test]
+    fn clear_upcoming_keeps_the_current_track_and_history() {
+        let tracks = [
+            track(1, "played"),
+            track(2, "current"),
+            track(3, "doomed-1"),
+            track(4, "doomed-2"),
+        ];
+        let mut queue = QueueState::from_tracks(&tracks, 1);
+        assert_eq!(queue.remaining_count(), 2);
+
+        queue.clear_upcoming();
+
+        assert_eq!(queue.remaining_count(), 0);
+        assert_eq!(queue.current().unwrap().title, "current");
+        assert_eq!(queue.paths(), ["/played.flac", "/current.flac"]);
+        assert_eq!(
+            queue.previous(0),
+            Some(PreviousAction::PlayPrevious(TrackRef::from(&tracks[0]))),
+            "history stays for Previous"
+        );
+    }
+
+    #[test]
+    fn upcoming_positions_continue_the_queue_numbering() {
+        let tracks = [
+            track(1, "first"),
+            track(2, "second"),
+            track(3, "third"),
+            track(4, "fourth"),
+        ];
+        let queue = QueueState::from_tracks(&tracks, 1);
+
+        let numbered = queue
+            .upcoming()
+            .map(|(position, track)| (position, track.title.clone()))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            numbered,
+            [(3, "third".to_string()), (4, "fourth".to_string())]
+        );
+    }
+
+    #[test]
+    fn upcoming_minutes_total_excludes_unknown_durations() {
+        let mut with_duration = track(2, "timed");
+        with_duration.duration_ms = Some(200_000);
+        let mut unknown = track(3, "untimed");
+        unknown.duration_ms = None;
+        let mut also_timed = track(4, "also-timed");
+        also_timed.duration_ms = Some(40_000);
+        let tracks = [track(1, "current"), with_duration, unknown, also_timed];
+        let queue = QueueState::from_tracks(&tracks, 0);
+
+        assert_eq!(queue.upcoming_duration_ms(), 240_000);
     }
 
     #[test]
