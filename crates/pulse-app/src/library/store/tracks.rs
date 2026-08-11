@@ -83,8 +83,8 @@ pub fn page(
     })?;
     let total_count =
         usize::try_from(total_count).map_err(|_| LibraryError::IntegerOutOfRange("track count"))?;
-    let last_offset = total_count.saturating_sub(1) / limit * limit;
-    let offset = offset.min(last_offset);
+    // Appending callers need an empty tail; snapping back would duplicate the last page.
+    let offset = offset.min(total_count);
 
     let sql = format!(
         "SELECT {TRACK_COLUMNS}
@@ -781,6 +781,25 @@ mod tests {
             ["Charlie", "Delta"]
         );
 
+        let mut paged_titles = Vec::new();
+        for offset in [0, 2, 4] {
+            let page = store
+                .track_page(
+                    TrackSortOrder::Title,
+                    &TrackQueryFilter::All,
+                    None,
+                    2,
+                    offset,
+                )
+                .unwrap();
+            assert_eq!(page.total_count, 6);
+            paged_titles.extend(page.tracks.into_iter().map(|track| track.title.unwrap()));
+        }
+        assert_eq!(
+            paged_titles,
+            ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"]
+        );
+
         let artist = store
             .track_page(
                 TrackSortOrder::Title,
@@ -831,18 +850,6 @@ mod tests {
             .unwrap();
         assert_eq!(recent.total_count, 3);
 
-        let clamped = store
-            .track_page(TrackSortOrder::Title, &TrackQueryFilter::All, None, 2, 100)
-            .unwrap();
-        assert_eq!(
-            clamped
-                .tracks
-                .into_iter()
-                .map(|track| track.title.unwrap())
-                .collect::<Vec<_>>(),
-            ["Echo", "Foxtrot"]
-        );
-
         let queue = store
             .matching_tracks(TrackSortOrder::Title, &TrackQueryFilter::All, None)
             .unwrap();
@@ -869,6 +876,79 @@ mod tests {
                 .collect::<Vec<_>>(),
             ["Alpha", "Charlie", "Delta"]
         );
+    }
+
+    #[test]
+    fn track_pages_keep_a_total_order_for_tied_sort_keys() {
+        let temp = tempdir().unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        for (index, title) in ["Tie C", "Tie A", "Tie B"].into_iter().enumerate() {
+            let id = insert_track(
+                &mut store,
+                &root,
+                &test_file(&root, &format!("{title}.wav"), index as i64, 10),
+                &test_metadata(title, "Artist", Some("Album"), None),
+            );
+            store
+                .connection
+                .execute(
+                    "UPDATE tracks SET added_at_ms = 100 WHERE id = ?1",
+                    params![id],
+                )
+                .unwrap();
+        }
+
+        let mut seen = Vec::new();
+        for offset in [0, 1, 2] {
+            let page = store
+                .track_page(
+                    TrackSortOrder::DateAdded,
+                    &TrackQueryFilter::All,
+                    None,
+                    1,
+                    offset,
+                )
+                .unwrap();
+            assert_eq!(page.total_count, 3);
+            assert_eq!(page.tracks.len(), 1);
+            seen.push(page.tracks[0].title.clone().unwrap());
+        }
+        seen.sort();
+        assert_eq!(
+            seen,
+            ["Tie A", "Tie B", "Tie C"],
+            "paging tied tracks must neither duplicate nor drop a row"
+        );
+    }
+
+    #[test]
+    fn track_pages_are_empty_at_and_beyond_the_end() {
+        let temp = tempdir().unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        for (index, title) in ["Alpha", "Bravo"].into_iter().enumerate() {
+            insert_track(
+                &mut store,
+                &root,
+                &test_file(&root, &format!("{title}.wav"), index as i64, 10),
+                &test_metadata(title, "Artist", Some("Album"), None),
+            );
+        }
+
+        for offset in [2, 100] {
+            let page = store
+                .track_page(
+                    TrackSortOrder::Title,
+                    &TrackQueryFilter::All,
+                    None,
+                    2,
+                    offset,
+                )
+                .unwrap();
+            assert_eq!(page.total_count, 2);
+            assert!(page.tracks.is_empty());
+        }
     }
 
     #[test]
