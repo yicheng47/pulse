@@ -11,7 +11,7 @@ Intentional MVP behavior: Shuffle, Repeat, and the queue button remain inert; th
 - [x] Run the current branch with `make run` and confirm the app opens without a panic.
 - [ ] Have one 16-bit / 44.1 kHz track and one 24-bit / 96 kHz FLAC available for hardware validation.
 - [x] Use a disposable copied music root for rename, removal, cancellation, and forced-failure tests; do not change permissions on the live NAS library.
-- [ ] Preserve the existing `~/Library/Application Support/pulse` directory before the scratch first-run test by using a backup or a disposable macOS account; do not delete the existing library database or cover cache.
+- [ ] Do not delete or modify the released app's `~/Library/Application Support/pulse` library database or cover cache; the `pulse-dev` profile is disposable and may be removed to exercise first run.
 
 ## Playback and physical hardware
 

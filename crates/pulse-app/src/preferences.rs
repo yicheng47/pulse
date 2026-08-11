@@ -1,5 +1,11 @@
 use std::{fs, io, path::PathBuf};
 
+const APP_DIRECTORY_NAME: &str = if cfg!(debug_assertions) {
+    "pulse-dev"
+} else {
+    "pulse"
+};
+
 pub fn load_output_device_uid() -> io::Result<Option<String>> {
     let path = output_device_uid_path()?;
     match fs::read_to_string(path) {
@@ -27,13 +33,13 @@ pub fn cover_cache_directory() -> io::Result<PathBuf> {
 
 fn app_data_directory() -> io::Result<PathBuf> {
     dirs::data_dir()
-        .map(|path| path.join("pulse"))
+        .map(|path| path.join(APP_DIRECTORY_NAME))
         .ok_or_else(|| io::Error::other("could not determine the app data directory"))
 }
 
 fn output_device_uid_path() -> io::Result<PathBuf> {
     dirs::config_dir()
-        .map(|path| path.join("pulse").join("app-output-device.uid"))
+        .map(|path| path.join(APP_DIRECTORY_NAME).join("app-output-device.uid"))
         .ok_or_else(|| io::Error::other("could not determine the app configuration directory"))
 }
 
@@ -66,6 +72,18 @@ mod tests {
         );
     }
 
+    #[cfg(debug_assertions)]
+    #[test]
+    fn debug_app_preference_uses_the_dev_profile() {
+        assert!(
+            output_device_uid_path()
+                .unwrap()
+                .parent()
+                .unwrap()
+                .ends_with("pulse-dev")
+        );
+    }
+
     #[test]
     fn library_files_share_the_app_data_directory() {
         assert_eq!(
@@ -82,5 +100,11 @@ mod tests {
                 .and_then(|name| name.to_str()),
             Some("covers")
         );
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    fn debug_library_uses_the_dev_profile() {
+        assert!(app_data_directory().unwrap().ends_with("pulse-dev"));
     }
 }
