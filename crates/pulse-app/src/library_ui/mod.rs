@@ -36,12 +36,14 @@ use crate::{
     theme,
 };
 
-use view_model::{FilterChip, Pagination};
+use view_model::FilterChip;
 
 const SCAN_POLL_INTERVAL: Duration = Duration::from_millis(50);
 const LIST_PAGE_SIZE: usize = 20;
 /// Distance from the album grid's bottom edge that triggers the next page.
 const ALBUM_PREFETCH_PX: f32 = 600.;
+/// Distance from the track list's bottom edge that triggers the next page.
+const TRACK_PREFETCH_PX: f32 = 600.;
 
 #[derive(Clone)]
 struct StorageRootView {
@@ -249,6 +251,7 @@ pub(crate) struct LibraryView {
     /// Latched when an album page query fails so a persistent error cannot
     /// become a notify/requery loop; cleared by reset or a successful reload.
     album_load_stalled: bool,
+    track_load_stalled: bool,
     catalog_summary: LibrarySummary,
     roots: Vec<StorageRootView>,
     selected_root_id: Option<StorageRootId>,
@@ -267,11 +270,12 @@ pub(crate) struct LibraryView {
     album_filter: FilterChip,
     track_filter: FilterChip,
     artist_filter: Option<String>,
-    track_pagination: Pagination,
+    track_total: usize,
     album_total: usize,
     albums_scroll: ScrollHandle,
     album_detail_scroll: ScrollHandle,
     tracks_scroll: ScrollHandle,
+    track_scroll_drag_offset: Option<Pixels>,
     playlists_scroll: ScrollHandle,
     playlist_detail_scroll: ScrollHandle,
     scan: Option<ActiveScan>,
@@ -310,6 +314,7 @@ impl LibraryView {
             artist_hint_press_closed_popover: false,
             artist_search: String::new(),
             album_load_stalled: false,
+            track_load_stalled: false,
             catalog_summary: LibrarySummary::default(),
             roots: Vec::new(),
             selected_root_id: None,
@@ -328,11 +333,12 @@ impl LibraryView {
             album_filter: FilterChip::All,
             track_filter: FilterChip::All,
             artist_filter: None,
-            track_pagination: Pagination::new(LIST_PAGE_SIZE),
+            track_total: 0,
             album_total: 0,
             albums_scroll: ScrollHandle::new(),
             album_detail_scroll: ScrollHandle::new(),
             tracks_scroll: ScrollHandle::new(),
+            track_scroll_drag_offset: None,
             playlists_scroll: ScrollHandle::new(),
             playlist_detail_scroll: ScrollHandle::new(),
             scan: None,
@@ -420,8 +426,8 @@ impl LibraryView {
         let Some(store) = self.store.as_ref() else {
             return Ok(());
         };
-        // Refresh the already-loaded portion of the grid so infinite-scroll
-        // position survives reloads; at least one page always loads.
+        // Refresh the already-loaded portions so infinite-scroll positions
+        // survive reloads; at least one page always loads.
         let album_page = store.album_page(
             self.album_sort,
             &self.album_filter.album_query_filter(current_time_ms()),
@@ -432,8 +438,8 @@ impl LibraryView {
             self.track_sort,
             &self.track_filter.track_query_filter(current_time_ms()),
             self.artist_filter.as_deref(),
-            self.track_pagination.page_size(),
-            self.track_pagination.offset(),
+            self.tracks.len().max(LIST_PAGE_SIZE),
+            0,
         )?;
         let genres = store.genres()?;
         let artists = store.artists()?;
@@ -450,8 +456,8 @@ impl LibraryView {
         self.albums = album_page.albums;
         self.album_total = album_page.total_count;
         self.album_load_stalled = false;
-        self.track_pagination
-            .set_total_items(track_page.total_count);
+        self.track_total = track_page.total_count;
+        self.track_load_stalled = false;
         self.tracks = track_page.tracks;
         self.genres = genres;
         self.artists = artists;
@@ -597,7 +603,7 @@ impl LibraryView {
             TrackSortOrder::ReleaseYear => TrackSortOrder::Duration,
             TrackSortOrder::Duration => TrackSortOrder::Title,
         };
-        self.reset_track_page();
+        self.reset_tracks();
         self.reload_or_show_error();
         cx.notify();
     }
@@ -607,7 +613,7 @@ impl LibraryView {
             return;
         }
         self.track_filter = filter;
-        self.reset_track_page();
+        self.reset_tracks();
         self.reload_or_show_error();
         cx.notify();
     }
@@ -617,7 +623,7 @@ impl LibraryView {
             return;
         }
         self.artist_filter = artist;
-        self.reset_track_page();
+        self.reset_tracks();
         self.reload_or_show_error();
         cx.notify();
     }
@@ -631,18 +637,46 @@ impl LibraryView {
         self.set_artist_filter(artist, cx);
     }
 
-    fn set_track_page(&mut self, page: usize, cx: &mut Context<Self>) {
-        if !self.track_pagination.set_page(page) {
-            return;
+    fn should_load_more_tracks(&self) -> bool {
+        if self.store.is_none() || self.track_load_stalled || self.tracks.len() >= self.track_total
+        {
+            return false;
         }
-        self.tracks_scroll = ScrollHandle::new();
-        self.reload_or_show_error();
-        cx.notify();
+        let offset = self.tracks_scroll.offset();
+        let max_offset = self.tracks_scroll.max_offset();
+        -offset.y >= max_offset.y - px(TRACK_PREFETCH_PX)
     }
 
-    fn reset_track_page(&mut self) {
-        self.track_pagination.reset();
+    fn load_more_tracks(&mut self) -> bool {
+        let Some(store) = self.store.as_ref() else {
+            return false;
+        };
+        match store.track_page(
+            self.track_sort,
+            &self.track_filter.track_query_filter(current_time_ms()),
+            self.artist_filter.as_deref(),
+            LIST_PAGE_SIZE,
+            self.tracks.len(),
+        ) {
+            Ok(page) => {
+                self.track_total = page.total_count;
+                self.tracks.extend(page.tracks);
+                true
+            }
+            Err(error) => {
+                self.track_load_stalled = true;
+                self.error = Some(error.to_string());
+                false
+            }
+        }
+    }
+
+    fn reset_tracks(&mut self) {
+        self.tracks.clear();
+        self.track_total = 0;
+        self.track_load_stalled = false;
         self.tracks_scroll = ScrollHandle::new();
+        self.track_scroll_drag_offset = None;
     }
 
     fn open_album(&mut self, album: Album, cx: &mut Context<Self>) {
@@ -1625,6 +1659,17 @@ impl Render for LibraryView {
             .flex_1()
             .min_h_0()
             .w_full()
+            .on_mouse_move(cx.listener(|this, event, _, cx| {
+                this.update_track_scrollbar_drag(event, cx);
+            }))
+            .on_mouse_up(
+                gpui::MouseButton::Left,
+                cx.listener(|this, _, _, cx| this.finish_track_scrollbar_drag(cx)),
+            )
+            .on_mouse_up_out(
+                gpui::MouseButton::Left,
+                cx.listener(|this, _, _, cx| this.finish_track_scrollbar_drag(cx)),
+            )
             .child(content)
             .when(self.track_menu.is_some(), |view| {
                 view.child(self.render_track_context_menu(cx))
@@ -1717,146 +1762,6 @@ fn render_library_opening(progress: BackfillProgress) -> AnyElement {
                 )),
         )
         .into_any_element()
-}
-
-/// Shared paged-list footer: range readout on the left, previous/next and
-/// compact page numbers on the right. Tracks and Albums use the same control.
-fn render_pagination_footer(
-    pagination: &view_model::Pagination,
-    noun: &'static str,
-    id_prefix: &'static str,
-    set_page: fn(&mut LibraryView, usize, &mut Context<LibraryView>),
-    cx: &mut Context<LibraryView>,
-) -> impl IntoElement {
-    use view_model::PaginationItem;
-
-    let (start, end) = pagination
-        .range()
-        .expect("pagination is only rendered for non-empty results");
-    let current_page = pagination.current_page();
-    let can_previous = pagination.can_previous();
-    let can_next = pagination.can_next();
-    let mut controls = div().flex().items_center().gap(px(4.));
-    controls = controls.child(
-        div()
-            .id(format!("{id_prefix}-previous"))
-            .flex()
-            .items_center()
-            .justify_center()
-            .size(px(28.))
-            .rounded(px(theme::RADIUS_SM))
-            .border_1()
-            .border_color(theme::border())
-            .opacity(if can_previous { 1.0 } else { 0.4 })
-            .when(can_previous, |button| {
-                button
-                    .cursor_pointer()
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        set_page(this, current_page - 1, cx);
-                    }))
-            })
-            .child(
-                gpui::svg()
-                    .path("icons/chevron-left.svg")
-                    .size(px(13.))
-                    .text_color(theme::text_muted()),
-            ),
-    );
-    for (index, item) in pagination.items().into_iter().enumerate() {
-        controls = controls.child(match item {
-            PaginationItem::Page(page) => {
-                let active = page == current_page;
-                div()
-                    .id(format!("{id_prefix}-{}", page + 1))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .size(px(28.))
-                    .rounded(px(theme::RADIUS_SM))
-                    .when(active, |button| {
-                        button
-                            .border_1()
-                            .border_color(theme::accent())
-                            .bg(theme::accent_soft())
-                    })
-                    .when(!active, |button| {
-                        button
-                            .cursor_pointer()
-                            .on_click(cx.listener(move |this, _, _, cx| set_page(this, page, cx)))
-                    })
-                    .font_family(theme::FONT_MONO)
-                    .font_weight(gpui::FontWeight::BOLD)
-                    .text_size(px(10.))
-                    .text_color(if active {
-                        theme::accent()
-                    } else {
-                        theme::text_secondary()
-                    })
-                    .child((page + 1).to_string())
-                    .into_any_element()
-            }
-            PaginationItem::Ellipsis => div()
-                .id(format!("{id_prefix}-ellipsis-{index}"))
-                .flex()
-                .items_center()
-                .justify_center()
-                .size(px(28.))
-                .font_family(theme::FONT_MONO)
-                .font_weight(gpui::FontWeight::BOLD)
-                .text_size(px(10.))
-                .text_color(theme::text_secondary())
-                .child("…")
-                .into_any_element(),
-        });
-    }
-    controls = controls.child(
-        div()
-            .id(format!("{id_prefix}-next"))
-            .flex()
-            .items_center()
-            .justify_center()
-            .size(px(28.))
-            .rounded(px(theme::RADIUS_SM))
-            .border_1()
-            .border_color(theme::border())
-            .opacity(if can_next { 1.0 } else { 0.4 })
-            .when(can_next, |button| {
-                button
-                    .cursor_pointer()
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        set_page(this, current_page + 1, cx);
-                    }))
-            })
-            .child(
-                gpui::svg()
-                    .path("icons/chevron-right.svg")
-                    .size(px(13.))
-                    .text_color(theme::text_secondary()),
-            ),
-    );
-
-    div()
-        .flex()
-        .items_center()
-        .justify_between()
-        .w_full()
-        .h(px(59.))
-        .flex_none()
-        .px(px(14.))
-        .border_t_1()
-        .border_color(theme::border())
-        .child(
-            div()
-                .font_family(theme::FONT_MONO)
-                .font_weight(gpui::FontWeight::BOLD)
-                .text_size(px(9.))
-                .text_color(theme::text_muted())
-                .child(format!(
-                    "{start}–{end} OF {} {noun}",
-                    pagination.total_items()
-                )),
-        )
-        .child(controls)
 }
 
 /// The standard single-line text input: chrome, caret, cursor, and key

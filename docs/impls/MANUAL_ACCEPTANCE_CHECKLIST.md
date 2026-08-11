@@ -81,8 +81,9 @@ Intentional MVP behavior: Shuffle, Repeat, and the queue button remain inert; th
 - [ ] On the first queue entry, press Previous; the first track restarts and the index does not go negative.
 - [ ] Start from a middle album row; the badge equals the number of later entries, decrements after each advance, and disappears at zero.
 - [ ] In Tracks, choose a non-default sort and at least one filter, then play a middle visible row; Next follows only the current visible order and excludes filtered-out tracks.
-- [ ] In Tracks with more than 50 matching rows, the range, total, page numbers, Previous, and Next controls stay correct; changing sort, filter, or artist returns to page 1 and loads the filtered page from the library store.
-- [ ] Play the final row of a Tracks page that has another page after it; Next and automatic advance continue into the next page because the queue spans the full active sort/filter result.
+- [ ] In Tracks with more than 50 matching rows, scrolling near the bottom appends backend pages without gaps or duplicate rows; changing sort, filter, or artist returns to the top and starts a fresh paged query.
+- [ ] The Tracks scrollbar appears whenever loaded rows overflow and updates as backend pages append; grabbing anywhere along the thumb does not jump it under the cursor, rail clicks at the extreme top/bottom land exactly at the top/bottom, and releasing a bottom drag does not leave page loading churning.
+- [ ] Play a row near a backend page boundary; Next and automatic advance continue beyond the currently loaded rows because the queue spans the full active sort/filter result.
 - [ ] Drop a standalone file while a library queue is active; the prior queue and badge clear.
 - [ ] Click Shuffle, Repeat, and the queue button; they remain intentionally inert and do not mutate playback order or open an undesigned drawer.
 
@@ -125,8 +126,8 @@ Intentional MVP behavior: Shuffle, Repeat, and the queue button remain inert; th
 
 - [ ] Compare the overall shell and playback row against Pencil `E3N1P` and `qKkw7`; spacing, colors, fonts, controls, titlebar, sidebar, and docked-row geometry have no obvious regressions.
 - [ ] Compare Album Detail against `XaIfA`; cover/header/actions/table rhythm match, the `#` header is aligned with row numbers after the latest fix, and playing/selected row treatments are correct.
-- [ ] Compare Tracks against `KfJr9`; table columns, chips, selection, playing treatment, scrolling, and pagination are aligned.
-- [ ] Compare Albums against `E3N1P`; responsive cards keep their minimum width and spacing, and the pagination design remains aligned for its follow-up implementation.
+- [ ] Compare Tracks against `KfJr9` and artist-filter state `VSy1Y`; table columns, chips, selection, playing treatment, continuous scrolling, and the slim scrollbar are aligned, with no pagination footer.
+- [ ] Compare Albums against `E3N1P`; responsive cards keep their minimum width and spacing, and continuous scrolling loads more cards without pagination chrome.
 - [ ] Compare populated and empty Playlists against `MHrLm` and `LNdSq`; list/detail balance, covers, badges, controls, empty state, and queue rows are aligned.
 - [ ] Compare playlist name dialog, track context menu/flyout, and search popover against `Lr7A3`, `cYA3i`, and `A3JuUc`; titles, buttons, grouping, selected rows, dismissal behavior, and overlay placement are aligned.
 - [ ] Compare Storage empty, populated, scanning, offline, and failure states against `C6IrDC` and its state variants; no text overlaps, clipping, or stale controls remain.
