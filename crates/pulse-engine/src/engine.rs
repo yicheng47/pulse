@@ -34,10 +34,10 @@ impl FloatPacker {
     }
 }
 
-/// Exclusive-mode playback engine for one output device.
+/// Playback engine for one output device.
 pub struct Engine {
     device: device::DeviceId,
-    _hog: hal::HogGuard,
+    _hog: Option<hal::HogGuard>,
     producer: Option<Producer<u8>>,
     consumer: Option<Consumer<u8>>,
     sink: Option<auhal::AuhalSink>,
@@ -47,11 +47,12 @@ pub struct Engine {
 }
 
 impl Engine {
-    /// Takes hog mode on the device.
-    pub fn open(device: device::DeviceId) -> Result<Self, EngineError> {
+    pub fn open(device: device::DeviceId, exclusive_mode: bool) -> Result<Self, EngineError> {
         Ok(Self {
             device,
-            _hog: hal::HogGuard::acquire(device)?,
+            _hog: exclusive_mode
+                .then(|| hal::HogGuard::acquire(device))
+                .transpose()?,
             producer: None,
             consumer: None,
             sink: None,

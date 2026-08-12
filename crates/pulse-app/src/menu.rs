@@ -14,6 +14,7 @@ actions!(
         Minimize,
         CloseWindow,
         FocusSearch,
+        OpenSettings,
         Quit
     ]
 );
@@ -45,13 +46,13 @@ pub fn install(cx: &mut App) {
         KeyBinding::new("cmd-m", Minimize, None),
         KeyBinding::new("cmd-w", CloseWindow, None),
         KeyBinding::new("cmd-f", FocusSearch, None),
+        KeyBinding::new("cmd-,", OpenSettings, None),
     ]);
 
-    // About has no handler on purpose: no About surface is designed yet, and
-    // GPUI's menu validation greys out items whose action is unhandled.
     cx.set_menus([
         Menu::new("Pulse").items([
             MenuItem::action("About Pulse", About),
+            MenuItem::action("Settings…", OpenSettings),
             MenuItem::separator(),
             MenuItem::os_submenu("Services", SystemMenuType::Services),
             MenuItem::separator(),

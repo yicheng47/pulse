@@ -72,6 +72,12 @@ struct PlayAttempt {
     confirmed: bool,
 }
 
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum PlaybackSurface {
+    Transport,
+    SettingsOutputPicker,
+}
+
 #[cfg(target_os = "macos")]
 fn app_name_for_pid(pid: i32) -> Option<String> {
     let app = objc2_app_kit::NSRunningApplication::runningApplicationWithProcessIdentifier(pid)?;
@@ -100,6 +106,8 @@ pub struct PlaybackRow {
     device_capability_message: Option<DeviceMessage>,
     pending_device_change: Option<PendingDeviceChange>,
     device_message: Option<DeviceMessage>,
+    exclusive_mode: bool,
+    surface: PlaybackSurface,
     output_popover_open: bool,
     output_toggle_press_closed_popover: bool,
     queue_popover_open: bool,
@@ -130,6 +138,7 @@ impl PlaybackRow {
     pub fn new(cx: &mut Context<Self>) -> Self {
         let mut row = Self::initial();
         row.queue_popover_focus = Some(cx.focus_handle());
+        row.exclusive_mode = preferences::load_exclusive_mode().unwrap_or(true);
         row.initialize_output();
 
         cx.spawn(async move |this, cx| {
@@ -172,6 +181,8 @@ impl PlaybackRow {
             device_capability_message: None,
             pending_device_change: None,
             device_message: None,
+            exclusive_mode: true,
+            surface: PlaybackSurface::Transport,
             output_popover_open: false,
             output_toggle_press_closed_popover: false,
             queue_popover_open: false,
@@ -249,7 +260,7 @@ impl PlaybackRow {
     }
 
     fn install_controller(&mut self, device_id: device::DeviceId) {
-        let controller = PlaybackController::spawn(device_id);
+        let controller = PlaybackController::spawn(device_id, self.exclusive_mode);
         self.event_rx = Some(controller.subscribe());
         self.command_tx = Some(controller.command_sender());
         self.controller = Some(controller);
@@ -309,6 +320,57 @@ impl PlaybackRow {
 
     pub(crate) fn error(&self) -> Option<&str> {
         self.error.as_deref()
+    }
+
+    pub(crate) fn active_output_device(&self) -> Option<&device::Device> {
+        self.active_device.as_ref()
+    }
+
+    pub(crate) fn exclusive_mode(&self) -> bool {
+        self.exclusive_mode
+    }
+
+    pub(crate) fn output_popover_open(&self) -> bool {
+        self.output_popover_open
+    }
+
+    pub(crate) fn enter_settings(&mut self, cx: &mut Context<Self>) {
+        self.surface = PlaybackSurface::SettingsOutputPicker;
+        self.output_popover_open = false;
+        self.queue_popover_open = false;
+        cx.notify();
+    }
+
+    pub(crate) fn leave_settings(&mut self, cx: &mut Context<Self>) {
+        self.surface = PlaybackSurface::Transport;
+        self.output_popover_open = false;
+        cx.notify();
+    }
+
+    pub(crate) fn close_output_popover(&mut self, cx: &mut Context<Self>) {
+        if self.output_popover_open {
+            self.output_popover_open = false;
+            cx.notify();
+        }
+    }
+
+    pub(crate) fn toggle_settings_output_popover(&mut self, cx: &mut Context<Self>) {
+        self.toggle_output_popover(cx);
+    }
+
+    pub(crate) fn toggle_exclusive_mode(&mut self, cx: &mut Context<Self>) {
+        let enabled = !self.exclusive_mode;
+        if let Err(error) = preferences::save_exclusive_mode(enabled) {
+            self.device_message = Some(DeviceMessage {
+                text: format!("Could not save the exclusive-mode preference: {error}"),
+                is_error: true,
+            });
+            cx.notify();
+            return;
+        }
+        self.exclusive_mode = enabled;
+        self.send_command(PlaybackCommand::SetExclusiveMode { enabled }, cx);
+        cx.notify();
     }
 
     /// Library rows marked unplayable because their file was gone at play
@@ -1566,8 +1628,13 @@ impl PlaybackRow {
         let mut popover = div()
             .id("output-device-popover")
             .absolute()
-            .right(px(-52.))
-            .bottom(px(54.))
+            .when(
+                self.surface == PlaybackSurface::SettingsOutputPicker,
+                |popover| popover.right_0().top(px(30.)),
+            )
+            .when(self.surface == PlaybackSurface::Transport, |popover| {
+                popover.right(px(-52.)).bottom(px(54.))
+            })
             .flex()
             .flex_col()
             .gap(px(11.))
@@ -1647,7 +1714,11 @@ impl PlaybackRow {
                                     .text_color(theme::text_secondary())
                                     .overflow_hidden()
                                     .whitespace_nowrap()
-                                    .child("CoreAudio · Exclusive during playback"),
+                                    .child(if self.exclusive_mode {
+                                        "CoreAudio · Exclusive during playback"
+                                    } else {
+                                        "CoreAudio · Shared playback"
+                                    }),
                             )
                             .child(
                                 div()
@@ -2124,6 +2195,15 @@ impl PlaybackRow {
 
 impl Render for PlaybackRow {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if self.surface == PlaybackSurface::SettingsOutputPicker {
+            return div()
+                .relative()
+                .size(px(0.))
+                .when(self.output_popover_open, |anchor| {
+                    anchor.child(self.render_output_popover(cx))
+                });
+        }
+
         div()
             .flex()
             .flex_col()

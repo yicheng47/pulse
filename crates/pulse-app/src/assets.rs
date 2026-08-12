@@ -42,6 +42,11 @@ const ASSETS: &[(&str, &[u8])] = assets![
     "icons/refresh-cw.svg",
     "icons/user-round-search.svg",
     "icons/x.svg",
+    "icons/chevron-left.svg",
+    "icons/chevron-right.svg",
+    "icons/external-link.svg",
+    "icons/info.svg",
+    "icons/sliders-horizontal.svg",
 ];
 
 pub struct Assets;

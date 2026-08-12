@@ -199,7 +199,7 @@ fn start_playback(
     device_id: pulse_engine::device::DeviceId,
     file: PathBuf,
 ) -> Result<(PlaybackController, Receiver<PlaybackEvent>)> {
-    let controller = PlaybackController::spawn(device_id);
+    let controller = PlaybackController::spawn(device_id, true);
     let events = controller.subscribe();
     controller
         .command_sender()

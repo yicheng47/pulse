@@ -2,19 +2,22 @@ use std::{ops::Range, path::Path, time::Duration};
 
 use gpui::{
     AnyElement, Bounds, Context, ElementInputHandler, Entity, EntityInputHandler, ExternalPaths,
-    FocusHandle, FontWeight, IntoElement, KeyDownEvent, MouseButton, MouseMoveEvent, MouseUpEvent,
-    ObjectFit, Pixels, Render, ScrollHandle, UTF16Selection, Window, WindowControlArea, canvas,
-    div, img, prelude::*, px, svg,
+    FocusHandle, FontWeight, IntoElement, KeyDownEvent, MouseButton, MouseDownEvent,
+    MouseMoveEvent, MouseUpEvent, ObjectFit, Pixels, Render, ScrollHandle, SharedString,
+    UTF16Selection, Window, WindowControlArea, canvas, div, img, linear_color_stop,
+    linear_gradient, prelude::*, px, svg,
 };
 
 use crate::{
+    components,
     library::{Album, PlaylistSummary, Track},
     library_ui::{
         LibraryView,
         view_model::{self, SearchSelection, SearchViewModel},
     },
-    menu::FocusSearch,
+    menu::{About, FocusSearch, OpenSettings},
     playback_row::PlaybackRow,
+    settings::{AboutLink, SettingsSection, SettingsViewModel},
     theme,
 };
 
@@ -81,6 +84,8 @@ pub struct Shell {
     search_focus: FocusHandle,
     search_selection: Range<usize>,
     search_marked_range: Option<Range<usize>>,
+    settings_section: Option<SettingsSection>,
+    settings_output_toggle_press_closed: bool,
     titlebar_drag_armed: bool,
 }
 
@@ -102,8 +107,30 @@ impl Shell {
             search_focus: cx.focus_handle(),
             search_selection: 0..0,
             search_marked_range: None,
+            settings_section: None,
+            settings_output_toggle_press_closed: false,
             titlebar_drag_armed: false,
         }
+    }
+
+    fn open_settings(&mut self, section: SettingsSection, cx: &mut Context<Self>) {
+        self.settings_section = Some(section);
+        self.search_open = false;
+        self.search_marked_range = None;
+        self.row.update(cx, |row, cx| row.enter_settings(cx));
+        cx.notify();
+    }
+
+    fn close_settings(&mut self, cx: &mut Context<Self>) {
+        self.settings_section = None;
+        self.row.update(cx, |row, cx| row.leave_settings(cx));
+        cx.notify();
+    }
+
+    fn select_settings_section(&mut self, section: SettingsSection, cx: &mut Context<Self>) {
+        self.settings_section = Some(section);
+        self.row.update(cx, |row, cx| row.close_output_popover(cx));
+        cx.notify();
     }
 
     fn focus_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -344,7 +371,7 @@ impl Shell {
             .child(render_brand())
             .child(self.render_navigation(cx))
             .child(div().flex_1())
-            .child(render_settings_footer())
+            .child(self.render_settings_footer(cx))
             .child(
                 self.render_titlebar_drag_area(
                     "sidebar-titlebar-drag",
@@ -443,6 +470,454 @@ impl Shell {
                     self.library.read(cx).storage_root_count(),
                 ))
             })
+    }
+
+    fn render_settings_footer(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .id("open-settings")
+            .flex()
+            .items_center()
+            .gap(px(10.))
+            .w_full()
+            .px(px(10.))
+            .py(px(9.))
+            .rounded(px(theme::RADIUS_MD))
+            .cursor_pointer()
+            .on_click(cx.listener(|this, _, window, cx| {
+                window.blur();
+                this.open_settings(SettingsSection::General, cx);
+            }))
+            .child(
+                svg()
+                    .path("icons/settings.svg")
+                    .size(px(18.))
+                    .flex_none()
+                    .text_color(theme::text_muted()),
+            )
+            .child(
+                div()
+                    .font_family(theme::FONT_DISPLAY)
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_size(px(14.))
+                    .text_color(theme::text_secondary())
+                    .child("Settings"),
+            )
+    }
+
+    fn render_settings_shell(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let section = self
+            .settings_section
+            .expect("settings shell is only rendered for a settings section");
+        let model = SettingsViewModel::new(section, self.row.read(cx).active_output_device());
+
+        div()
+            .flex()
+            .size_full()
+            .child(self.render_settings_sidebar(&model, cx))
+            .child(self.render_settings_content(&model, cx))
+    }
+
+    fn render_settings_sidebar(
+        &self,
+        model: &SettingsViewModel,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let mut navigation = div().flex().flex_col().gap(px(4.)).w_full();
+        for section in SettingsSection::ALL {
+            navigation = navigation.child(self.render_settings_nav_item(model, section, cx));
+        }
+
+        div()
+            .relative()
+            .flex()
+            .flex_col()
+            .flex_none()
+            .w(px(SIDEBAR_WIDTH))
+            .h_full()
+            .gap(px(22.))
+            .pt(px(24.))
+            .pr(px(14.))
+            .pb(px(16.))
+            .pl(px(14.))
+            .bg(theme::bg_surface())
+            .border_r_1()
+            .border_color(theme::border())
+            .child(
+                div()
+                    .id("back-to-library")
+                    .flex()
+                    .items_center()
+                    .gap(px(10.))
+                    .w_full()
+                    .px(px(10.))
+                    .py(px(9.))
+                    .rounded(px(theme::RADIUS_MD))
+                    .cursor_pointer()
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        window.blur();
+                        this.close_settings(cx);
+                    }))
+                    .child(
+                        svg()
+                            .path("icons/chevron-left.svg")
+                            .size(px(17.))
+                            .flex_none()
+                            .text_color(theme::text_muted()),
+                    )
+                    .child(
+                        div()
+                            .font_family(theme::FONT_DISPLAY)
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_size(px(15.))
+                            .text_color(theme::text_secondary())
+                            .child("Back to library"),
+                    ),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(px(6.))
+                    .w_full()
+                    .child(
+                        div().flex().px(px(10.)).w_full().child(
+                            div()
+                                .font_family(theme::FONT_MONO)
+                                .font_weight(FontWeight::BOLD)
+                                .text_size(px(10.))
+                                .text_color(theme::text_muted())
+                                .child("SETTINGS"),
+                        ),
+                    )
+                    .child(navigation),
+            )
+            .child(div().flex_1())
+            .child(self.render_titlebar_drag_area(
+                "settings-sidebar-titlebar-drag",
+                div().absolute().top_0().left_0().w_full().h(px(20.)),
+                cx,
+            ))
+    }
+
+    fn render_settings_nav_item(
+        &self,
+        model: &SettingsViewModel,
+        section: SettingsSection,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let selected = model.is_selected(section);
+
+        div()
+            .id(SharedString::from(format!(
+                "settings-section-{}",
+                section.label()
+            )))
+            .flex()
+            .items_center()
+            .gap(px(10.))
+            .w_full()
+            .px(px(10.))
+            .py(px(9.))
+            .rounded(px(theme::RADIUS_MD))
+            .when(selected, |item| item.bg(theme::accent_soft()))
+            .cursor_pointer()
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.select_settings_section(section, cx);
+            }))
+            .child(
+                svg()
+                    .path(section.icon())
+                    .size(px(17.))
+                    .flex_none()
+                    .text_color(if selected {
+                        theme::accent()
+                    } else {
+                        theme::text_muted()
+                    }),
+            )
+            .child(
+                div()
+                    .font_family(theme::FONT_DISPLAY)
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_size(px(15.))
+                    .text_color(if selected {
+                        theme::text_primary()
+                    } else {
+                        theme::text_secondary()
+                    })
+                    .child(section.label()),
+            )
+    }
+
+    fn render_settings_content(
+        &self,
+        model: &SettingsViewModel,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let content = match model.section {
+            SettingsSection::General => self.render_general_settings(model, cx),
+            SettingsSection::Update => self.render_update_settings(),
+            SettingsSection::About => self.render_about_settings(cx),
+        };
+
+        div()
+            .relative()
+            .flex()
+            .flex_col()
+            .flex_1()
+            .min_w_0()
+            .h_full()
+            .items_center()
+            .gap(px(22.))
+            .pt(px(30.))
+            .pr(px(36.))
+            .pb(px(24.))
+            .pl(px(36.))
+            .child(
+                div()
+                    .w_full()
+                    .max_w(px(820.))
+                    .font_family(theme::FONT_DISPLAY)
+                    .font_weight(FontWeight::BOLD)
+                    .text_size(px(28.))
+                    .text_color(theme::text_primary())
+                    .child(model.section.label()),
+            )
+            .child(content)
+            .child(self.render_titlebar_drag_area(
+                "settings-content-titlebar-drag",
+                div().absolute().top_0().left_0().w_full().h(px(20.)),
+                cx,
+            ))
+    }
+
+    fn render_general_settings(
+        &self,
+        model: &SettingsViewModel,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let exclusive_mode = self.row.read(cx).exclusive_mode();
+        let output_picker = div()
+            .id("settings-output-picker")
+            .relative()
+            .flex()
+            .items_center()
+            .gap(px(8.))
+            .max_w(px(360.))
+            .cursor_pointer()
+            .capture_any_mouse_down(cx.listener(|this, event: &MouseDownEvent, _, cx| {
+                if event.button == MouseButton::Left {
+                    this.settings_output_toggle_press_closed =
+                        this.row.read(cx).output_popover_open();
+                }
+            }))
+            .on_click(cx.listener(|this, _, _, cx| {
+                if std::mem::take(&mut this.settings_output_toggle_press_closed) {
+                    this.row.update(cx, |row, cx| row.close_output_popover(cx));
+                    return;
+                }
+                this.row
+                    .update(cx, |row, cx| row.toggle_settings_output_popover(cx));
+            }))
+            .child(
+                div()
+                    .truncate()
+                    .font_family(theme::FONT_SANS)
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_size(px(13.))
+                    .text_color(theme::text_secondary())
+                    .child(model.output_device_name.clone()),
+            )
+            .child(
+                svg()
+                    .path("icons/chevron-right.svg")
+                    .size(px(16.))
+                    .flex_none()
+                    .text_color(theme::text_muted()),
+            )
+            .child(self.row.clone());
+
+        settings_group(
+            "PLAYBACK",
+            settings_card()
+                .child(settings_row(
+                    "Default output device",
+                    "Where Pulse sends audio.",
+                    output_picker,
+                    true,
+                ))
+                .child(settings_row(
+                    "Exclusive mode",
+                    "Take exclusive control of the device so nothing else can resample the stream.",
+                    components::toggle("exclusive-mode-toggle", exclusive_mode).on_click(
+                        cx.listener(|this, _, _, cx| {
+                            this.row.update(cx, |row, cx| row.toggle_exclusive_mode(cx));
+                        }),
+                    ),
+                    false,
+                )),
+        )
+        .into_any_element()
+    }
+
+    fn render_update_settings(&self) -> AnyElement {
+        let hero = settings_card().child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(14.))
+                .w_full()
+                .py(px(15.))
+                .child(settings_app_mark())
+                .child(
+                    div()
+                        .flex()
+                        .flex_1()
+                        .min_w_0()
+                        .flex_col()
+                        .gap(px(4.))
+                        .child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap(px(8.))
+                                .child(
+                                    div()
+                                        .font_family(theme::FONT_SANS)
+                                        .font_weight(FontWeight::SEMIBOLD)
+                                        .text_size(px(14.))
+                                        .text_color(theme::text_primary())
+                                        .child("Pulse"),
+                                )
+                                .child(version_chip()),
+                        )
+                        .child(
+                            div()
+                                .font_family(theme::FONT_SANS)
+                                .text_size(px(12.))
+                                .text_color(theme::text_muted())
+                                .child("You're on the latest version."),
+                        ),
+                )
+                .child(
+                    div()
+                        .id("check-for-updates")
+                        .flex()
+                        .items_center()
+                        .gap(px(8.))
+                        .px(px(14.))
+                        .py(px(9.))
+                        .flex_none()
+                        .rounded(px(theme::RADIUS_MD))
+                        .border_1()
+                        .border_color(theme::border())
+                        .bg(theme::bg_muted())
+                        .cursor_default()
+                        .child(
+                            svg()
+                                .path("icons/refresh-cw.svg")
+                                .size(px(16.))
+                                .flex_none()
+                                .text_color(theme::text_secondary()),
+                        )
+                        .child(
+                            div()
+                                .font_family(theme::FONT_SANS)
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .text_size(px(13.))
+                                .text_color(theme::text_primary())
+                                .child("Check for updates"),
+                        ),
+                ),
+        );
+
+        div()
+            .flex()
+            .flex_col()
+            .gap(px(22.))
+            .w_full()
+            .max_w(px(820.))
+            .child(settings_group("VERSION", hero))
+            .child(settings_group(
+                "PREFERENCES",
+                settings_card().child(settings_row(
+                    "Check for updates on launch",
+                    "Asks GitHub once per launch whether a newer version exists. Nothing else is sent.",
+                    components::toggle("update-check-on-launch-toggle", true).cursor_default(),
+                    false,
+                )),
+            ))
+            .into_any_element()
+    }
+
+    fn render_about_settings(&self, cx: &mut Context<Self>) -> AnyElement {
+        let application = settings_card().child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(14.))
+                .w_full()
+                .py(px(16.))
+                .child(settings_app_mark())
+                .child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap(px(4.))
+                        .min_w_0()
+                        .child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap(px(8.))
+                                .child(
+                                    div()
+                                        .font_family(theme::FONT_DISPLAY)
+                                        .font_weight(FontWeight::BOLD)
+                                        .text_size(px(18.))
+                                        .text_color(theme::text_primary())
+                                        .child("Pulse"),
+                                )
+                                .child(version_chip()),
+                        )
+                        .child(
+                            div()
+                                .font_family(theme::FONT_SANS)
+                                .text_size(px(12.))
+                                .text_color(theme::text_muted())
+                                .child("Native-rate music player for macOS."),
+                        ),
+                ),
+        );
+
+        let mut links = settings_card();
+        for (index, link) in AboutLink::ALL.into_iter().enumerate() {
+            links = links.child(
+                settings_row(
+                    link.label(),
+                    link.description(),
+                    svg()
+                        .path("icons/external-link.svg")
+                        .size(px(15.))
+                        .flex_none()
+                        .text_color(theme::text_muted()),
+                    index + 1 < AboutLink::ALL.len(),
+                )
+                .id(("about-link", index))
+                .cursor_pointer()
+                .on_click(cx.listener(move |_, _, _, cx| cx.open_url(link.url()))),
+            );
+        }
+
+        div()
+            .flex()
+            .flex_col()
+            .gap(px(22.))
+            .w_full()
+            .max_w(px(820.))
+            .child(settings_group("APPLICATION", application))
+            .child(settings_group("LINKS", links))
+            .into_any_element()
     }
 
     fn render_body(&self, cx: &Context<Self>) -> AnyElement {
@@ -902,7 +1377,7 @@ impl EntityInputHandler for Shell {
 
 impl Render for Shell {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        div()
+        let root = div()
             .id("window-drop-target")
             .flex()
             .size_full()
@@ -926,28 +1401,149 @@ impl Render for Shell {
                     this.row.update(cx, |row, cx| row.finish_scrub(event, cx));
                 }),
             )
-            .on_action(cx.listener(|this, _: &FocusSearch, window, cx| {
-                this.focus_search(window, cx);
+            .on_action(cx.listener(|this, _: &OpenSettings, window, cx| {
+                window.blur();
+                this.open_settings(SettingsSection::General, cx);
             }))
-            .child(self.render_sidebar(cx))
-            .child(
-                div()
-                    .relative()
-                    .flex()
-                    .flex_col()
-                    .flex_1()
-                    .min_w_0()
-                    .h_full()
-                    .child(self.render_titlebar_drag_area(
-                        "main-titlebar-drag",
-                        render_top_bar(),
-                        cx,
-                    ))
-                    .child(self.render_body(cx))
-                    .child(self.row.clone())
-                    .child(self.render_search(window, cx)),
-            )
+            .on_action(cx.listener(|this, _: &About, window, cx| {
+                window.blur();
+                this.open_settings(SettingsSection::About, cx);
+            }));
+
+        if self.settings_section.is_some() {
+            return root.child(self.render_settings_shell(cx));
+        }
+
+        root.on_action(cx.listener(|this, _: &FocusSearch, window, cx| {
+            this.focus_search(window, cx);
+        }))
+        .child(self.render_sidebar(cx))
+        .child(
+            div()
+                .relative()
+                .flex()
+                .flex_col()
+                .flex_1()
+                .min_w_0()
+                .h_full()
+                .child(self.render_titlebar_drag_area("main-titlebar-drag", render_top_bar(), cx))
+                .child(self.render_body(cx))
+                .child(self.row.clone())
+                .child(self.render_search(window, cx)),
+        )
     }
+}
+
+fn settings_group(label: &'static str, card: impl IntoElement) -> gpui::Div {
+    div()
+        .flex()
+        .flex_col()
+        .gap(px(9.))
+        .w_full()
+        .child(
+            div()
+                .font_family(theme::FONT_MONO)
+                .font_weight(FontWeight::BOLD)
+                .text_size(px(11.))
+                .text_color(theme::text_muted())
+                .child(label),
+        )
+        .child(card)
+}
+
+fn settings_card() -> gpui::Div {
+    div()
+        .flex()
+        .flex_col()
+        .w_full()
+        .px(px(16.))
+        .rounded(px(theme::RADIUS_LG))
+        .border_1()
+        .border_color(theme::border())
+        .bg(theme::bg_surface())
+}
+
+fn settings_row(
+    title: impl Into<SharedString>,
+    description: impl Into<SharedString>,
+    trailing: impl IntoElement,
+    divider: bool,
+) -> gpui::Div {
+    div()
+        .flex()
+        .items_center()
+        .gap(px(16.))
+        .w_full()
+        .py(px(13.))
+        .when(divider, |row| {
+            row.border_b_1().border_color(theme::border())
+        })
+        .child(
+            div()
+                .flex()
+                .flex_col()
+                .flex_1()
+                .min_w_0()
+                .gap(px(4.))
+                .child(
+                    div()
+                        .font_family(theme::FONT_SANS)
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_size(px(14.))
+                        .text_color(theme::text_primary())
+                        .child(title.into()),
+                )
+                .child(
+                    div()
+                        .font_family(theme::FONT_SANS)
+                        .text_size(px(12.))
+                        .text_color(theme::text_muted())
+                        .child(description.into()),
+                ),
+        )
+        .child(trailing)
+}
+
+fn settings_app_mark() -> impl IntoElement {
+    div()
+        .flex()
+        .items_center()
+        .justify_center()
+        .size(px(32.))
+        .flex_none()
+        .rounded(px(7.))
+        .overflow_hidden()
+        .border_1()
+        .border_color(theme::border())
+        .bg(linear_gradient(
+            180.,
+            linear_color_stop(theme::bg_surface(), 0.),
+            linear_color_stop(theme::bg_inset(), 1.),
+        ))
+        .child(
+            svg()
+                .path("icons/pulse-mark.svg")
+                .size(px(22.))
+                .text_color(theme::accent()),
+        )
+}
+
+fn version_chip() -> impl IntoElement {
+    div()
+        .flex()
+        .items_center()
+        .px(px(7.))
+        .py(px(3.))
+        .flex_none()
+        .rounded(px(theme::RADIUS_SM))
+        .border_1()
+        .border_color(theme::border())
+        .bg(theme::bg_muted())
+        .font_family(theme::FONT_MONO)
+        .font_weight(FontWeight::SEMIBOLD)
+        .text_size(px(11.))
+        .text_color(theme::text_secondary())
+        .child(format!("v{}", env!("CARGO_PKG_VERSION")))
 }
 
 fn render_brand() -> impl IntoElement {
@@ -986,32 +1582,6 @@ fn render_storage_badge(count: usize) -> impl IntoElement {
                 .text_size(px(10.))
                 .text_color(theme::text_muted())
                 .child(count.to_string()),
-        )
-}
-
-fn render_settings_footer() -> impl IntoElement {
-    div()
-        .flex()
-        .items_center()
-        .gap(px(10.))
-        .w_full()
-        .px(px(10.))
-        .py(px(9.))
-        .rounded(px(theme::RADIUS_MD))
-        .child(
-            svg()
-                .path("icons/settings.svg")
-                .size(px(18.))
-                .flex_none()
-                .text_color(theme::text_muted()),
-        )
-        .child(
-            div()
-                .font_family(theme::FONT_DISPLAY)
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_size(px(14.))
-                .text_color(theme::text_secondary())
-                .child("Settings"),
         )
 }
 
