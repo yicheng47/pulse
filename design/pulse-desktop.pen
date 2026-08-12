@@ -3569,6 +3569,54 @@
                   "fontWeight": "600"
                 }
               ]
+            },
+            {
+              "type": "frame",
+              "id": "SK7jO",
+              "name": "Toggle / On",
+              "reusable": true,
+              "width": 40,
+              "height": 22,
+              "fill": "$accent",
+              "cornerRadius": 11,
+              "padding": 2,
+              "justifyContent": "end",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "rviOC",
+                  "name": "Knob",
+                  "fill": "$bg-inset",
+                  "width": 18,
+                  "height": 18
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "jkTS9",
+              "name": "Toggle / Off",
+              "reusable": true,
+              "width": 40,
+              "height": 22,
+              "fill": "$bg-elevated",
+              "cornerRadius": 11,
+              "stroke": "$border-strong",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "padding": 2,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "Ifj3P",
+                  "name": "Knob",
+                  "fill": "$text-muted",
+                  "width": 18,
+                  "height": 18
+                }
+              ]
             }
           ]
         },
@@ -49835,6 +49883,1850 @@
                           "fontFamily": "$font-display",
                           "fontSize": 14,
                           "fontWeight": "700"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "C5mRG",
+      "x": 5837,
+      "y": -311,
+      "name": "Settings / General",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$bg-page",
+      "cornerRadius": "$radius-lg",
+      "stroke": "$border",
+      "strokeWidth": {
+        "top": 1,
+        "right": 1,
+        "left": 1
+      },
+      "strokeAlignment": "inner",
+      "strokeLinejoin": "round",
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "zshxe",
+          "name": "Shell",
+          "width": "fill_container",
+          "height": "fill_container",
+          "children": [
+            {
+              "type": "frame",
+              "id": "QVjxZ",
+              "name": "Settings Sidebar",
+              "width": 236,
+              "height": "fill_container",
+              "fill": "$bg-surface",
+              "stroke": "$border",
+              "strokeWidth": {
+                "right": 1
+              },
+              "strokeAlignment": "inner",
+              "strokeLinejoin": "round",
+              "layout": "vertical",
+              "gap": 22,
+              "padding": [
+                24,
+                14,
+                16,
+                14
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "zYv9S",
+                  "name": "Back to Library",
+                  "width": "fill_container",
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "dKxbg",
+                      "name": "Icon",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevron-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "aPTDg",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Back to library",
+                      "fontFamily": "$font-display",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "ClLBn",
+                  "name": "Settings Group",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "JuJKr",
+                      "name": "Header Wrap",
+                      "width": "fill_container",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Irkne",
+                          "name": "Header",
+                          "fill": "$text-muted",
+                          "content": "SETTINGS",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "700",
+                          "letterSpacing": 0.8
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "xlnXd",
+                      "name": "Items",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "TiVgt",
+                          "name": "Nav / General",
+                          "width": "fill_container",
+                          "fill": "$accent-soft",
+                          "cornerRadius": "$radius-md",
+                          "gap": 10,
+                          "padding": [
+                            9,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "m2v7W",
+                              "name": "Icon",
+                              "width": 17,
+                              "height": 17,
+                              "icon": "sliders-horizontal",
+                              "library": "lucide",
+                              "fill": "$accent"
+                            },
+                            {
+                              "type": "text",
+                              "id": "nprEM",
+                              "name": "Label",
+                              "fill": "$text-primary",
+                              "content": "General",
+                              "fontFamily": "$font-display",
+                              "fontSize": 15,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "X3NSn",
+                          "name": "Nav / Update",
+                          "width": "fill_container",
+                          "fill": "#00000000",
+                          "cornerRadius": "$radius-md",
+                          "gap": 10,
+                          "padding": [
+                            9,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "SEgER",
+                              "name": "Icon",
+                              "width": 17,
+                              "height": 17,
+                              "icon": "refresh-cw",
+                              "library": "lucide",
+                              "fill": "$text-muted"
+                            },
+                            {
+                              "type": "text",
+                              "id": "pKonO",
+                              "name": "Label",
+                              "fill": "$text-secondary",
+                              "content": "Update",
+                              "fontFamily": "$font-display",
+                              "fontSize": 15,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "KKgIK",
+                          "name": "Nav / About",
+                          "width": "fill_container",
+                          "fill": "#00000000",
+                          "cornerRadius": "$radius-md",
+                          "gap": 10,
+                          "padding": [
+                            9,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "b8Cf8",
+                              "name": "Icon",
+                              "width": 17,
+                              "height": 17,
+                              "icon": "info",
+                              "library": "lucide",
+                              "fill": "$text-muted"
+                            },
+                            {
+                              "type": "text",
+                              "id": "BzCnQ",
+                              "name": "Label",
+                              "fill": "$text-secondary",
+                              "content": "About",
+                              "fontFamily": "$font-display",
+                              "fontSize": 15,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "E255e",
+              "name": "Content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "$bg-page",
+              "layout": "vertical",
+              "gap": 22,
+              "padding": [
+                30,
+                36,
+                24,
+                36
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "qq0rs",
+                  "name": "Page Title",
+                  "fill": "$text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": 820,
+                  "content": "General",
+                  "fontFamily": "$font-display",
+                  "fontSize": 28,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "sC5hc",
+                  "name": "Column",
+                  "width": 820,
+                  "layout": "vertical",
+                  "gap": 22,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "T0rn9t",
+                      "name": "Group / Playback",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 9,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Not8k",
+                          "name": "Label",
+                          "fill": "$text-muted",
+                          "content": "PLAYBACK",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "700",
+                          "letterSpacing": 1
+                        },
+                        {
+                          "type": "frame",
+                          "id": "SP83o",
+                          "name": "Card",
+                          "width": "fill_container",
+                          "fill": "$bg-surface",
+                          "cornerRadius": "$radius-lg",
+                          "stroke": "$border",
+                          "strokeWidth": 1,
+                          "strokeAlignment": "inner",
+                          "layout": "vertical",
+                          "padding": [
+                            0,
+                            16
+                          ],
+                          "children": [
+                            {
+                              "id": "x4CXOa",
+                              "type": "ref",
+                              "ref": "pF8bk",
+                              "name": "Row / Default output device",
+                              "width": "fill_container",
+                              "padding": [
+                                13,
+                                0
+                              ],
+                              "strokeWidth": {
+                                "bottom": 1
+                              },
+                              "descendants": {
+                                "l9GWAM": {
+                                  "content": "Default output device"
+                                },
+                                "Mo9R6": {
+                                  "content": "Where Pulse sends audio."
+                                },
+                                "p4In90": {
+                                  "type": "frame",
+                                  "id": "i3KUn",
+                                  "name": "Value",
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "rZiiG",
+                                      "name": "Value",
+                                      "fill": "$text-secondary",
+                                      "content": "Matrix mini-i Pro 4",
+                                      "fontFamily": "$font-sans",
+                                      "fontSize": 13,
+                                      "fontWeight": "600"
+                                    },
+                                    {
+                                      "type": "icon",
+                                      "id": "DPi5H",
+                                      "name": "Chevron",
+                                      "width": 16,
+                                      "height": 16,
+                                      "icon": "chevron-right",
+                                      "library": "lucide",
+                                      "fill": "$text-muted"
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "id": "prncW",
+                              "type": "ref",
+                              "ref": "pF8bk",
+                              "name": "Row / Exclusive mode",
+                              "width": "fill_container",
+                              "padding": [
+                                13,
+                                0
+                              ],
+                              "strokeWidth": 0,
+                              "descendants": {
+                                "l9GWAM": {
+                                  "content": "Exclusive mode"
+                                },
+                                "Mo9R6": {
+                                  "content": "Take exclusive control of the device so nothing else can resample the stream."
+                                },
+                                "p4In90": {
+                                  "id": "F3dLm",
+                                  "type": "ref",
+                                  "ref": "SK7jO",
+                                  "name": "Toggle"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "ADNMS",
+      "x": 5837,
+      "y": -1009,
+      "name": "Spec — Update States",
+      "clip": true,
+      "width": 760,
+      "fill": "$bg-page",
+      "cornerRadius": "$radius-lg",
+      "stroke": "$border",
+      "strokeWidth": 1,
+      "strokeAlignment": "inner",
+      "layout": "vertical",
+      "gap": 18,
+      "padding": 36,
+      "children": [
+        {
+          "type": "text",
+          "id": "LFDs2",
+          "name": "Title",
+          "fill": "$text-primary",
+          "content": "Update section — status line and button states",
+          "fontFamily": "$font-display",
+          "fontSize": 20,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "L4ZQkj",
+          "name": "Note",
+          "fill": "$text-muted",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "Notify-only flow per feature 05. Pulse never installs an update itself — the action opens the release page.",
+          "fontFamily": "$font-sans",
+          "fontSize": 12,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "vSvfs",
+          "name": "States",
+          "width": "fill_container",
+          "fill": "$bg-surface",
+          "cornerRadius": "$radius-lg",
+          "stroke": "$border",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "layout": "vertical",
+          "padding": [
+            0,
+            16
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "RDY4a",
+              "name": "State / IDLE",
+              "width": "fill_container",
+              "stroke": "$border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "strokeAlignment": "inner",
+              "gap": 20,
+              "padding": [
+                14,
+                0
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "K2neK",
+                  "name": "Meta",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 5,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "T47cJY",
+                      "name": "State",
+                      "fill": "$accent",
+                      "content": "IDLE",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "600",
+                      "letterSpacing": 1.2
+                    },
+                    {
+                      "type": "text",
+                      "id": "AYRPV",
+                      "name": "Sub",
+                      "fill": "$text-muted",
+                      "content": "You're on the latest version.",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "id": "f8mHV",
+                  "type": "ref",
+                  "ref": "b4MNr8",
+                  "name": "Button / IDLE",
+                  "opacity": 1,
+                  "descendants": {
+                    "jQ5Ha": {
+                      "icon": "refresh-cw"
+                    },
+                    "ezvDc": {
+                      "content": "Check for updates"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "T5Wn6",
+              "name": "State / CHECKING",
+              "width": "fill_container",
+              "stroke": "$border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "strokeAlignment": "inner",
+              "gap": 20,
+              "padding": [
+                14,
+                0
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "E2Q9y",
+                  "name": "Meta",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 5,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "i3G5Y7",
+                      "name": "State",
+                      "fill": "$accent",
+                      "content": "CHECKING",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "600",
+                      "letterSpacing": 1.2
+                    },
+                    {
+                      "type": "text",
+                      "id": "ga1cl",
+                      "name": "Sub",
+                      "fill": "$text-muted",
+                      "content": "Checking for updates…",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "id": "WxEwS",
+                  "type": "ref",
+                  "ref": "b4MNr8",
+                  "name": "Button / CHECKING",
+                  "opacity": 0.45,
+                  "descendants": {
+                    "jQ5Ha": {
+                      "icon": "loader"
+                    },
+                    "ezvDc": {
+                      "content": "Checking…"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Jonun",
+              "name": "State / AVAILABLE",
+              "width": "fill_container",
+              "stroke": "$border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "strokeAlignment": "inner",
+              "gap": 20,
+              "padding": [
+                14,
+                0
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "AZlZu",
+                  "name": "Meta",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 5,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "zke4l",
+                      "name": "State",
+                      "fill": "$accent",
+                      "content": "AVAILABLE",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "600",
+                      "letterSpacing": 1.2
+                    },
+                    {
+                      "type": "text",
+                      "id": "cbRnR",
+                      "name": "Sub",
+                      "fill": "$quality",
+                      "content": "Pulse 0.2.0 is available.",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "id": "JOxIg",
+                  "type": "ref",
+                  "ref": "V8kVG",
+                  "name": "Button / AVAILABLE",
+                  "opacity": 1,
+                  "descendants": {
+                    "rcmkZ": {
+                      "icon": "external-link"
+                    },
+                    "t5fRGs": {
+                      "content": "View release"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Z3Lr2v",
+              "name": "State / FAILED",
+              "width": "fill_container",
+              "stroke": "$border",
+              "strokeAlignment": "inner",
+              "gap": 20,
+              "padding": [
+                14,
+                0
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "lYHnn",
+                  "name": "Meta",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 5,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "e6GbR6",
+                      "name": "State",
+                      "fill": "$accent",
+                      "content": "FAILED",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "600",
+                      "letterSpacing": 1.2
+                    },
+                    {
+                      "type": "text",
+                      "id": "NX7uA",
+                      "name": "Sub",
+                      "fill": "$warning",
+                      "content": "Couldn't reach GitHub. Check your connection.",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "id": "i9Ciy3",
+                  "type": "ref",
+                  "ref": "b4MNr8",
+                  "name": "Button / FAILED",
+                  "opacity": 1,
+                  "descendants": {
+                    "jQ5Ha": {
+                      "icon": "refresh-cw"
+                    },
+                    "ezvDc": {
+                      "content": "Check for updates"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "D9PDB",
+      "x": 7361,
+      "y": -311,
+      "name": "Settings / Update",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$bg-page",
+      "cornerRadius": "$radius-lg",
+      "stroke": "$border",
+      "strokeWidth": {
+        "top": 1,
+        "right": 1,
+        "left": 1
+      },
+      "strokeAlignment": "inner",
+      "strokeLinejoin": "round",
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "b26dMw",
+          "name": "Shell",
+          "width": "fill_container",
+          "height": "fill_container",
+          "children": [
+            {
+              "type": "frame",
+              "id": "nkJWA",
+              "name": "Settings Sidebar",
+              "width": 236,
+              "height": "fill_container",
+              "fill": "$bg-surface",
+              "stroke": "$border",
+              "strokeWidth": {
+                "right": 1
+              },
+              "strokeAlignment": "inner",
+              "strokeLinejoin": "round",
+              "layout": "vertical",
+              "gap": 22,
+              "padding": [
+                24,
+                14,
+                16,
+                14
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "uPNjV",
+                  "name": "Back to Library",
+                  "width": "fill_container",
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "izr87",
+                      "name": "Icon",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevron-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "zdUhm",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Back to library",
+                      "fontFamily": "$font-display",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Kwa1b",
+                  "name": "Settings Group",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "V8T3Te",
+                      "name": "Header Wrap",
+                      "width": "fill_container",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "FDVgN",
+                          "name": "Header",
+                          "fill": "$text-muted",
+                          "content": "SETTINGS",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "700",
+                          "letterSpacing": 0.8
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "V38oei",
+                      "name": "Items",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "S3G1no",
+                          "name": "Nav / General",
+                          "width": "fill_container",
+                          "fill": "#00000000",
+                          "cornerRadius": "$radius-md",
+                          "gap": 10,
+                          "padding": [
+                            9,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "U1qhC",
+                              "name": "Icon",
+                              "width": 17,
+                              "height": 17,
+                              "icon": "sliders-horizontal",
+                              "library": "lucide",
+                              "fill": "$text-muted"
+                            },
+                            {
+                              "type": "text",
+                              "id": "M6tCc",
+                              "name": "Label",
+                              "fill": "$text-secondary",
+                              "content": "General",
+                              "fontFamily": "$font-display",
+                              "fontSize": 15,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "yf2Bh",
+                          "name": "Nav / Update",
+                          "width": "fill_container",
+                          "fill": "$accent-soft",
+                          "cornerRadius": "$radius-md",
+                          "gap": 10,
+                          "padding": [
+                            9,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "MYZbt",
+                              "name": "Icon",
+                              "width": 17,
+                              "height": 17,
+                              "icon": "refresh-cw",
+                              "library": "lucide",
+                              "fill": "$accent"
+                            },
+                            {
+                              "type": "text",
+                              "id": "BmEN8",
+                              "name": "Label",
+                              "fill": "$text-primary",
+                              "content": "Update",
+                              "fontFamily": "$font-display",
+                              "fontSize": 15,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "bKWnk",
+                          "name": "Nav / About",
+                          "width": "fill_container",
+                          "fill": "#00000000",
+                          "cornerRadius": "$radius-md",
+                          "gap": 10,
+                          "padding": [
+                            9,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "L2v4ak",
+                              "name": "Icon",
+                              "width": 17,
+                              "height": 17,
+                              "icon": "info",
+                              "library": "lucide",
+                              "fill": "$text-muted"
+                            },
+                            {
+                              "type": "text",
+                              "id": "sSx7P",
+                              "name": "Label",
+                              "fill": "$text-secondary",
+                              "content": "About",
+                              "fontFamily": "$font-display",
+                              "fontSize": 15,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "qmZRh",
+              "name": "Content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "$bg-page",
+              "layout": "vertical",
+              "gap": 22,
+              "padding": [
+                30,
+                36,
+                24,
+                36
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "rjfYj",
+                  "name": "Page Title",
+                  "fill": "$text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": 820,
+                  "content": "Update",
+                  "fontFamily": "$font-display",
+                  "fontSize": 28,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "mepz6",
+                  "name": "Column",
+                  "width": 820,
+                  "layout": "vertical",
+                  "gap": 22,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "RokyM",
+                      "name": "Group / Version",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 9,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "f1c3H4",
+                          "name": "Label",
+                          "fill": "$text-muted",
+                          "content": "VERSION",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "700",
+                          "letterSpacing": 1
+                        },
+                        {
+                          "type": "frame",
+                          "id": "imDpq",
+                          "name": "Card",
+                          "width": "fill_container",
+                          "fill": "$bg-surface",
+                          "cornerRadius": "$radius-lg",
+                          "stroke": "$border",
+                          "strokeWidth": 1,
+                          "strokeAlignment": "inner",
+                          "layout": "vertical",
+                          "padding": [
+                            0,
+                            16
+                          ],
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "MB6HT",
+                              "name": "Hero",
+                              "width": "fill_container",
+                              "gap": 14,
+                              "padding": [
+                                15,
+                                0
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "yZpmq",
+                                  "name": "App Icon Mark",
+                                  "clip": true,
+                                  "width": 32,
+                                  "height": 32,
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 180,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "$bg-surface",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "$bg-inset",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "cornerRadius": 7,
+                                  "stroke": "$border",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner",
+                                  "layout": "none",
+                                  "children": [
+                                    {
+                                      "type": "path",
+                                      "id": "BJpZQ",
+                                      "x": 5,
+                                      "y": 5,
+                                      "name": "Pulse",
+                                      "geometry": "M6 100l50 0 16 12 18-60 16 98 16-62 18 12 54 0",
+                                      "viewBox": [
+                                        0,
+                                        0,
+                                        200,
+                                        200
+                                      ],
+                                      "fill": "#00000000",
+                                      "width": 22,
+                                      "height": 22,
+                                      "stroke": "$accent",
+                                      "strokeWidth": 0.75,
+                                      "strokeLinejoin": "round",
+                                      "strokeLinecap": "round"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "I3UqyE",
+                                  "name": "Meta",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "V5nweu",
+                                      "name": "Name Row",
+                                      "gap": 8,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "PNBXg",
+                                          "name": "App Name",
+                                          "fill": "$text-primary",
+                                          "content": "Pulse",
+                                          "fontFamily": "$font-sans",
+                                          "fontSize": 14,
+                                          "fontWeight": "600"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "FQ8mj",
+                                          "name": "Version Chip",
+                                          "fill": "$bg-muted",
+                                          "cornerRadius": "$radius-sm",
+                                          "stroke": "$border",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "padding": [
+                                            3,
+                                            7
+                                          ],
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "XuRRp",
+                                              "name": "Label",
+                                              "fill": "$text-secondary",
+                                              "content": "v0.1.0",
+                                              "fontFamily": "$font-mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "600"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "ZpZ9k",
+                                      "name": "Status",
+                                      "fill": "$text-muted",
+                                      "content": "You're on the latest version.",
+                                      "fontFamily": "$font-sans",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "id": "Kf5iD",
+                                  "type": "ref",
+                                  "ref": "b4MNr8",
+                                  "name": "Check Button",
+                                  "descendants": {
+                                    "jQ5Ha": {
+                                      "icon": "refresh-cw"
+                                    },
+                                    "ezvDc": {
+                                      "content": "Check for updates"
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "GG4az",
+                      "name": "Group / Preferences",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 9,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "CY3kJ",
+                          "name": "Label",
+                          "fill": "$text-muted",
+                          "content": "PREFERENCES",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "700",
+                          "letterSpacing": 1
+                        },
+                        {
+                          "type": "frame",
+                          "id": "bfLaR",
+                          "name": "Card",
+                          "width": "fill_container",
+                          "fill": "$bg-surface",
+                          "cornerRadius": "$radius-lg",
+                          "stroke": "$border",
+                          "strokeWidth": 1,
+                          "strokeAlignment": "inner",
+                          "layout": "vertical",
+                          "padding": [
+                            0,
+                            16
+                          ],
+                          "children": [
+                            {
+                              "id": "yx4A0",
+                              "type": "ref",
+                              "ref": "pF8bk",
+                              "name": "Row / Check on launch",
+                              "width": "fill_container",
+                              "padding": [
+                                13,
+                                0
+                              ],
+                              "strokeWidth": 0,
+                              "descendants": {
+                                "l9GWAM": {
+                                  "content": "Check for updates on launch"
+                                },
+                                "Mo9R6": {
+                                  "content": "Asks GitHub once per launch whether a newer version exists. Nothing else is sent."
+                                },
+                                "p4In90": {
+                                  "id": "VXlZt",
+                                  "type": "ref",
+                                  "ref": "SK7jO",
+                                  "name": "Toggle"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "Tnibv",
+      "x": 8881,
+      "y": -311,
+      "name": "Settings / About",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$bg-page",
+      "cornerRadius": "$radius-lg",
+      "stroke": "$border",
+      "strokeWidth": {
+        "top": 1,
+        "right": 1,
+        "left": 1
+      },
+      "strokeAlignment": "inner",
+      "strokeLinejoin": "round",
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "JOTLY",
+          "name": "Shell",
+          "width": "fill_container",
+          "height": "fill_container",
+          "children": [
+            {
+              "type": "frame",
+              "id": "E0CDp",
+              "name": "Settings Sidebar",
+              "width": 236,
+              "height": "fill_container",
+              "fill": "$bg-surface",
+              "stroke": "$border",
+              "strokeWidth": {
+                "right": 1
+              },
+              "strokeAlignment": "inner",
+              "strokeLinejoin": "round",
+              "layout": "vertical",
+              "gap": 22,
+              "padding": [
+                24,
+                14,
+                16,
+                14
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "D3djvD",
+                  "name": "Back to Library",
+                  "width": "fill_container",
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "olygf",
+                      "name": "Icon",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevron-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "cjGu9",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Back to library",
+                      "fontFamily": "$font-display",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "vMWvH",
+                  "name": "Settings Group",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "P2gpx",
+                      "name": "Header Wrap",
+                      "width": "fill_container",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "A336Bx",
+                          "name": "Header",
+                          "fill": "$text-muted",
+                          "content": "SETTINGS",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "700",
+                          "letterSpacing": 0.8
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "EXHxy",
+                      "name": "Items",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "BB9az",
+                          "name": "Nav / General",
+                          "width": "fill_container",
+                          "fill": "#00000000",
+                          "cornerRadius": "$radius-md",
+                          "gap": 10,
+                          "padding": [
+                            9,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "bFHZ8",
+                              "name": "Icon",
+                              "width": 17,
+                              "height": 17,
+                              "icon": "sliders-horizontal",
+                              "library": "lucide",
+                              "fill": "$text-muted"
+                            },
+                            {
+                              "type": "text",
+                              "id": "o92qvb",
+                              "name": "Label",
+                              "fill": "$text-secondary",
+                              "content": "General",
+                              "fontFamily": "$font-display",
+                              "fontSize": 15,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "b6GvEN",
+                          "name": "Nav / Update",
+                          "width": "fill_container",
+                          "fill": "#00000000",
+                          "cornerRadius": "$radius-md",
+                          "gap": 10,
+                          "padding": [
+                            9,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "XISU9",
+                              "name": "Icon",
+                              "width": 17,
+                              "height": 17,
+                              "icon": "refresh-cw",
+                              "library": "lucide",
+                              "fill": "$text-muted"
+                            },
+                            {
+                              "type": "text",
+                              "id": "IDWcX",
+                              "name": "Label",
+                              "fill": "$text-secondary",
+                              "content": "Update",
+                              "fontFamily": "$font-display",
+                              "fontSize": 15,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "uqFtb",
+                          "name": "Nav / About",
+                          "width": "fill_container",
+                          "fill": "$accent-soft",
+                          "cornerRadius": "$radius-md",
+                          "gap": 10,
+                          "padding": [
+                            9,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "CbtFA",
+                              "name": "Icon",
+                              "width": 17,
+                              "height": 17,
+                              "icon": "info",
+                              "library": "lucide",
+                              "fill": "$accent"
+                            },
+                            {
+                              "type": "text",
+                              "id": "r9fxG",
+                              "name": "Label",
+                              "fill": "$text-primary",
+                              "content": "About",
+                              "fontFamily": "$font-display",
+                              "fontSize": 15,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "LTiNY",
+              "name": "Content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "$bg-page",
+              "layout": "vertical",
+              "gap": 22,
+              "padding": [
+                30,
+                36,
+                24,
+                36
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "KmROZ",
+                  "name": "Page Title",
+                  "fill": "$text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": 820,
+                  "content": "About",
+                  "fontFamily": "$font-display",
+                  "fontSize": 28,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "ezO3E",
+                  "name": "Column",
+                  "width": 820,
+                  "layout": "vertical",
+                  "gap": 22,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "Q8wnv4",
+                      "name": "Group / Application",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 9,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "OHsX7",
+                          "name": "Label",
+                          "fill": "$text-muted",
+                          "content": "APPLICATION",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "700",
+                          "letterSpacing": 1
+                        },
+                        {
+                          "type": "frame",
+                          "id": "h4pJUY",
+                          "name": "Card",
+                          "width": "fill_container",
+                          "fill": "$bg-surface",
+                          "cornerRadius": "$radius-lg",
+                          "stroke": "$border",
+                          "strokeWidth": 1,
+                          "strokeAlignment": "inner",
+                          "layout": "vertical",
+                          "padding": [
+                            0,
+                            16
+                          ],
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "slB7M",
+                              "name": "Identity",
+                              "width": "fill_container",
+                              "gap": 14,
+                              "padding": [
+                                16,
+                                0
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "jSHvg",
+                                  "name": "App Icon Mark",
+                                  "clip": true,
+                                  "width": 32,
+                                  "height": 32,
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 180,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "$bg-surface",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "$bg-inset",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "cornerRadius": 7,
+                                  "stroke": "$border",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner",
+                                  "layout": "none",
+                                  "children": [
+                                    {
+                                      "type": "path",
+                                      "id": "jw1Xk",
+                                      "x": 5,
+                                      "y": 5,
+                                      "name": "Pulse",
+                                      "geometry": "M6 100l50 0 16 12 18-60 16 98 16-62 18 12 54 0",
+                                      "viewBox": [
+                                        0,
+                                        0,
+                                        200,
+                                        200
+                                      ],
+                                      "fill": "#00000000",
+                                      "width": 22,
+                                      "height": 22,
+                                      "stroke": "$accent",
+                                      "strokeWidth": 0.75,
+                                      "strokeLinejoin": "round",
+                                      "strokeLinecap": "round"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "h6NjM",
+                                  "name": "Meta",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "YtWYo",
+                                      "name": "Name Row",
+                                      "gap": 8,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "e88fG",
+                                          "name": "App Name",
+                                          "fill": "$text-primary",
+                                          "content": "Pulse",
+                                          "fontFamily": "$font-display",
+                                          "fontSize": 18,
+                                          "fontWeight": "700"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "dBq22",
+                                          "name": "Version Chip",
+                                          "fill": "$bg-muted",
+                                          "cornerRadius": "$radius-sm",
+                                          "stroke": "$border",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "padding": [
+                                            3,
+                                            7
+                                          ],
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "k1Btl6",
+                                              "name": "Label",
+                                              "fill": "$text-secondary",
+                                              "content": "v0.1.0",
+                                              "fontFamily": "$font-mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "600"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "J7w00F",
+                                      "name": "Tagline",
+                                      "fill": "$text-muted",
+                                      "content": "Bit-perfect music player for macOS.",
+                                      "fontFamily": "$font-sans",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "O7EXY",
+                      "name": "Group / Links",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 9,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "FL5an",
+                          "name": "Label",
+                          "fill": "$text-muted",
+                          "content": "LINKS",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "700",
+                          "letterSpacing": 1
+                        },
+                        {
+                          "type": "frame",
+                          "id": "tzhrl",
+                          "name": "Card",
+                          "width": "fill_container",
+                          "fill": "$bg-surface",
+                          "cornerRadius": "$radius-lg",
+                          "stroke": "$border",
+                          "strokeWidth": 1,
+                          "strokeAlignment": "inner",
+                          "layout": "vertical",
+                          "padding": [
+                            0,
+                            16
+                          ],
+                          "children": [
+                            {
+                              "id": "PDxG8",
+                              "type": "ref",
+                              "ref": "pF8bk",
+                              "name": "Row / GitHub",
+                              "width": "fill_container",
+                              "padding": [
+                                13,
+                                0
+                              ],
+                              "strokeWidth": {
+                                "bottom": 1
+                              },
+                              "descendants": {
+                                "l9GWAM": {
+                                  "content": "GitHub"
+                                },
+                                "Mo9R6": {
+                                  "content": "Source, issues, and releases."
+                                },
+                                "p4In90": {
+                                  "type": "icon",
+                                  "id": "ewPWN",
+                                  "name": "External",
+                                  "width": 15,
+                                  "height": 15,
+                                  "icon": "external-link",
+                                  "library": "lucide",
+                                  "fill": "$text-muted"
+                                }
+                              }
+                            },
+                            {
+                              "id": "N2UPSJ",
+                              "type": "ref",
+                              "ref": "pF8bk",
+                              "name": "Row / License",
+                              "width": "fill_container",
+                              "padding": [
+                                13,
+                                0
+                              ],
+                              "strokeWidth": {
+                                "bottom": 1
+                              },
+                              "descendants": {
+                                "l9GWAM": {
+                                  "content": "License"
+                                },
+                                "Mo9R6": {
+                                  "content": "MIT."
+                                },
+                                "p4In90": {
+                                  "type": "icon",
+                                  "id": "TKM9k",
+                                  "name": "External",
+                                  "width": 15,
+                                  "height": 15,
+                                  "icon": "external-link",
+                                  "library": "lucide",
+                                  "fill": "$text-muted"
+                                }
+                              }
+                            },
+                            {
+                              "id": "dibmr",
+                              "type": "ref",
+                              "ref": "pF8bk",
+                              "name": "Row / Acknowledgements",
+                              "width": "fill_container",
+                              "padding": [
+                                13,
+                                0
+                              ],
+                              "strokeWidth": 0,
+                              "descendants": {
+                                "l9GWAM": {
+                                  "content": "Acknowledgements"
+                                },
+                                "Mo9R6": {
+                                  "content": "GPUI, Symphonia, Lofty, and the Rust audio ecosystem."
+                                },
+                                "p4In90": {
+                                  "type": "icon",
+                                  "id": "Jp6ku",
+                                  "name": "External",
+                                  "width": 15,
+                                  "height": 15,
+                                  "icon": "external-link",
+                                  "library": "lucide",
+                                  "fill": "$text-muted"
+                                }
+                              }
+                            }
+                          ]
                         }
                       ]
                     }

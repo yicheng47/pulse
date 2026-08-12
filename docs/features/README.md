@@ -4,6 +4,7 @@ Product features that are not part of a numbered roadmap stage. Roadmap stages l
 
 Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phases, and verification.
 
+- [`06-settings-surface.md`](06-settings-surface.md) - P1. Gives the sidebar's inert Settings entry a destination: a dedicated page whose sidebar is the section nav, with General / Update / About pages. Designed; adds Pulse's first toggle component.
 - [`05-update-check.md`](05-update-check.md) - P2. Check GitHub Releases on launch and notify through the existing notice banner. GitHub stays the artifact host; self-installing updates (Sparkle) are deliberately deferred.
 - [`04-dev-prod-data-isolation.md`](04-dev-prod-data-isolation.md) - P1. Debug builds resolve `pulse-dev` instead of `pulse` so `cargo run` can never open or migrate the released app's library.
 - [`03-queue-popover.md`](03-queue-popover.md) - P1. The queue button's missing hit target: anchored popover with NOW PLAYING, jumpable UP NEXT rows, remove and Clear.
