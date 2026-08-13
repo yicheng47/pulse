@@ -1,4 +1,7 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    path::PathBuf,
+};
 
 use rusqlite::{Connection, Transaction, params, params_from_iter, types::Value};
 
@@ -162,26 +165,43 @@ pub fn artists(conn: &Connection) -> Result<Vec<(String, u64)>, LibraryError> {
 }
 
 pub fn genres(conn: &Connection) -> Result<Vec<String>, LibraryError> {
+    Ok(genre_album_counts(conn)?
+        .into_iter()
+        .map(|(genre, _)| genre)
+        .collect())
+}
+
+pub fn genre_album_counts(conn: &Connection) -> Result<Vec<(String, u64)>, LibraryError> {
     let mut statement = conn.prepare(
-        "SELECT trim(genre)
+        "SELECT COALESCE(NULLIF(trim(album_artist), ''),
+                        NULLIF(trim(artist), ''), ?1) AS album_owner,
+                COALESCE(NULLIF(trim(album), ''), ?2) AS album_title,
+                trim(genre) AS genre_tag
          FROM tracks
          WHERE genre IS NOT NULL AND trim(genre) <> ''
-         GROUP BY trim(genre) COLLATE NOCASE",
+         GROUP BY album_owner, album_title, genre_tag COLLATE NOCASE
+         ORDER BY MIN(id)",
     )?;
-    let stored: Vec<String> = statement
-        .query_map([], |row| row.get(0))?
+    let stored: Vec<(String, String, String)> = statement
+        .query_map(params![UNKNOWN_ARTIST, UNKNOWN_ALBUM], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+        })?
         .collect::<Result<Vec<_>, _>>()?;
 
-    let mut genres: Vec<String> = Vec::new();
-    for value in &stored {
-        for member in genre_tag_members(value) {
-            if !genres.iter().any(|seen| seen.eq_ignore_ascii_case(member)) {
-                genres.push(member.to_string());
-            }
+    let mut genres = BTreeMap::<String, (String, HashSet<(String, String)>)>::new();
+    for (album_artist, album_title, value) in stored {
+        for member in genre_tag_members(&value) {
+            genres
+                .entry(member.to_ascii_lowercase())
+                .or_insert_with(|| (member.to_string(), HashSet::new()))
+                .1
+                .insert((album_artist.clone(), album_title.clone()));
         }
     }
-    genres.sort_by_key(|genre| genre.to_lowercase());
-    Ok(genres)
+    Ok(genres
+        .into_values()
+        .map(|(genre, albums)| (genre, albums.len() as u64))
+        .collect())
 }
 
 pub fn root_summary(
@@ -465,8 +485,8 @@ fn track_order_by(sort_order: TrackSortOrder) -> &'static str {
 }
 
 /// Splits a stored genre tag into its trimmed, non-empty comma members. The
-/// single definition of membership: `genres()` enumerates chips with it and
-/// the `genre_has_member` SQL function matches rows with it, so a chip can
+/// single definition of membership: the genre picker enumerates values with
+/// it and the `genre_has_member` SQL function matches rows with it, so a row can
 /// never name a member the queries fail to find.
 pub fn genre_tag_members(tag: &str) -> impl Iterator<Item = &str> {
     tag.split(',')
@@ -949,6 +969,40 @@ mod tests {
             assert_eq!(page.total_count, 2);
             assert!(page.tracks.is_empty());
         }
+    }
+
+    #[test]
+    fn genre_album_counts_split_members_and_count_each_album_once() {
+        let temp = tempdir().unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        for (index, (title, album, genre)) in [
+            ("One A", "Album One", "Jazz, Modal"),
+            ("One B", "Album One", "jazz"),
+            ("Two", "Album Two", "JAZZ"),
+            ("Three", "Album Three", "Rock"),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let mut metadata = test_metadata(title, "Artist", Some(album), None);
+            metadata.genre = Some(genre.to_string());
+            insert_track(
+                &mut store,
+                &root,
+                &test_file(&root, &format!("{title}.wav"), index as i64, 10),
+                &metadata,
+            );
+        }
+
+        assert_eq!(
+            store.genre_album_counts().unwrap(),
+            [
+                ("Jazz".to_string(), 2),
+                ("Modal".to_string(), 1),
+                ("Rock".to_string(), 1),
+            ]
+        );
     }
 
     #[test]

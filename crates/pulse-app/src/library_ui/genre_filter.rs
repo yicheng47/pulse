@@ -1,0 +1,265 @@
+use gpui::{
+    AnyElement, Context, FontWeight, IntoElement, MouseButton, MouseDownEvent,
+    StatefulInteractiveElement, deferred, div, prelude::*, px, svg,
+};
+
+use super::{LibraryView, selected_genre};
+use crate::{shell::Destination, theme};
+
+impl LibraryView {
+    pub(super) fn render_genre_filter(&self, cx: &mut Context<Self>) -> AnyElement {
+        let active_genre = self.active_genre_filter().map(str::to_string);
+        let active = active_genre.is_some();
+        let label = active_genre.unwrap_or_else(|| "Genre".to_string());
+        let trigger_id = match self.destination {
+            Destination::Albums => "album-genre-filter",
+            Destination::Tracks => "track-genre-filter",
+            _ => "genre-filter",
+        };
+        let mut trigger = div()
+            .id(trigger_id)
+            .relative()
+            .flex()
+            .items_center()
+            .gap(px(6.))
+            .h(px(29.))
+            .flex_none()
+            .px(px(10.))
+            .rounded(px(theme::RADIUS_SM))
+            .bg(if active {
+                theme::accent_soft()
+            } else {
+                theme::bg_muted()
+            })
+            .when(active, |trigger| {
+                trigger.border_1().border_color(theme::accent())
+            })
+            .cursor_pointer()
+            .capture_any_mouse_down(cx.listener(|this, event: &MouseDownEvent, _, _| {
+                if event.button == MouseButton::Left {
+                    this.genre_hint_press_closed_popover = this.genre_popover_open;
+                }
+            }))
+            .on_click(cx.listener(|this, _, window, cx| {
+                if std::mem::take(&mut this.genre_hint_press_closed_popover) {
+                    cx.notify();
+                    return;
+                }
+                this.artist_popover_open = false;
+                this.genre_popover_open = true;
+                this.genre_search.clear();
+                window.focus(&this.input_focus, cx);
+                cx.notify();
+            }))
+            .child(
+                div()
+                    .max_w(px(180.))
+                    .truncate()
+                    .font_family(theme::FONT_SANS)
+                    .text_size(px(12.))
+                    .text_color(if active {
+                        theme::accent()
+                    } else {
+                        theme::text_secondary()
+                    })
+                    .child(label),
+            )
+            .child(
+                svg()
+                    .path("icons/chevron-down.svg")
+                    .size(px(12.))
+                    .text_color(if active {
+                        theme::accent()
+                    } else {
+                        theme::text_secondary()
+                    }),
+            );
+        if self.genre_popover_open {
+            trigger = trigger.child(deferred(self.render_genre_popover(cx)).with_priority(1));
+        }
+        trigger.into_any_element()
+    }
+
+    fn render_genre_popover(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let filtered = self.filtered_genres();
+        let mut rows = div().flex().flex_col().w_full();
+        if filtered.is_empty() {
+            rows = rows.child(
+                div()
+                    .w_full()
+                    .px(px(12.))
+                    .py(px(12.))
+                    .font_family(theme::FONT_SANS)
+                    .text_size(px(12.))
+                    .text_color(theme::text_muted())
+                    .child("No matching genres"),
+            );
+        } else {
+            for (index, (genre, album_count)) in filtered.into_iter().enumerate() {
+                let selected = self
+                    .active_genre_filter()
+                    .is_some_and(|active| active.eq_ignore_ascii_case(&genre));
+                let chosen = genre.clone();
+                rows = rows.child(
+                    div()
+                        .id(("genre-filter-option", index))
+                        .flex()
+                        .items_center()
+                        .gap(px(10.))
+                        .w_full()
+                        .px(px(12.))
+                        .py(px(8.))
+                        .when(selected, |row| row.bg(theme::accent_soft()))
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            this.choose_genre_filter(Some(chosen.clone()), cx);
+                        }))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .truncate()
+                                .font_family(theme::FONT_SANS)
+                                .text_size(px(13.))
+                                .text_color(if selected {
+                                    theme::accent()
+                                } else {
+                                    theme::text_primary()
+                                })
+                                .child(genre),
+                        )
+                        .child(
+                            div()
+                                .font_family(theme::FONT_MONO)
+                                .font_weight(FontWeight::BOLD)
+                                .text_size(px(10.))
+                                .text_color(theme::text_muted())
+                                .child(if album_count == 1 {
+                                    "1 album".to_string()
+                                } else {
+                                    format!("{album_count} albums")
+                                }),
+                        ),
+                );
+            }
+        }
+
+        let active = self.active_genre_filter().is_some();
+        div()
+            .id("genre-filter-popover")
+            .absolute()
+            .left_0()
+            .top(px(37.))
+            .flex()
+            .flex_col()
+            .w(px(240.))
+            .max_h(px(420.))
+            .py(px(6.))
+            .rounded(px(theme::RADIUS_LG))
+            .border_1()
+            .border_color(theme::border_strong())
+            .bg(theme::bg_surface())
+            .occlude()
+            .on_mouse_down_out(cx.listener(|this, _, _, cx| {
+                this.genre_popover_open = false;
+                cx.notify();
+            }))
+            .child(
+                div()
+                    .w_full()
+                    .px(px(10.))
+                    .py(px(6.))
+                    .child(self.render_genre_search_input(cx)),
+            )
+            .child(
+                div()
+                    .id("genre-filter-options-scroll")
+                    .flex_1()
+                    .min_h_0()
+                    .overflow_y_scroll()
+                    .child(rows),
+            )
+            .when(active, |popover| {
+                popover
+                    .child(div().w_full().h(px(1.)).my(px(4.)).bg(theme::border()))
+                    .child(
+                        div()
+                            .id("genre-filter-clear")
+                            .flex()
+                            .items_center()
+                            .gap(px(10.))
+                            .w_full()
+                            .px(px(12.))
+                            .py(px(8.))
+                            .cursor_pointer()
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.choose_genre_filter(None, cx);
+                            }))
+                            .child(
+                                svg()
+                                    .path("icons/x.svg")
+                                    .size(px(14.))
+                                    .text_color(theme::text_secondary()),
+                            )
+                            .child(
+                                div()
+                                    .font_family(theme::FONT_SANS)
+                                    .text_size(px(13.))
+                                    .text_color(theme::text_secondary())
+                                    .child("Clear genre"),
+                            ),
+                    )
+            })
+    }
+
+    fn render_genre_search_input(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let empty = self.genre_search.is_empty();
+        let value = if empty {
+            "Search genres".to_string()
+        } else {
+            self.genre_search.clone()
+        };
+        div()
+            .id("genre-search-input")
+            .flex()
+            .items_center()
+            .gap(px(8.))
+            .cursor_text()
+            .h(px(36.))
+            .w_full()
+            .px(px(10.))
+            .rounded(px(theme::RADIUS_SM))
+            .border_1()
+            .border_color(theme::accent())
+            .bg(theme::bg_inset())
+            .track_focus(&self.input_focus)
+            .on_key_down(cx.listener(|this, event, _, cx| {
+                this.handle_text_input(event, cx);
+            }))
+            .child(
+                svg()
+                    .path("icons/search.svg")
+                    .size(px(14.))
+                    .text_color(theme::text_muted()),
+            )
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .truncate()
+                    .font_family(theme::FONT_SANS)
+                    .text_size(px(12.))
+                    .text_color(if empty {
+                        theme::text_muted()
+                    } else {
+                        theme::text_primary()
+                    })
+                    .child(value),
+            )
+            .child(crate::components::input_caret())
+    }
+
+    fn active_genre_filter(&self) -> Option<&str> {
+        selected_genre(self.destination, &self.album_filter, &self.track_filter)
+    }
+}

@@ -1540,54 +1540,74 @@
             },
             {
               "type": "frame",
-              "id": "VUk4g",
-              "name": "Sidebar Footer / Settings",
+              "id": "WfQOM",
+              "name": "Sidebar Footer",
               "width": "fill_container",
-              "fill": "#00000000",
-              "cornerRadius": "$radius-md",
-              "gap": 10,
+              "stroke": "$border",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
               "padding": [
-                9,
-                10
+                12,
+                0,
+                0,
+                0
               ],
-              "alignItems": "center",
               "children": [
                 {
-                  "type": "icon",
-                  "id": "r91At",
-                  "name": "Settings Icon",
-                  "width": 18,
-                  "height": 18,
-                  "icon": "settings",
-                  "library": "lucide",
-                  "fill": "$text-muted"
-                },
-                {
-                  "type": "text",
-                  "id": "X2fuxh",
-                  "name": "Label",
-                  "fill": "$text-secondary",
-                  "content": "Settings",
-                  "fontFamily": "$font-display",
-                  "fontSize": 14,
-                  "fontWeight": "600"
-                },
-                {
                   "type": "frame",
-                  "id": "KxO1W",
-                  "name": "Footer Spacer",
+                  "id": "VUk4g",
+                  "name": "Sidebar Footer / Settings",
                   "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "icon",
-                  "id": "p9DOG",
-                  "name": "Collapse",
-                  "width": 17,
-                  "height": 17,
-                  "icon": "chevrons-left",
-                  "library": "lucide",
-                  "fill": "$text-muted"
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "r91At",
+                      "name": "Settings Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "X2fuxh",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Settings",
+                      "fontFamily": "$font-display",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "KxO1W",
+                      "name": "Footer Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "p9DOG",
+                      "name": "Collapse",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevrons-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    }
+                  ]
                 }
               ]
             }
@@ -5213,54 +5233,74 @@
             },
             {
               "type": "frame",
-              "id": "pnMmZ",
-              "name": "Sidebar Footer / Settings",
+              "id": "V5dPQ",
+              "name": "Sidebar Footer",
               "width": "fill_container",
-              "fill": "#00000000",
-              "cornerRadius": "$radius-md",
-              "gap": 10,
+              "stroke": "$border",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
               "padding": [
-                9,
-                10
+                12,
+                0,
+                0,
+                0
               ],
-              "alignItems": "center",
               "children": [
                 {
-                  "type": "icon",
-                  "id": "MHHES",
-                  "name": "Settings Icon",
-                  "width": 18,
-                  "height": 18,
-                  "icon": "settings",
-                  "library": "lucide",
-                  "fill": "$text-muted"
-                },
-                {
-                  "type": "text",
-                  "id": "c88El",
-                  "name": "Label",
-                  "fill": "$text-secondary",
-                  "content": "Settings",
-                  "fontFamily": "$font-display",
-                  "fontSize": 14,
-                  "fontWeight": "600"
-                },
-                {
                   "type": "frame",
-                  "id": "P3vLo",
-                  "name": "Footer Spacer",
+                  "id": "pnMmZ",
+                  "name": "Sidebar Footer / Settings",
                   "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "icon",
-                  "id": "JIykr",
-                  "name": "Collapse",
-                  "width": 17,
-                  "height": 17,
-                  "icon": "chevrons-left",
-                  "library": "lucide",
-                  "fill": "$text-muted"
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "MHHES",
+                      "name": "Settings Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "c88El",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Settings",
+                      "fontFamily": "$font-display",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "P3vLo",
+                      "name": "Footer Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "JIykr",
+                      "name": "Collapse",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevrons-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    }
+                  ]
                 }
               ]
             }
@@ -7503,54 +7543,74 @@
             },
             {
               "type": "frame",
-              "id": "e52Ja",
-              "name": "Sidebar Footer / Settings",
+              "id": "phuip",
+              "name": "Sidebar Footer",
               "width": "fill_container",
-              "fill": "#00000000",
-              "cornerRadius": "$radius-md",
-              "gap": 10,
+              "stroke": "$border",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
               "padding": [
-                9,
-                10
+                12,
+                0,
+                0,
+                0
               ],
-              "alignItems": "center",
               "children": [
                 {
-                  "type": "icon",
-                  "id": "RaORW",
-                  "name": "Settings Icon",
-                  "width": 18,
-                  "height": 18,
-                  "icon": "settings",
-                  "library": "lucide",
-                  "fill": "$text-muted"
-                },
-                {
-                  "type": "text",
-                  "id": "vQU3d",
-                  "name": "Label",
-                  "fill": "$text-secondary",
-                  "content": "Settings",
-                  "fontFamily": "$font-display",
-                  "fontSize": 14,
-                  "fontWeight": "600"
-                },
-                {
                   "type": "frame",
-                  "id": "f2Wr0",
-                  "name": "Footer Spacer",
+                  "id": "e52Ja",
+                  "name": "Sidebar Footer / Settings",
                   "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "icon",
-                  "id": "FMWTn",
-                  "name": "Collapse",
-                  "width": 17,
-                  "height": 17,
-                  "icon": "chevrons-left",
-                  "library": "lucide",
-                  "fill": "$text-muted"
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "RaORW",
+                      "name": "Settings Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "vQU3d",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Settings",
+                      "fontFamily": "$font-display",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "f2Wr0",
+                      "name": "Footer Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "FMWTn",
+                      "name": "Collapse",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevrons-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    }
+                  ]
                 }
               ]
             }
@@ -10336,54 +10396,74 @@
             },
             {
               "type": "frame",
-              "id": "HxeoM",
-              "name": "Sidebar Footer / Settings",
+              "id": "JtxMi",
+              "name": "Sidebar Footer",
               "width": "fill_container",
-              "fill": "#00000000",
-              "cornerRadius": "$radius-md",
-              "gap": 10,
+              "stroke": "$border",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
               "padding": [
-                9,
-                10
+                12,
+                0,
+                0,
+                0
               ],
-              "alignItems": "center",
               "children": [
                 {
-                  "type": "icon",
-                  "id": "fzyKe",
-                  "name": "Settings Icon",
-                  "width": 18,
-                  "height": 18,
-                  "icon": "settings",
-                  "library": "lucide",
-                  "fill": "$text-muted"
-                },
-                {
-                  "type": "text",
-                  "id": "ijApE",
-                  "name": "Label",
-                  "fill": "$text-secondary",
-                  "content": "Settings",
-                  "fontFamily": "$font-display",
-                  "fontSize": 14,
-                  "fontWeight": "600"
-                },
-                {
                   "type": "frame",
-                  "id": "oKH52",
-                  "name": "Footer Spacer",
+                  "id": "HxeoM",
+                  "name": "Sidebar Footer / Settings",
                   "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "icon",
-                  "id": "Y75Bwm",
-                  "name": "Collapse",
-                  "width": 17,
-                  "height": 17,
-                  "icon": "chevrons-left",
-                  "library": "lucide",
-                  "fill": "$text-muted"
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "fzyKe",
+                      "name": "Settings Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "ijApE",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Settings",
+                      "fontFamily": "$font-display",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "oKH52",
+                      "name": "Footer Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "Y75Bwm",
+                      "name": "Collapse",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevrons-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    }
+                  ]
                 }
               ]
             }
@@ -12959,54 +13039,74 @@
             },
             {
               "type": "frame",
-              "id": "tm3hr",
-              "name": "Sidebar Footer / Settings",
+              "id": "XfZrN",
+              "name": "Sidebar Footer",
               "width": "fill_container",
-              "fill": "#00000000",
-              "cornerRadius": "$radius-md",
-              "gap": 10,
+              "stroke": "$border",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
               "padding": [
-                9,
-                10
+                12,
+                0,
+                0,
+                0
               ],
-              "alignItems": "center",
               "children": [
                 {
-                  "type": "icon",
-                  "id": "aArV2",
-                  "name": "Settings Icon",
-                  "width": 18,
-                  "height": 18,
-                  "icon": "settings",
-                  "library": "lucide",
-                  "fill": "$text-muted"
-                },
-                {
-                  "type": "text",
-                  "id": "xxHFi",
-                  "name": "Label",
-                  "fill": "$text-secondary",
-                  "content": "Settings",
-                  "fontFamily": "$font-display",
-                  "fontSize": 14,
-                  "fontWeight": "600"
-                },
-                {
                   "type": "frame",
-                  "id": "Tg2EY",
-                  "name": "Footer Spacer",
+                  "id": "tm3hr",
+                  "name": "Sidebar Footer / Settings",
                   "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "icon",
-                  "id": "y78uyL",
-                  "name": "Collapse",
-                  "width": 17,
-                  "height": 17,
-                  "icon": "chevrons-left",
-                  "library": "lucide",
-                  "fill": "$text-muted"
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "aArV2",
+                      "name": "Settings Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "xxHFi",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Settings",
+                      "fontFamily": "$font-display",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Tg2EY",
+                      "name": "Footer Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "y78uyL",
+                      "name": "Collapse",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevrons-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    }
+                  ]
                 }
               ]
             }
@@ -15703,54 +15803,74 @@
             },
             {
               "type": "frame",
-              "id": "rYPW3",
-              "name": "Sidebar Footer / Settings",
+              "id": "O2opFP",
+              "name": "Sidebar Footer",
               "width": "fill_container",
-              "fill": "#00000000",
-              "cornerRadius": "$radius-md",
-              "gap": 10,
+              "stroke": "$border",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
               "padding": [
-                9,
-                10
+                12,
+                0,
+                0,
+                0
               ],
-              "alignItems": "center",
               "children": [
                 {
-                  "type": "icon",
-                  "id": "QLBpj",
-                  "name": "Settings Icon",
-                  "width": 18,
-                  "height": 18,
-                  "icon": "settings",
-                  "library": "lucide",
-                  "fill": "$text-muted"
-                },
-                {
-                  "type": "text",
-                  "id": "MmesK",
-                  "name": "Label",
-                  "fill": "$text-secondary",
-                  "content": "Settings",
-                  "fontFamily": "$font-display",
-                  "fontSize": 14,
-                  "fontWeight": "600"
-                },
-                {
                   "type": "frame",
-                  "id": "nhHGp",
-                  "name": "Footer Spacer",
+                  "id": "rYPW3",
+                  "name": "Sidebar Footer / Settings",
                   "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "icon",
-                  "id": "xbhnu",
-                  "name": "Collapse",
-                  "width": 17,
-                  "height": 17,
-                  "icon": "chevrons-left",
-                  "library": "lucide",
-                  "fill": "$text-muted"
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "QLBpj",
+                      "name": "Settings Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "MmesK",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Settings",
+                      "fontFamily": "$font-display",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "nhHGp",
+                      "name": "Footer Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "xbhnu",
+                      "name": "Collapse",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevrons-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    }
+                  ]
                 }
               ]
             }
@@ -18057,54 +18177,74 @@
             },
             {
               "type": "frame",
-              "id": "vpq9c",
-              "name": "Sidebar Footer / Settings",
+              "id": "pjawo",
+              "name": "Sidebar Footer",
               "width": "fill_container",
-              "fill": "#00000000",
-              "cornerRadius": "$radius-md",
-              "gap": 10,
+              "stroke": "$border",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
               "padding": [
-                9,
-                10
+                12,
+                0,
+                0,
+                0
               ],
-              "alignItems": "center",
               "children": [
                 {
-                  "type": "icon",
-                  "id": "VMXrh",
-                  "name": "Settings Icon",
-                  "width": 18,
-                  "height": 18,
-                  "icon": "settings",
-                  "library": "lucide",
-                  "fill": "$text-muted"
-                },
-                {
-                  "type": "text",
-                  "id": "luVV5",
-                  "name": "Label",
-                  "fill": "$text-secondary",
-                  "content": "Settings",
-                  "fontFamily": "$font-display",
-                  "fontSize": 14,
-                  "fontWeight": "600"
-                },
-                {
                   "type": "frame",
-                  "id": "MCBhu",
-                  "name": "Footer Spacer",
+                  "id": "vpq9c",
+                  "name": "Sidebar Footer / Settings",
                   "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "icon",
-                  "id": "WXQhW",
-                  "name": "Collapse",
-                  "width": 17,
-                  "height": 17,
-                  "icon": "chevrons-left",
-                  "library": "lucide",
-                  "fill": "$text-muted"
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "VMXrh",
+                      "name": "Settings Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "luVV5",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Settings",
+                      "fontFamily": "$font-display",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "MCBhu",
+                      "name": "Footer Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "WXQhW",
+                      "name": "Collapse",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevrons-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    }
+                  ]
                 }
               ]
             }
@@ -20379,54 +20519,74 @@
             },
             {
               "type": "frame",
-              "id": "pcmXX",
-              "name": "Sidebar Footer / Settings",
+              "id": "WMMG6",
+              "name": "Sidebar Footer",
               "width": "fill_container",
-              "fill": "#00000000",
-              "cornerRadius": "$radius-md",
-              "gap": 10,
+              "stroke": "$border",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
               "padding": [
-                9,
-                10
+                12,
+                0,
+                0,
+                0
               ],
-              "alignItems": "center",
               "children": [
                 {
-                  "type": "icon",
-                  "id": "ya7ix",
-                  "name": "Settings Icon",
-                  "width": 18,
-                  "height": 18,
-                  "icon": "settings",
-                  "library": "lucide",
-                  "fill": "$text-muted"
-                },
-                {
-                  "type": "text",
-                  "id": "bh7lu",
-                  "name": "Label",
-                  "fill": "$text-secondary",
-                  "content": "Settings",
-                  "fontFamily": "$font-display",
-                  "fontSize": 14,
-                  "fontWeight": "600"
-                },
-                {
                   "type": "frame",
-                  "id": "T212o6",
-                  "name": "Footer Spacer",
+                  "id": "pcmXX",
+                  "name": "Sidebar Footer / Settings",
                   "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "icon",
-                  "id": "PQPVc",
-                  "name": "Collapse",
-                  "width": 17,
-                  "height": 17,
-                  "icon": "chevrons-left",
-                  "library": "lucide",
-                  "fill": "$text-muted"
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "ya7ix",
+                      "name": "Settings Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "bh7lu",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Settings",
+                      "fontFamily": "$font-display",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "T212o6",
+                      "name": "Footer Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "PQPVc",
+                      "name": "Collapse",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevrons-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    }
+                  ]
                 }
               ]
             }
@@ -22211,54 +22371,74 @@
             },
             {
               "type": "frame",
-              "id": "WKmwa",
-              "name": "Sidebar Footer / Settings",
+              "id": "sAg8k",
+              "name": "Sidebar Footer",
               "width": "fill_container",
-              "fill": "#00000000",
-              "cornerRadius": "$radius-md",
-              "gap": 10,
+              "stroke": "$border",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
               "padding": [
-                9,
-                10
+                12,
+                0,
+                0,
+                0
               ],
-              "alignItems": "center",
               "children": [
                 {
-                  "type": "icon",
-                  "id": "nhE7j",
-                  "name": "Settings Icon",
-                  "width": 18,
-                  "height": 18,
-                  "icon": "settings",
-                  "library": "lucide",
-                  "fill": "$text-muted"
-                },
-                {
-                  "type": "text",
-                  "id": "cEy8p",
-                  "name": "Label",
-                  "fill": "$text-secondary",
-                  "content": "Settings",
-                  "fontFamily": "$font-display",
-                  "fontSize": 14,
-                  "fontWeight": "600"
-                },
-                {
                   "type": "frame",
-                  "id": "mxcQj",
-                  "name": "Footer Spacer",
+                  "id": "WKmwa",
+                  "name": "Sidebar Footer / Settings",
                   "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "icon",
-                  "id": "Dp9VL",
-                  "name": "Collapse",
-                  "width": 17,
-                  "height": 17,
-                  "icon": "chevrons-left",
-                  "library": "lucide",
-                  "fill": "$text-muted"
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "nhE7j",
+                      "name": "Settings Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "cEy8p",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Settings",
+                      "fontFamily": "$font-display",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "mxcQj",
+                      "name": "Footer Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "Dp9VL",
+                      "name": "Collapse",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevrons-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    }
+                  ]
                 }
               ]
             }
@@ -23046,54 +23226,74 @@
             },
             {
               "type": "frame",
-              "id": "ZRA96",
-              "name": "Sidebar Footer / Settings",
+              "id": "EjXBa",
+              "name": "Sidebar Footer",
               "width": "fill_container",
-              "fill": "#00000000",
-              "cornerRadius": "$radius-md",
-              "gap": 10,
+              "stroke": "$border",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
               "padding": [
-                9,
-                10
+                12,
+                0,
+                0,
+                0
               ],
-              "alignItems": "center",
               "children": [
                 {
-                  "type": "icon",
-                  "id": "L58y49",
-                  "name": "Settings Icon",
-                  "width": 18,
-                  "height": 18,
-                  "icon": "settings",
-                  "library": "lucide",
-                  "fill": "$text-muted"
-                },
-                {
-                  "type": "text",
-                  "id": "Rp1Ms",
-                  "name": "Label",
-                  "fill": "$text-secondary",
-                  "content": "Settings",
-                  "fontFamily": "$font-display",
-                  "fontSize": 14,
-                  "fontWeight": "600"
-                },
-                {
                   "type": "frame",
-                  "id": "w2yv3t",
-                  "name": "Footer Spacer",
+                  "id": "ZRA96",
+                  "name": "Sidebar Footer / Settings",
                   "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "icon",
-                  "id": "Vc4Bz",
-                  "name": "Collapse",
-                  "width": 17,
-                  "height": 17,
-                  "icon": "chevrons-left",
-                  "library": "lucide",
-                  "fill": "$text-muted"
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "L58y49",
+                      "name": "Settings Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Rp1Ms",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Settings",
+                      "fontFamily": "$font-display",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "w2yv3t",
+                      "name": "Footer Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "Vc4Bz",
+                      "name": "Collapse",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevrons-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    }
+                  ]
                 }
               ]
             }
@@ -24216,54 +24416,74 @@
             },
             {
               "type": "frame",
-              "id": "k6pok",
-              "name": "Sidebar Footer / Settings",
+              "id": "YTtvM",
+              "name": "Sidebar Footer",
               "width": "fill_container",
-              "fill": "#00000000",
-              "cornerRadius": "$radius-md",
-              "gap": 10,
+              "stroke": "$border",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
               "padding": [
-                9,
-                10
+                12,
+                0,
+                0,
+                0
               ],
-              "alignItems": "center",
               "children": [
                 {
-                  "type": "icon",
-                  "id": "AGYkZ",
-                  "name": "Settings Icon",
-                  "width": 18,
-                  "height": 18,
-                  "icon": "settings",
-                  "library": "lucide",
-                  "fill": "$text-muted"
-                },
-                {
-                  "type": "text",
-                  "id": "qfydm",
-                  "name": "Label",
-                  "fill": "$text-secondary",
-                  "content": "Settings",
-                  "fontFamily": "$font-display",
-                  "fontSize": 14,
-                  "fontWeight": "600"
-                },
-                {
                   "type": "frame",
-                  "id": "dtQ8r",
-                  "name": "Footer Spacer",
+                  "id": "k6pok",
+                  "name": "Sidebar Footer / Settings",
                   "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "icon",
-                  "id": "ZSFaX",
-                  "name": "Collapse",
-                  "width": 17,
-                  "height": 17,
-                  "icon": "chevrons-left",
-                  "library": "lucide",
-                  "fill": "$text-muted"
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "AGYkZ",
+                      "name": "Settings Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "qfydm",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Settings",
+                      "fontFamily": "$font-display",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "dtQ8r",
+                      "name": "Footer Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "ZSFaX",
+                      "name": "Collapse",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevrons-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    }
+                  ]
                 }
               ]
             }
@@ -25228,54 +25448,74 @@
             },
             {
               "type": "frame",
-              "id": "m5zJc",
-              "name": "Sidebar Footer / Settings",
+              "id": "aiOUX",
+              "name": "Sidebar Footer",
               "width": "fill_container",
-              "fill": "#00000000",
-              "cornerRadius": "$radius-md",
-              "gap": 10,
+              "stroke": "$border",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
               "padding": [
-                9,
-                10
+                12,
+                0,
+                0,
+                0
               ],
-              "alignItems": "center",
               "children": [
                 {
-                  "type": "icon",
-                  "id": "ZN69a",
-                  "name": "Settings Icon",
-                  "width": 18,
-                  "height": 18,
-                  "icon": "settings",
-                  "library": "lucide",
-                  "fill": "$text-muted"
-                },
-                {
-                  "type": "text",
-                  "id": "BtLn0",
-                  "name": "Label",
-                  "fill": "$text-secondary",
-                  "content": "Settings",
-                  "fontFamily": "$font-display",
-                  "fontSize": 14,
-                  "fontWeight": "600"
-                },
-                {
                   "type": "frame",
-                  "id": "xHAYr",
-                  "name": "Footer Spacer",
+                  "id": "m5zJc",
+                  "name": "Sidebar Footer / Settings",
                   "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "icon",
-                  "id": "yGPgX",
-                  "name": "Collapse",
-                  "width": 17,
-                  "height": 17,
-                  "icon": "chevrons-left",
-                  "library": "lucide",
-                  "fill": "$text-muted"
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "ZN69a",
+                      "name": "Settings Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "BtLn0",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Settings",
+                      "fontFamily": "$font-display",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "xHAYr",
+                      "name": "Footer Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "yGPgX",
+                      "name": "Collapse",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevrons-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    }
+                  ]
                 }
               ]
             }
@@ -27786,54 +28026,74 @@
             },
             {
               "type": "frame",
-              "id": "acPgD",
-              "name": "Sidebar Footer / Settings",
+              "id": "rtcuj",
+              "name": "Sidebar Footer",
               "width": "fill_container",
-              "fill": "#00000000",
-              "cornerRadius": "$radius-md",
-              "gap": 10,
+              "stroke": "$border",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
               "padding": [
-                9,
-                10
+                12,
+                0,
+                0,
+                0
               ],
-              "alignItems": "center",
               "children": [
                 {
-                  "type": "icon",
-                  "id": "gwh4u",
-                  "name": "Settings Icon",
-                  "width": 18,
-                  "height": 18,
-                  "icon": "settings",
-                  "library": "lucide",
-                  "fill": "$text-muted"
-                },
-                {
-                  "type": "text",
-                  "id": "p6MLN9",
-                  "name": "Label",
-                  "fill": "$text-secondary",
-                  "content": "Settings",
-                  "fontFamily": "$font-display",
-                  "fontSize": 14,
-                  "fontWeight": "600"
-                },
-                {
                   "type": "frame",
-                  "id": "rkOTP",
-                  "name": "Footer Spacer",
+                  "id": "acPgD",
+                  "name": "Sidebar Footer / Settings",
                   "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "icon",
-                  "id": "fv53a",
-                  "name": "Collapse",
-                  "width": 17,
-                  "height": 17,
-                  "icon": "chevrons-left",
-                  "library": "lucide",
-                  "fill": "$text-muted"
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "gwh4u",
+                      "name": "Settings Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "p6MLN9",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Settings",
+                      "fontFamily": "$font-display",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "rkOTP",
+                      "name": "Footer Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "fv53a",
+                      "name": "Collapse",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevrons-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    }
+                  ]
                 }
               ]
             }
@@ -30657,54 +30917,74 @@
             },
             {
               "type": "frame",
-              "id": "Z8t3xP",
-              "name": "Sidebar Footer / Settings",
+              "id": "lWPoq",
+              "name": "Sidebar Footer",
               "width": "fill_container",
-              "fill": "#00000000",
-              "cornerRadius": "$radius-md",
-              "gap": 10,
+              "stroke": "$border",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
               "padding": [
-                9,
-                10
+                12,
+                0,
+                0,
+                0
               ],
-              "alignItems": "center",
               "children": [
                 {
-                  "type": "icon",
-                  "id": "i990d",
-                  "name": "Settings Icon",
-                  "width": 18,
-                  "height": 18,
-                  "icon": "settings",
-                  "library": "lucide",
-                  "fill": "$text-muted"
-                },
-                {
-                  "type": "text",
-                  "id": "zOGcc",
-                  "name": "Label",
-                  "fill": "$text-secondary",
-                  "content": "Settings",
-                  "fontFamily": "$font-display",
-                  "fontSize": 14,
-                  "fontWeight": "600"
-                },
-                {
                   "type": "frame",
-                  "id": "BK2A7",
-                  "name": "Footer Spacer",
+                  "id": "Z8t3xP",
+                  "name": "Sidebar Footer / Settings",
                   "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "icon",
-                  "id": "Ja8rZ",
-                  "name": "Collapse",
-                  "width": 17,
-                  "height": 17,
-                  "icon": "chevrons-left",
-                  "library": "lucide",
-                  "fill": "$text-muted"
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "i990d",
+                      "name": "Settings Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "zOGcc",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Settings",
+                      "fontFamily": "$font-display",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "BK2A7",
+                      "name": "Footer Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "Ja8rZ",
+                      "name": "Collapse",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevrons-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    }
+                  ]
                 }
               ]
             }
@@ -33592,54 +33872,74 @@
             },
             {
               "type": "frame",
-              "id": "g9lF2i",
-              "name": "Sidebar Footer / Settings",
+              "id": "wjbLj",
+              "name": "Sidebar Footer",
               "width": "fill_container",
-              "fill": "#00000000",
-              "cornerRadius": "$radius-md",
-              "gap": 10,
+              "stroke": "$border",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
               "padding": [
-                9,
-                10
+                12,
+                0,
+                0,
+                0
               ],
-              "alignItems": "center",
               "children": [
                 {
-                  "type": "icon",
-                  "id": "hVlEC",
-                  "name": "Settings Icon",
-                  "width": 18,
-                  "height": 18,
-                  "icon": "settings",
-                  "library": "lucide",
-                  "fill": "$text-muted"
-                },
-                {
-                  "type": "text",
-                  "id": "F9urO",
-                  "name": "Label",
-                  "fill": "$text-secondary",
-                  "content": "Settings",
-                  "fontFamily": "$font-display",
-                  "fontSize": 14,
-                  "fontWeight": "600"
-                },
-                {
                   "type": "frame",
-                  "id": "n6ygq",
-                  "name": "Footer Spacer",
+                  "id": "g9lF2i",
+                  "name": "Sidebar Footer / Settings",
                   "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "icon",
-                  "id": "FMiP4",
-                  "name": "Collapse",
-                  "width": 17,
-                  "height": 17,
-                  "icon": "chevrons-left",
-                  "library": "lucide",
-                  "fill": "$text-muted"
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "hVlEC",
+                      "name": "Settings Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "F9urO",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Settings",
+                      "fontFamily": "$font-display",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "n6ygq",
+                      "name": "Footer Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "FMiP4",
+                      "name": "Collapse",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevrons-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    }
+                  ]
                 }
               ]
             }
@@ -36502,54 +36802,74 @@
             },
             {
               "type": "frame",
-              "id": "XtB9v",
-              "name": "Sidebar Footer / Settings",
+              "id": "A00RNY",
+              "name": "Sidebar Footer",
               "width": "fill_container",
-              "fill": "#00000000",
-              "cornerRadius": "$radius-md",
-              "gap": 10,
+              "stroke": "$border",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
               "padding": [
-                9,
-                10
+                12,
+                0,
+                0,
+                0
               ],
-              "alignItems": "center",
               "children": [
                 {
-                  "type": "icon",
-                  "id": "Yft3W",
-                  "name": "Settings Icon",
-                  "width": 18,
-                  "height": 18,
-                  "icon": "settings",
-                  "library": "lucide",
-                  "fill": "$text-muted"
-                },
-                {
-                  "type": "text",
-                  "id": "vdzje",
-                  "name": "Label",
-                  "fill": "$text-secondary",
-                  "content": "Settings",
-                  "fontFamily": "$font-display",
-                  "fontSize": 14,
-                  "fontWeight": "600"
-                },
-                {
                   "type": "frame",
-                  "id": "Uaygr",
-                  "name": "Footer Spacer",
+                  "id": "XtB9v",
+                  "name": "Sidebar Footer / Settings",
                   "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "icon",
-                  "id": "WIO9Z",
-                  "name": "Collapse",
-                  "width": 17,
-                  "height": 17,
-                  "icon": "chevrons-left",
-                  "library": "lucide",
-                  "fill": "$text-muted"
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "Yft3W",
+                      "name": "Settings Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "vdzje",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Settings",
+                      "fontFamily": "$font-display",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Uaygr",
+                      "name": "Footer Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "WIO9Z",
+                      "name": "Collapse",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevrons-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    }
+                  ]
                 }
               ]
             }
@@ -38945,54 +39265,74 @@
             },
             {
               "type": "frame",
-              "id": "hhSCp",
-              "name": "Sidebar Footer / Settings",
+              "id": "sRIcR",
+              "name": "Sidebar Footer",
               "width": "fill_container",
-              "fill": "#00000000",
-              "cornerRadius": "$radius-md",
-              "gap": 10,
+              "stroke": "$border",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
               "padding": [
-                9,
-                10
+                12,
+                0,
+                0,
+                0
               ],
-              "alignItems": "center",
               "children": [
                 {
-                  "type": "icon",
-                  "id": "gWBxb",
-                  "name": "Settings Icon",
-                  "width": 18,
-                  "height": 18,
-                  "icon": "settings",
-                  "library": "lucide",
-                  "fill": "$text-muted"
-                },
-                {
-                  "type": "text",
-                  "id": "n0CCFQ",
-                  "name": "Label",
-                  "fill": "$text-secondary",
-                  "content": "Settings",
-                  "fontFamily": "$font-display",
-                  "fontSize": 14,
-                  "fontWeight": "600"
-                },
-                {
                   "type": "frame",
-                  "id": "Ypn2o",
-                  "name": "Footer Spacer",
+                  "id": "hhSCp",
+                  "name": "Sidebar Footer / Settings",
                   "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "icon",
-                  "id": "C645Z",
-                  "name": "Collapse",
-                  "width": 17,
-                  "height": 17,
-                  "icon": "chevrons-left",
-                  "library": "lucide",
-                  "fill": "$text-muted"
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "gWBxb",
+                      "name": "Settings Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "n0CCFQ",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Settings",
+                      "fontFamily": "$font-display",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Ypn2o",
+                      "name": "Footer Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "C645Z",
+                      "name": "Collapse",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevrons-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    }
+                  ]
                 }
               ]
             }
@@ -39706,54 +40046,74 @@
             },
             {
               "type": "frame",
-              "id": "Tzdsa",
-              "name": "Sidebar Footer / Settings",
+              "id": "bzque",
+              "name": "Sidebar Footer",
               "width": "fill_container",
-              "fill": "#00000000",
-              "cornerRadius": "$radius-md",
-              "gap": 10,
+              "stroke": "$border",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
               "padding": [
-                9,
-                10
+                12,
+                0,
+                0,
+                0
               ],
-              "alignItems": "center",
               "children": [
                 {
-                  "type": "icon",
-                  "id": "XkyHC",
-                  "name": "Settings Icon",
-                  "width": 18,
-                  "height": 18,
-                  "icon": "settings",
-                  "library": "lucide",
-                  "fill": "$text-muted"
-                },
-                {
-                  "type": "text",
-                  "id": "Z1z7Y",
-                  "name": "Label",
-                  "fill": "$text-secondary",
-                  "content": "Settings",
-                  "fontFamily": "$font-display",
-                  "fontSize": 14,
-                  "fontWeight": "600"
-                },
-                {
                   "type": "frame",
-                  "id": "qV1Ge",
-                  "name": "Footer Spacer",
+                  "id": "Tzdsa",
+                  "name": "Sidebar Footer / Settings",
                   "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "icon",
-                  "id": "NBzGN",
-                  "name": "Collapse",
-                  "width": 17,
-                  "height": 17,
-                  "icon": "chevrons-left",
-                  "library": "lucide",
-                  "fill": "$text-muted"
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "XkyHC",
+                      "name": "Settings Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Z1z7Y",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Settings",
+                      "fontFamily": "$font-display",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "qV1Ge",
+                      "name": "Footer Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "NBzGN",
+                      "name": "Collapse",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevrons-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    }
+                  ]
                 }
               ]
             }
@@ -42846,54 +43206,74 @@
             },
             {
               "type": "frame",
-              "id": "pxoBq",
-              "name": "Sidebar Footer / Settings",
+              "id": "AIJTI",
+              "name": "Sidebar Footer",
               "width": "fill_container",
-              "fill": "#00000000",
-              "cornerRadius": "$radius-md",
-              "gap": 10,
+              "stroke": "$border",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
               "padding": [
-                9,
-                10
+                12,
+                0,
+                0,
+                0
               ],
-              "alignItems": "center",
               "children": [
                 {
-                  "type": "icon",
-                  "id": "XhAJn",
-                  "name": "Settings Icon",
-                  "width": 18,
-                  "height": 18,
-                  "icon": "settings",
-                  "library": "lucide",
-                  "fill": "$text-muted"
-                },
-                {
-                  "type": "text",
-                  "id": "G2THY",
-                  "name": "Label",
-                  "fill": "$text-secondary",
-                  "content": "Settings",
-                  "fontFamily": "$font-display",
-                  "fontSize": 14,
-                  "fontWeight": "600"
-                },
-                {
                   "type": "frame",
-                  "id": "QaVGe",
-                  "name": "Footer Spacer",
+                  "id": "pxoBq",
+                  "name": "Sidebar Footer / Settings",
                   "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "icon",
-                  "id": "PvQwk",
-                  "name": "Collapse",
-                  "width": 17,
-                  "height": 17,
-                  "icon": "chevrons-left",
-                  "library": "lucide",
-                  "fill": "$text-muted"
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "XhAJn",
+                      "name": "Settings Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "G2THY",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Settings",
+                      "fontFamily": "$font-display",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "QaVGe",
+                      "name": "Footer Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "PvQwk",
+                      "name": "Collapse",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevrons-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    }
+                  ]
                 }
               ]
             }
@@ -46383,54 +46763,74 @@
             },
             {
               "type": "frame",
-              "id": "j3wJhM",
-              "name": "Sidebar Footer / Settings",
+              "id": "JtZEV",
+              "name": "Sidebar Footer",
               "width": "fill_container",
-              "fill": "#00000000",
-              "cornerRadius": "$radius-md",
-              "gap": 10,
+              "stroke": "$border",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
               "padding": [
-                9,
-                10
+                12,
+                0,
+                0,
+                0
               ],
-              "alignItems": "center",
               "children": [
                 {
-                  "type": "icon",
-                  "id": "CP2JQ",
-                  "name": "Settings Icon",
-                  "width": 18,
-                  "height": 18,
-                  "icon": "settings",
-                  "library": "lucide",
-                  "fill": "$text-muted"
-                },
-                {
-                  "type": "text",
-                  "id": "RmSXJ",
-                  "name": "Label",
-                  "fill": "$text-secondary",
-                  "content": "Settings",
-                  "fontFamily": "$font-display",
-                  "fontSize": 14,
-                  "fontWeight": "600"
-                },
-                {
                   "type": "frame",
-                  "id": "O2CEO",
-                  "name": "Footer Spacer",
+                  "id": "j3wJhM",
+                  "name": "Sidebar Footer / Settings",
                   "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "icon",
-                  "id": "VKOFH",
-                  "name": "Collapse",
-                  "width": 17,
-                  "height": 17,
-                  "icon": "chevrons-left",
-                  "library": "lucide",
-                  "fill": "$text-muted"
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "CP2JQ",
+                      "name": "Settings Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "RmSXJ",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Settings",
+                      "fontFamily": "$font-display",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "O2CEO",
+                      "name": "Footer Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "VKOFH",
+                      "name": "Collapse",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevrons-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    }
+                  ]
                 }
               ]
             }
@@ -48271,54 +48671,74 @@
             },
             {
               "type": "frame",
-              "id": "Z1OPLT",
-              "name": "Sidebar Footer / Settings",
+              "id": "j5zuP",
+              "name": "Sidebar Footer",
               "width": "fill_container",
-              "fill": "#00000000",
-              "cornerRadius": "$radius-md",
-              "gap": 10,
+              "stroke": "$border",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
               "padding": [
-                9,
-                10
+                12,
+                0,
+                0,
+                0
               ],
-              "alignItems": "center",
               "children": [
                 {
-                  "type": "icon",
-                  "id": "ftKBv",
-                  "name": "Settings Icon",
-                  "width": 18,
-                  "height": 18,
-                  "icon": "settings",
-                  "library": "lucide",
-                  "fill": "$text-muted"
-                },
-                {
-                  "type": "text",
-                  "id": "zYehh",
-                  "name": "Label",
-                  "fill": "$text-secondary",
-                  "content": "Settings",
-                  "fontFamily": "$font-display",
-                  "fontSize": 14,
-                  "fontWeight": "600"
-                },
-                {
                   "type": "frame",
-                  "id": "EWIvt",
-                  "name": "Footer Spacer",
+                  "id": "Z1OPLT",
+                  "name": "Sidebar Footer / Settings",
                   "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "icon",
-                  "id": "W01ut",
-                  "name": "Collapse",
-                  "width": 17,
-                  "height": 17,
-                  "icon": "chevrons-left",
-                  "library": "lucide",
-                  "fill": "$text-muted"
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "ftKBv",
+                      "name": "Settings Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "zYehh",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Settings",
+                      "fontFamily": "$font-display",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "EWIvt",
+                      "name": "Footer Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "W01ut",
+                      "name": "Collapse",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "chevrons-left",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    }
+                  ]
                 }
               ]
             }

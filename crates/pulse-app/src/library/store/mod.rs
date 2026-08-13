@@ -95,7 +95,7 @@ impl LibraryStore {
              PRAGMA synchronous = NORMAL;",
         )?;
         // Exact-membership genre predicate for SQL queries, sharing
-        // `genre_tag_members` with the chip enumeration in `genres()` so both
+        // `genre_tag_members` with the picker enumeration in `genres()` so both
         // sides split and trim identically and LIKE wildcards never apply.
         connection.create_scalar_function(
             "genre_has_member",
@@ -257,9 +257,15 @@ impl LibraryStore {
 
     /// Distinct individual genres. Stores like Qobuz write one comma-separated
     /// list into the tag ("Musiques du monde, J-pop, Japon"), so the stored
-    /// strings are split into members here rather than surfaced verbatim.
+    /// strings are split into members here rather than surfaced as one value.
     pub fn genres(&self) -> Result<Vec<String>, LibraryError> {
         tracks::genres(&self.connection)
+    }
+
+    /// Distinct individual genres with unique album counts, for the shared
+    /// Albums and Tracks genre-filter popover.
+    pub fn genre_album_counts(&self) -> Result<Vec<(String, u64)>, LibraryError> {
+        tracks::genre_album_counts(&self.connection)
     }
 
     pub fn root_summary(

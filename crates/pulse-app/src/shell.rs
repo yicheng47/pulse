@@ -494,9 +494,11 @@ impl Shell {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let active = self.destination == destination;
+        let hover_group = SharedString::from(format!("sidebar-nav-{}", destination.label()));
 
         div()
             .id(destination.label())
+            .group(hover_group.clone())
             .flex()
             .items_center()
             .gap(px(10.))
@@ -505,6 +507,9 @@ impl Shell {
             .py(px(9.))
             .rounded(px(theme::RADIUS_MD))
             .when(active, |item| item.bg(theme::accent_soft()))
+            .when(!active, |item| {
+                item.hover(|style| style.bg(theme::accent_soft()))
+            })
             .cursor_pointer()
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.destination = destination;
@@ -521,6 +526,11 @@ impl Shell {
                         theme::accent()
                     } else {
                         theme::text_muted()
+                    })
+                    .when(!active, |icon| {
+                        icon.group_hover(hover_group.clone(), |style| {
+                            style.text_color(theme::accent())
+                        })
                     }),
             )
             .child(
@@ -533,6 +543,11 @@ impl Shell {
                     } else {
                         theme::text_secondary()
                     })
+                    .when(!active, |label| {
+                        label.group_hover(hover_group.clone(), |style| {
+                            style.text_color(theme::text_primary())
+                        })
+                    })
                     .child(destination.label()),
             )
             .when(destination == Destination::Storage, |item| {
@@ -544,33 +559,48 @@ impl Shell {
 
     fn render_settings_footer(&self, cx: &mut Context<Self>) -> impl IntoElement {
         div()
-            .id("open-settings")
-            .flex()
-            .items_center()
-            .gap(px(10.))
             .w_full()
-            .px(px(10.))
-            .py(px(9.))
-            .rounded(px(theme::RADIUS_MD))
-            .cursor_pointer()
-            .on_click(cx.listener(|this, _, window, cx| {
-                window.blur();
-                this.open_settings(SettingsSection::General, cx);
-            }))
-            .child(
-                svg()
-                    .path("icons/settings.svg")
-                    .size(px(18.))
-                    .flex_none()
-                    .text_color(theme::text_muted()),
-            )
+            .pt(px(12.))
+            .border_t_1()
+            .border_color(theme::border())
             .child(
                 div()
-                    .font_family(theme::FONT_DISPLAY)
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .text_size(px(14.))
-                    .text_color(theme::text_secondary())
-                    .child("Settings"),
+                    .id("open-settings")
+                    .group("sidebar-settings")
+                    .flex()
+                    .items_center()
+                    .gap(px(10.))
+                    .w_full()
+                    .px(px(10.))
+                    .py(px(9.))
+                    .rounded(px(theme::RADIUS_MD))
+                    .cursor_pointer()
+                    .hover(|style| style.bg(theme::accent_soft()))
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        window.blur();
+                        this.open_settings(SettingsSection::General, cx);
+                    }))
+                    .child(
+                        svg()
+                            .path("icons/settings.svg")
+                            .size(px(18.))
+                            .flex_none()
+                            .text_color(theme::text_muted())
+                            .group_hover("sidebar-settings", |style| {
+                                style.text_color(theme::accent())
+                            }),
+                    )
+                    .child(
+                        div()
+                            .font_family(theme::FONT_DISPLAY)
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_size(px(14.))
+                            .text_color(theme::text_secondary())
+                            .group_hover("sidebar-settings", |style| {
+                                style.text_color(theme::text_primary())
+                            })
+                            .child("Settings"),
+                    ),
             )
     }
 
@@ -615,6 +645,7 @@ impl Shell {
             .child(
                 div()
                     .id("back-to-library")
+                    .group("settings-back")
                     .flex()
                     .items_center()
                     .gap(px(10.))
@@ -623,6 +654,7 @@ impl Shell {
                     .py(px(9.))
                     .rounded(px(theme::RADIUS_MD))
                     .cursor_pointer()
+                    .hover(|style| style.bg(theme::accent_soft()))
                     .on_click(cx.listener(|this, _, window, cx| {
                         window.blur();
                         this.close_settings(cx);
@@ -632,7 +664,10 @@ impl Shell {
                             .path("icons/chevron-left.svg")
                             .size(px(17.))
                             .flex_none()
-                            .text_color(theme::text_muted()),
+                            .text_color(theme::text_muted())
+                            .group_hover("settings-back", |style| {
+                                style.text_color(theme::accent())
+                            }),
                     )
                     .child(
                         div()
@@ -640,6 +675,9 @@ impl Shell {
                             .font_weight(FontWeight::SEMIBOLD)
                             .text_size(px(15.))
                             .text_color(theme::text_secondary())
+                            .group_hover("settings-back", |style| {
+                                style.text_color(theme::text_primary())
+                            })
                             .child("Back to library"),
                     ),
             )
@@ -676,12 +714,14 @@ impl Shell {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let selected = model.is_selected(section);
+        let hover_group = SharedString::from(format!("settings-nav-{}", section.label()));
 
         div()
             .id(SharedString::from(format!(
                 "settings-section-{}",
                 section.label()
             )))
+            .group(hover_group.clone())
             .flex()
             .items_center()
             .gap(px(10.))
@@ -690,6 +730,9 @@ impl Shell {
             .py(px(9.))
             .rounded(px(theme::RADIUS_MD))
             .when(selected, |item| item.bg(theme::accent_soft()))
+            .when(!selected, |item| {
+                item.hover(|style| style.bg(theme::accent_soft()))
+            })
             .cursor_pointer()
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.select_settings_section(section, cx);
@@ -703,6 +746,11 @@ impl Shell {
                         theme::accent()
                     } else {
                         theme::text_muted()
+                    })
+                    .when(!selected, |icon| {
+                        icon.group_hover(hover_group.clone(), |style| {
+                            style.text_color(theme::accent())
+                        })
                     }),
             )
             .child(
@@ -714,6 +762,11 @@ impl Shell {
                         theme::text_primary()
                     } else {
                         theme::text_secondary()
+                    })
+                    .when(!selected, |label| {
+                        label.group_hover(hover_group.clone(), |style| {
+                            style.text_color(theme::text_primary())
+                        })
                     })
                     .child(section.label()),
             )

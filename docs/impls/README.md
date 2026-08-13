@@ -7,7 +7,6 @@ Notes stay here while their stage is in flight. Once a stage ships — or a deci
 Active notes:
 
 - [`ROADMAP.md`](ROADMAP.md) - canonical implementation stage order.
-- [`IMPL_LOG.md`](IMPL_LOG.md) - running progress record. Append an entry per working session: what happened, what's next, blockers.
 - [`MANUAL_ACCEPTANCE_CHECKLIST.md`](MANUAL_ACCEPTANCE_CHECKLIST.md) - the human-only MVP acceptance gate; 96 checks across playback, hardware, library, queue, playlists, and search.
 - [`0015-mvp-states-and-hardening.md`](0015-mvp-states-and-hardening.md) - stage 13: loading states, decode failure, hogged/unavailable device, and missing-file handling.
 

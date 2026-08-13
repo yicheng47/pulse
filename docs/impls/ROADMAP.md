@@ -2,7 +2,7 @@
 
 This is the canonical engineering stage plan for Pulse. Product direction lives in `docs/product/vision.md`; MVP scope lives in [`docs/product/mvp.md`](../product/mvp.md). This roadmap controls implementation order so we do not drift into random probing.
 
-Each stage should have a focused implementation note once work starts. A stage is done only when its verification path is clear enough to repeat. Shipped stages' notes move to [`archive/`](archive/) keeping their number. Session-by-session progress is recorded in [`IMPL_LOG.md`](IMPL_LOG.md).
+Each stage should have a focused implementation note once work starts. A stage is done only when its verification path is clear enough to repeat. Shipped stages' notes move to [`archive/`](archive/) keeping their number. Post-MVP bugs and feature gaps are tracked in GitHub issues and [`docs/features/`](../features/).
 
 ## Stage Rules
 
