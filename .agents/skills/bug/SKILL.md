@@ -1,6 +1,6 @@
 ---
 name: bug
-description: Use when reporting, triaging, listing, or closing Pulse bug reports, especially bugs involving playback, Core Audio HAL, realtime audio, Tauri commands, or UI behavior.
+description: Use when reporting, triaging, listing, or closing Pulse bug reports, especially bugs involving playback, Core Audio HAL, realtime audio, GPUI views, or UI behavior.
 ---
 
 # Bug Reporting
