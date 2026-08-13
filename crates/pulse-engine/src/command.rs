@@ -10,4 +10,5 @@ pub enum PlaybackCommand {
     Seek { position_ms: u64 },
     Stop,
     SetOutputDevice { device_id: DeviceId },
+    SetExclusiveMode { enabled: bool },
 }

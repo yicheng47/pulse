@@ -10,6 +10,71 @@ use gpui::{
 
 use crate::theme;
 
+const TOGGLE_WIDTH: f32 = 40.0;
+const TOGGLE_HEIGHT: f32 = 22.0;
+const TOGGLE_KNOB_SIZE: f32 = 18.0;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum ToggleAlignment {
+    Start,
+    End,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct ToggleAppearance {
+    alignment: ToggleAlignment,
+    track: Rgba,
+    border: Option<Rgba>,
+    knob: Rgba,
+}
+
+fn toggle_appearance(on: bool) -> ToggleAppearance {
+    if on {
+        ToggleAppearance {
+            alignment: ToggleAlignment::End,
+            track: theme::accent(),
+            border: None,
+            knob: theme::bg_inset(),
+        }
+    } else {
+        ToggleAppearance {
+            alignment: ToggleAlignment::Start,
+            track: theme::bg_elevated(),
+            border: Some(theme::border_strong()),
+            knob: theme::text_muted(),
+        }
+    }
+}
+
+pub(crate) fn toggle(id: impl Into<ElementId>, on: bool) -> Stateful<Div> {
+    let appearance = toggle_appearance(on);
+    let mut toggle = div()
+        .id(id)
+        .flex()
+        .items_center()
+        .w(px(TOGGLE_WIDTH))
+        .h(px(TOGGLE_HEIGHT))
+        .flex_none()
+        .p(px(2.))
+        .rounded(px(TOGGLE_HEIGHT / 2.0))
+        .bg(appearance.track)
+        .cursor_pointer();
+    toggle = match appearance.alignment {
+        ToggleAlignment::Start => toggle.justify_start(),
+        ToggleAlignment::End => toggle.justify_end(),
+    };
+    if let Some(border) = appearance.border {
+        toggle = toggle.border_1().border_color(border);
+    }
+    toggle.child(
+        div()
+            .size(px(TOGGLE_KNOB_SIZE))
+            .flex_none()
+            .rounded_full()
+            .bg(appearance.knob),
+    )
+}
+
 /// Filled accent button for a modal's confirming action.
 pub(crate) fn primary_button(
     id: impl Into<ElementId>,
@@ -166,4 +231,34 @@ pub(crate) fn input_caret() -> AnyElement {
         .flex_none()
         .bg(theme::accent())
         .into_any_element()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn toggle_rendering_matches_the_on_and_off_components() {
+        assert_eq!(TOGGLE_WIDTH, 40.0);
+        assert_eq!(TOGGLE_HEIGHT, 22.0);
+        assert_eq!(TOGGLE_KNOB_SIZE, 18.0);
+        assert_eq!(
+            toggle_appearance(true),
+            ToggleAppearance {
+                alignment: ToggleAlignment::End,
+                track: theme::accent(),
+                border: None,
+                knob: theme::bg_inset(),
+            }
+        );
+        assert_eq!(
+            toggle_appearance(false),
+            ToggleAppearance {
+                alignment: ToggleAlignment::Start,
+                track: theme::bg_elevated(),
+                border: Some(theme::border_strong()),
+                knob: theme::text_muted(),
+            }
+        );
+    }
 }

@@ -19,7 +19,7 @@ const FEED_RETRY_DELAY: Duration = Duration::from_millis(2);
 const SHUTDOWN_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
 type BackendFactory =
-    Arc<dyn Fn(DeviceId) -> Result<Box<dyn PlaybackBackend>, EngineError> + Send + Sync>;
+    Arc<dyn Fn(DeviceId, bool) -> Result<Box<dyn PlaybackBackend>, EngineError> + Send + Sync>;
 type DecoderFactory =
     Arc<dyn Fn(&Path) -> Result<Box<dyn SourceDecoder>, EngineError> + Send + Sync>;
 
@@ -31,10 +31,13 @@ pub struct PlaybackController {
 }
 
 impl PlaybackController {
-    pub fn spawn(output_device: DeviceId) -> Self {
+    pub fn spawn(output_device: DeviceId, exclusive_mode: bool) -> Self {
         Self::spawn_with_dependencies(
             output_device,
-            Arc::new(|device_id| Ok(Box::new(EngineBackend::open(device_id)?))),
+            exclusive_mode,
+            Arc::new(|device_id, exclusive_mode| {
+                Ok(Box::new(EngineBackend::open(device_id, exclusive_mode)?))
+            }),
             Arc::new(|path| Ok(Box::new(PcmDecoder::open(path)?))),
         )
     }
@@ -54,6 +57,7 @@ impl PlaybackController {
 
     fn spawn_with_dependencies(
         output_device: DeviceId,
+        exclusive_mode: bool,
         backend_factory: BackendFactory,
         decoder_factory: DecoderFactory,
     ) -> Self {
@@ -70,6 +74,7 @@ impl PlaybackController {
                 let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     Worker::new(
                         output_device,
+                        exclusive_mode,
                         command_rx,
                         worker_subscribers,
                         backend_factory,
@@ -120,9 +125,9 @@ struct EngineBackend {
 }
 
 impl EngineBackend {
-    fn open(device_id: DeviceId) -> Result<Self, EngineError> {
+    fn open(device_id: DeviceId, exclusive_mode: bool) -> Result<Self, EngineError> {
         Ok(Self {
-            engine: Engine::open(device_id)?,
+            engine: Engine::open(device_id, exclusive_mode)?,
         })
     }
 }
@@ -200,10 +205,11 @@ struct Worker {
     /// Count of PlayFile commands processed; stamped on terminal events.
     attempt: u64,
     output_device: DeviceId,
+    exclusive_mode: bool,
     current: Option<CurrentTrack>,
     active: Option<ActivePlayback>,
     prepared_decoder: Option<PreparedDecoder>,
-    backend: Option<(DeviceId, Box<dyn PlaybackBackend>)>,
+    backend: Option<(DeviceId, bool, Box<dyn PlaybackBackend>)>,
     command_rx: Receiver<PlaybackCommand>,
     subscribers: EventSubscribers,
     backend_factory: BackendFactory,
@@ -214,6 +220,7 @@ struct Worker {
 impl Worker {
     fn new(
         output_device: DeviceId,
+        exclusive_mode: bool,
         command_rx: Receiver<PlaybackCommand>,
         subscribers: EventSubscribers,
         backend_factory: BackendFactory,
@@ -224,6 +231,7 @@ impl Worker {
             state: PlaybackState::Idle,
             attempt: 0,
             output_device,
+            exclusive_mode,
             current: None,
             active: None,
             prepared_decoder: None,
@@ -268,6 +276,7 @@ impl Worker {
             PlaybackCommand::Seek { position_ms } => self.seek(position_ms),
             PlaybackCommand::Stop => self.stop(),
             PlaybackCommand::SetOutputDevice { device_id } => self.set_output_device(device_id),
+            PlaybackCommand::SetExclusiveMode { enabled } => self.set_exclusive_mode(enabled),
         };
 
         if let Err(error) = result {
@@ -401,6 +410,28 @@ impl Worker {
         Ok(())
     }
 
+    fn set_exclusive_mode(&mut self, enabled: bool) -> Result<(), EngineError> {
+        if self.exclusive_mode == enabled {
+            return Ok(());
+        }
+
+        if self.state == PlaybackState::Playing {
+            let position_ms = self.logical_position_ms();
+            let path = self.current_path()?;
+            self.set_state(PlaybackState::Loading);
+            self.exclusive_mode = enabled;
+            self.release_backend()?;
+            self.start_path(&path, position_ms, false, true)?;
+            return Ok(());
+        }
+
+        self.exclusive_mode = enabled;
+        if self.state == PlaybackState::Paused {
+            self.release_backend()?;
+        }
+        Ok(())
+    }
+
     fn start_path(
         &mut self,
         path: &Path,
@@ -429,13 +460,14 @@ impl Worker {
         let mut backend = match self
             .backend
             .take()
-            .filter(|(device_id, _)| *device_id == self.output_device)
-        {
-            Some((_, backend)) => backend,
-            None => (self.backend_factory)(self.output_device)?,
+            .filter(|(device_id, exclusive_mode, _)| {
+                *device_id == self.output_device && *exclusive_mode == self.exclusive_mode
+            }) {
+            Some((_, _, backend)) => backend,
+            None => (self.backend_factory)(self.output_device, self.exclusive_mode)?,
         };
         backend.start(format)?;
-        self.backend = Some((self.output_device, backend));
+        self.backend = Some((self.output_device, self.exclusive_mode, backend));
 
         let source = PlayableSource {
             path: path.to_path_buf(),
@@ -495,7 +527,7 @@ impl Worker {
                 .backend
                 .as_mut()
                 .expect("active playback must have a backend")
-                .1
+                .2
                 .feed(&active.pcm[active.pcm_offset..]);
             active.pcm_offset += accepted_frames * bytes_per_frame;
             active.fed_frames += accepted_frames as u64;
@@ -521,7 +553,7 @@ impl Worker {
             .backend
             .as_ref()
             .expect("active playback must have a backend")
-            .1
+            .2
             .position();
         let finished = self.active.as_ref().is_some_and(|active| {
             active.decoder_finished
@@ -579,19 +611,19 @@ impl Worker {
 
     fn stop_active(&mut self) -> Result<(), EngineError> {
         if self.active.take().is_some() {
-            let (device_id, mut backend) = self
+            let (device_id, exclusive_mode, mut backend) = self
                 .backend
                 .take()
                 .expect("active playback must have a backend");
             backend.stop()?;
-            self.backend = Some((device_id, backend));
+            self.backend = Some((device_id, exclusive_mode, backend));
         }
         Ok(())
     }
 
     fn release_backend(&mut self) -> Result<(), EngineError> {
         let was_active = self.active.take().is_some();
-        let Some((_, mut backend)) = self.backend.take() else {
+        let Some((_, _, mut backend)) = self.backend.take() else {
             return Ok(());
         };
         if was_active {
@@ -637,7 +669,7 @@ impl Worker {
             self.backend
                 .as_ref()
                 .expect("active playback must have a backend")
-                .1
+                .2
                 .position(),
             format.sample_rate,
         ));
@@ -699,6 +731,7 @@ mod tests {
 
     struct FakeLog {
         opened_devices: Vec<DeviceId>,
+        exclusive_modes: Vec<bool>,
         seek_positions: Vec<u64>,
         stops: usize,
         fail_open_device: Option<DeviceId>,
@@ -710,6 +743,7 @@ mod tests {
         fn default() -> Self {
             Self {
                 opened_devices: Vec::new(),
+                exclusive_modes: Vec::new(),
                 seek_positions: Vec::new(),
                 stops: 0,
                 fail_open_device: None,
@@ -970,6 +1004,39 @@ mod tests {
     }
 
     #[test]
+    fn changing_exclusive_mode_reopens_the_backend_without_losing_position() {
+        let (controller, log) = fake_controller();
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            matches!(
+                event,
+                PlaybackEvent::Position {
+                    position_ms: 1_000,
+                    ..
+                }
+            )
+        });
+
+        commands
+            .send(PlaybackCommand::SetExclusiveMode { enabled: false })
+            .unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+
+        let log = log.lock().unwrap();
+        assert_eq!(log.opened_devices, [7, 7]);
+        assert_eq!(log.exclusive_modes, [true, false]);
+        assert_eq!(log.seek_positions, [1_000]);
+    }
+
+    #[test]
     fn end_of_track_emits_ended_and_supports_stop_from_ended() {
         let (controller, log) = fake_controller();
         log.lock().unwrap().position_limit = u64::MAX;
@@ -1223,7 +1290,8 @@ mod tests {
         let backend_log = Arc::clone(&log);
         let controller = PlaybackController::spawn_with_dependencies(
             7,
-            Arc::new(move |_| {
+            true,
+            Arc::new(move |_, _| {
                 Ok(Box::new(FakeBackend {
                     log: Arc::clone(&backend_log),
                     fed_frames: 0,
@@ -1262,10 +1330,12 @@ mod tests {
         let decoder_log = Arc::clone(&log);
         let controller = PlaybackController::spawn_with_dependencies(
             7,
-            Arc::new(move |device_id| {
+            true,
+            Arc::new(move |device_id, exclusive_mode| {
                 let fail_open = {
                     let mut log = backend_log.lock().unwrap();
                     log.opened_devices.push(device_id);
+                    log.exclusive_modes.push(exclusive_mode);
                     log.fail_open_device == Some(device_id)
                 };
                 if fail_open {

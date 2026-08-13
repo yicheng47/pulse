@@ -6,6 +6,7 @@ mod menu;
 mod playback_row;
 mod preferences;
 mod queue;
+mod settings;
 mod shell;
 mod theme;
 
