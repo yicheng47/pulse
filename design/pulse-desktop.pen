@@ -51584,7 +51584,7 @@
                                       "id": "J7w00F",
                                       "name": "Tagline",
                                       "fill": "$text-muted",
-                                      "content": "Bit-perfect music player for macOS.",
+                                      "content": "Native-rate music player for macOS.",
                                       "fontFamily": "$font-sans",
                                       "fontSize": 12,
                                       "fontWeight": "normal"

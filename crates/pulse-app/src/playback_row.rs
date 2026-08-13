@@ -42,13 +42,15 @@ struct DeviceMessage {
     is_error: bool,
 }
 
-/// A visible playback report shown above the row. `Skip` means playback
-/// continued past an unplayable queue entry; the other two mean it stopped.
+/// A visible report shown above the playback row. `Skip` means playback
+/// continued past an unplayable queue entry; `Stopped` and `DeviceFailure`
+/// mean it stopped.
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum PlaybackNotice {
     Skip { text: String },
     Stopped { text: String },
     DeviceFailure { text: String },
+    UpdateAvailable { version: String, url: String },
 }
 
 #[derive(Clone, Copy)]
@@ -392,6 +394,18 @@ impl PlaybackRow {
     pub(crate) fn remove_missing_marks(&mut self, track_ids: &[TrackId]) {
         for track_id in track_ids {
             self.missing_track_ids.remove(track_id);
+        }
+    }
+
+    pub(crate) fn show_update_available(
+        &mut self,
+        version: String,
+        url: String,
+        cx: &mut Context<Self>,
+    ) {
+        if self.notice.is_none() {
+            self.notice = Some(PlaybackNotice::UpdateAvailable { version, url });
+            cx.notify();
         }
     }
 
@@ -2234,10 +2248,16 @@ impl Render for PlaybackRow {
 
 impl PlaybackRow {
     fn render_notice(&self, notice: PlaybackNotice, cx: &mut Context<Self>) -> impl IntoElement {
-        let (text, is_error, recovery) = match notice {
-            PlaybackNotice::Skip { text } => (text, false, false),
-            PlaybackNotice::Stopped { text } => (text, true, false),
-            PlaybackNotice::DeviceFailure { text } => (text, true, true),
+        let (text, color, recovery, release_url) = match notice {
+            PlaybackNotice::Skip { text } => (text, theme::warning(), false, None),
+            PlaybackNotice::Stopped { text } => (text, theme::danger(), false, None),
+            PlaybackNotice::DeviceFailure { text } => (text, theme::danger(), true, None),
+            PlaybackNotice::UpdateAvailable { version, url } => (
+                format!("Pulse {version} is available"),
+                theme::quality(),
+                false,
+                Some(url),
+            ),
         };
         div()
             .flex()
@@ -2256,13 +2276,18 @@ impl PlaybackRow {
                     .truncate()
                     .font_family(theme::FONT_SANS)
                     .text_size(px(12.))
-                    .text_color(if is_error {
-                        theme::danger()
-                    } else {
-                        theme::warning()
-                    })
+                    .text_color(color)
                     .child(text),
             )
+            .when_some(release_url, |banner, url| {
+                banner.child(
+                    crate::components::compact_secondary_button(
+                        "playback-notice-view-release",
+                        "View release",
+                    )
+                    .on_click(cx.listener(move |_, _, _, cx| cx.open_url(&url))),
+                )
+            })
             .when(recovery, |banner| {
                 banner
                     .child(
