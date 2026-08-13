@@ -535,7 +535,7 @@ impl Shell {
             .w(px(SIDEBAR_WIDTH))
             .h_full()
             .gap(px(22.))
-            .pt(px(24.))
+            .pt(px(SIDEBAR_TOP_PADDING))
             .pr(px(14.))
             .pb(px(16.))
             .pl(px(14.))
@@ -757,6 +757,7 @@ impl Shell {
                     false,
                 )),
         )
+        .max_w(px(820.))
         .into_any_element()
     }
 
