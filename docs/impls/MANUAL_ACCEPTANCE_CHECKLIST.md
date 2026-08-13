@@ -4,7 +4,7 @@ This is the remaining human-only acceptance work as of 2026-08-01. Check an item
 
 Already verified and intentionally not repeated here: live Core Audio device enumeration, real-library scan counts/timing, cached and folder artwork rendering, Albums Grid/List switching, page-header sizing, and single-click arming and double-click playback basics.
 
-Intentional MVP behavior: Shuffle, Repeat, and the queue button remain inert; the queue button only carries a remaining-count badge. Playlist reorder uses Move Up / Move Down rather than drag. Playlist-name input supports the existing append/backspace path but not CJK IME composition or caret movement.
+Intentional MVP behavior: Shuffle and Repeat remain inert ([#32](https://github.com/yicheng47/pulse/issues/32)); the queue button now opens the post-MVP queue popover. Playlist reorder uses Move Up / Move Down rather than drag. Library text fields still support only the existing append/backspace path, without CJK IME composition or caret movement ([#35](https://github.com/yicheng47/pulse/issues/35)).
 
 ## Setup and data safety
 
@@ -85,7 +85,7 @@ Intentional MVP behavior: Shuffle, Repeat, and the queue button remain inert; th
 - [ ] The Tracks scrollbar appears whenever loaded rows overflow and updates as backend pages append; grabbing anywhere along the thumb does not jump it under the cursor, rail clicks at the extreme top/bottom land exactly at the top/bottom, and releasing a bottom drag does not leave page loading churning.
 - [ ] Play a row near a backend page boundary; Next and automatic advance continue beyond the currently loaded rows because the queue spans the full active sort/filter result.
 - [ ] Drop a standalone file while a library queue is active; the prior queue and badge clear.
-- [ ] Click Shuffle, Repeat, and the queue button; they remain intentionally inert and do not mutate playback order or open an undesigned drawer.
+- [ ] Click Shuffle and Repeat; they remain intentionally inert and do not mutate playback order until #32 is implemented.
 
 ## Playlist lifecycle and ordering
 

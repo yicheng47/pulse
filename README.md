@@ -6,6 +6,10 @@ Local music library player for macOS. PCM only (FLAC / ALAC / AIFF / WAV), nativ
 
 Open-source first under the MIT license, especially through the engine validation and early app stages. Commercial packaging can be revisited only after Pulse proves real demand from local-library and audiophile users.
 
+## Privacy
+
+Pulse's only network call is one unauthenticated `GET` to the [GitHub releases API](https://api.github.com/repos/yicheng47/pulse/releases/latest), made automatically once per launch and on explicit manual checks. It sends no identifiers; turn off **Check for updates on launch** in Settings ▸ Update to disable the automatic request.
+
 ## Layout
 
 - `crates/pulse-engine` — standalone, UI-agnostic audio engine: AUHAL playback through `coreaudio-rs`, direct `objc2-core-audio` HAL device control, `symphonia` decode, `rtrb` ring buffer.

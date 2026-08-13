@@ -2,7 +2,7 @@
 
 Pulse ships as an arm64-only, non-sandboxed Developer ID application. The bundle identifier is `com.wycstudios.pulse`; changing it would change the app's signature and TCC identity. Pulse has no entitlements file, App ID, or provisioning profile because audio output and non-sandboxed file access need no additional entitlement.
 
-The bundle declares `LSMinimumSystemVersion` 12.0 and builds against the same deployment target. That figure is conservative rather than measured — gpui builds against a 10.15.7 target upstream, so 12.0 leaves headroom — but Pulse has only ever been launched on the current OS. Because `objc2` sends messages at runtime, no compile-time availability check would catch an API newer than the floor. Treat an old-OS crash report as a reason to raise the number, not as a surprise.
+The bundle declares `LSMinimumSystemVersion` 12.0 and builds against the same deployment target. That figure is conservative rather than measured — gpui builds against a 10.15.7 target upstream, so 12.0 leaves headroom — but Pulse has only ever been launched on the current OS. Because `objc2` sends messages at runtime, no compile-time availability check would catch an API newer than the floor. GitHub issue [#36](https://github.com/yicheng47/pulse/issues/36) tracks validating the signed app on macOS 12 or raising the declared floor.
 
 ## Local bundle
 

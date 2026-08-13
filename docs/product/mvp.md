@@ -137,7 +137,7 @@ Still needs a design pass before implementation — all of it belongs to stage 1
 - Hogged-device and unavailable-device presentation beyond today's plain error text.
 - Missing-file state (row present in the library, file gone from disk).
 
-Deliberately undesigned and out of the MVP: track detail/inspector, queue drawer, a Devices page (the popover is the device surface), and a Settings screen (the sidebar footer item stays inert).
+The queue popover and Settings screen were designed and shipped after this MVP baseline. Track detail/inspector and a full Devices page remain deliberately undesigned; current post-MVP gaps are tracked as numbered feature specs and GitHub issues rather than in the MVP implementation log.
 
 ## Acceptance Criteria
 

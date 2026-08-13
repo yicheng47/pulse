@@ -273,9 +273,7 @@ impl LibraryView {
             .id("track-filter-scroll")
             .flex()
             .items_center()
-            .gap(px(8.))
-            .max_w(px(900.))
-            .overflow_x_scroll();
+            .gap(px(8.));
         for chip in [
             FilterChip::All,
             FilterChip::HiRes,
@@ -283,9 +281,7 @@ impl LibraryView {
         ] {
             filters = filters.child(self.render_track_filter(chip, cx));
         }
-        for genre in &self.genres {
-            filters = filters.child(self.render_track_filter(FilterChip::Genre(genre.clone()), cx));
-        }
+        filters = filters.child(self.render_genre_filter(cx));
         filters.into_any_element()
     }
 
@@ -387,6 +383,7 @@ impl LibraryView {
                     cx.notify();
                     return;
                 }
+                this.genre_popover_open = false;
                 this.artist_popover_open = true;
                 this.artist_search.clear();
                 window.focus(&this.input_focus, cx);

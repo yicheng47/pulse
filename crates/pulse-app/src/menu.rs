@@ -14,6 +14,7 @@ actions!(
         Minimize,
         CloseWindow,
         FocusSearch,
+        CheckForUpdates,
         OpenSettings,
         Quit
     ]
@@ -53,6 +54,7 @@ pub fn install(cx: &mut App) {
         Menu::new("Pulse").items([
             MenuItem::action("About Pulse", About),
             MenuItem::action("Settings…", OpenSettings),
+            MenuItem::action("Check for Updates…", CheckForUpdates),
             MenuItem::separator(),
             MenuItem::os_submenu("Services", SystemMenuType::Services),
             MenuItem::separator(),

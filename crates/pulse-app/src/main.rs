@@ -9,6 +9,7 @@ mod queue;
 mod settings;
 mod shell;
 mod theme;
+mod update;
 
 use assets::Assets;
 use gpui::{

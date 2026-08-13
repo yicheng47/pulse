@@ -34,6 +34,14 @@ pub fn save_exclusive_mode(enabled: bool) -> io::Result<()> {
     save_exclusive_mode_to(&exclusive_mode_disabled_path()?, enabled)
 }
 
+pub fn load_check_updates_on_launch() -> io::Result<bool> {
+    load_check_updates_on_launch_from(&check_updates_disabled_path()?)
+}
+
+pub fn save_check_updates_on_launch(enabled: bool) -> io::Result<()> {
+    save_check_updates_on_launch_to(&check_updates_disabled_path()?, enabled)
+}
+
 pub fn library_database_path() -> io::Result<PathBuf> {
     Ok(app_data_directory()?.join("library.sqlite"))
 }
@@ -63,6 +71,12 @@ fn exclusive_mode_disabled_path() -> io::Result<PathBuf> {
         .ok_or_else(|| io::Error::other("could not determine the app configuration directory"))
 }
 
+fn check_updates_disabled_path() -> io::Result<PathBuf> {
+    dirs::config_dir()
+        .map(|path| path.join(APP_DIRECTORY_NAME).join("check-updates.disabled"))
+        .ok_or_else(|| io::Error::other("could not determine the app configuration directory"))
+}
+
 fn load_exclusive_mode_from(path: &Path) -> io::Result<bool> {
     match fs::metadata(path) {
         Ok(_) => Ok(false),
@@ -72,6 +86,28 @@ fn load_exclusive_mode_from(path: &Path) -> io::Result<bool> {
 }
 
 fn save_exclusive_mode_to(path: &Path, enabled: bool) -> io::Result<()> {
+    if enabled {
+        return match fs::remove_file(path) {
+            Ok(()) => Ok(()),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(error),
+        };
+    }
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, [])
+}
+
+fn load_check_updates_on_launch_from(path: &Path) -> io::Result<bool> {
+    match fs::metadata(path) {
+        Ok(_) => Ok(false),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(true),
+        Err(error) => Err(error),
+    }
+}
+
+fn save_check_updates_on_launch_to(path: &Path, enabled: bool) -> io::Result<()> {
     if enabled {
         return match fs::remove_file(path) {
             Ok(()) => Ok(()),
@@ -119,6 +155,13 @@ mod tests {
                 .and_then(|name| name.to_str()),
             Some("exclusive-mode.disabled")
         );
+        assert_eq!(
+            check_updates_disabled_path()
+                .unwrap()
+                .file_name()
+                .and_then(|name| name.to_str()),
+            Some("check-updates.disabled")
+        );
     }
 
     #[test]
@@ -131,6 +174,18 @@ mod tests {
         assert!(!load_exclusive_mode_from(&path).unwrap());
         save_exclusive_mode_to(&path, true).unwrap();
         assert!(load_exclusive_mode_from(&path).unwrap());
+    }
+
+    #[test]
+    fn launch_update_check_round_trips_and_defaults_on_without_a_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("check-updates.disabled");
+
+        assert!(load_check_updates_on_launch_from(&path).unwrap());
+        save_check_updates_on_launch_to(&path, false).unwrap();
+        assert!(!load_check_updates_on_launch_from(&path).unwrap());
+        save_check_updates_on_launch_to(&path, true).unwrap();
+        assert!(load_check_updates_on_launch_from(&path).unwrap());
     }
 
     #[cfg(debug_assertions)]

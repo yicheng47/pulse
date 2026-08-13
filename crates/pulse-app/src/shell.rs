@@ -15,10 +15,12 @@ use crate::{
         LibraryView,
         view_model::{self, SearchSelection, SearchViewModel},
     },
-    menu::{About, FocusSearch, OpenSettings},
+    menu::{About, CheckForUpdates, FocusSearch, OpenSettings},
     playback_row::PlaybackRow,
+    preferences,
     settings::{AboutLink, SettingsSection, SettingsViewModel},
     theme,
+    update::{self, UpdateCheckKind, UpdateState},
 };
 
 pub(crate) const SIDEBAR_WIDTH: f32 = 236.0;
@@ -26,6 +28,7 @@ const SIDEBAR_TOP_PADDING: f32 = 54.0;
 pub(crate) const TOP_BAR_HEIGHT: f32 = 74.0;
 const SEARCH_WIDTH: f32 = 420.0;
 const SEARCH_DEBOUNCE: Duration = Duration::from_millis(150);
+const LAUNCH_UPDATE_CHECK_DELAY: Duration = Duration::from_millis(500);
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Destination {
@@ -86,6 +89,9 @@ pub struct Shell {
     search_marked_range: Option<Range<usize>>,
     settings_section: Option<SettingsSection>,
     settings_output_toggle_press_closed: bool,
+    check_updates_on_launch: bool,
+    update_state: UpdateState,
+    update_check_revision: u64,
     titlebar_drag_armed: bool,
 }
 
@@ -94,7 +100,12 @@ impl Shell {
         let row = cx.new(PlaybackRow::new);
         let library = cx.new(|cx| LibraryView::new(row.clone(), cx));
         cx.observe(&library, |_, _, cx| cx.notify()).detach();
-        Self {
+        let check_updates_on_launch =
+            preferences::load_check_updates_on_launch().unwrap_or_else(|error| {
+                eprintln!("Could not load the launch update-check preference: {error}");
+                true
+            });
+        let mut shell = Self {
             destination: Destination::Albums,
             row,
             library,
@@ -109,8 +120,15 @@ impl Shell {
             search_marked_range: None,
             settings_section: None,
             settings_output_toggle_press_closed: false,
+            check_updates_on_launch,
+            update_state: UpdateState::default(),
+            update_check_revision: 0,
             titlebar_drag_armed: false,
+        };
+        if let Some(kind) = UpdateCheckKind::launch_if_enabled(check_updates_on_launch) {
+            shell.start_update_check(kind, cx);
         }
+        shell
     }
 
     fn open_settings(&mut self, section: SettingsSection, cx: &mut Context<Self>) {
@@ -131,6 +149,58 @@ impl Shell {
         self.settings_section = Some(section);
         self.row.update(cx, |row, cx| row.close_output_popover(cx));
         cx.notify();
+    }
+
+    fn toggle_check_updates_on_launch(&mut self, cx: &mut Context<Self>) {
+        let enabled = !self.check_updates_on_launch;
+        if let Err(error) = preferences::save_check_updates_on_launch(enabled) {
+            eprintln!("Could not save the launch update-check preference: {error}");
+            return;
+        }
+        self.check_updates_on_launch = enabled;
+        cx.notify();
+    }
+
+    fn start_update_check(&mut self, kind: UpdateCheckKind, cx: &mut Context<Self>) {
+        self.update_check_revision = self.update_check_revision.wrapping_add(1);
+        let revision = self.update_check_revision;
+        self.update_state.begin();
+        cx.notify();
+
+        cx.spawn(async move |this, cx| {
+            if kind == UpdateCheckKind::Launch {
+                cx.background_executor()
+                    .timer(LAUNCH_UPDATE_CHECK_DELAY)
+                    .await;
+            }
+            let result = cx
+                .background_executor()
+                .spawn(async move {
+                    update::fetch_latest_release().map_err(|error| {
+                        eprintln!("Update check failed: {error}");
+                        error.to_string()
+                    })
+                })
+                .await;
+            let _ = this.update(cx, move |this, cx| {
+                if this.update_check_revision != revision {
+                    return;
+                }
+                let launch_release = if kind == UpdateCheckKind::Launch {
+                    result.as_ref().ok().and_then(|release| release.clone())
+                } else {
+                    None
+                };
+                this.update_state.finish(kind, &result);
+                if let Some(release) = launch_release {
+                    this.row.update(cx, |row, cx| {
+                        row.show_update_available(release.version, release.url, cx);
+                    });
+                }
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     fn focus_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -424,9 +494,11 @@ impl Shell {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let active = self.destination == destination;
+        let hover_group = SharedString::from(format!("sidebar-nav-{}", destination.label()));
 
         div()
             .id(destination.label())
+            .group(hover_group.clone())
             .flex()
             .items_center()
             .gap(px(10.))
@@ -435,6 +507,9 @@ impl Shell {
             .py(px(9.))
             .rounded(px(theme::RADIUS_MD))
             .when(active, |item| item.bg(theme::accent_soft()))
+            .when(!active, |item| {
+                item.hover(|style| style.bg(theme::accent_soft()))
+            })
             .cursor_pointer()
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.destination = destination;
@@ -451,6 +526,11 @@ impl Shell {
                         theme::accent()
                     } else {
                         theme::text_muted()
+                    })
+                    .when(!active, |icon| {
+                        icon.group_hover(hover_group.clone(), |style| {
+                            style.text_color(theme::accent())
+                        })
                     }),
             )
             .child(
@@ -463,6 +543,11 @@ impl Shell {
                     } else {
                         theme::text_secondary()
                     })
+                    .when(!active, |label| {
+                        label.group_hover(hover_group.clone(), |style| {
+                            style.text_color(theme::text_primary())
+                        })
+                    })
                     .child(destination.label()),
             )
             .when(destination == Destination::Storage, |item| {
@@ -474,33 +559,48 @@ impl Shell {
 
     fn render_settings_footer(&self, cx: &mut Context<Self>) -> impl IntoElement {
         div()
-            .id("open-settings")
-            .flex()
-            .items_center()
-            .gap(px(10.))
             .w_full()
-            .px(px(10.))
-            .py(px(9.))
-            .rounded(px(theme::RADIUS_MD))
-            .cursor_pointer()
-            .on_click(cx.listener(|this, _, window, cx| {
-                window.blur();
-                this.open_settings(SettingsSection::General, cx);
-            }))
-            .child(
-                svg()
-                    .path("icons/settings.svg")
-                    .size(px(18.))
-                    .flex_none()
-                    .text_color(theme::text_muted()),
-            )
+            .pt(px(12.))
+            .border_t_1()
+            .border_color(theme::border())
             .child(
                 div()
-                    .font_family(theme::FONT_DISPLAY)
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .text_size(px(14.))
-                    .text_color(theme::text_secondary())
-                    .child("Settings"),
+                    .id("open-settings")
+                    .group("sidebar-settings")
+                    .flex()
+                    .items_center()
+                    .gap(px(10.))
+                    .w_full()
+                    .px(px(10.))
+                    .py(px(9.))
+                    .rounded(px(theme::RADIUS_MD))
+                    .cursor_pointer()
+                    .hover(|style| style.bg(theme::accent_soft()))
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        window.blur();
+                        this.open_settings(SettingsSection::General, cx);
+                    }))
+                    .child(
+                        svg()
+                            .path("icons/settings.svg")
+                            .size(px(18.))
+                            .flex_none()
+                            .text_color(theme::text_muted())
+                            .group_hover("sidebar-settings", |style| {
+                                style.text_color(theme::accent())
+                            }),
+                    )
+                    .child(
+                        div()
+                            .font_family(theme::FONT_DISPLAY)
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_size(px(14.))
+                            .text_color(theme::text_secondary())
+                            .group_hover("sidebar-settings", |style| {
+                                style.text_color(theme::text_primary())
+                            })
+                            .child("Settings"),
+                    ),
             )
     }
 
@@ -545,6 +645,7 @@ impl Shell {
             .child(
                 div()
                     .id("back-to-library")
+                    .group("settings-back")
                     .flex()
                     .items_center()
                     .gap(px(10.))
@@ -553,6 +654,7 @@ impl Shell {
                     .py(px(9.))
                     .rounded(px(theme::RADIUS_MD))
                     .cursor_pointer()
+                    .hover(|style| style.bg(theme::accent_soft()))
                     .on_click(cx.listener(|this, _, window, cx| {
                         window.blur();
                         this.close_settings(cx);
@@ -562,7 +664,10 @@ impl Shell {
                             .path("icons/chevron-left.svg")
                             .size(px(17.))
                             .flex_none()
-                            .text_color(theme::text_muted()),
+                            .text_color(theme::text_muted())
+                            .group_hover("settings-back", |style| {
+                                style.text_color(theme::accent())
+                            }),
                     )
                     .child(
                         div()
@@ -570,6 +675,9 @@ impl Shell {
                             .font_weight(FontWeight::SEMIBOLD)
                             .text_size(px(15.))
                             .text_color(theme::text_secondary())
+                            .group_hover("settings-back", |style| {
+                                style.text_color(theme::text_primary())
+                            })
                             .child("Back to library"),
                     ),
             )
@@ -606,12 +714,14 @@ impl Shell {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let selected = model.is_selected(section);
+        let hover_group = SharedString::from(format!("settings-nav-{}", section.label()));
 
         div()
             .id(SharedString::from(format!(
                 "settings-section-{}",
                 section.label()
             )))
+            .group(hover_group.clone())
             .flex()
             .items_center()
             .gap(px(10.))
@@ -620,6 +730,9 @@ impl Shell {
             .py(px(9.))
             .rounded(px(theme::RADIUS_MD))
             .when(selected, |item| item.bg(theme::accent_soft()))
+            .when(!selected, |item| {
+                item.hover(|style| style.bg(theme::accent_soft()))
+            })
             .cursor_pointer()
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.select_settings_section(section, cx);
@@ -633,6 +746,11 @@ impl Shell {
                         theme::accent()
                     } else {
                         theme::text_muted()
+                    })
+                    .when(!selected, |icon| {
+                        icon.group_hover(hover_group.clone(), |style| {
+                            style.text_color(theme::accent())
+                        })
                     }),
             )
             .child(
@@ -645,6 +763,11 @@ impl Shell {
                     } else {
                         theme::text_secondary()
                     })
+                    .when(!selected, |label| {
+                        label.group_hover(hover_group.clone(), |style| {
+                            style.text_color(theme::text_primary())
+                        })
+                    })
                     .child(section.label()),
             )
     }
@@ -656,7 +779,7 @@ impl Shell {
     ) -> impl IntoElement {
         let content = match model.section {
             SettingsSection::General => self.render_general_settings(model, cx),
-            SettingsSection::Update => self.render_update_settings(),
+            SettingsSection::Update => self.render_update_settings(cx),
             SettingsSection::About => self.render_about_settings(cx),
         };
 
@@ -761,7 +884,101 @@ impl Shell {
         .into_any_element()
     }
 
-    fn render_update_settings(&self) -> AnyElement {
+    fn render_update_settings(&self, cx: &mut Context<Self>) -> AnyElement {
+        let (status, status_color, icon, label, accent, enabled, release_url) =
+            match &self.update_state {
+                UpdateState::Idle => (
+                    "You're on the latest version.".to_string(),
+                    theme::text_muted(),
+                    "icons/refresh-cw.svg",
+                    "Check for updates",
+                    false,
+                    true,
+                    None,
+                ),
+                UpdateState::Checking => (
+                    "Checking for updates…".to_string(),
+                    theme::text_muted(),
+                    "icons/loader.svg",
+                    "Checking…",
+                    false,
+                    false,
+                    None,
+                ),
+                UpdateState::Available(release) => (
+                    format!("Pulse {} is available.", release.version),
+                    theme::quality(),
+                    "icons/external-link.svg",
+                    "View release",
+                    true,
+                    true,
+                    Some(release.url.clone()),
+                ),
+                UpdateState::Failed => (
+                    "Couldn't reach GitHub. Check your connection.".to_string(),
+                    theme::warning(),
+                    "icons/refresh-cw.svg",
+                    "Check for updates",
+                    false,
+                    true,
+                    None,
+                ),
+            };
+        let action = div()
+            .id("check-for-updates")
+            .flex()
+            .items_center()
+            .gap(px(8.))
+            .px(px(14.))
+            .py(px(9.))
+            .flex_none()
+            .rounded(px(theme::RADIUS_MD))
+            .when(!accent, |button| {
+                button
+                    .border_1()
+                    .border_color(theme::border())
+                    .bg(theme::bg_muted())
+            })
+            .when(accent, |button| button.bg(theme::accent()))
+            .opacity(if enabled { 1.0 } else { 0.45 })
+            .child(
+                svg()
+                    .path(icon)
+                    .size(px(16.))
+                    .flex_none()
+                    .text_color(if accent {
+                        theme::bg_inset()
+                    } else {
+                        theme::text_secondary()
+                    }),
+            )
+            .child(
+                div()
+                    .font_family(theme::FONT_SANS)
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_size(px(13.))
+                    .text_color(if accent {
+                        theme::bg_inset()
+                    } else {
+                        theme::text_primary()
+                    })
+                    .child(label),
+            );
+        let action = if let Some(url) = release_url {
+            action
+                .cursor_pointer()
+                .on_click(cx.listener(move |_, _, _, cx| cx.open_url(&url)))
+                .into_any_element()
+        } else if enabled {
+            action
+                .cursor_pointer()
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.start_update_check(UpdateCheckKind::Manual, cx);
+                }))
+                .into_any_element()
+        } else {
+            action.cursor_default().into_any_element()
+        };
         let hero = settings_card().child(
             div()
                 .flex()
@@ -796,40 +1013,11 @@ impl Shell {
                             div()
                                 .font_family(theme::FONT_SANS)
                                 .text_size(px(12.))
-                                .text_color(theme::text_muted())
-                                .child("You're on the latest version."),
+                                .text_color(status_color)
+                                .child(status),
                         ),
                 )
-                .child(
-                    div()
-                        .id("check-for-updates")
-                        .flex()
-                        .items_center()
-                        .gap(px(8.))
-                        .px(px(14.))
-                        .py(px(9.))
-                        .flex_none()
-                        .rounded(px(theme::RADIUS_MD))
-                        .border_1()
-                        .border_color(theme::border())
-                        .bg(theme::bg_muted())
-                        .cursor_default()
-                        .child(
-                            svg()
-                                .path("icons/refresh-cw.svg")
-                                .size(px(16.))
-                                .flex_none()
-                                .text_color(theme::text_secondary()),
-                        )
-                        .child(
-                            div()
-                                .font_family(theme::FONT_SANS)
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .text_size(px(13.))
-                                .text_color(theme::text_primary())
-                                .child("Check for updates"),
-                        ),
-                ),
+                .child(action),
         );
 
         div()
@@ -844,7 +1032,13 @@ impl Shell {
                 settings_card().child(settings_row(
                     "Check for updates on launch",
                     "Asks GitHub once per launch whether a newer version exists. Nothing else is sent.",
-                    components::toggle("update-check-on-launch-toggle", true).cursor_default(),
+                    components::toggle(
+                        "update-check-on-launch-toggle",
+                        self.check_updates_on_launch,
+                    )
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.toggle_check_updates_on_launch(cx);
+                    })),
                     false,
                 )),
             ))
@@ -1405,6 +1599,11 @@ impl Render for Shell {
             .on_action(cx.listener(|this, _: &OpenSettings, window, cx| {
                 window.blur();
                 this.open_settings(SettingsSection::General, cx);
+            }))
+            .on_action(cx.listener(|this, _: &CheckForUpdates, window, cx| {
+                window.blur();
+                this.open_settings(SettingsSection::Update, cx);
+                this.start_update_check(UpdateCheckKind::Manual, cx);
             }))
             .on_action(cx.listener(|this, _: &About, window, cx| {
                 window.blur();

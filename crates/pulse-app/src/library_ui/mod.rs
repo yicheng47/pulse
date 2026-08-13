@@ -1,5 +1,6 @@
 mod albums;
 mod context_menu;
+mod genre_filter;
 mod playlists;
 mod storage;
 mod tracks;
@@ -75,6 +76,31 @@ fn filter_artists(artists: &[(String, u64)], search: &str) -> Vec<(String, u64)>
         .filter(|(artist, _)| needle.is_empty() || artist.to_lowercase().contains(&needle))
         .cloned()
         .collect()
+}
+
+fn filter_genres(genres: &[(String, u64)], search: &str) -> Vec<(String, u64)> {
+    let needle = search.trim().to_lowercase();
+    genres
+        .iter()
+        .filter(|(genre, _)| needle.is_empty() || genre.to_lowercase().contains(&needle))
+        .cloned()
+        .collect()
+}
+
+fn selected_genre<'a>(
+    destination: Destination,
+    album_filter: &'a FilterChip,
+    track_filter: &'a FilterChip,
+) -> Option<&'a str> {
+    let filter = match destination {
+        Destination::Albums => album_filter,
+        Destination::Tracks => track_filter,
+        _ => return None,
+    };
+    match filter {
+        FilterChip::Genre(genre) => Some(genre),
+        _ => None,
+    }
 }
 
 /// The user-facing report for a finished album delete. Files and rows can
@@ -243,7 +269,10 @@ pub(crate) struct LibraryView {
     cover_cache_directory: PathBuf,
     albums: Vec<Album>,
     tracks: Vec<Track>,
-    genres: Vec<String>,
+    genres: Vec<(String, u64)>,
+    genre_popover_open: bool,
+    genre_hint_press_closed_popover: bool,
+    genre_search: String,
     artists: Vec<(String, u64)>,
     artist_popover_open: bool,
     artist_hint_press_closed_popover: bool,
@@ -309,6 +338,9 @@ impl LibraryView {
             albums: Vec::new(),
             tracks: Vec::new(),
             genres: Vec::new(),
+            genre_popover_open: false,
+            genre_hint_press_closed_popover: false,
+            genre_search: String::new(),
             artists: Vec::new(),
             artist_popover_open: false,
             artist_hint_press_closed_popover: false,
@@ -414,6 +446,7 @@ impl LibraryView {
         self.destination = destination;
         self.track_menu = None;
         self.playlist_menu = None;
+        self.genre_popover_open = false;
         self.artist_popover_open = false;
         cx.notify();
     }
@@ -441,7 +474,7 @@ impl LibraryView {
             self.tracks.len().max(LIST_PAGE_SIZE),
             0,
         )?;
-        let genres = store.genres()?;
+        let genres = store.genre_album_counts()?;
         let artists = store.artists()?;
         let playlists = store.playlists()?;
         let catalog_summary = store.catalog_summary()?;
@@ -616,6 +649,27 @@ impl LibraryView {
         self.reset_tracks();
         self.reload_or_show_error();
         cx.notify();
+    }
+
+    fn set_album_filter(&mut self, filter: FilterChip, cx: &mut Context<Self>) {
+        if self.album_filter == filter {
+            return;
+        }
+        self.album_filter = filter;
+        self.reset_albums();
+        self.reload_or_show_error();
+        cx.notify();
+    }
+
+    pub(super) fn choose_genre_filter(&mut self, genre: Option<String>, cx: &mut Context<Self>) {
+        self.genre_popover_open = false;
+        cx.notify();
+        let filter = genre.map_or(FilterChip::All, FilterChip::Genre);
+        match self.destination {
+            Destination::Albums => self.set_album_filter(filter, cx),
+            Destination::Tracks => self.set_track_filter(filter, cx),
+            _ => {}
+        }
     }
 
     fn set_artist_filter(&mut self, artist: Option<String>, cx: &mut Context<Self>) {
@@ -1540,6 +1594,12 @@ impl LibraryView {
                 }
             }
             "enter" => {
+                if self.genre_popover_open {
+                    if let Some((genre, _)) = self.filtered_genres().into_iter().next() {
+                        self.choose_genre_filter(Some(genre), cx);
+                    }
+                    return;
+                }
                 if self.artist_popover_open {
                     if let Some((artist, _)) = self.filtered_artists().into_iter().next() {
                         self.choose_artist_filter(Some(artist), cx);
@@ -1558,6 +1618,7 @@ impl LibraryView {
             "escape" => {
                 self.rename_draft = None;
                 self.modal = None;
+                self.genre_popover_open = false;
                 self.artist_popover_open = false;
             }
             _ if !event.keystroke.modifiers.platform && !event.keystroke.modifiers.control => {
@@ -1573,6 +1634,9 @@ impl LibraryView {
     }
 
     fn input_value_mut(&mut self) -> Option<&mut String> {
+        if self.genre_popover_open {
+            return Some(&mut self.genre_search);
+        }
         if self.artist_popover_open {
             return Some(&mut self.artist_search);
         }
@@ -1629,6 +1693,10 @@ impl LibraryView {
 
     fn filtered_artists(&self) -> Vec<(String, u64)> {
         filter_artists(&self.artists, &self.artist_search)
+    }
+
+    fn filtered_genres(&self) -> Vec<(String, u64)> {
+        filter_genres(&self.genres, &self.genre_search)
     }
 
     fn is_track_missing(&self, track_id: TrackId, cx: &Context<Self>) -> bool {
@@ -1945,5 +2013,43 @@ mod tests {
         assert_eq!(names("ヒカル"), ["宇多田ヒカル"]);
         assert!(names("zzz").is_empty());
         assert!(filter_artists(&[], "").is_empty());
+    }
+
+    #[test]
+    fn genre_search_filters_case_insensitively_and_empty_matches_all() {
+        let genres = vec![
+            ("Asie".to_string(), 2_u64),
+            ("J-pop".to_string(), 3),
+            ("Musiques du monde".to_string(), 1),
+        ];
+        let names = |search: &str| {
+            filter_genres(&genres, search)
+                .into_iter()
+                .map(|(genre, _)| genre)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(names("").len(), 3);
+        assert_eq!(names("  J-POP "), ["J-pop"]);
+        assert_eq!(names("monde"), ["Musiques du monde"]);
+        assert!(names("zzz").is_empty());
+    }
+
+    #[test]
+    fn selected_genre_uses_the_visible_library_surface() {
+        let albums = FilterChip::Genre("Jazz".to_string());
+        let tracks = FilterChip::Genre("Rock".to_string());
+        assert_eq!(
+            selected_genre(Destination::Albums, &albums, &tracks),
+            Some("Jazz")
+        );
+        assert_eq!(
+            selected_genre(Destination::Tracks, &albums, &tracks),
+            Some("Rock")
+        );
+        assert_eq!(selected_genre(Destination::Storage, &albums, &tracks), None);
+        assert_eq!(
+            selected_genre(Destination::Albums, &FilterChip::All, &tracks),
+            None
+        );
     }
 }

@@ -76,7 +76,7 @@ impl LibraryView {
                     .justify_between()
                     .w_full()
                     .min_h(px(63.))
-                    .pb(px(10.))
+                    .pb(px(4.))
                     .flex_none()
                     .child(render_page_title("Albums", meta)),
             );
@@ -97,6 +97,7 @@ impl LibraryView {
                 .justify_between()
                 .w_full()
                 .h(px(47.))
+                .mb(px(9.))
                 .flex_none()
                 .child(self.render_album_filters(cx))
                 .child(self.render_album_sort(cx)),
@@ -221,9 +222,7 @@ impl LibraryView {
             .id("album-filter-scroll")
             .flex()
             .items_center()
-            .gap(px(8.))
-            .max_w(px(900.))
-            .overflow_x_scroll();
+            .gap(px(8.));
         for chip in [
             FilterChip::All,
             FilterChip::HiRes,
@@ -231,9 +230,7 @@ impl LibraryView {
         ] {
             filters = filters.child(self.render_album_filter(chip, cx));
         }
-        for genre in &self.genres {
-            filters = filters.child(self.render_album_filter(FilterChip::Genre(genre.clone()), cx));
-        }
+        filters = filters.child(self.render_genre_filter(cx));
         filters.into_any_element()
     }
 
@@ -255,10 +252,7 @@ impl LibraryView {
             })
             .cursor_pointer()
             .on_click(cx.listener(move |this, _, _, cx| {
-                this.album_filter = chip.clone();
-                this.reset_albums();
-                this.reload_or_show_error();
-                cx.notify();
+                this.set_album_filter(chip.clone(), cx);
             }))
             .font_family(theme::FONT_SANS)
             .text_size(px(12.))
