@@ -117,6 +117,7 @@ trait PlaybackBackend {
     fn start(&mut self, format: PcmFormat) -> Result<(), EngineError>;
     fn feed(&mut self, pcm: &[u8]) -> usize;
     fn position(&self) -> u64;
+    fn set_volume(&mut self, gain: f32, muted: bool);
     fn stop(&mut self) -> Result<(), EngineError>;
 }
 
@@ -144,6 +145,10 @@ impl PlaybackBackend for EngineBackend {
 
     fn position(&self) -> u64 {
         self.engine.position()
+    }
+
+    fn set_volume(&mut self, gain: f32, muted: bool) {
+        self.engine.set_volume(gain, muted);
     }
 
     fn stop(&mut self) -> Result<(), EngineError> {
@@ -206,6 +211,8 @@ struct Worker {
     attempt: u64,
     output_device: DeviceId,
     exclusive_mode: bool,
+    volume_gain: f32,
+    muted: bool,
     current: Option<CurrentTrack>,
     active: Option<ActivePlayback>,
     prepared_decoder: Option<PreparedDecoder>,
@@ -232,6 +239,8 @@ impl Worker {
             attempt: 0,
             output_device,
             exclusive_mode,
+            volume_gain: 1.0,
+            muted: false,
             current: None,
             active: None,
             prepared_decoder: None,
@@ -277,6 +286,10 @@ impl Worker {
             PlaybackCommand::Stop => self.stop(),
             PlaybackCommand::SetOutputDevice { device_id } => self.set_output_device(device_id),
             PlaybackCommand::SetExclusiveMode { enabled } => self.set_exclusive_mode(enabled),
+            PlaybackCommand::SetVolume { gain, muted } => {
+                self.set_volume(gain, muted);
+                Ok(())
+            }
         };
 
         if let Err(error) = result {
@@ -432,6 +445,14 @@ impl Worker {
         Ok(())
     }
 
+    fn set_volume(&mut self, gain: f32, muted: bool) {
+        self.volume_gain = gain;
+        self.muted = muted;
+        if let Some((_, _, backend)) = &mut self.backend {
+            backend.set_volume(gain, muted);
+        }
+    }
+
     fn start_path(
         &mut self,
         path: &Path,
@@ -466,6 +487,7 @@ impl Worker {
             Some((_, _, backend)) => backend,
             None => (self.backend_factory)(self.output_device, self.exclusive_mode)?,
         };
+        backend.set_volume(self.volume_gain, self.muted);
         backend.start(format)?;
         self.backend = Some((self.output_device, self.exclusive_mode, backend));
 
@@ -733,6 +755,7 @@ mod tests {
         opened_devices: Vec<DeviceId>,
         exclusive_modes: Vec<bool>,
         seek_positions: Vec<u64>,
+        started_volumes: Vec<(f32, bool)>,
         stops: usize,
         fail_open_device: Option<DeviceId>,
         stop_error: bool,
@@ -745,6 +768,7 @@ mod tests {
                 opened_devices: Vec::new(),
                 exclusive_modes: Vec::new(),
                 seek_positions: Vec::new(),
+                started_volumes: Vec::new(),
                 stops: 0,
                 fail_open_device: None,
                 stop_error: false,
@@ -756,11 +780,13 @@ mod tests {
     struct FakeBackend {
         log: Arc<Mutex<FakeLog>>,
         fed_frames: u64,
+        volume: (f32, bool),
     }
 
     impl PlaybackBackend for FakeBackend {
         fn start(&mut self, _format: PcmFormat) -> Result<(), EngineError> {
             self.fed_frames = 0;
+            self.log.lock().unwrap().started_volumes.push(self.volume);
             Ok(())
         }
 
@@ -772,6 +798,10 @@ mod tests {
 
         fn position(&self) -> u64 {
             self.fed_frames.min(self.log.lock().unwrap().position_limit)
+        }
+
+        fn set_volume(&mut self, gain: f32, muted: bool) {
+            self.volume = (gain, muted);
         }
 
         fn stop(&mut self) -> Result<(), EngineError> {
@@ -1037,6 +1067,68 @@ mod tests {
     }
 
     #[test]
+    fn volume_survives_pause_resume_seek_track_changes_and_device_switches() {
+        let (controller, log) = fake_controller();
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::SetVolume {
+                gain: 0.25,
+                muted: true,
+            })
+            .unwrap();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("first.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+
+        commands.send(PlaybackCommand::Pause).unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Paused)
+        });
+        commands.send(PlaybackCommand::Resume).unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+
+        commands
+            .send(PlaybackCommand::Seek { position_ms: 5_000 })
+            .unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("second.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            matches!(
+                event,
+                PlaybackEvent::NowPlaying { source, .. }
+                    if source.path == Path::new("second.flac")
+            )
+        });
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+
+        commands
+            .send(PlaybackCommand::SetOutputDevice { device_id: 9 })
+            .unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::OutputDeviceChanged { device_id: 9 }
+        });
+
+        assert_eq!(log.lock().unwrap().started_volumes, [(0.25, true); 5]);
+    }
+
+    #[test]
     fn end_of_track_emits_ended_and_supports_stop_from_ended() {
         let (controller, log) = fake_controller();
         log.lock().unwrap().position_limit = u64::MAX;
@@ -1295,6 +1387,7 @@ mod tests {
                 Ok(Box::new(FakeBackend {
                     log: Arc::clone(&backend_log),
                     fed_frames: 0,
+                    volume: (f32::NAN, false),
                 }))
             }),
             Arc::new(|_| panic!("decoder factory exploded")),
@@ -1344,6 +1437,7 @@ mod tests {
                 Ok(Box::new(FakeBackend {
                     log: Arc::clone(&backend_log),
                     fed_frames: 0,
+                    volume: (f32::NAN, false),
                 }))
             }),
             Arc::new(move |_| {

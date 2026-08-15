@@ -20,7 +20,10 @@ use coreaudio::audio_unit::{
 use objc2_core_audio::AudioObjectID;
 use rtrb::Consumer;
 
-use crate::{EngineError, PcmFormat};
+use crate::{
+    EngineError, PcmFormat,
+    gain::{GainControl, GainProcessor},
+};
 
 pub(crate) struct AuhalSink {
     audio_unit: AudioUnit,
@@ -33,6 +36,7 @@ impl AuhalSink {
         device_id: AudioObjectID,
         consumer: Consumer<u8>,
         format: PcmFormat,
+        gain_control: GainControl,
     ) -> Result<Self, EngineError> {
         let channels = usize::from(format.channels);
         let bytes_per_frame = channels * mem::size_of::<f32>();
@@ -62,6 +66,7 @@ impl AuhalSink {
         let callback_position_frames = Arc::clone(&position_frames);
         let callback_underrun_bytes = Arc::clone(&underrun_bytes);
         let mut consumer = consumer;
+        let mut gain_processor = GainProcessor::new(gain_control, format.sample_rate, channels);
 
         type Args = render_callback::Args<data::InterleavedBytes<f32>>;
         audio_unit
@@ -75,6 +80,7 @@ impl AuhalSink {
 
                 let (filled, remainder) = consumer.pop_partial_slice(data.buffer);
                 let filled_len = filled.len();
+                gain_processor.process(filled);
                 if !remainder.is_empty() {
                     remainder.fill(0);
                     callback_underrun_bytes.fetch_add(remainder.len() as u64, Ordering::Relaxed);

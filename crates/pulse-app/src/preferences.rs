@@ -34,6 +34,22 @@ pub fn save_exclusive_mode(enabled: bool) -> io::Result<()> {
     save_exclusive_mode_to(&exclusive_mode_disabled_path()?, enabled)
 }
 
+pub fn load_volume_level() -> io::Result<f32> {
+    load_volume_level_from(&volume_level_path()?)
+}
+
+pub fn save_volume_level(level: f32) -> io::Result<()> {
+    save_volume_level_to(&volume_level_path()?, level)
+}
+
+pub fn load_volume_muted() -> io::Result<bool> {
+    load_volume_muted_from(&volume_muted_path()?)
+}
+
+pub fn save_volume_muted(muted: bool) -> io::Result<()> {
+    save_volume_muted_to(&volume_muted_path()?, muted)
+}
+
 pub fn load_check_updates_on_launch() -> io::Result<bool> {
     load_check_updates_on_launch_from(&check_updates_disabled_path()?)
 }
@@ -74,6 +90,18 @@ fn exclusive_mode_disabled_path() -> io::Result<PathBuf> {
 fn check_updates_disabled_path() -> io::Result<PathBuf> {
     dirs::config_dir()
         .map(|path| path.join(APP_DIRECTORY_NAME).join("check-updates.disabled"))
+        .ok_or_else(|| io::Error::other("could not determine the app configuration directory"))
+}
+
+fn volume_level_path() -> io::Result<PathBuf> {
+    dirs::config_dir()
+        .map(|path| path.join(APP_DIRECTORY_NAME).join("volume.level"))
+        .ok_or_else(|| io::Error::other("could not determine the app configuration directory"))
+}
+
+fn volume_muted_path() -> io::Result<PathBuf> {
+    dirs::config_dir()
+        .map(|path| path.join(APP_DIRECTORY_NAME).join("volume.muted"))
         .ok_or_else(|| io::Error::other("could not determine the app configuration directory"))
 }
 
@@ -121,6 +149,54 @@ fn save_check_updates_on_launch_to(path: &Path, enabled: bool) -> io::Result<()>
     fs::write(path, [])
 }
 
+fn load_volume_level_from(path: &Path) -> io::Result<f32> {
+    let contents = match fs::read_to_string(path) {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(1.0),
+        Err(error) => return Err(error),
+    };
+    let level = contents
+        .trim()
+        .parse::<f32>()
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    if !(0.0..=1.0).contains(&level) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "volume level must be between 0 and 1",
+        ));
+    }
+    Ok(level)
+}
+
+fn save_volume_level_to(path: &Path, level: f32) -> io::Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, level.to_string())
+}
+
+fn load_volume_muted_from(path: &Path) -> io::Result<bool> {
+    match fs::metadata(path) {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error),
+    }
+}
+
+fn save_volume_muted_to(path: &Path, muted: bool) -> io::Result<()> {
+    if muted {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        return fs::write(path, []);
+    }
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error),
+    }
+}
+
 fn parse_output_device_uid(contents: &str) -> Option<String> {
     let uid = contents.trim();
     (!uid.is_empty()).then(|| uid.to_string())
@@ -162,6 +238,20 @@ mod tests {
                 .and_then(|name| name.to_str()),
             Some("check-updates.disabled")
         );
+        assert_eq!(
+            volume_level_path()
+                .unwrap()
+                .file_name()
+                .and_then(|name| name.to_str()),
+            Some("volume.level")
+        );
+        assert_eq!(
+            volume_muted_path()
+                .unwrap()
+                .file_name()
+                .and_then(|name| name.to_str()),
+            Some("volume.muted")
+        );
     }
 
     #[test]
@@ -186,6 +276,28 @@ mod tests {
         assert!(!load_check_updates_on_launch_from(&path).unwrap());
         save_check_updates_on_launch_to(&path, true).unwrap();
         assert!(load_check_updates_on_launch_from(&path).unwrap());
+    }
+
+    #[test]
+    fn volume_level_round_trips_and_defaults_to_unity_without_a_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("volume.level");
+
+        assert_eq!(load_volume_level_from(&path).unwrap(), 1.0);
+        save_volume_level_to(&path, 0.42).unwrap();
+        assert_eq!(load_volume_level_from(&path).unwrap(), 0.42);
+    }
+
+    #[test]
+    fn volume_mute_round_trips_and_defaults_off_without_a_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("volume.muted");
+
+        assert!(!load_volume_muted_from(&path).unwrap());
+        save_volume_muted_to(&path, true).unwrap();
+        assert!(load_volume_muted_from(&path).unwrap());
+        save_volume_muted_to(&path, false).unwrap();
+        assert!(!load_volume_muted_from(&path).unwrap());
     }
 
     #[cfg(debug_assertions)]

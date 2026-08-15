@@ -1,6 +1,6 @@
 use rtrb::{Consumer, Producer, RingBuffer};
 
-use crate::{EngineError, Levels, PcmFormat, auhal, device, hal};
+use crate::{EngineError, Levels, PcmFormat, auhal, device, gain::GainControl, hal};
 
 #[derive(Debug, Clone, Copy)]
 struct FloatPacker {
@@ -44,6 +44,7 @@ pub struct Engine {
     format: Option<PcmFormat>,
     packer: Option<FloatPacker>,
     pack_buffer: Vec<u8>,
+    gain_control: GainControl,
 }
 
 impl Engine {
@@ -59,6 +60,7 @@ impl Engine {
             format: None,
             packer: None,
             pack_buffer: Vec::new(),
+            gain_control: GainControl::default(),
         })
     }
 
@@ -89,7 +91,7 @@ impl Engine {
                 "playback sink is stopped; call set_format before playing again".to_string(),
             )
         })?;
-        match auhal::AuhalSink::start(self.device, consumer, format) {
+        match auhal::AuhalSink::start(self.device, consumer, format, self.gain_control.clone()) {
             Ok(sink) => {
                 self.sink = Some(sink);
                 Ok(())
@@ -147,6 +149,10 @@ impl Engine {
         self.sink
             .as_ref()
             .map_or(0, auhal::AuhalSink::position_frames)
+    }
+
+    pub fn set_volume(&self, gain: f32, muted: bool) {
+        self.gain_control.set_volume(gain, muted);
     }
 
     /// Latest RMS/peak from the realtime tap.
