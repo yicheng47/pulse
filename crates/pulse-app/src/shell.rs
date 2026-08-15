@@ -1722,7 +1722,7 @@ fn settings_app_mark() -> impl IntoElement {
         ))
         .child(
             svg()
-                .path("icons/pulse-mark.svg")
+                .path("icons/activity.svg")
                 .size(px(22.))
                 .text_color(theme::accent()),
         )
@@ -1761,7 +1761,7 @@ fn render_brand() -> impl IntoElement {
                 .flex_none()
                 .child(
                     svg()
-                        .path("icons/pulse-mark.svg")
+                        .path("icons/activity.svg")
                         .size(px(24.))
                         .text_color(theme::accent()),
                 ),
