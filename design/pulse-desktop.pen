@@ -4230,25 +4230,16 @@
                       "layout": "none",
                       "children": [
                         {
-                          "type": "path",
-                          "id": "PoX9q",
+                          "type": "icon",
+                          "id": "eD1Hg",
                           "x": 4,
                           "y": 4,
-                          "name": "Pulse",
-                          "geometry": "M6 100l50 0 16 12 18-60 16 98 16-62 18 12 54 0",
-                          "viewBox": [
-                            0,
-                            0,
-                            200,
-                            200
-                          ],
-                          "fill": "#00000000",
+                          "name": "Pulse Mark",
                           "width": 24,
                           "height": 24,
-                          "stroke": "$accent",
-                          "strokeWidth": 0.75,
-                          "strokeLinejoin": "round",
-                          "strokeLinecap": "round"
+                          "icon": "activity",
+                          "library": "lucide",
+                          "fill": "$accent"
                         }
                       ]
                     },
@@ -5439,30 +5430,16 @@
       "layout": "none",
       "children": [
         {
-          "type": "path",
-          "id": "r6325",
-          "x": 30,
-          "y": 30,
-          "name": "Pulse",
-          "geometry": "M6 100l50 0 16 12 18-60 16 98 16-62 18 12 54 0",
-          "viewBox": [
-            0,
-            0,
-            200,
-            200
-          ],
-          "fill": "#00000000",
-          "width": 196,
-          "height": 196,
-          "stroke": "$accent",
-          "strokeWidth": 6,
-          "strokeLinejoin": "round",
-          "strokeLinecap": "round",
-          "effect": {
-            "type": "shadow",
-            "shadowType": "outer",
-            "color": "#00000000"
-          }
+          "type": "icon",
+          "id": "p97cJe",
+          "x": 40,
+          "y": 40,
+          "name": "Pulse Mark",
+          "width": 176,
+          "height": 176,
+          "icon": "activity",
+          "library": "lucide",
+          "fill": "$accent"
         }
       ]
     },
@@ -49455,25 +49432,16 @@
                                   "layout": "none",
                                   "children": [
                                     {
-                                      "type": "path",
-                                      "id": "BJpZQ",
+                                      "type": "icon",
+                                      "id": "Pkxw7",
                                       "x": 5,
                                       "y": 5,
-                                      "name": "Pulse",
-                                      "geometry": "M6 100l50 0 16 12 18-60 16 98 16-62 18 12 54 0",
-                                      "viewBox": [
-                                        0,
-                                        0,
-                                        200,
-                                        200
-                                      ],
-                                      "fill": "#00000000",
+                                      "name": "Pulse Mark",
                                       "width": 22,
                                       "height": 22,
-                                      "stroke": "$accent",
-                                      "strokeWidth": 0.75,
-                                      "strokeLinejoin": "round",
-                                      "strokeLinecap": "round"
+                                      "icon": "activity",
+                                      "library": "lucide",
+                                      "fill": "$accent"
                                     }
                                   ]
                                 },
@@ -49818,25 +49786,16 @@
                                   "layout": "none",
                                   "children": [
                                     {
-                                      "type": "path",
-                                      "id": "jw1Xk",
+                                      "type": "icon",
+                                      "id": "w4IzmX",
                                       "x": 5,
                                       "y": 5,
-                                      "name": "Pulse",
-                                      "geometry": "M6 100l50 0 16 12 18-60 16 98 16-62 18 12 54 0",
-                                      "viewBox": [
-                                        0,
-                                        0,
-                                        200,
-                                        200
-                                      ],
-                                      "fill": "#00000000",
+                                      "name": "Pulse Mark",
                                       "width": 22,
                                       "height": 22,
-                                      "stroke": "$accent",
-                                      "strokeWidth": 0.75,
-                                      "strokeLinejoin": "round",
-                                      "strokeLinecap": "round"
+                                      "icon": "activity",
+                                      "library": "lucide",
+                                      "fill": "$accent"
                                     }
                                   ]
                                 },
