@@ -1355,56 +1355,135 @@ impl PlaybackRow {
         div()
             .flex()
             .items_center()
-            .gap(px(12.))
-            .w(px(330.))
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .size(px(52.))
-                    .flex_none()
-                    .overflow_hidden()
-                    .rounded(px(theme::RADIUS_SM))
-                    .border_1()
-                    .border_color(theme::border_strong())
-                    .bg(theme::bg_elevated())
-                    .child(cover),
-            )
+            .gap(px(16.))
+            .w(px(317.))
+            .flex_none()
             .child(
                 div()
                     .flex()
                     .flex_1()
-                    .flex_col()
                     .min_w_0()
-                    .gap(px(4.))
+                    .items_center()
+                    .gap(px(12.))
                     .child(
                         div()
-                            .w_full()
-                            .font_family(theme::FONT_DISPLAY)
-                            .font_weight(FontWeight::BOLD)
-                            .text_size(px(15.))
-                            .text_color(theme::text_primary())
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .size(px(60.))
+                            .flex_none()
                             .overflow_hidden()
-                            .whitespace_nowrap()
-                            .child(self.title.clone()),
+                            .rounded(px(theme::RADIUS_SM))
+                            .border_1()
+                            .border_color(theme::border_strong())
+                            .bg(theme::bg_elevated())
+                            .child(cover),
                     )
                     .child(
                         div()
-                            .w_full()
-                            .font_family(theme::FONT_SANS)
-                            .text_size(px(12.))
-                            .text_color(theme::text_secondary())
-                            .overflow_hidden()
-                            .whitespace_nowrap()
-                            .child(self.secondary.clone()),
+                            .flex()
+                            .flex_1()
+                            .flex_col()
+                            .min_w_0()
+                            .gap(px(4.))
+                            .child(
+                                div()
+                                    .w_full()
+                                    .font_family(theme::FONT_DISPLAY)
+                                    .font_weight(FontWeight::BOLD)
+                                    .text_size(px(15.))
+                                    .text_color(theme::text_primary())
+                                    .overflow_hidden()
+                                    .whitespace_nowrap()
+                                    .child(self.title.clone()),
+                            )
+                            .child(
+                                div()
+                                    .w_full()
+                                    .font_family(theme::FONT_SANS)
+                                    .text_size(px(12.))
+                                    .text_color(theme::text_secondary())
+                                    .overflow_hidden()
+                                    .whitespace_nowrap()
+                                    .child(self.secondary.clone()),
+                            ),
+                    ),
+            )
+            .child(div().w(px(1.)).h(px(44.)).flex_none().bg(theme::border()))
+    }
+
+    fn render_progress_strip(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let progress = self.displayed_fraction();
+        let scrubbing = self.scrubbing;
+        let track_bounds = Rc::clone(&self.track_bounds);
+
+        div()
+            .relative()
+            .w_full()
+            .h(px(3.))
+            .flex_none()
+            .bg(theme::bg_elevated())
+            .child(
+                div()
+                    .absolute()
+                    .left_0()
+                    .top_0()
+                    .bottom_0()
+                    .w(relative(progress))
+                    .bg(theme::accent()),
+            )
+            .child(
+                canvas(
+                    move |bounds, _, _| track_bounds.set(Some(bounds)),
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .top_0()
+                .right_0()
+                .bottom_0()
+                .left_0(),
+            )
+            .child(
+                div()
+                    .id("progress-target")
+                    .group("progress-strip")
+                    .absolute()
+                    .top_0()
+                    .right_0()
+                    .left_0()
+                    .h(px(12.))
+                    .cursor_pointer()
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|this, event, _, cx| this.begin_scrub(event, cx)),
+                    )
+                    .child(
+                        div()
+                            .absolute()
+                            .top_0()
+                            .left_0()
+                            .h(px(10.))
+                            .w(relative(progress))
+                            .child(
+                                div()
+                                    .absolute()
+                                    .top(px(-3.5))
+                                    .right(px(-5.))
+                                    .size(px(10.))
+                                    .rounded(px(5.))
+                                    .bg(theme::accent())
+                                    .opacity(if scrubbing { 1.0 } else { 0.0 })
+                                    .when(!scrubbing, |thumb| {
+                                        thumb.group_hover("progress-strip", |style| {
+                                            style.opacity(1.0)
+                                        })
+                                    }),
+                            ),
                     ),
             )
     }
 
     fn render_transport(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let progress = self.displayed_fraction();
-        let track_bounds = Rc::clone(&self.track_bounds);
         let previous_enabled = self.source_path.is_some()
             && !matches!(
                 self.playback_state,
@@ -1425,15 +1504,30 @@ impl PlaybackRow {
             .flex()
             .flex_1()
             .min_w_0()
-            .flex_col()
             .items_center()
-            .gap(px(8.))
+            .justify_center()
+            .gap(px(28.))
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .justify_end()
+                    .w(px(44.))
+                    .flex_none()
+                    .child(
+                        div()
+                            .font_family(theme::FONT_MONO)
+                            .text_size(px(10.))
+                            .text_color(theme::text_secondary())
+                            .child(format_time(self.displayed_position_ms())),
+                    ),
+            )
             .child(
                 div()
                     .flex()
                     .items_center()
                     .justify_center()
-                    .gap(px(12.))
+                    .gap(px(16.))
                     .child(transport_icon("icons/shuffle.svg"))
                     .child(
                         div()
@@ -1441,7 +1535,7 @@ impl PlaybackRow {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .size(px(17.))
+                            .size(px(19.))
                             .opacity(if previous_enabled { 1.0 } else { 0.35 })
                             .when(previous_enabled, |button| {
                                 button
@@ -1453,7 +1547,7 @@ impl PlaybackRow {
                             .child(
                                 svg()
                                     .path("icons/skip-back.svg")
-                                    .size(px(17.))
+                                    .size(px(19.))
                                     .text_color(theme::text_secondary()),
                             ),
                     )
@@ -1463,7 +1557,7 @@ impl PlaybackRow {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .size(px(28.))
+                            .size(px(34.))
                             .rounded(px(theme::RADIUS_MD))
                             .bg(theme::accent())
                             .cursor_pointer()
@@ -1471,7 +1565,7 @@ impl PlaybackRow {
                             .child(
                                 svg()
                                     .path(play_icon)
-                                    .size(px(16.))
+                                    .size(px(18.))
                                     .text_color(theme::bg_inset()),
                             ),
                     )
@@ -1481,7 +1575,7 @@ impl PlaybackRow {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .size(px(17.))
+                            .size(px(19.))
                             .opacity(if next_enabled { 1.0 } else { 0.35 })
                             .when(next_enabled, |button| {
                                 button
@@ -1491,66 +1585,24 @@ impl PlaybackRow {
                             .child(
                                 svg()
                                     .path("icons/skip-forward.svg")
-                                    .size(px(17.))
+                                    .size(px(19.))
                                     .text_color(theme::text_secondary()),
                             ),
                     )
                     .child(transport_icon("icons/repeat-2.svg")),
             )
             .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(px(12.))
-                    .w_full()
-                    .child(time_label(format_time(self.displayed_position_ms())))
-                    .child(
-                        div()
-                            .id("progress-target")
-                            .flex_1()
-                            .flex()
-                            .items_center()
-                            .h(px(16.))
-                            .cursor_pointer()
-                            .on_mouse_down(
-                                MouseButton::Left,
-                                cx.listener(|this, event, _, cx| this.begin_scrub(event, cx)),
-                            )
-                            .child(
-                                div()
-                                    .relative()
-                                    .w_full()
-                                    .h(px(4.))
-                                    .rounded(px(2.))
-                                    .bg(theme::bg_inset())
-                                    .child(
-                                        div()
-                                            .absolute()
-                                            .left_0()
-                                            .top_0()
-                                            .bottom_0()
-                                            .w(relative(progress))
-                                            .rounded(px(2.))
-                                            .bg(theme::accent()),
-                                    )
-                                    .child(
-                                        canvas(
-                                            move |bounds, _, _| track_bounds.set(Some(bounds)),
-                                            |_, _, _, _| {},
-                                        )
-                                        .absolute()
-                                        .top_0()
-                                        .right_0()
-                                        .bottom_0()
-                                        .left_0(),
-                                    ),
-                            ),
-                    )
-                    .child(time_label(
-                        self.duration_ms
-                            .map(format_time)
-                            .unwrap_or_else(|| "--:--".to_string()),
-                    )),
+                div().flex().items_center().w(px(44.)).flex_none().child(
+                    div()
+                        .font_family(theme::FONT_MONO)
+                        .text_size(px(10.))
+                        .text_color(theme::text_muted())
+                        .child(
+                            self.duration_ms
+                                .map(format_time)
+                                .unwrap_or_else(|| "--:--".to_string()),
+                        ),
+                ),
             )
     }
 
@@ -2529,19 +2581,37 @@ impl Render for PlaybackRow {
             .child(
                 div()
                     .flex()
-                    .items_center()
-                    .gap(px(22.))
+                    .flex_col()
                     .w_full()
                     .h(px(92.))
                     .flex_none()
-                    .px(px(20.))
-                    .py(px(12.))
-                    .border_t_1()
-                    .border_color(theme::border())
                     .bg(theme::bg_surface())
-                    .child(self.render_now_playing())
-                    .child(self.render_transport(cx))
-                    .child(self.render_output(cx)),
+                    .child(self.render_progress_strip(cx))
+                    .child(
+                        div()
+                            .flex()
+                            .flex_1()
+                            .items_center()
+                            .gap(px(22.))
+                            .w_full()
+                            .px(px(20.))
+                            .py(px(12.))
+                            .child(self.render_now_playing())
+                            .child(self.render_transport(cx))
+                            .child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .justify_end()
+                                    .gap(px(16.))
+                                    .w(px(317.))
+                                    .flex_none()
+                                    .child(
+                                        div().w(px(1.)).h(px(44.)).flex_none().bg(theme::border()),
+                                    )
+                                    .child(self.render_output(cx)),
+                            ),
+                    ),
             )
     }
 }
@@ -2661,21 +2731,13 @@ fn transport_icon(path: &'static str) -> impl IntoElement {
         .flex()
         .items_center()
         .justify_center()
-        .size(px(17.))
+        .size(px(19.))
         .child(
             svg()
                 .path(path)
-                .size(px(17.))
+                .size(px(19.))
                 .text_color(theme::text_secondary()),
         )
-}
-
-fn time_label(value: String) -> impl IntoElement {
-    div()
-        .font_family(theme::FONT_MONO)
-        .text_size(px(11.))
-        .text_color(theme::text_muted())
-        .child(value)
 }
 
 fn is_supported_audio(path: &Path) -> bool {
@@ -2726,7 +2788,7 @@ fn format_time(milliseconds: u64) -> String {
     if minutes >= 60 {
         format!("{}:{:02}:{seconds:02}", minutes / 60, minutes % 60)
     } else {
-        format!("{minutes:02}:{seconds:02}")
+        format!("{minutes}:{seconds:02}")
     }
 }
 
@@ -2840,9 +2902,9 @@ mod tests {
     }
 
     #[test]
-    fn formats_time_for_tracks_and_long_programs() {
-        assert_eq!(format_time(0), "00:00");
-        assert_eq!(format_time(185_999), "03:05");
+    fn formats_transport_time_without_a_leading_minute_zero() {
+        assert_eq!(format_time(0), "0:00");
+        assert_eq!(format_time(185_999), "3:05");
         assert_eq!(format_time(3_661_000), "1:01:01");
     }
 

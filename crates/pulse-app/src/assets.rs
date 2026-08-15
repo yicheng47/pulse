@@ -13,7 +13,6 @@ const ASSETS: &[(&str, &[u8])] = assets![
     "fonts/Rajdhani-Bold.ttf",
     "fonts/Inter-Variable.ttf",
     "fonts/GeistMono-Variable.ttf",
-    "app-icon/v06cM3.png",
     "icons/shuffle.svg",
     "icons/skip-back.svg",
     "icons/play.svg",

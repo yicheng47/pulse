@@ -24,7 +24,7 @@ use crate::{
 };
 
 pub(crate) const SIDEBAR_WIDTH: f32 = 236.0;
-const SIDEBAR_TOP_PADDING: f32 = 54.0;
+const SIDEBAR_TOP_PADDING: f32 = 56.0;
 pub(crate) const TOP_BAR_HEIGHT: f32 = 74.0;
 const SEARCH_WIDTH: f32 = 420.0;
 const SEARCH_DEBOUNCE: Duration = Duration::from_millis(150);
@@ -1752,12 +1752,25 @@ fn render_brand() -> impl IntoElement {
         .items_center()
         .gap(px(10.))
         .w_full()
-        .child(img("app-icon/v06cM3.png").size(px(32.)).flex_none())
+        .child(
+            div()
+                .flex()
+                .items_center()
+                .justify_center()
+                .size(px(32.))
+                .flex_none()
+                .child(
+                    svg()
+                        .path("icons/pulse-mark.svg")
+                        .size(px(24.))
+                        .text_color(theme::accent()),
+                ),
+        )
         .child(
             div()
                 .font_family(theme::FONT_DISPLAY)
                 .font_weight(FontWeight::BOLD)
-                .text_size(px(18.))
+                .text_size(px(22.))
                 .text_color(theme::text_primary())
                 .child("Pulse"),
         )
