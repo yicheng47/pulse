@@ -3288,55 +3288,7 @@
               "ref": "qKkw7",
               "name": "Bottom Player",
               "width": "fill_container",
-              "height": 92,
-              "descendants": {
-                "MVw5k": {
-                  "width": 330,
-                  "gap": 12
-                },
-                "iIdh0": {
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "width": 52,
-                  "height": 52,
-                  "cornerRadius": 4,
-                  "stroke": "#403D39"
-                },
-                "RgfcY": {
-                  "gap": 4
-                },
-                "b5z9Ag": {
-                  "content": "Nights",
-                  "fontFamily": "Rajdhani",
-                  "fontSize": 15,
-                  "fontWeight": "700",
-                  "fill": "#F0F0EE",
-                  "name": "Track Title"
-                },
-                "WbUkS": {
-                  "content": "Frank Ocean - Blonde",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal",
-                  "fill": "#9D9D99",
-                  "name": "Artist And Album"
-                },
-                "vB8rT": {
-                  "content": "FLAC · 16-bit",
-                  "fill": "#9DE23A"
-                },
-                "TId2o": {
-                  "content": "44.1 kHz · Matrix mini-i",
-                  "fill": "#9D9D99",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                }
-              }
+              "height": 92
             }
           ]
         }
@@ -3851,374 +3803,363 @@
           "height": 92,
           "fill": "$bg-surface",
           "stroke": "$border",
-          "strokeWidth": {
-            "top": 1
-          },
           "strokeAlignment": "inner",
           "strokeLinejoin": "round",
-          "gap": 22,
-          "padding": [
-            12,
-            20
-          ],
+          "layout": "vertical",
           "alignItems": "center",
           "children": [
             {
               "type": "frame",
-              "id": "MVw5k",
-              "name": "Now Playing",
-              "width": 320,
-              "gap": 12,
-              "alignItems": "center",
+              "id": "M9c2cc",
+              "name": "Progress Strip",
+              "width": "fill_container",
+              "height": 3,
+              "fill": "$bg-elevated",
+              "layout": "none",
               "children": [
                 {
-                  "type": "frame",
-                  "id": "iIdh0",
-                  "name": "Cover",
-                  "clip": true,
-                  "width": 60,
-                  "height": 60,
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "cornerRadius": "$radius-sm",
-                  "stroke": "$border-strong",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "layout": "none"
-                },
-                {
-                  "type": "frame",
-                  "id": "RgfcY",
-                  "name": "Copy",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 4,
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "b5z9Ag",
-                      "name": "Track Title",
-                      "fill": "#F0F0EE",
-                      "textGrowth": "fixed-width",
-                      "width": "fill_container",
-                      "content": "Nights",
-                      "fontFamily": "Rajdhani",
-                      "fontSize": 15,
-                      "fontWeight": "700"
-                    },
-                    {
-                      "type": "text",
-                      "id": "WbUkS",
-                      "name": "Artist And Album",
-                      "fill": "#9D9D99",
-                      "textGrowth": "fixed-width",
-                      "width": "fill_container",
-                      "content": "Frank Ocean - Blonde",
-                      "fontFamily": "Inter",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
-                    }
-                  ]
+                  "type": "rectangle",
+                  "id": "Us1s1",
+                  "x": 0,
+                  "y": 0,
+                  "name": "Elapsed Fill",
+                  "fill": "$accent",
+                  "width": 340,
+                  "height": 3
                 }
               ]
             },
             {
               "type": "frame",
-              "id": "kRlBI",
-              "name": "Transport Center",
+              "id": "VUe6q",
+              "name": "Content Row",
               "width": "fill_container",
-              "layout": "vertical",
-              "gap": 8,
+              "height": "fill_container",
+              "gap": 22,
+              "padding": [
+                12,
+                20
+              ],
               "alignItems": "center",
               "children": [
                 {
                   "type": "frame",
-                  "id": "Nqfs2",
-                  "name": "Controls",
+                  "id": "MVw5k",
+                  "name": "Now Playing",
+                  "width": 320,
                   "gap": 12,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "iIdh0",
+                      "name": "Cover",
+                      "clip": true,
+                      "width": 60,
+                      "height": 60,
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "album-covers/pop/blonde.jpg",
+                        "mode": "fill"
+                      },
+                      "cornerRadius": "$radius-sm",
+                      "stroke": "$border-strong",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "layout": "none"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "RgfcY",
+                      "name": "Copy",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "b5z9Ag",
+                          "name": "Track Title",
+                          "fill": "#F0F0EE",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Nights",
+                          "fontFamily": "Rajdhani",
+                          "fontSize": 15,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "WbUkS",
+                          "name": "Artist And Album",
+                          "fill": "#9D9D99",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Frank Ocean - Blonde",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "kRlBI",
+                  "name": "Transport Center",
+                  "width": "fill_container",
+                  "gap": 18,
                   "justifyContent": "center",
                   "alignItems": "center",
                   "children": [
                     {
-                      "type": "icon",
-                      "id": "G7rBsN",
-                      "name": "Shuffle",
-                      "width": 17,
-                      "height": 17,
-                      "icon": "shuffle",
-                      "library": "lucide",
-                      "fill": "$text-secondary"
-                    },
-                    {
-                      "type": "icon",
-                      "id": "I2roc",
-                      "name": "Previous",
-                      "width": 17,
-                      "height": 17,
-                      "icon": "skip-back",
-                      "library": "lucide",
-                      "fill": "$text-secondary"
+                      "type": "frame",
+                      "id": "x9CAO",
+                      "name": "Times",
+                      "layout": "vertical",
+                      "gap": 1,
+                      "alignItems": "end",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "xZfxW",
+                          "name": "Elapsed",
+                          "fill": "$text-secondary",
+                          "content": "02:14",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "mVSdP",
+                          "name": "Duration",
+                          "fill": "$text-muted",
+                          "content": "04:28",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
                     },
                     {
                       "type": "frame",
-                      "id": "z2f9xS",
-                      "name": "Play",
-                      "width": 28,
-                      "height": 28,
-                      "fill": "$accent",
-                      "cornerRadius": "$radius-md",
+                      "id": "Nqfs2",
+                      "name": "Controls",
+                      "gap": 12,
                       "justifyContent": "center",
                       "alignItems": "center",
                       "children": [
                         {
                           "type": "icon",
-                          "id": "OEUCE",
-                          "name": "Play Icon",
-                          "width": 16,
-                          "height": 16,
-                          "icon": "play",
+                          "id": "G7rBsN",
+                          "name": "Shuffle",
+                          "width": 17,
+                          "height": 17,
+                          "icon": "shuffle",
                           "library": "lucide",
-                          "fill": "$bg-inset"
+                          "fill": "$text-secondary"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "I2roc",
+                          "name": "Previous",
+                          "width": 17,
+                          "height": 17,
+                          "icon": "skip-back",
+                          "library": "lucide",
+                          "fill": "$text-secondary"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "z2f9xS",
+                          "name": "Play",
+                          "width": 28,
+                          "height": 28,
+                          "fill": "$accent",
+                          "cornerRadius": "$radius-md",
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "OEUCE",
+                              "name": "Play Icon",
+                              "width": 16,
+                              "height": 16,
+                              "icon": "play",
+                              "library": "lucide",
+                              "fill": "$bg-inset"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "icon",
+                          "id": "f1kzk",
+                          "name": "Next",
+                          "width": 17,
+                          "height": 17,
+                          "icon": "skip-forward",
+                          "library": "lucide",
+                          "fill": "$text-secondary"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "FqdC3",
+                          "name": "Repeat",
+                          "width": 17,
+                          "height": 17,
+                          "icon": "repeat-2",
+                          "library": "lucide",
+                          "fill": "$text-secondary"
                         }
                       ]
-                    },
-                    {
-                      "type": "icon",
-                      "id": "f1kzk",
-                      "name": "Next",
-                      "width": 17,
-                      "height": 17,
-                      "icon": "skip-forward",
-                      "library": "lucide",
-                      "fill": "$text-secondary"
-                    },
-                    {
-                      "type": "icon",
-                      "id": "FqdC3",
-                      "name": "Repeat",
-                      "width": 17,
-                      "height": 17,
-                      "icon": "repeat-2",
-                      "library": "lucide",
-                      "fill": "$text-secondary"
                     }
                   ]
                 },
                 {
                   "type": "frame",
-                  "id": "r6HZK",
-                  "name": "Progress Row",
-                  "width": "fill_container",
-                  "gap": 12,
+                  "id": "MvhQm",
+                  "name": "Output Status",
+                  "width": 300,
+                  "gap": 14,
+                  "justifyContent": "end",
                   "alignItems": "center",
                   "children": [
                     {
-                      "type": "text",
-                      "id": "n9vLdt",
-                      "name": "Elapsed",
-                      "fill": "$text-muted",
-                      "content": "02:14",
-                      "fontFamily": "$font-mono",
-                      "fontSize": 11,
-                      "fontWeight": "normal"
-                    },
-                    {
                       "type": "frame",
-                      "id": "gmbcs",
-                      "name": "Progress Bar",
-                      "width": "fill_container",
-                      "height": 4,
-                      "fill": "$bg-inset",
-                      "cornerRadius": 2,
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 2,
-                          "id": "nXSEz",
-                          "name": "Elapsed Fill",
-                          "fill": "$accent",
-                          "width": 180,
-                          "height": 4
-                        }
-                      ]
-                    },
-                    {
-                      "type": "text",
-                      "id": "WTgJr",
-                      "name": "Duration",
-                      "fill": "$text-muted",
-                      "content": "04:28",
-                      "fontFamily": "$font-mono",
-                      "fontSize": 11,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "type": "frame",
-              "id": "MvhQm",
-              "name": "Output Status",
-              "width": 399,
-              "gap": 14,
-              "justifyContent": "end",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "g0e4eO",
-                  "name": "Volume",
-                  "gap": 8,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "r9MWn",
-                      "name": "Volume Icon",
-                      "width": 17,
-                      "height": 17,
-                      "icon": "volume-2",
-                      "library": "lucide",
-                      "fill": "$text-secondary"
-                    },
-                    {
-                      "type": "frame",
-                      "id": "g2D5x",
-                      "name": "Volume Slider",
-                      "width": 60,
-                      "height": 4,
-                      "fill": "$bg-inset",
-                      "cornerRadius": 2,
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 2,
-                          "id": "j5YPAa",
-                          "name": "Level Fill",
-                          "fill": "$accent",
-                          "width": 42,
-                          "height": 4
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "type": "rectangle",
-                  "id": "k0uNV0",
-                  "name": "Divider",
-                  "fill": "$border",
-                  "width": 1,
-                  "height": 24
-                },
-                {
-                  "type": "frame",
-                  "id": "W4DFo",
-                  "name": "Format",
-                  "width": 132,
-                  "layout": "vertical",
-                  "gap": 3,
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "vB8rT",
-                      "name": "Quality",
-                      "fill": "#9DE23A",
-                      "content": "FLAC · 16-bit",
-                      "fontFamily": "$font-mono",
-                      "fontSize": 12,
-                      "fontWeight": "700"
-                    },
-                    {
-                      "type": "text",
-                      "id": "TId2o",
-                      "name": "Device",
-                      "fill": "$text-secondary",
-                      "textGrowth": "fixed-width",
-                      "width": "fill_container",
-                      "content": "44.1 kHz · Matrix mini-i",
-                      "fontFamily": "$font-sans",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                },
-                {
-                  "type": "rectangle",
-                  "id": "FPvGY",
-                  "name": "Divider",
-                  "fill": "$border",
-                  "width": 1,
-                  "height": 24
-                },
-                {
-                  "type": "icon",
-                  "id": "wIS69",
-                  "name": "Output",
-                  "width": 17,
-                  "height": 17,
-                  "icon": "speaker",
-                  "library": "lucide",
-                  "fill": "$text-secondary"
-                },
-                {
-                  "type": "rectangle",
-                  "id": "C7S3C",
-                  "name": "Divider",
-                  "fill": "$border",
-                  "width": 1,
-                  "height": 24
-                },
-                {
-                  "type": "frame",
-                  "id": "cOeyi",
-                  "name": "Queue Button",
-                  "width": 38,
-                  "height": 34,
-                  "layout": "none",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "H4oceM",
-                      "x": 0,
-                      "y": 8,
-                      "name": "Queue",
-                      "width": 17,
-                      "height": 17,
-                      "icon": "list-music",
-                      "library": "lucide",
-                      "fill": "$text-secondary"
-                    },
-                    {
-                      "type": "frame",
-                      "id": "eCWdc",
-                      "x": 22,
-                      "y": 0,
-                      "name": "Badge",
-                      "width": 16,
-                      "height": 16,
-                      "fill": "$accent",
-                      "cornerRadius": 8,
-                      "stroke": "$bg-surface",
-                      "strokeWidth": 2,
-                      "strokeAlignment": "outer",
-                      "justifyContent": "center",
-                      "alignItems": "center",
+                      "id": "W4DFo",
+                      "name": "Format",
+                      "width": 132,
+                      "layout": "vertical",
+                      "gap": 3,
                       "children": [
                         {
                           "type": "text",
-                          "id": "QLFLt",
-                          "name": "Count",
-                          "fill": "$bg-inset",
-                          "content": "7",
+                          "id": "vB8rT",
+                          "name": "Quality",
+                          "fill": "#9DE23A",
+                          "content": "FLAC · 16-bit",
                           "fontFamily": "$font-mono",
-                          "fontSize": 10,
+                          "fontSize": 12,
                           "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "TId2o",
+                          "name": "Device",
+                          "fill": "$text-secondary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "44.1 kHz · Matrix mini-i",
+                          "fontFamily": "$font-sans",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "k0uNV0",
+                      "name": "Divider",
+                      "fill": "$border",
+                      "width": 1,
+                      "height": 24
+                    },
+                    {
+                      "type": "frame",
+                      "id": "g0e4eO",
+                      "name": "Volume",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "r9MWn",
+                          "name": "Volume Icon",
+                          "width": 17,
+                          "height": 17,
+                          "icon": "volume-2",
+                          "library": "lucide",
+                          "fill": "$text-secondary"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "FPvGY",
+                      "name": "Divider",
+                      "fill": "$border",
+                      "width": 1,
+                      "height": 24
+                    },
+                    {
+                      "type": "icon",
+                      "id": "wIS69",
+                      "name": "Output",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "speaker",
+                      "library": "lucide",
+                      "fill": "$text-secondary"
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "C7S3C",
+                      "name": "Divider",
+                      "fill": "$border",
+                      "width": 1,
+                      "height": 24
+                    },
+                    {
+                      "type": "frame",
+                      "id": "cOeyi",
+                      "name": "Queue Button",
+                      "width": 38,
+                      "height": 34,
+                      "layout": "none",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "H4oceM",
+                          "x": 0,
+                          "y": 8,
+                          "name": "Queue",
+                          "width": 17,
+                          "height": 17,
+                          "icon": "list-music",
+                          "library": "lucide",
+                          "fill": "$text-secondary"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "eCWdc",
+                          "x": 22,
+                          "y": 0,
+                          "name": "Badge",
+                          "width": 16,
+                          "height": 16,
+                          "fill": "$accent",
+                          "cornerRadius": 8,
+                          "stroke": "$bg-surface",
+                          "strokeWidth": 2,
+                          "strokeAlignment": "outer",
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "QLFLt",
+                              "name": "Count",
+                              "fill": "$bg-inset",
+                              "content": "7",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
                         }
                       ]
                     }
@@ -7017,55 +6958,7 @@
               "ref": "qKkw7",
               "name": "Bottom Player",
               "width": "fill_container",
-              "height": 92,
-              "descendants": {
-                "MVw5k": {
-                  "width": 330,
-                  "gap": 12
-                },
-                "iIdh0": {
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "width": 52,
-                  "height": 52,
-                  "cornerRadius": 4,
-                  "stroke": "#403D39"
-                },
-                "RgfcY": {
-                  "gap": 4
-                },
-                "b5z9Ag": {
-                  "content": "Nights",
-                  "fontFamily": "Rajdhani",
-                  "fontSize": 15,
-                  "fontWeight": "700",
-                  "fill": "#F0F0EE",
-                  "name": "Track Title"
-                },
-                "WbUkS": {
-                  "content": "Frank Ocean - Blonde",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal",
-                  "fill": "#9D9D99",
-                  "name": "Artist And Album"
-                },
-                "vB8rT": {
-                  "content": "FLAC · 16-bit",
-                  "fill": "#9DE23A"
-                },
-                "TId2o": {
-                  "content": "44.1 kHz · Matrix mini-i",
-                  "fill": "#9D9D99",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                }
-              }
+              "height": 92
             }
           ]
         }
@@ -9849,55 +9742,7 @@
               "ref": "qKkw7",
               "name": "Bottom Player",
               "width": "fill_container",
-              "height": 92,
-              "descendants": {
-                "MVw5k": {
-                  "width": 330,
-                  "gap": 12
-                },
-                "iIdh0": {
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "width": 52,
-                  "height": 52,
-                  "cornerRadius": 4,
-                  "stroke": "#403D39"
-                },
-                "RgfcY": {
-                  "gap": 4
-                },
-                "b5z9Ag": {
-                  "content": "Nights",
-                  "fontFamily": "Rajdhani",
-                  "fontSize": 15,
-                  "fontWeight": "700",
-                  "fill": "#F0F0EE",
-                  "name": "Track Title"
-                },
-                "WbUkS": {
-                  "content": "Frank Ocean - Blonde",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal",
-                  "fill": "#9D9D99",
-                  "name": "Artist And Album"
-                },
-                "vB8rT": {
-                  "content": "FLAC · 16-bit",
-                  "fill": "#9DE23A"
-                },
-                "TId2o": {
-                  "content": "44.1 kHz · Matrix mini-i",
-                  "fill": "#9D9D99",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                }
-              }
+              "height": 92
             }
           ]
         }
@@ -12474,55 +12319,7 @@
               "ref": "qKkw7",
               "name": "Bottom Player",
               "width": "fill_container",
-              "height": 92,
-              "descendants": {
-                "MVw5k": {
-                  "width": 330,
-                  "gap": 12
-                },
-                "iIdh0": {
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "width": 52,
-                  "height": 52,
-                  "cornerRadius": 4,
-                  "stroke": "#403D39"
-                },
-                "RgfcY": {
-                  "gap": 4
-                },
-                "b5z9Ag": {
-                  "content": "Nights",
-                  "fontFamily": "Rajdhani",
-                  "fontSize": 15,
-                  "fontWeight": "700",
-                  "fill": "#F0F0EE",
-                  "name": "Track Title"
-                },
-                "WbUkS": {
-                  "content": "Frank Ocean - Blonde",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal",
-                  "fill": "#9D9D99",
-                  "name": "Artist And Album"
-                },
-                "vB8rT": {
-                  "content": "FLAC · 16-bit",
-                  "fill": "#9DE23A"
-                },
-                "TId2o": {
-                  "content": "44.1 kHz · Matrix mini-i",
-                  "fill": "#9D9D99",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                }
-              }
+              "height": 92
             }
           ]
         }
@@ -14760,55 +14557,7 @@
               "ref": "qKkw7",
               "name": "Bottom Player",
               "width": "fill_container",
-              "height": 92,
-              "descendants": {
-                "MVw5k": {
-                  "width": 330,
-                  "gap": 12
-                },
-                "iIdh0": {
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "width": 52,
-                  "height": 52,
-                  "cornerRadius": 4,
-                  "stroke": "#403D39"
-                },
-                "RgfcY": {
-                  "gap": 4
-                },
-                "b5z9Ag": {
-                  "content": "Nights",
-                  "fontFamily": "Rajdhani",
-                  "fontSize": 15,
-                  "fontWeight": "700",
-                  "fill": "#F0F0EE",
-                  "name": "Track Title"
-                },
-                "WbUkS": {
-                  "content": "Frank Ocean - Blonde",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal",
-                  "fill": "#9D9D99",
-                  "name": "Artist And Album"
-                },
-                "vB8rT": {
-                  "content": "FLAC · 16-bit",
-                  "fill": "#9DE23A"
-                },
-                "TId2o": {
-                  "content": "44.1 kHz · Matrix mini-i",
-                  "fill": "#9D9D99",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                }
-              }
+              "height": 92
             }
           ]
         },
@@ -17570,55 +17319,7 @@
               "ref": "qKkw7",
               "name": "Bottom Player",
               "width": "fill_container",
-              "height": 92,
-              "descendants": {
-                "MVw5k": {
-                  "width": 330,
-                  "gap": 12
-                },
-                "iIdh0": {
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "width": 52,
-                  "height": 52,
-                  "cornerRadius": 4,
-                  "stroke": "#403D39"
-                },
-                "RgfcY": {
-                  "gap": 4
-                },
-                "b5z9Ag": {
-                  "content": "Nights",
-                  "fontFamily": "Rajdhani",
-                  "fontSize": 15,
-                  "fontWeight": "700",
-                  "fill": "#F0F0EE",
-                  "name": "Track Title"
-                },
-                "WbUkS": {
-                  "content": "Frank Ocean - Blonde",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal",
-                  "fill": "#9D9D99",
-                  "name": "Artist And Album"
-                },
-                "vB8rT": {
-                  "content": "FLAC · 16-bit",
-                  "fill": "#9DE23A"
-                },
-                "TId2o": {
-                  "content": "44.1 kHz · Matrix mini-i",
-                  "fill": "#9D9D99",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                }
-              }
+              "height": 92
             }
           ]
         }
@@ -19893,55 +19594,7 @@
               "ref": "qKkw7",
               "name": "Bottom Player",
               "width": "fill_container",
-              "height": 92,
-              "descendants": {
-                "MVw5k": {
-                  "width": 330,
-                  "gap": 12
-                },
-                "iIdh0": {
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "width": 52,
-                  "height": 52,
-                  "cornerRadius": 4,
-                  "stroke": "#403D39"
-                },
-                "RgfcY": {
-                  "gap": 4
-                },
-                "b5z9Ag": {
-                  "content": "Nights",
-                  "fontFamily": "Rajdhani",
-                  "fontSize": 15,
-                  "fontWeight": "700",
-                  "fill": "#F0F0EE",
-                  "name": "Track Title"
-                },
-                "WbUkS": {
-                  "content": "Frank Ocean - Blonde",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal",
-                  "fill": "#9D9D99",
-                  "name": "Artist And Album"
-                },
-                "vB8rT": {
-                  "content": "FLAC · 16-bit",
-                  "fill": "#9DE23A"
-                },
-                "TId2o": {
-                  "content": "44.1 kHz · Matrix mini-i",
-                  "fill": "#9D9D99",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                }
-              }
+              "height": 92
             }
           ]
         }
@@ -21724,55 +21377,7 @@
               "ref": "qKkw7",
               "name": "Bottom Player",
               "width": "fill_container",
-              "height": 92,
-              "descendants": {
-                "MVw5k": {
-                  "width": 330,
-                  "gap": 12
-                },
-                "iIdh0": {
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "width": 52,
-                  "height": 52,
-                  "cornerRadius": 4,
-                  "stroke": "#403D39"
-                },
-                "RgfcY": {
-                  "gap": 4
-                },
-                "b5z9Ag": {
-                  "content": "Nights",
-                  "fontFamily": "Rajdhani",
-                  "fontSize": 15,
-                  "fontWeight": "700",
-                  "fill": "#F0F0EE",
-                  "name": "Track Title"
-                },
-                "WbUkS": {
-                  "content": "Frank Ocean - Blonde",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal",
-                  "fill": "#9D9D99",
-                  "name": "Artist And Album"
-                },
-                "vB8rT": {
-                  "content": "FLAC · 16-bit",
-                  "fill": "#9DE23A"
-                },
-                "TId2o": {
-                  "content": "44.1 kHz · Matrix mini-i",
-                  "fill": "#9D9D99",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                }
-              }
+              "height": 92
             }
           ]
         }
@@ -22556,55 +22161,7 @@
               "ref": "qKkw7",
               "name": "Bottom Player",
               "width": "fill_container",
-              "height": 92,
-              "descendants": {
-                "MVw5k": {
-                  "width": 330,
-                  "gap": 12
-                },
-                "iIdh0": {
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "width": 52,
-                  "height": 52,
-                  "cornerRadius": 4,
-                  "stroke": "#403D39"
-                },
-                "RgfcY": {
-                  "gap": 4
-                },
-                "b5z9Ag": {
-                  "content": "Nights",
-                  "fontFamily": "Rajdhani",
-                  "fontSize": 15,
-                  "fontWeight": "700",
-                  "fill": "#F0F0EE",
-                  "name": "Track Title"
-                },
-                "WbUkS": {
-                  "content": "Frank Ocean - Blonde",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal",
-                  "fill": "#9D9D99",
-                  "name": "Artist And Album"
-                },
-                "vB8rT": {
-                  "content": "FLAC · 16-bit",
-                  "fill": "#9DE23A"
-                },
-                "TId2o": {
-                  "content": "44.1 kHz · Matrix mini-i",
-                  "fill": "#9D9D99",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                }
-              }
+              "height": 92
             }
           ]
         }
@@ -23722,55 +23279,7 @@
               "ref": "qKkw7",
               "name": "Bottom Player",
               "width": "fill_container",
-              "height": 92,
-              "descendants": {
-                "MVw5k": {
-                  "width": 330,
-                  "gap": 12
-                },
-                "iIdh0": {
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "width": 52,
-                  "height": 52,
-                  "cornerRadius": 4,
-                  "stroke": "#403D39"
-                },
-                "RgfcY": {
-                  "gap": 4
-                },
-                "b5z9Ag": {
-                  "content": "Nights",
-                  "fontFamily": "Rajdhani",
-                  "fontSize": 15,
-                  "fontWeight": "700",
-                  "fill": "#F0F0EE",
-                  "name": "Track Title"
-                },
-                "WbUkS": {
-                  "content": "Frank Ocean - Blonde",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal",
-                  "fill": "#9D9D99",
-                  "name": "Artist And Album"
-                },
-                "vB8rT": {
-                  "content": "FLAC · 16-bit",
-                  "fill": "#9DE23A"
-                },
-                "TId2o": {
-                  "content": "44.1 kHz · Matrix mini-i",
-                  "fill": "#9D9D99",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                }
-              }
+              "height": 92
             }
           ]
         }
@@ -24738,55 +24247,7 @@
               "ref": "qKkw7",
               "name": "Bottom Player",
               "width": "fill_container",
-              "height": 92,
-              "descendants": {
-                "MVw5k": {
-                  "width": 330,
-                  "gap": 12
-                },
-                "iIdh0": {
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "width": 52,
-                  "height": 52,
-                  "cornerRadius": 4,
-                  "stroke": "#403D39"
-                },
-                "RgfcY": {
-                  "gap": 4
-                },
-                "b5z9Ag": {
-                  "content": "Nights",
-                  "fontFamily": "Rajdhani",
-                  "fontSize": 15,
-                  "fontWeight": "700",
-                  "fill": "#F0F0EE",
-                  "name": "Track Title"
-                },
-                "WbUkS": {
-                  "content": "Frank Ocean - Blonde",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal",
-                  "fill": "#9D9D99",
-                  "name": "Artist And Album"
-                },
-                "vB8rT": {
-                  "content": "FLAC · 16-bit",
-                  "fill": "#9DE23A"
-                },
-                "TId2o": {
-                  "content": "44.1 kHz · Matrix mini-i",
-                  "fill": "#9D9D99",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                }
-              }
+              "height": 92
             }
           ]
         }
@@ -26823,55 +26284,7 @@
               "ref": "qKkw7",
               "name": "Bottom Player",
               "width": "fill_container",
-              "height": 92,
-              "descendants": {
-                "MVw5k": {
-                  "width": 330,
-                  "gap": 12
-                },
-                "iIdh0": {
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "width": 52,
-                  "height": 52,
-                  "cornerRadius": 4,
-                  "stroke": "#403D39"
-                },
-                "RgfcY": {
-                  "gap": 4
-                },
-                "b5z9Ag": {
-                  "content": "Nights",
-                  "fontFamily": "Rajdhani",
-                  "fontSize": 15,
-                  "fontWeight": "700",
-                  "fill": "#F0F0EE",
-                  "name": "Track Title"
-                },
-                "WbUkS": {
-                  "content": "Frank Ocean - Blonde",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal",
-                  "fill": "#9D9D99",
-                  "name": "Artist And Album"
-                },
-                "vB8rT": {
-                  "content": "FLAC · 16-bit",
-                  "fill": "#9DE23A"
-                },
-                "TId2o": {
-                  "content": "44.1 kHz · Matrix mini-i",
-                  "fill": "#9D9D99",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                }
-              }
+              "height": 92
             }
           ]
         },
@@ -29919,55 +29332,7 @@
               "ref": "qKkw7",
               "name": "Bottom Player",
               "width": "fill_container",
-              "height": 92,
-              "descendants": {
-                "MVw5k": {
-                  "width": 330,
-                  "gap": 12
-                },
-                "iIdh0": {
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "width": 52,
-                  "height": 52,
-                  "cornerRadius": 4,
-                  "stroke": "#403D39"
-                },
-                "RgfcY": {
-                  "gap": 4
-                },
-                "b5z9Ag": {
-                  "content": "Nights",
-                  "fontFamily": "Rajdhani",
-                  "fontSize": 15,
-                  "fontWeight": "700",
-                  "fill": "#F0F0EE",
-                  "name": "Track Title"
-                },
-                "WbUkS": {
-                  "content": "Frank Ocean - Blonde",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal",
-                  "fill": "#9D9D99",
-                  "name": "Artist And Album"
-                },
-                "vB8rT": {
-                  "content": "FLAC · 16-bit",
-                  "fill": "#9DE23A"
-                },
-                "TId2o": {
-                  "content": "44.1 kHz · Matrix mini-i",
-                  "fill": "#9D9D99",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                }
-              }
+              "height": 92
             }
           ]
         },
@@ -32775,55 +32140,7 @@
               "ref": "qKkw7",
               "name": "Bottom Player",
               "width": "fill_container",
-              "height": 92,
-              "descendants": {
-                "MVw5k": {
-                  "width": 330,
-                  "gap": 12
-                },
-                "iIdh0": {
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "width": 52,
-                  "height": 52,
-                  "cornerRadius": 4,
-                  "stroke": "#403D39"
-                },
-                "RgfcY": {
-                  "gap": 4
-                },
-                "b5z9Ag": {
-                  "content": "Nights",
-                  "fontFamily": "Rajdhani",
-                  "fontSize": 15,
-                  "fontWeight": "700",
-                  "fill": "#F0F0EE",
-                  "name": "Track Title"
-                },
-                "WbUkS": {
-                  "content": "Frank Ocean - Blonde",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal",
-                  "fill": "#9D9D99",
-                  "name": "Artist And Album"
-                },
-                "vB8rT": {
-                  "content": "FLAC · 16-bit",
-                  "fill": "#9DE23A"
-                },
-                "TId2o": {
-                  "content": "44.1 kHz · Matrix mini-i",
-                  "fill": "#9D9D99",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                }
-              }
+              "height": 92
             }
           ]
         },
@@ -35937,55 +35254,7 @@
               "ref": "qKkw7",
               "name": "Bottom Player",
               "width": "fill_container",
-              "height": 92,
-              "descendants": {
-                "MVw5k": {
-                  "width": 330,
-                  "gap": 12
-                },
-                "iIdh0": {
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "width": 52,
-                  "height": 52,
-                  "cornerRadius": 4,
-                  "stroke": "#403D39"
-                },
-                "RgfcY": {
-                  "gap": 4
-                },
-                "b5z9Ag": {
-                  "content": "Nights",
-                  "fontFamily": "Rajdhani",
-                  "fontSize": 15,
-                  "fontWeight": "700",
-                  "fill": "#F0F0EE",
-                  "name": "Track Title"
-                },
-                "WbUkS": {
-                  "content": "Frank Ocean - Blonde",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal",
-                  "fill": "#9D9D99",
-                  "name": "Artist And Album"
-                },
-                "vB8rT": {
-                  "content": "FLAC · 16-bit",
-                  "fill": "#9DE23A"
-                },
-                "TId2o": {
-                  "content": "44.1 kHz · Matrix mini-i",
-                  "fill": "#9D9D99",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                }
-              }
+              "height": 92
             }
           ]
         },
@@ -38458,55 +37727,7 @@
               "ref": "qKkw7",
               "name": "Bottom Player",
               "width": "fill_container",
-              "height": 92,
-              "descendants": {
-                "MVw5k": {
-                  "width": 330,
-                  "gap": 12
-                },
-                "iIdh0": {
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "width": 52,
-                  "height": 52,
-                  "cornerRadius": 4,
-                  "stroke": "#403D39"
-                },
-                "RgfcY": {
-                  "gap": 4
-                },
-                "b5z9Ag": {
-                  "content": "Nights",
-                  "fontFamily": "Rajdhani",
-                  "fontSize": 15,
-                  "fontWeight": "700",
-                  "fill": "#F0F0EE",
-                  "name": "Track Title"
-                },
-                "WbUkS": {
-                  "content": "Frank Ocean - Blonde",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal",
-                  "fill": "#9D9D99",
-                  "name": "Artist And Album"
-                },
-                "vB8rT": {
-                  "content": "FLAC · 16-bit",
-                  "fill": "#9DE23A"
-                },
-                "TId2o": {
-                  "content": "44.1 kHz · Matrix mini-i",
-                  "fill": "#9D9D99",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                }
-              }
+              "height": 92
             }
           ]
         }
@@ -39213,55 +38434,7 @@
               "ref": "qKkw7",
               "name": "Bottom Player",
               "width": "fill_container",
-              "height": 92,
-              "descendants": {
-                "MVw5k": {
-                  "width": 330,
-                  "gap": 12
-                },
-                "iIdh0": {
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "width": 52,
-                  "height": 52,
-                  "cornerRadius": 4,
-                  "stroke": "#403D39"
-                },
-                "RgfcY": {
-                  "gap": 4
-                },
-                "b5z9Ag": {
-                  "content": "Nights",
-                  "fontFamily": "Rajdhani",
-                  "fontSize": 15,
-                  "fontWeight": "700",
-                  "fill": "#F0F0EE",
-                  "name": "Track Title"
-                },
-                "WbUkS": {
-                  "content": "Frank Ocean - Blonde",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal",
-                  "fill": "#9D9D99",
-                  "name": "Artist And Album"
-                },
-                "vB8rT": {
-                  "content": "FLAC · 16-bit",
-                  "fill": "#9DE23A"
-                },
-                "TId2o": {
-                  "content": "44.1 kHz · Matrix mini-i",
-                  "fill": "#9D9D99",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                }
-              }
+              "height": 92
             }
           ]
         }
@@ -42045,55 +41218,7 @@
               "ref": "qKkw7",
               "name": "Bottom Player",
               "width": "fill_container",
-              "height": 92,
-              "descendants": {
-                "MVw5k": {
-                  "width": 330,
-                  "gap": 12
-                },
-                "iIdh0": {
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "width": 52,
-                  "height": 52,
-                  "cornerRadius": 4,
-                  "stroke": "#403D39"
-                },
-                "RgfcY": {
-                  "gap": 4
-                },
-                "b5z9Ag": {
-                  "content": "Nights",
-                  "fontFamily": "Rajdhani",
-                  "fontSize": 15,
-                  "fontWeight": "700",
-                  "fill": "#F0F0EE",
-                  "name": "Track Title"
-                },
-                "WbUkS": {
-                  "content": "Frank Ocean - Blonde",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal",
-                  "fill": "#9D9D99",
-                  "name": "Artist And Album"
-                },
-                "vB8rT": {
-                  "content": "FLAC · 16-bit",
-                  "fill": "#9DE23A"
-                },
-                "TId2o": {
-                  "content": "44.1 kHz · Matrix mini-i",
-                  "fill": "#9D9D99",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                }
-              }
+              "height": 92
             }
           ]
         },
@@ -45184,58 +44309,7 @@
               "ref": "qKkw7",
               "name": "Bottom Player",
               "width": "fill_container",
-              "height": 92,
-              "descendants": {
-                "MVw5k": {
-                  "width": 330,
-                  "gap": 12
-                },
-                "iIdh0": {
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "width": 52,
-                  "height": 52,
-                  "cornerRadius": 4,
-                  "stroke": "#403D39"
-                },
-                "RgfcY": {
-                  "gap": 4
-                },
-                "b5z9Ag": {
-                  "content": "Nights",
-                  "fontFamily": "Rajdhani",
-                  "fontSize": 15,
-                  "fontWeight": "700",
-                  "fill": "#F0F0EE",
-                  "name": "Track Title"
-                },
-                "WbUkS": {
-                  "content": "Frank Ocean - Blonde",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal",
-                  "fill": "#9D9D99",
-                  "name": "Artist And Album"
-                },
-                "vB8rT": {
-                  "content": "FLAC · 16-bit",
-                  "fill": "#9DE23A"
-                },
-                "TId2o": {
-                  "content": "44.1 kHz · Matrix mini-i",
-                  "fill": "#9D9D99",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                },
-                "H4oceM": {
-                  "fill": "$accent"
-                }
-              }
+              "height": 92
             }
           ]
         },
@@ -47724,55 +46798,7 @@
               "ref": "qKkw7",
               "name": "Bottom Player",
               "width": "fill_container",
-              "height": 92,
-              "descendants": {
-                "MVw5k": {
-                  "width": 330,
-                  "gap": 12
-                },
-                "iIdh0": {
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "width": 52,
-                  "height": 52,
-                  "cornerRadius": 4,
-                  "stroke": "#403D39"
-                },
-                "RgfcY": {
-                  "gap": 4
-                },
-                "b5z9Ag": {
-                  "content": "Nights",
-                  "fontFamily": "Rajdhani",
-                  "fontSize": 15,
-                  "fontWeight": "700",
-                  "fill": "#F0F0EE",
-                  "name": "Track Title"
-                },
-                "WbUkS": {
-                  "content": "Frank Ocean - Blonde",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal",
-                  "fill": "#9D9D99",
-                  "name": "Artist And Album"
-                },
-                "vB8rT": {
-                  "content": "FLAC · 16-bit",
-                  "fill": "#9DE23A"
-                },
-                "TId2o": {
-                  "content": "44.1 kHz · Matrix mini-i",
-                  "fill": "#9D9D99",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                }
-              }
+              "height": 92
             }
           ]
         },
@@ -49611,55 +48637,7 @@
               "ref": "qKkw7",
               "name": "Bottom Player",
               "width": "fill_container",
-              "height": 92,
-              "descendants": {
-                "MVw5k": {
-                  "width": 330,
-                  "gap": 12
-                },
-                "iIdh0": {
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "width": 52,
-                  "height": 52,
-                  "cornerRadius": 4,
-                  "stroke": "#403D39"
-                },
-                "RgfcY": {
-                  "gap": 4
-                },
-                "b5z9Ag": {
-                  "content": "Nights",
-                  "fontFamily": "Rajdhani",
-                  "fontSize": 15,
-                  "fontWeight": "700",
-                  "fill": "#F0F0EE",
-                  "name": "Track Title"
-                },
-                "WbUkS": {
-                  "content": "Frank Ocean - Blonde",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal",
-                  "fill": "#9D9D99",
-                  "name": "Artist And Album"
-                },
-                "vB8rT": {
-                  "content": "FLAC · 16-bit",
-                  "fill": "#9DE23A"
-                },
-                "TId2o": {
-                  "content": "44.1 kHz · Matrix mini-i",
-                  "fill": "#9D9D99",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                }
-              }
+              "height": 92
             }
           ]
         },
@@ -54049,55 +53027,7 @@
               "ref": "qKkw7",
               "name": "Bottom Player",
               "width": "fill_container",
-              "height": 92,
-              "descendants": {
-                "MVw5k": {
-                  "width": 330,
-                  "gap": 12
-                },
-                "iIdh0": {
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "album-covers/pop/blonde.jpg",
-                    "mode": "fill"
-                  },
-                  "width": 52,
-                  "height": 52,
-                  "cornerRadius": 4,
-                  "stroke": "#403D39"
-                },
-                "RgfcY": {
-                  "gap": 4
-                },
-                "b5z9Ag": {
-                  "content": "Nights",
-                  "fontFamily": "Rajdhani",
-                  "fontSize": 15,
-                  "fontWeight": "700",
-                  "fill": "#F0F0EE",
-                  "name": "Track Title"
-                },
-                "WbUkS": {
-                  "content": "Frank Ocean - Blonde",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal",
-                  "fill": "#9D9D99",
-                  "name": "Artist And Album"
-                },
-                "vB8rT": {
-                  "content": "FLAC · 16-bit",
-                  "fill": "#9DE23A"
-                },
-                "TId2o": {
-                  "content": "44.1 kHz · Matrix mini-i",
-                  "fill": "#9D9D99",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                }
-              }
+              "height": 92
             }
           ]
         },
@@ -54408,7 +53338,7 @@
           "fill": "$text-muted",
           "textGrowth": "fixed-width",
           "width": "fill_container",
-          "content": "Click icon = mute toggle. Drag slider = level, seek-bar drag language, cubic taper with a −60 dB floor before hard mute (feature 01). Icon: volume-2 at ≥50%, volume-1 below 50%, volume-x when muted or at 0.",
+          "content": "Click icon = opens this popover (anchored above the volume icon, opening upward; queue-popover dismissal pattern: outside click, Escape, press-closed guard). Vertical slider drags level with the seek-bar language, cubic taper, −60 dB floor (feature 01); mute toggles via the volume-x button at the popover's foot, level remembered. Bar icon thresholds: volume-2 at ≥50%, volume-1 below 50%, volume-x when muted or at 0.",
           "fontFamily": "$font-sans",
           "fontSize": 12,
           "fontWeight": "normal"
@@ -54475,26 +53405,6 @@
                       "icon": "volume-2",
                       "library": "lucide",
                       "fill": "$text-secondary"
-                    },
-                    {
-                      "type": "frame",
-                      "id": "b7mcE",
-                      "name": "Slider",
-                      "width": 60,
-                      "height": 4,
-                      "fill": "$bg-inset",
-                      "cornerRadius": 2,
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 2,
-                          "id": "LbqSU",
-                          "name": "Fill",
-                          "fill": "$accent",
-                          "width": 42,
-                          "height": 4
-                        }
-                      ]
                     }
                   ]
                 }
@@ -54546,26 +53456,6 @@
                       "icon": "volume-1",
                       "library": "lucide",
                       "fill": "$text-secondary"
-                    },
-                    {
-                      "type": "frame",
-                      "id": "mbnxU",
-                      "name": "Slider",
-                      "width": 60,
-                      "height": 4,
-                      "fill": "$bg-inset",
-                      "cornerRadius": 2,
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 2,
-                          "id": "LIi3K",
-                          "name": "Fill",
-                          "fill": "$accent",
-                          "width": 18,
-                          "height": 4
-                        }
-                      ]
                     }
                   ]
                 }
@@ -54614,21 +53504,74 @@
                       "icon": "volume-x",
                       "library": "lucide",
                       "fill": "$text-muted"
-                    },
-                    {
-                      "type": "frame",
-                      "id": "R8gwtc",
-                      "name": "Slider",
-                      "width": 60,
-                      "height": 4,
-                      "fill": "$bg-inset",
-                      "cornerRadius": 2
                     }
                   ]
                 }
               ]
             }
           ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "IChZh",
+      "x": 350,
+      "y": 690,
+      "name": "Volume Popover",
+      "width": 56,
+      "fill": "$bg-surface",
+      "cornerRadius": "$radius-lg",
+      "stroke": "$border",
+      "strokeWidth": 1,
+      "strokeAlignment": "inner",
+      "layout": "vertical",
+      "gap": 11,
+      "padding": 14,
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "text",
+          "id": "PlVRf",
+          "name": "Readout",
+          "fill": "$text-secondary",
+          "content": "70%",
+          "fontFamily": "$font-mono",
+          "fontSize": 11,
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "oURLA",
+          "name": "Slider Track",
+          "width": 4,
+          "height": 120,
+          "fill": "$bg-inset",
+          "cornerRadius": 2,
+          "layout": "none",
+          "children": [
+            {
+              "type": "rectangle",
+              "cornerRadius": 2,
+              "id": "bdeJ7",
+              "x": 0,
+              "y": 36,
+              "name": "Level Fill",
+              "fill": "$accent",
+              "width": 4,
+              "height": 84
+            }
+          ]
+        },
+        {
+          "type": "icon",
+          "id": "BAdag",
+          "name": "Mute",
+          "width": 17,
+          "height": 17,
+          "icon": "volume-x",
+          "library": "lucide",
+          "fill": "$text-secondary"
         }
       ]
     }

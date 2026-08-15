@@ -4,6 +4,9 @@ Product features that are not part of a numbered roadmap stage. Roadmap stages l
 
 Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phases, and verification.
 
+- [`13-progress-strip-playback-bar.md`](13-progress-strip-playback-bar.md) - P2. Qobuz-style bar anatomy: full-width 3px seek strip on the bar's top edge, stacked times, transport keeps only its buttons. Design applied.
+- [`12-sidebar-brand-header.md`](12-sidebar-brand-header.md) - P3. Runner-style sidebar header: flat brand glyph (no icon tile), larger wordmark, 56px headroom under the traffic lights. Design already applied across all sidebars.
+- [`11-artists-page.md`](11-artists-page.md) - P2. Top-level Artists index (effective-album-artist identity, counts, type-to-filter) whose rows open Albums filtered by that artist; reverses mvp.md's no-artists-page scope cut.
 - [`10-genre-filter-picker.md`](10-genre-filter-picker.md) - P2. Move arbitrary embedded genre values out of the top-level chip row and into one searchable picker with album counts.
 - [`09-collapsible-library-sidebar.md`](09-collapsible-library-sidebar.md) - P3, issue #34. Design and implement the compact state behind the library sidebar's existing Pencil collapse affordance.
 - [`08-per-device-exclusive-mode.md`](08-per-device-exclusive-mode.md) - P2, issue #33. Persist exclusive/shared playback mode by Core Audio device UID instead of one global toggle.
