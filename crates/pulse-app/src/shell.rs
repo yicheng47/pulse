@@ -1582,18 +1582,18 @@ impl Render for Shell {
                 this.row.update(cx, |row, cx| row.handle_drop(paths, cx));
             }))
             .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _, cx| {
-                this.row.update(cx, |row, cx| row.update_scrub(event, cx));
+                this.row.update(cx, |row, cx| row.update_drag(event, cx));
             }))
             .on_mouse_up(
                 MouseButton::Left,
                 cx.listener(|this, event: &MouseUpEvent, _, cx| {
-                    this.row.update(cx, |row, cx| row.finish_scrub(event, cx));
+                    this.row.update(cx, |row, cx| row.finish_drag(event, cx));
                 }),
             )
             .on_mouse_up_out(
                 MouseButton::Left,
                 cx.listener(|this, event: &MouseUpEvent, _, cx| {
-                    this.row.update(cx, |row, cx| row.finish_scrub(event, cx));
+                    this.row.update(cx, |row, cx| row.finish_drag(event, cx));
                 }),
             )
             .on_action(cx.listener(|this, _: &OpenSettings, window, cx| {

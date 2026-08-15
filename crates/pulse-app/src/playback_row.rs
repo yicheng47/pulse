@@ -28,6 +28,7 @@ use crate::{
 const EVENT_POLL_INTERVAL: Duration = Duration::from_millis(16);
 /// Polls between active-device presence checks while playing (~2 s at 16 ms).
 const DEVICE_WATCH_POLLS: u32 = 125;
+const MIN_AUDIBLE_GAIN: f32 = 0.001;
 const SUPPORTED_EXTENSIONS: &[&str] = &["flac", "m4a", "aif", "aiff", "wav"];
 
 struct PendingDeviceChange {
@@ -80,6 +81,23 @@ enum PlaybackSurface {
     SettingsOutputPicker,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum VolumeIconState {
+    High,
+    Low,
+    Muted,
+}
+
+impl VolumeIconState {
+    fn path(self) -> &'static str {
+        match self {
+            Self::High => "icons/volume-2.svg",
+            Self::Low => "icons/volume-1.svg",
+            Self::Muted => "icons/volume-x.svg",
+        }
+    }
+}
+
 #[cfg(target_os = "macos")]
 fn app_name_for_pid(pid: i32) -> Option<String> {
     let app = objc2_app_kit::NSRunningApplication::runningApplicationWithProcessIdentifier(pid)?;
@@ -109,7 +127,11 @@ pub struct PlaybackRow {
     pending_device_change: Option<PendingDeviceChange>,
     device_message: Option<DeviceMessage>,
     exclusive_mode: bool,
+    volume_level: f32,
+    volume_muted: bool,
     surface: PlaybackSurface,
+    volume_popover_open: bool,
+    volume_toggle_press_closed_popover: bool,
     output_popover_open: bool,
     output_toggle_press_closed_popover: bool,
     queue_popover_open: bool,
@@ -119,6 +141,7 @@ pub struct PlaybackRow {
     hovered_upcoming: Option<usize>,
     /// Present only when built with a window context; tests construct the row
     /// without one.
+    volume_popover_focus: Option<FocusHandle>,
     queue_popover_focus: Option<FocusHandle>,
     position_ms: u64,
     duration_ms: Option<u64>,
@@ -134,13 +157,24 @@ pub struct PlaybackRow {
     track_bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
     scrubbing: bool,
     scrub_fraction: Option<f32>,
+    volume_bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
+    volume_dragging: bool,
 }
 
 impl PlaybackRow {
     pub fn new(cx: &mut Context<Self>) -> Self {
         let mut row = Self::initial();
+        row.volume_popover_focus = Some(cx.focus_handle());
         row.queue_popover_focus = Some(cx.focus_handle());
         row.exclusive_mode = preferences::load_exclusive_mode().unwrap_or(true);
+        row.volume_level = preferences::load_volume_level().unwrap_or_else(|error| {
+            eprintln!("Could not load the volume level preference: {error}");
+            1.0
+        });
+        row.volume_muted = preferences::load_volume_muted().unwrap_or_else(|error| {
+            eprintln!("Could not load the volume mute preference: {error}");
+            false
+        });
         row.initialize_output();
 
         cx.spawn(async move |this, cx| {
@@ -184,12 +218,17 @@ impl PlaybackRow {
             pending_device_change: None,
             device_message: None,
             exclusive_mode: true,
+            volume_level: 1.0,
+            volume_muted: false,
             surface: PlaybackSurface::Transport,
+            volume_popover_open: false,
+            volume_toggle_press_closed_popover: false,
             output_popover_open: false,
             output_toggle_press_closed_popover: false,
             queue_popover_open: false,
             queue_toggle_press_closed_popover: false,
             hovered_upcoming: None,
+            volume_popover_focus: None,
             queue_popover_focus: None,
             position_ms: 0,
             duration_ms: None,
@@ -203,6 +242,8 @@ impl PlaybackRow {
             track_bounds: Rc::new(Cell::new(None)),
             scrubbing: false,
             scrub_fraction: None,
+            volume_bounds: Rc::new(Cell::new(None)),
+            volume_dragging: false,
         }
     }
 
@@ -264,8 +305,53 @@ impl PlaybackRow {
     fn install_controller(&mut self, device_id: device::DeviceId) {
         let controller = PlaybackController::spawn(device_id, self.exclusive_mode);
         self.event_rx = Some(controller.subscribe());
-        self.command_tx = Some(controller.command_sender());
+        let command_tx = controller.command_sender();
+        if command_tx.send(self.volume_command()).is_err() {
+            self.error = Some("Playback engine disconnected.".to_string());
+        }
+        self.command_tx = Some(command_tx);
         self.controller = Some(controller);
+    }
+
+    fn volume_command(&self) -> PlaybackCommand {
+        PlaybackCommand::SetVolume {
+            gain: volume_gain_for_level(self.volume_level),
+            muted: self.volume_muted,
+        }
+    }
+
+    fn toggle_volume_mute(&mut self, cx: &mut Context<Self>) {
+        let muted = !self.volume_muted;
+        if let Err(error) = preferences::save_volume_muted(muted) {
+            self.error = Some(format!(
+                "Could not save the volume mute preference: {error}"
+            ));
+            cx.notify();
+            return;
+        }
+        self.volume_muted = muted;
+        self.send_command(self.volume_command(), cx);
+        cx.notify();
+    }
+
+    fn set_volume_level(&mut self, level: f32, cx: &mut Context<Self>) {
+        let level = level.clamp(0.0, 1.0);
+        if self.volume_level == level && !self.volume_muted {
+            return;
+        }
+        self.volume_level = level;
+        self.volume_muted = false;
+        self.send_command(self.volume_command(), cx);
+        cx.notify();
+    }
+
+    fn persist_volume(&mut self, cx: &mut Context<Self>) {
+        let result = preferences::save_volume_level(self.volume_level)
+            .and_then(|()| preferences::save_volume_muted(self.volume_muted));
+        if let Err(error) = result {
+            self.error = Some(format!("Could not save the volume preference: {error}"));
+            cx.notify();
+        }
     }
 
     fn update_device_capabilities(&mut self, output_device: &device::Device) {
@@ -338,6 +424,7 @@ impl PlaybackRow {
 
     pub(crate) fn enter_settings(&mut self, cx: &mut Context<Self>) {
         self.surface = PlaybackSurface::SettingsOutputPicker;
+        self.volume_popover_open = false;
         self.output_popover_open = false;
         self.queue_popover_open = false;
         cx.notify();
@@ -345,6 +432,7 @@ impl PlaybackRow {
 
     pub(crate) fn leave_settings(&mut self, cx: &mut Context<Self>) {
         self.surface = PlaybackSurface::Transport;
+        self.volume_popover_open = false;
         self.output_popover_open = false;
         cx.notify();
     }
@@ -671,6 +759,16 @@ impl PlaybackRow {
             if let Some(focus) = &self.queue_popover_focus {
                 window.focus(focus, cx);
             }
+        }
+        cx.notify();
+    }
+
+    fn toggle_volume_popover(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.volume_popover_open = !self.volume_popover_open;
+        if self.volume_popover_open
+            && let Some(focus) = &self.volume_popover_focus
+        {
+            window.focus(focus, cx);
         }
         cx.notify();
     }
@@ -1161,41 +1259,66 @@ impl PlaybackRow {
         cx.notify();
     }
 
-    pub(crate) fn update_scrub(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) {
-        if !self.scrubbing {
-            return;
-        }
-        if event.pressed_button != Some(MouseButton::Left) {
-            self.scrubbing = false;
-            self.scrub_fraction = None;
-            cx.notify();
-            return;
-        }
-        let Some(bounds) = self.track_bounds.get() else {
+    fn begin_volume_drag(&mut self, event: &MouseDownEvent, cx: &mut Context<Self>) {
+        let Some(bounds) = self.volume_bounds.get() else {
             return;
         };
-        self.scrub_fraction = Some(fraction_at_x(bounds, event.position.x));
-        cx.notify();
+        self.volume_dragging = true;
+        self.set_volume_level(fraction_at_y(bounds, event.position.y), cx);
     }
 
-    pub(crate) fn finish_scrub(&mut self, event: &MouseUpEvent, cx: &mut Context<Self>) {
-        if !self.scrubbing {
+    pub(crate) fn update_drag(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) {
+        if event.pressed_button != Some(MouseButton::Left) {
+            let was_dragging = self.scrubbing || self.volume_dragging;
+            self.scrubbing = false;
+            self.scrub_fraction = None;
+            if self.volume_dragging {
+                self.volume_dragging = false;
+                self.persist_volume(cx);
+            }
+            if was_dragging {
+                cx.notify();
+            }
             return;
         }
 
-        self.scrubbing = false;
-        let fraction = self
-            .track_bounds
-            .get()
-            .map(|bounds| fraction_at_x(bounds, event.position.x))
-            .or(self.scrub_fraction);
-        self.scrub_fraction = None;
+        if self.scrubbing
+            && let Some(bounds) = self.track_bounds.get()
+        {
+            self.scrub_fraction = Some(fraction_at_x(bounds, event.position.x));
+            cx.notify();
+        }
+        if self.volume_dragging
+            && let Some(bounds) = self.volume_bounds.get()
+        {
+            self.set_volume_level(fraction_at_y(bounds, event.position.y), cx);
+        }
+    }
 
-        if let (Some(fraction), Some(duration_ms)) = (fraction, self.duration_ms) {
-            let position_ms = scrub_position_ms(fraction, duration_ms);
-            self.position_ms = position_ms;
-            self.send_command(PlaybackCommand::Seek { position_ms }, cx);
-        } else {
+    pub(crate) fn finish_drag(&mut self, event: &MouseUpEvent, cx: &mut Context<Self>) {
+        if self.scrubbing {
+            self.scrubbing = false;
+            let fraction = self
+                .track_bounds
+                .get()
+                .map(|bounds| fraction_at_x(bounds, event.position.x))
+                .or(self.scrub_fraction);
+            self.scrub_fraction = None;
+
+            if let (Some(fraction), Some(duration_ms)) = (fraction, self.duration_ms) {
+                let position_ms = scrub_position_ms(fraction, duration_ms);
+                self.position_ms = position_ms;
+                self.send_command(PlaybackCommand::Seek { position_ms }, cx);
+            }
+            cx.notify();
+        }
+
+        if self.volume_dragging {
+            self.volume_dragging = false;
+            if let Some(bounds) = self.volume_bounds.get() {
+                self.set_volume_level(fraction_at_y(bounds, event.position.y), cx);
+            }
+            self.persist_volume(cx);
             cx.notify();
         }
     }
@@ -1433,6 +1556,7 @@ impl PlaybackRow {
 
     fn render_output(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let remaining = self.queue.remaining_count();
+        let volume_icon = volume_icon_state(self.volume_level, self.volume_muted);
         let (quality, quality_color) = self
             .format
             .map(|format| {
@@ -1494,13 +1618,47 @@ impl PlaybackRow {
             );
         }
 
+        let mut volume = div()
+            .id("volume-toggle")
+            .relative()
+            .flex()
+            .items_center()
+            .justify_center()
+            .size(px(17.))
+            .flex_none()
+            .cursor_pointer()
+            .capture_any_mouse_down(cx.listener(|this, event: &MouseDownEvent, _, _| {
+                if event.button == MouseButton::Left {
+                    this.volume_toggle_press_closed_popover = this.volume_popover_open;
+                }
+            }))
+            .on_click(cx.listener(|this, _, window, cx| {
+                if std::mem::take(&mut this.volume_toggle_press_closed_popover) {
+                    cx.notify();
+                    return;
+                }
+                this.toggle_volume_popover(window, cx);
+            }))
+            .child(svg().path(volume_icon.path()).size(px(17.)).text_color(
+                if volume_icon == VolumeIconState::Muted {
+                    theme::text_muted()
+                } else if self.volume_popover_open {
+                    theme::accent()
+                } else {
+                    theme::text_secondary()
+                },
+            ));
+        if self.volume_popover_open {
+            volume = volume.child(self.render_volume_popover(cx));
+        }
+
         let mut speaker = div()
             .id("output-device-toggle")
             .relative()
             .flex()
             .items_center()
             .justify_center()
-            .size(px(24.))
+            .size(px(17.))
             .flex_none()
             .cursor_pointer()
             .capture_any_mouse_down(cx.listener(|this, event: &MouseDownEvent, _, _| {
@@ -1577,7 +1735,11 @@ impl PlaybackRow {
             .gap(px(14.))
             .w(px(300.))
             .child(output_details)
+            .child(div().w(px(1.)).h(px(24.)).flex_none().bg(theme::border()))
+            .child(volume)
+            .child(div().w(px(1.)).h(px(24.)).flex_none().bg(theme::border()))
             .child(speaker)
+            .child(div().w(px(1.)).h(px(24.)).flex_none().bg(theme::border()))
             .child(queue_button.when(remaining > 0, |button| {
                 button.child(
                     div()
@@ -1610,6 +1772,144 @@ impl PlaybackRow {
                         ),
                 )
             }))
+    }
+
+    fn render_volume_popover(&self, cx: &mut Context<Self>) -> AnyElement {
+        let volume_bounds = Rc::clone(&self.volume_bounds);
+        let volume_fill = displayed_volume_level(self.volume_level, self.volume_muted);
+        let volume_dragging = self.volume_dragging;
+        let popover = div()
+            .id("volume-popover")
+            .absolute()
+            .left(px(-19.5))
+            .bottom(px(54.))
+            .flex()
+            .flex_col()
+            .items_center()
+            .gap(px(11.))
+            .w(px(56.))
+            .p(px(14.))
+            .rounded(px(theme::RADIUS_LG))
+            .border_1()
+            .border_color(theme::border())
+            .bg(theme::bg_surface())
+            .occlude()
+            .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _, cx| {
+                this.update_drag(event, cx);
+            }))
+            .on_mouse_up(
+                MouseButton::Left,
+                cx.listener(|this, event: &MouseUpEvent, _, cx| {
+                    this.finish_drag(event, cx);
+                }),
+            )
+            .on_mouse_down_out(cx.listener(|this, _, _, cx| {
+                this.volume_popover_open = false;
+                cx.notify();
+            }))
+            .child(
+                div()
+                    .w_full()
+                    .flex_none()
+                    .font_family(theme::FONT_MONO)
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_size(px(11.))
+                    .text_center()
+                    .text_color(theme::text_secondary())
+                    .whitespace_nowrap()
+                    .child(format_volume_percent(self.volume_level)),
+            )
+            .child(
+                div()
+                    .id("volume-slider-target")
+                    .group("volume-slider")
+                    .relative()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .w_full()
+                    .h(px(120.))
+                    .flex_none()
+                    .cursor_pointer()
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|this, event, _, cx| this.begin_volume_drag(event, cx)),
+                    )
+                    .child(
+                        div()
+                            .relative()
+                            .w(px(4.))
+                            .h_full()
+                            .rounded(px(2.))
+                            .bg(theme::bg_inset())
+                            .child(
+                                div()
+                                    .absolute()
+                                    .left_0()
+                                    .right_0()
+                                    .bottom_0()
+                                    .h(relative(volume_fill))
+                                    .rounded(px(2.))
+                                    .bg(theme::accent())
+                                    .child(
+                                        div()
+                                            .absolute()
+                                            .top(px(-6.))
+                                            .left(px(-4.))
+                                            .size(px(12.))
+                                            .rounded(px(6.))
+                                            .bg(theme::accent())
+                                            .opacity(if volume_dragging { 1.0 } else { 0.0 })
+                                            .when(!volume_dragging, |thumb| {
+                                                thumb.group_hover("volume-slider", |style| {
+                                                    style.opacity(1.0)
+                                                })
+                                            }),
+                                    ),
+                            ),
+                    )
+                    .child(
+                        canvas(
+                            move |bounds, _, _| volume_bounds.set(Some(bounds)),
+                            |_, _, _, _| {},
+                        )
+                        .absolute()
+                        .top_0()
+                        .right_0()
+                        .bottom_0()
+                        .left_0(),
+                    ),
+            )
+            .child(
+                div()
+                    .id("volume-mute-toggle")
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .size(px(17.))
+                    .flex_none()
+                    .cursor_pointer()
+                    .on_click(cx.listener(|this, _, _, cx| this.toggle_volume_mute(cx)))
+                    .child(
+                        svg()
+                            .path("icons/volume-x.svg")
+                            .size(px(17.))
+                            .text_color(theme::text_secondary()),
+                    ),
+            );
+
+        match &self.volume_popover_focus {
+            Some(focus) => popover
+                .track_focus(focus)
+                .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
+                    if event.keystroke.key == "escape" {
+                        this.volume_popover_open = false;
+                        cx.notify();
+                    }
+                }))
+                .into_any_element(),
+            None => popover.into_any_element(),
+        }
     }
 
     fn render_output_popover(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -2469,11 +2769,44 @@ fn scrub_position_ms(fraction: f32, duration_ms: u64) -> u64 {
     (duration_ms as f64 * f64::from(fraction)).round() as u64
 }
 
+fn volume_gain_for_level(level: f32) -> f32 {
+    let level = level.clamp(0.0, 1.0);
+    if level == 0.0 {
+        return 0.0;
+    }
+    (level * level * level).max(MIN_AUDIBLE_GAIN)
+}
+
+fn volume_icon_state(level: f32, muted: bool) -> VolumeIconState {
+    if muted || level == 0.0 {
+        VolumeIconState::Muted
+    } else if level >= 0.5 {
+        VolumeIconState::High
+    } else {
+        VolumeIconState::Low
+    }
+}
+
+fn displayed_volume_level(level: f32, muted: bool) -> f32 {
+    if muted { 0.0 } else { level }
+}
+
+fn format_volume_percent(level: f32) -> String {
+    format!("{:.0}%", level.clamp(0.0, 1.0) * 100.0)
+}
+
 fn fraction_at_x(bounds: Bounds<Pixels>, x: Pixels) -> f32 {
     if bounds.size.width <= px(0.) {
         return 0.0;
     }
     ((x - bounds.origin.x) / bounds.size.width).clamp(0.0, 1.0)
+}
+
+fn fraction_at_y(bounds: Bounds<Pixels>, y: Pixels) -> f32 {
+    if bounds.size.height <= px(0.) {
+        return 0.0;
+    }
+    ((bounds.origin.y + bounds.size.height - y) / bounds.size.height).clamp(0.0, 1.0)
 }
 
 #[cfg(test)]
@@ -2529,6 +2862,23 @@ mod tests {
     }
 
     #[test]
+    fn maps_vertical_volume_positions_bottom_to_top() {
+        let slider_bounds = bounds(point(px(20.), px(100.)), size(px(28.), px(120.)));
+        assert_eq!(fraction_at_y(slider_bounds, px(220.)), 0.0);
+        assert_eq!(fraction_at_y(slider_bounds, px(160.)), 0.5);
+        assert_eq!(fraction_at_y(slider_bounds, px(100.)), 1.0);
+        assert_eq!(fraction_at_y(slider_bounds, px(250.)), 0.0);
+        assert_eq!(fraction_at_y(slider_bounds, px(50.)), 1.0);
+        assert_eq!(
+            fraction_at_y(
+                bounds(point(px(20.), px(100.)), size(px(28.), px(0.))),
+                px(100.)
+            ),
+            0.0
+        );
+    }
+
+    #[test]
     fn maps_scrub_fraction_to_position() {
         assert_eq!(scrub_position_ms(0.0, 268_000), 0);
         assert_eq!(scrub_position_ms(0.5, 268_000), 134_000);
@@ -2538,6 +2888,41 @@ mod tests {
         assert_eq!(
             scrub_position_ms(fraction_at_x(bounds, px(250.)), 268_000),
             201_000
+        );
+    }
+
+    #[test]
+    fn maps_volume_level_to_a_perceptual_gain_curve() {
+        assert_eq!(volume_gain_for_level(0.0), 0.0);
+        assert_eq!(volume_gain_for_level(0.05), MIN_AUDIBLE_GAIN);
+        assert_eq!(volume_gain_for_level(0.5), 0.125);
+        assert_eq!(volume_gain_for_level(1.0), 1.0);
+        assert!(volume_gain_for_level(0.25) < volume_gain_for_level(0.5));
+        assert!(volume_gain_for_level(0.5) < volume_gain_for_level(0.75));
+    }
+
+    #[test]
+    fn volume_icon_and_fill_follow_the_designed_states() {
+        assert_eq!(volume_icon_state(1.0, false), VolumeIconState::High);
+        assert_eq!(volume_icon_state(0.5, false), VolumeIconState::High);
+        assert_eq!(volume_icon_state(0.49, false), VolumeIconState::Low);
+        assert_eq!(volume_icon_state(0.0, false), VolumeIconState::Muted);
+        assert_eq!(volume_icon_state(0.75, true), VolumeIconState::Muted);
+        assert_eq!(displayed_volume_level(0.75, false), 0.75);
+        assert_eq!(displayed_volume_level(0.75, true), 0.0);
+        assert_eq!(format_volume_percent(0.0), "0%");
+        assert_eq!(format_volume_percent(0.7), "70%");
+        assert_eq!(format_volume_percent(1.0), "100%");
+    }
+
+    #[test]
+    fn default_volume_command_is_unity_and_unmuted() {
+        assert_eq!(
+            PlaybackRow::initial().volume_command(),
+            PlaybackCommand::SetVolume {
+                gain: 1.0,
+                muted: false,
+            }
         );
     }
 

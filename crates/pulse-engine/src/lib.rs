@@ -10,6 +10,7 @@ pub mod device;
 mod engine;
 mod error;
 pub mod event;
+mod gain;
 mod hal;
 mod levels;
 pub mod source;
