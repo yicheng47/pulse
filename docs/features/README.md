@@ -4,6 +4,7 @@ Product features that are not part of a numbered roadmap stage. Roadmap stages l
 
 Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phases, and verification.
 
+- [`15-in-app-update-install.md`](15-in-app-update-install.md) - P2, issue #52. Adopt Sparkle 2 as the updater, retiring the hand-rolled checker: EdDSA-signed appcast on GitHub Releases, inside-out signing for the embedded framework, standard Sparkle UI in v1. Also gives the DMG an Applications drag target.
 - [`14-activity-brand-mark.md`](14-activity-brand-mark.md) - P2. Swap the hand-drawn waveform for the lucide `activity` glyph across sidebar, settings tiles, and the dock icon — one mark everywhere; artwork only.
 - [`13-progress-strip-playback-bar.md`](13-progress-strip-playback-bar.md) - P2. Qobuz-style bar anatomy: full-width 3px seek strip with a hover thumb, split compact times, and larger controls centered between symmetric side slots. Design applied.
 - [`12-sidebar-brand-header.md`](12-sidebar-brand-header.md) - P3. Runner-style sidebar header: flat brand glyph (no icon tile), larger wordmark, 56px headroom under the traffic lights. Design already applied across all sidebars.
