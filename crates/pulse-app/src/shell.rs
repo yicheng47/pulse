@@ -17,11 +17,10 @@ use crate::{
     },
     menu::{About, CheckForUpdates, FocusSearch, OpenSettings},
     playback_row::PlaybackRow,
-    preferences,
     settings::{AboutLink, SettingsSection, SettingsViewModel},
     text_input::{self, TextInput},
     theme,
-    update::{self, UpdateCheckKind, UpdateState},
+    updater::Updater,
 };
 
 pub(crate) const SIDEBAR_WIDTH: f32 = 236.0;
@@ -29,7 +28,6 @@ const SIDEBAR_TOP_PADDING: f32 = 56.0;
 pub(crate) const TOP_BAR_HEIGHT: f32 = 74.0;
 const SEARCH_WIDTH: f32 = 420.0;
 const SEARCH_DEBOUNCE: Duration = Duration::from_millis(150);
-const LAUNCH_UPDATE_CHECK_DELAY: Duration = Duration::from_millis(500);
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Destination {
@@ -88,9 +86,7 @@ pub struct Shell {
     search_focus: FocusHandle,
     settings_section: Option<SettingsSection>,
     settings_output_toggle_press_closed: bool,
-    check_updates_on_launch: bool,
-    update_state: UpdateState,
-    update_check_revision: u64,
+    updater: Updater,
     titlebar_drag_armed: bool,
 }
 
@@ -99,12 +95,7 @@ impl Shell {
         let row = cx.new(PlaybackRow::new);
         let library = cx.new(|cx| LibraryView::new(row.clone(), cx));
         cx.observe(&library, |_, _, cx| cx.notify()).detach();
-        let check_updates_on_launch =
-            preferences::load_check_updates_on_launch().unwrap_or_else(|error| {
-                eprintln!("Could not load the launch update-check preference: {error}");
-                true
-            });
-        let mut shell = Self {
+        Self {
             destination: Destination::Albums,
             row,
             library,
@@ -117,15 +108,9 @@ impl Shell {
             search_focus: cx.focus_handle(),
             settings_section: None,
             settings_output_toggle_press_closed: false,
-            check_updates_on_launch,
-            update_state: UpdateState::default(),
-            update_check_revision: 0,
+            updater: Updater::new(),
             titlebar_drag_armed: false,
-        };
-        if let Some(kind) = UpdateCheckKind::launch_if_enabled(check_updates_on_launch) {
-            shell.start_update_check(kind, cx);
         }
-        shell
     }
 
     fn open_settings(&mut self, section: SettingsSection, cx: &mut Context<Self>) {
@@ -149,55 +134,12 @@ impl Shell {
     }
 
     fn toggle_check_updates_on_launch(&mut self, cx: &mut Context<Self>) {
-        let enabled = !self.check_updates_on_launch;
-        if let Err(error) = preferences::save_check_updates_on_launch(enabled) {
-            eprintln!("Could not save the launch update-check preference: {error}");
+        if !self.updater.is_available() {
             return;
         }
-        self.check_updates_on_launch = enabled;
+        let enabled = !self.updater.automatically_checks_for_updates();
+        self.updater.set_automatically_checks_for_updates(enabled);
         cx.notify();
-    }
-
-    fn start_update_check(&mut self, kind: UpdateCheckKind, cx: &mut Context<Self>) {
-        self.update_check_revision = self.update_check_revision.wrapping_add(1);
-        let revision = self.update_check_revision;
-        self.update_state.begin();
-        cx.notify();
-
-        cx.spawn(async move |this, cx| {
-            if kind == UpdateCheckKind::Launch {
-                cx.background_executor()
-                    .timer(LAUNCH_UPDATE_CHECK_DELAY)
-                    .await;
-            }
-            let result = cx
-                .background_executor()
-                .spawn(async move {
-                    update::fetch_latest_release().map_err(|error| {
-                        eprintln!("Update check failed: {error}");
-                        error.to_string()
-                    })
-                })
-                .await;
-            let _ = this.update(cx, move |this, cx| {
-                if this.update_check_revision != revision {
-                    return;
-                }
-                let launch_release = if kind == UpdateCheckKind::Launch {
-                    result.as_ref().ok().and_then(|release| release.clone())
-                } else {
-                    None
-                };
-                this.update_state.finish(kind, &result);
-                if let Some(release) = launch_release {
-                    this.row.update(cx, |row, cx| {
-                        row.show_update_available(release.version, release.url, cx);
-                    });
-                }
-                cx.notify();
-            });
-        })
-        .detach();
     }
 
     fn focus_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -851,45 +793,8 @@ impl Shell {
     }
 
     fn render_update_settings(&self, cx: &mut Context<Self>) -> AnyElement {
-        let (status, status_color, icon, label, accent, enabled, release_url) =
-            match &self.update_state {
-                UpdateState::Idle => (
-                    "You're on the latest version.".to_string(),
-                    theme::text_muted(),
-                    "icons/refresh-cw.svg",
-                    "Check for updates",
-                    false,
-                    true,
-                    None,
-                ),
-                UpdateState::Checking => (
-                    "Checking for updates…".to_string(),
-                    theme::text_muted(),
-                    "icons/loader.svg",
-                    "Checking…",
-                    false,
-                    false,
-                    None,
-                ),
-                UpdateState::Available(release) => (
-                    format!("Pulse {} is available.", release.version),
-                    theme::quality(),
-                    "icons/external-link.svg",
-                    "View release",
-                    true,
-                    true,
-                    Some(release.url.clone()),
-                ),
-                UpdateState::Failed => (
-                    "Couldn't reach GitHub. Check your connection.".to_string(),
-                    theme::warning(),
-                    "icons/refresh-cw.svg",
-                    "Check for updates",
-                    false,
-                    true,
-                    None,
-                ),
-            };
+        let updater_available = self.updater.is_available();
+        let automatically_checks = self.updater.automatically_checks_for_updates();
         let action = div()
             .id("check-for-updates")
             .flex()
@@ -899,52 +804,33 @@ impl Shell {
             .py(px(9.))
             .flex_none()
             .rounded(px(theme::RADIUS_MD))
-            .when(!accent, |button| {
+            .border_1()
+            .border_color(theme::border())
+            .bg(theme::bg_muted())
+            .opacity(if updater_available { 1.0 } else { 0.45 })
+            .when(updater_available, |button| {
                 button
-                    .border_1()
-                    .border_color(theme::border())
-                    .bg(theme::bg_muted())
+                    .cursor_pointer()
+                    .on_click(cx.listener(|this, _, _, _| {
+                        this.updater.check_for_updates();
+                    }))
             })
-            .when(accent, |button| button.bg(theme::accent()))
-            .opacity(if enabled { 1.0 } else { 0.45 })
+            .when(!updater_available, |button| button.cursor_default())
             .child(
                 svg()
-                    .path(icon)
+                    .path("icons/refresh-cw.svg")
                     .size(px(16.))
                     .flex_none()
-                    .text_color(if accent {
-                        theme::bg_inset()
-                    } else {
-                        theme::text_secondary()
-                    }),
+                    .text_color(theme::text_secondary()),
             )
             .child(
                 div()
                     .font_family(theme::FONT_SANS)
                     .font_weight(FontWeight::SEMIBOLD)
                     .text_size(px(13.))
-                    .text_color(if accent {
-                        theme::bg_inset()
-                    } else {
-                        theme::text_primary()
-                    })
-                    .child(label),
+                    .text_color(theme::text_primary())
+                    .child("Check for Updates"),
             );
-        let action = if let Some(url) = release_url {
-            action
-                .cursor_pointer()
-                .on_click(cx.listener(move |_, _, _, cx| cx.open_url(&url)))
-                .into_any_element()
-        } else if enabled {
-            action
-                .cursor_pointer()
-                .on_click(cx.listener(|this, _, _, cx| {
-                    this.start_update_check(UpdateCheckKind::Manual, cx);
-                }))
-                .into_any_element()
-        } else {
-            action.cursor_default().into_any_element()
-        };
         let hero = settings_card().child(
             div()
                 .flex()
@@ -975,13 +861,15 @@ impl Shell {
                                 )
                                 .child(version_chip()),
                         )
-                        .child(
-                            div()
-                                .font_family(theme::FONT_SANS)
-                                .text_size(px(12.))
-                                .text_color(status_color)
-                                .child(status),
-                        ),
+                        .when(!updater_available, |details| {
+                            details.child(
+                                div()
+                                    .font_family(theme::FONT_SANS)
+                                    .text_size(px(12.))
+                                    .text_color(theme::text_muted())
+                                    .child("Update controls are disabled in development builds."),
+                            )
+                        }),
                 )
                 .child(action),
         );
@@ -997,14 +885,15 @@ impl Shell {
                 "PREFERENCES",
                 settings_card().child(settings_row(
                     "Check for updates on launch",
-                    "Asks GitHub once per launch whether a newer version exists. Nothing else is sent.",
-                    components::toggle(
-                        "update-check-on-launch-toggle",
-                        self.check_updates_on_launch,
-                    )
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.toggle_check_updates_on_launch(cx);
-                    })),
+                    "Let Sparkle check GitHub for a newer signed release when its schedule is due.",
+                    components::toggle("update-check-on-launch-toggle", automatically_checks)
+                        .opacity(if updater_available { 1.0 } else { 0.45 })
+                        .when(updater_available, |toggle| {
+                            toggle.on_click(cx.listener(|this, _, _, cx| {
+                                this.toggle_check_updates_on_launch(cx);
+                            }))
+                        })
+                        .when(!updater_available, |toggle| toggle.cursor_default()),
                     false,
                 )),
             ))
@@ -1549,10 +1438,9 @@ impl Render for Shell {
                 window.blur();
                 this.open_settings(SettingsSection::General, cx);
             }))
-            .on_action(cx.listener(|this, _: &CheckForUpdates, window, cx| {
+            .on_action(cx.listener(|this, _: &CheckForUpdates, window, _| {
                 window.blur();
-                this.open_settings(SettingsSection::Update, cx);
-                this.start_update_check(UpdateCheckKind::Manual, cx);
+                this.updater.check_for_updates();
             }))
             .on_action(cx.listener(|this, _: &About, window, cx| {
                 window.blur();

@@ -50,12 +50,9 @@ pub fn save_volume_muted(muted: bool) -> io::Result<()> {
     save_volume_muted_to(&volume_muted_path()?, muted)
 }
 
-pub fn load_check_updates_on_launch() -> io::Result<bool> {
-    load_check_updates_on_launch_from(&check_updates_disabled_path()?)
-}
-
-pub fn save_check_updates_on_launch(enabled: bool) -> io::Result<()> {
-    save_check_updates_on_launch_to(&check_updates_disabled_path()?, enabled)
+#[cfg(all(target_os = "macos", feature = "updater"))]
+pub fn take_legacy_update_check_preference() -> io::Result<Option<bool>> {
+    take_legacy_update_check_preference_from(&check_updates_disabled_path()?)
 }
 
 pub fn library_database_path() -> io::Result<PathBuf> {
@@ -87,6 +84,7 @@ fn exclusive_mode_disabled_path() -> io::Result<PathBuf> {
         .ok_or_else(|| io::Error::other("could not determine the app configuration directory"))
 }
 
+#[cfg(any(all(target_os = "macos", feature = "updater"), test))]
 fn check_updates_disabled_path() -> io::Result<PathBuf> {
     dirs::config_dir()
         .map(|path| path.join(APP_DIRECTORY_NAME).join("check-updates.disabled"))
@@ -127,26 +125,13 @@ fn save_exclusive_mode_to(path: &Path, enabled: bool) -> io::Result<()> {
     fs::write(path, [])
 }
 
-fn load_check_updates_on_launch_from(path: &Path) -> io::Result<bool> {
-    match fs::metadata(path) {
-        Ok(_) => Ok(false),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(true),
+#[cfg(any(all(target_os = "macos", feature = "updater"), test))]
+fn take_legacy_update_check_preference_from(path: &Path) -> io::Result<Option<bool>> {
+    match fs::remove_file(path) {
+        Ok(()) => Ok(Some(false)),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(error) => Err(error),
     }
-}
-
-fn save_check_updates_on_launch_to(path: &Path, enabled: bool) -> io::Result<()> {
-    if enabled {
-        return match fs::remove_file(path) {
-            Ok(()) => Ok(()),
-            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
-            Err(error) => Err(error),
-        };
-    }
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    fs::write(path, [])
 }
 
 fn load_volume_level_from(path: &Path) -> io::Result<f32> {
@@ -267,15 +252,24 @@ mod tests {
     }
 
     #[test]
-    fn launch_update_check_round_trips_and_defaults_on_without_a_file() {
+    fn legacy_update_marker_seeds_disabled_once_then_disappears() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("check-updates.disabled");
 
-        assert!(load_check_updates_on_launch_from(&path).unwrap());
-        save_check_updates_on_launch_to(&path, false).unwrap();
-        assert!(!load_check_updates_on_launch_from(&path).unwrap());
-        save_check_updates_on_launch_to(&path, true).unwrap();
-        assert!(load_check_updates_on_launch_from(&path).unwrap());
+        assert_eq!(
+            take_legacy_update_check_preference_from(&path).unwrap(),
+            None
+        );
+        fs::write(&path, []).unwrap();
+        assert_eq!(
+            take_legacy_update_check_preference_from(&path).unwrap(),
+            Some(false)
+        );
+        assert!(!path.exists());
+        assert_eq!(
+            take_legacy_update_check_preference_from(&path).unwrap(),
+            None
+        );
     }
 
     #[test]

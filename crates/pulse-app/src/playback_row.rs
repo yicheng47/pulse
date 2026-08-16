@@ -51,7 +51,6 @@ enum PlaybackNotice {
     Skip { text: String },
     Stopped { text: String },
     DeviceFailure { text: String },
-    UpdateAvailable { version: String, url: String },
 }
 
 #[derive(Clone, Copy)]
@@ -482,18 +481,6 @@ impl PlaybackRow {
     pub(crate) fn remove_missing_marks(&mut self, track_ids: &[TrackId]) {
         for track_id in track_ids {
             self.missing_track_ids.remove(track_id);
-        }
-    }
-
-    pub(crate) fn show_update_available(
-        &mut self,
-        version: String,
-        url: String,
-        cx: &mut Context<Self>,
-    ) {
-        if self.notice.is_none() {
-            self.notice = Some(PlaybackNotice::UpdateAvailable { version, url });
-            cx.notify();
         }
     }
 
@@ -2682,16 +2669,10 @@ impl Render for PlaybackRow {
 
 impl PlaybackRow {
     fn render_notice(&self, notice: PlaybackNotice, cx: &mut Context<Self>) -> impl IntoElement {
-        let (text, color, recovery, release_url) = match notice {
-            PlaybackNotice::Skip { text } => (text, theme::warning(), false, None),
-            PlaybackNotice::Stopped { text } => (text, theme::danger(), false, None),
-            PlaybackNotice::DeviceFailure { text } => (text, theme::danger(), true, None),
-            PlaybackNotice::UpdateAvailable { version, url } => (
-                format!("Pulse {version} is available"),
-                theme::quality(),
-                false,
-                Some(url),
-            ),
+        let (text, color, recovery) = match notice {
+            PlaybackNotice::Skip { text } => (text, theme::warning(), false),
+            PlaybackNotice::Stopped { text } => (text, theme::danger(), false),
+            PlaybackNotice::DeviceFailure { text } => (text, theme::danger(), true),
         };
         div()
             .flex()
@@ -2713,15 +2694,6 @@ impl PlaybackRow {
                     .text_color(color)
                     .child(text),
             )
-            .when_some(release_url, |banner, url| {
-                banner.child(
-                    crate::components::compact_secondary_button(
-                        "playback-notice-view-release",
-                        "View release",
-                    )
-                    .on_click(cx.listener(move |_, _, _, cx| cx.open_url(&url))),
-                )
-            })
             .when(recovery, |banner| {
                 banner
                     .child(

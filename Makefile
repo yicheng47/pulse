@@ -4,6 +4,13 @@ VERSION = $(shell ./script/bundle-mac --print-version)
 APP_BUNDLE := target/release/Pulse.app
 APP_ZIP = target/release/Pulse-$(VERSION)-arm64.zip
 DMG = target/release/Pulse-$(VERSION)-arm64.dmg
+SPARKLE_VERSION := 2.9.5
+SPARKLE_URL := https://github.com/sparkle-project/Sparkle/releases/download/$(SPARKLE_VERSION)/Sparkle-$(SPARKLE_VERSION).tar.xz
+SPARKLE_SHA256 := 015336b601493e05c237964954bff6191370003d94edefe663724c88840d73cc
+SPARKLE_FRAMEWORK := $(APP_BUNDLE)/Contents/Frameworks/Sparkle.framework
+SPARKLE_VERSION_ROOT := $(SPARKLE_FRAMEWORK)/Versions/B
+# Ad-hoc signatures have no Team ID, so hardened-runtime library validation would reject Sparkle.
+CODESIGN_OPTIONS = $(if $(filter -,$(APPLE_SIGNING_IDENTITY)),--timestamp=none,--options runtime --timestamp)
 
 .PHONY: build release run check test clippy fmt fmt-check verify clean-rust-stale bundle sign sign-dmg notarize notarize-app dmg release-macos check-version check-sign-credentials check-notarize-credentials
 
@@ -24,6 +31,7 @@ test:
 
 clippy:
 	cargo clippy --workspace --all-targets -- -D warnings
+	cargo clippy -p pulse-app --features updater --all-targets -- -D warnings
 
 fmt:
 	cargo fmt --all
@@ -37,14 +45,20 @@ check-version:
 	@test -n "$(VERSION)" || { echo "error: could not derive workspace version from ./script/bundle-mac --print-version" >&2; exit 1; }
 
 bundle:
-	./script/bundle-mac
+	SPARKLE_VERSION="$(SPARKLE_VERSION)" SPARKLE_URL="$(SPARKLE_URL)" SPARKLE_SHA256="$(SPARKLE_SHA256)" ./script/bundle-mac
 
 check-sign-credentials:
 	@test -n "$$APPLE_SIGNING_IDENTITY" || { echo "error: APPLE_SIGNING_IDENTITY is required for make sign" >&2; exit 1; }
 
 sign: check-sign-credentials
 	@test -d "$(APP_BUNDLE)" || { echo "error: $(APP_BUNDLE) does not exist; run make bundle first" >&2; exit 1; }
-	codesign --force --options runtime --timestamp --sign "$$APPLE_SIGNING_IDENTITY" "$(APP_BUNDLE)"
+	@test -d "$(SPARKLE_FRAMEWORK)" || { echo "error: $(SPARKLE_FRAMEWORK) does not exist; run make bundle first" >&2; exit 1; }
+	codesign --force $(CODESIGN_OPTIONS) --sign "$$APPLE_SIGNING_IDENTITY" "$(SPARKLE_VERSION_ROOT)/XPCServices/Installer.xpc"
+	codesign --force $(CODESIGN_OPTIONS) --preserve-metadata=entitlements --sign "$$APPLE_SIGNING_IDENTITY" "$(SPARKLE_VERSION_ROOT)/XPCServices/Downloader.xpc"
+	codesign --force $(CODESIGN_OPTIONS) --sign "$$APPLE_SIGNING_IDENTITY" "$(SPARKLE_VERSION_ROOT)/Autoupdate"
+	codesign --force $(CODESIGN_OPTIONS) --sign "$$APPLE_SIGNING_IDENTITY" "$(SPARKLE_VERSION_ROOT)/Updater.app"
+	codesign --force $(CODESIGN_OPTIONS) --sign "$$APPLE_SIGNING_IDENTITY" "$(SPARKLE_FRAMEWORK)"
+	codesign --force $(CODESIGN_OPTIONS) --sign "$$APPLE_SIGNING_IDENTITY" "$(APP_BUNDLE)"
 	codesign --verify --strict --verbose=2 "$(APP_BUNDLE)"
 
 check-notarize-credentials:
@@ -65,7 +79,11 @@ notarize-app: check-version check-notarize-credentials
 
 dmg: check-version
 	@test -d "$(APP_BUNDLE)" || { echo "error: $(APP_BUNDLE) does not exist; run make bundle first" >&2; exit 1; }
-	hdiutil create -volname Pulse -srcfolder "$(APP_BUNDLE)" -ov -format UDZO "$(DMG)"
+	@STAGING_DIR="$$(mktemp -d "$${TMPDIR:-/tmp}/pulse-dmg.XXXXXX")"; \
+	trap 'rm -rf "$$STAGING_DIR"' EXIT; \
+	ditto "$(APP_BUNDLE)" "$$STAGING_DIR/Pulse.app"; \
+	ln -s /Applications "$$STAGING_DIR/Applications"; \
+	hdiutil create -volname Pulse -srcfolder "$$STAGING_DIR" -ov -format UDZO "$(DMG)"
 
 sign-dmg: check-version check-sign-credentials
 	@test -f "$(DMG)" || { echo "error: $(DMG) does not exist; run make dmg first" >&2; exit 1; }
