@@ -65,10 +65,41 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: make release-macos
 
-      - name: Attach DMG to GitHub release
+      - name: Fetch Sparkle tools
+        run: |
+          sparkle_version=2.9.5
+          sparkle_sha256=015336b601493e05c237964954bff6191370003d94edefe663724c88840d73cc
+          sparkle_archive="$RUNNER_TEMP/Sparkle-$sparkle_version.tar.xz"
+          sparkle_dir="$RUNNER_TEMP/Sparkle-$sparkle_version"
+          curl --fail --location "https://github.com/sparkle-project/Sparkle/releases/download/$sparkle_version/Sparkle-$sparkle_version.tar.xz" --output "$sparkle_archive"
+          printf '%s  %s\n' "$sparkle_sha256" "$sparkle_archive" | shasum -a 256 -c -
+          mkdir -p "$sparkle_dir"
+          tar -xf "$sparkle_archive" -C "$sparkle_dir"
+          echo "SPARKLE_TOOLS_DIR=$sparkle_dir/bin" >> "$GITHUB_ENV"
+
+      - name: Generate signed appcast
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          appcast_dir="$RUNNER_TEMP/pulse-appcast"
+          release_url="https://github.com/yicheng47/pulse/releases/tag/${{ github.ref_name }}"
+          mkdir -p "$appcast_dir"
+          cp "target/release/Pulse-${{ steps.version.outputs.version }}-arm64.dmg" "$appcast_dir/"
+          printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | "$SPARKLE_TOOLS_DIR/generate_appcast" \
+            --ed-key-file - \
+            --download-url-prefix "https://github.com/yicheng47/pulse/releases/download/${{ github.ref_name }}/" \
+            --full-release-notes-url "$release_url" \
+            --link "$release_url" \
+            --maximum-versions 1 \
+            "$appcast_dir"
+          cp "$appcast_dir/appcast.xml" target/release/appcast.xml
+
+      - name: Attach DMG and appcast to GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: target/release/Pulse-${{ steps.version.outputs.version }}-arm64.dmg
+          files: |
+            target/release/Pulse-${{ steps.version.outputs.version }}-arm64.dmg
+            target/release/appcast.xml
           fail_on_unmatched_files: true
           generate_release_notes: true
           name: Pulse ${{ github.ref_name }}

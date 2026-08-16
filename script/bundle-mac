@@ -46,17 +46,43 @@ if [[ $# -ne 0 ]]; then
     exit 1
 fi
 
+for variable in SPARKLE_VERSION SPARKLE_URL SPARKLE_SHA256; do
+    if [[ -z "${!variable:-}" ]]; then
+        echo "error: $variable is required; run make bundle" >&2
+        exit 1
+    fi
+done
+
 if [[ ! -f "$ICON_SOURCE" ]]; then
     echo "error: app icon source not found: $ICON_SOURCE" >&2
     exit 1
 fi
 
+ICON_WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/pulse-icon.XXXXXX")"
+SPARKLE_WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/pulse-sparkle.XXXXXX")"
+trap 'rm -rf "$ICON_WORK_DIR" "$SPARKLE_WORK_DIR"' EXIT
+
+SPARKLE_CACHE_DIR="$ROOT_DIR/target/sparkle"
+SPARKLE_ARCHIVE="$SPARKLE_CACHE_DIR/Sparkle-$SPARKLE_VERSION.tar.xz"
+mkdir -p "$SPARKLE_CACHE_DIR"
+if [[ ! -f "$SPARKLE_ARCHIVE" ]] || ! printf '%s  %s\n' "$SPARKLE_SHA256" "$SPARKLE_ARCHIVE" | shasum -a 256 -c - >/dev/null 2>&1; then
+    curl --fail --location "$SPARKLE_URL" --output "$SPARKLE_WORK_DIR/Sparkle.tar.xz"
+    printf '%s  %s\n' "$SPARKLE_SHA256" "$SPARKLE_WORK_DIR/Sparkle.tar.xz" | shasum -a 256 -c -
+    install -m 644 "$SPARKLE_WORK_DIR/Sparkle.tar.xz" "$SPARKLE_ARCHIVE"
+fi
+tar -xf "$SPARKLE_ARCHIVE" -C "$SPARKLE_WORK_DIR"
+test -d "$SPARKLE_WORK_DIR/Sparkle.framework"
+mkdir -p "$APP_BUNDLE/Contents/Frameworks"
+ditto "$SPARKLE_WORK_DIR/Sparkle.framework" "$APP_BUNDLE/Contents/Frameworks/Sparkle.framework"
+
 export MACOSX_DEPLOYMENT_TARGET="$MINIMUM_SYSTEM_VERSION"
+export RUSTFLAGS="${RUSTFLAGS:-} -Lframework=$APP_BUNDLE/Contents/Frameworks -Clink-arg=-Wl,-rpath,@executable_path/../Frameworks"
 cargo build \
     --manifest-path "$ROOT_DIR/Cargo.toml" \
     --locked \
     --release \
     --package pulse-app \
+    --features updater \
     --target "$TARGET_TRIPLE"
 
 BINARY_PATH="$ROOT_DIR/target/$TARGET_TRIPLE/release/$BINARY_NAME"
@@ -77,8 +103,6 @@ fi
 mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources"
 install -m 755 "$BINARY_PATH" "$APP_BUNDLE/Contents/MacOS/$BINARY_NAME"
 
-ICON_WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/pulse-icon.XXXXXX")"
-trap 'rm -rf "$ICON_WORK_DIR"' EXIT
 ICONSET="$ICON_WORK_DIR/Pulse.iconset"
 mkdir -p "$ICONSET"
 
@@ -124,6 +148,18 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<EOF
     <string>$MINIMUM_SYSTEM_VERSION</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>SUAllowsAutomaticUpdates</key>
+    <false/>
+    <key>SUAutomaticallyUpdate</key>
+    <false/>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUEnableSystemProfiling</key>
+    <false/>
+    <key>SUFeedURL</key>
+    <string>https://github.com/yicheng47/pulse/releases/latest/download/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>xRvQCdUz7Gs3VHQiXtGRwv3zZjb3RQVD38mNLFPBB8o=</string>
 </dict>
 </plist>
 EOF

@@ -8,7 +8,7 @@ Open-source first under the MIT license, especially through the engine validatio
 
 ## Privacy
 
-Pulse's only network call is one unauthenticated `GET` to the [GitHub releases API](https://api.github.com/repos/yicheng47/pulse/releases/latest), made automatically once per launch and on explicit manual checks. It sends no identifiers; turn off **Check for updates on launch** in Settings ▸ Update to disable the automatic request.
+Bundled releases use Sparkle to fetch a signed `appcast.xml` from GitHub Releases when an automatic check is due or the user explicitly chooses **Check for Updates**. Sparkle's optional system profiling is explicitly disabled (`SUEnableSystemProfiling` is off), and Pulse adds no telemetry or unique identifiers. Turn off **Check for updates on launch** in Settings ▸ Update to disable scheduled requests; manual checks remain available.
 
 ## Layout
 

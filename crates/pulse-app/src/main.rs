@@ -10,7 +10,7 @@ mod settings;
 mod shell;
 mod text_input;
 mod theme;
-mod update;
+mod updater;
 
 use assets::Assets;
 use gpui::{
