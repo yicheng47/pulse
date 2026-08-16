@@ -385,7 +385,7 @@ impl LibraryView {
                 }
                 this.genre_popover_open = false;
                 this.artist_popover_open = true;
-                this.artist_search.clear();
+                this.text_input.reset("");
                 window.focus(&this.input_focus, cx);
                 cx.notify();
             }))
@@ -494,7 +494,7 @@ impl LibraryView {
                     .py(px(6.))
                     .child(super::render_text_input(
                         "artist-search-input",
-                        self.artist_search.clone(),
+                        &self.text_input,
                         &self.input_focus,
                         cx,
                     )),

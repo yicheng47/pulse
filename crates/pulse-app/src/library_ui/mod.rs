@@ -8,6 +8,7 @@ pub(crate) mod view_model;
 
 use std::{
     fs, io,
+    ops::Range,
     panic::{AssertUnwindSafe, catch_unwind},
     path::{Path, PathBuf},
     sync::{
@@ -20,8 +21,9 @@ use std::{
 };
 
 use gpui::{
-    AnyElement, Context, Entity, FocusHandle, IntoElement, KeyDownEvent, PathPromptOptions, Pixels,
-    Point, Render, ScrollHandle, Window, div, prelude::*, px,
+    AnyElement, Bounds, Context, ElementInputHandler, Entity, EntityInputHandler, FocusHandle,
+    IntoElement, KeyDownEvent, PathPromptOptions, Pixels, Point, Render, ScrollHandle,
+    UTF16Selection, Window, canvas, div, prelude::*, px,
 };
 
 use crate::{
@@ -34,6 +36,7 @@ use crate::{
     playback_row::PlaybackRow,
     preferences,
     shell::Destination,
+    text_input::{self, TextInput},
     theme,
 };
 
@@ -201,7 +204,6 @@ struct PlaylistDetail {
 
 struct AddStorageDraft {
     path: Option<PathBuf>,
-    display_name: String,
     scan_now: bool,
 }
 
@@ -213,7 +215,6 @@ enum Modal {
     },
     PlaylistName {
         mode: PlaylistNameMode,
-        name: String,
     },
     DeleteAlbum {
         album: Album,
@@ -257,7 +258,6 @@ struct PlaylistMenu {
 
 struct RenameDraft {
     root_id: StorageRootId,
-    display_name: String,
 }
 
 pub(crate) struct LibraryView {
@@ -272,11 +272,9 @@ pub(crate) struct LibraryView {
     genres: Vec<(String, u64)>,
     genre_popover_open: bool,
     genre_hint_press_closed_popover: bool,
-    genre_search: String,
     artists: Vec<(String, u64)>,
     artist_popover_open: bool,
     artist_hint_press_closed_popover: bool,
-    artist_search: String,
     /// Latched when an album page query fails so a persistent error cannot
     /// become a notify/requery loop; cleared by reset or a successful reload.
     album_load_stalled: bool,
@@ -314,6 +312,7 @@ pub(crate) struct LibraryView {
     rename_draft: Option<RenameDraft>,
     track_menu: Option<TrackMenu>,
     playlist_menu: Option<PlaylistMenu>,
+    text_input: TextInput,
     input_focus: FocusHandle,
     error: Option<String>,
 }
@@ -340,11 +339,9 @@ impl LibraryView {
             genres: Vec::new(),
             genre_popover_open: false,
             genre_hint_press_closed_popover: false,
-            genre_search: String::new(),
             artists: Vec::new(),
             artist_popover_open: false,
             artist_hint_press_closed_popover: false,
-            artist_search: String::new(),
             album_load_stalled: false,
             track_load_stalled: false,
             catalog_summary: LibrarySummary::default(),
@@ -380,6 +377,7 @@ impl LibraryView {
             rename_draft: None,
             track_menu: None,
             playlist_menu: None,
+            text_input: TextInput::default(),
             input_focus: cx.focus_handle(),
             error: None,
         };
@@ -875,6 +873,19 @@ impl LibraryView {
         }
     }
 
+    fn shuffle_album(&mut self, cx: &mut Context<Self>) {
+        let Some(detail) = &self.album_detail else {
+            return;
+        };
+        if detail.tracks.is_empty() {
+            return;
+        }
+        let tracks = detail.tracks.clone();
+        self.row.update(cx, |row, cx| {
+            row.play_library_tracks_shuffled(&tracks, cx);
+        });
+    }
+
     fn play_playlist(&mut self, cx: &mut Context<Self>) {
         let Some(detail) = &self.playlist_detail else {
             return;
@@ -897,6 +908,23 @@ impl LibraryView {
             .map(|entry| entry.track.clone())
             .collect();
         self.play_tracks(tracks, index, cx);
+    }
+
+    fn shuffle_playlist(&mut self, cx: &mut Context<Self>) {
+        let Some(detail) = &self.playlist_detail else {
+            return;
+        };
+        if detail.entries.is_empty() {
+            return;
+        }
+        let tracks = detail
+            .entries
+            .iter()
+            .map(|entry| entry.track.clone())
+            .collect::<Vec<_>>();
+        self.row.update(cx, |row, cx| {
+            row.play_library_tracks_shuffled(&tracks, cx);
+        });
     }
 
     pub(crate) fn search_library(&self, query: &str) -> Result<LibrarySearchResults, LibraryError> {
@@ -982,9 +1010,9 @@ impl LibraryView {
     ) {
         self.track_menu = None;
         self.playlist_menu = None;
+        self.text_input.reset("");
         self.modal = Some(Modal::PlaylistName {
             mode: PlaylistNameMode::Create { add_track_id },
-            name: String::new(),
         });
         window.focus(&self.input_focus, cx);
         cx.notify();
@@ -1003,37 +1031,35 @@ impl LibraryView {
         else {
             return;
         };
+        let name = playlist.playlist.name.clone();
         self.track_menu = None;
         self.playlist_menu = None;
+        self.text_input.reset(name);
         self.modal = Some(Modal::PlaylistName {
             mode: PlaylistNameMode::Rename { playlist_id },
-            name: playlist.playlist.name.clone(),
         });
         window.focus(&self.input_focus, cx);
         cx.notify();
     }
 
     fn confirm_playlist_name(&mut self, cx: &mut Context<Self>) {
-        let Some(Modal::PlaylistName { mode, name }) = self.modal.take() else {
+        let Some(Modal::PlaylistName { mode }) = self.modal.take() else {
             return;
         };
-        let name = name.trim();
+        let name = self.text_input.text().trim().to_string();
         if name.is_empty() {
             cx.notify();
             return;
         }
         let Some(store) = self.store.as_mut() else {
             self.error = Some(self.store_busy_message());
-            self.modal = Some(Modal::PlaylistName {
-                mode,
-                name: name.to_string(),
-            });
+            self.modal = Some(Modal::PlaylistName { mode });
             cx.notify();
             return;
         };
         let result = match mode {
             PlaylistNameMode::Create { add_track_id } => {
-                store.create_playlist(name).and_then(|playlist| {
+                store.create_playlist(&name).and_then(|playlist| {
                     if let Some(track_id) = add_track_id {
                         store.append_playlist_tracks(playlist.id, &[track_id])?;
                     }
@@ -1041,7 +1067,7 @@ impl LibraryView {
                 })
             }
             PlaylistNameMode::Rename { playlist_id } => store
-                .rename_playlist(playlist_id, name)
+                .rename_playlist(playlist_id, &name)
                 .map(|playlist| playlist.id),
         };
         match result {
@@ -1052,10 +1078,7 @@ impl LibraryView {
             }
             Err(error) => {
                 self.error = Some(error.to_string());
-                self.modal = Some(Modal::PlaylistName {
-                    mode,
-                    name: name.to_string(),
-                });
+                self.modal = Some(Modal::PlaylistName { mode });
             }
         }
         cx.notify();
@@ -1227,9 +1250,10 @@ impl LibraryView {
         if self.scan.is_some() {
             return;
         }
+        self.rename_draft = None;
+        self.text_input.reset("");
         self.modal = Some(Modal::AddStorage(AddStorageDraft {
             path: None,
-            display_name: String::new(),
             scan_now: true,
         }));
         window.focus(&self.input_focus, cx);
@@ -1256,12 +1280,13 @@ impl LibraryView {
                                 .file_name()
                                 .map(|name| name.to_string_lossy().into_owned())
                                 .unwrap_or_else(|| path.display().to_string());
+                            let fill_display_name = this.text_input.text().trim().is_empty();
                             if let Some(Modal::AddStorage(draft)) = &mut this.modal {
                                 draft.path = Some(path);
-                                if draft.display_name.trim().is_empty() {
-                                    draft.display_name = display_name;
-                                }
                                 this.error = None;
+                            }
+                            if fill_display_name {
+                                this.text_input.reset(display_name);
                             }
                         }
                     }
@@ -1289,13 +1314,14 @@ impl LibraryView {
             cx.notify();
             return;
         };
-        if draft.display_name.trim().is_empty() {
+        let display_name = self.text_input.text().trim().to_string();
+        if display_name.is_empty() {
             self.modal = Some(Modal::AddStorage(draft));
             cx.notify();
             return;
         }
         let store = self.store.as_mut().expect("store availability checked");
-        match store.add_storage_root(path, draft.display_name.trim()) {
+        match store.add_storage_root(path, &display_name) {
             Ok(root) => {
                 self.selected_root_id = Some(root.id);
                 self.reload_or_show_error();
@@ -1362,10 +1388,9 @@ impl LibraryView {
         let Some(root) = self.roots.iter().find(|root| root.root.id == root_id) else {
             return;
         };
-        self.rename_draft = Some(RenameDraft {
-            root_id,
-            display_name: root.root.display_name.clone(),
-        });
+        let display_name = root.root.display_name.clone();
+        self.text_input.reset(display_name);
+        self.rename_draft = Some(RenameDraft { root_id });
         cx.notify();
     }
 
@@ -1378,8 +1403,9 @@ impl LibraryView {
         let Some(draft) = self.rename_draft.take() else {
             return;
         };
+        let display_name = self.text_input.text().trim().to_string();
         let store = self.store.as_mut().expect("store availability checked");
-        if let Err(error) = store.rename_storage_root(draft.root_id, draft.display_name.trim()) {
+        if let Err(error) = store.rename_storage_root(draft.root_id, &display_name) {
             self.error = Some(error.to_string());
             self.rename_draft = Some(draft);
         } else {
@@ -1588,11 +1614,6 @@ impl LibraryView {
 
     fn handle_text_input(&mut self, event: &KeyDownEvent, cx: &mut Context<Self>) {
         match event.keystroke.key.as_str() {
-            "backspace" => {
-                if let Some(value) = self.input_value_mut() {
-                    value.pop();
-                }
-            }
             "enter" => {
                 if self.genre_popover_open {
                     if let Some((genre, _)) = self.filtered_genres().into_iter().next() {
@@ -1608,46 +1629,28 @@ impl LibraryView {
                 }
                 if matches!(self.modal, Some(Modal::PlaylistName { .. })) {
                     self.confirm_playlist_name(cx);
-                } else if self.rename_draft.is_some() {
-                    self.commit_rename_storage(cx);
                 } else if matches!(self.modal, Some(Modal::AddStorage(_))) {
                     self.confirm_add_storage(cx);
+                } else if self.rename_draft.is_some() {
+                    self.commit_rename_storage(cx);
                 }
                 return;
             }
             "escape" => {
+                self.text_input.unmark_text();
                 self.rename_draft = None;
                 self.modal = None;
                 self.genre_popover_open = false;
                 self.artist_popover_open = false;
             }
-            _ if !event.keystroke.modifiers.platform && !event.keystroke.modifiers.control => {
-                if let Some(text) = &event.keystroke.key_char
-                    && let Some(value) = self.input_value_mut()
-                {
-                    value.push_str(text);
+            _ => {
+                let outcome = text_input::handle_key_down(&mut self.text_input, event, cx);
+                if !outcome.handled {
+                    return;
                 }
             }
-            _ => {}
         }
         cx.notify();
-    }
-
-    fn input_value_mut(&mut self) -> Option<&mut String> {
-        if self.genre_popover_open {
-            return Some(&mut self.genre_search);
-        }
-        if self.artist_popover_open {
-            return Some(&mut self.artist_search);
-        }
-        match &mut self.modal {
-            Some(Modal::AddStorage(draft)) => return Some(&mut draft.display_name),
-            Some(Modal::PlaylistName { name, .. }) => return Some(name),
-            _ => {}
-        }
-        self.rename_draft
-            .as_mut()
-            .map(|draft| &mut draft.display_name)
     }
 
     fn is_now_playing(&self, path: &Path, cx: &Context<Self>) -> bool {
@@ -1692,15 +1695,92 @@ impl LibraryView {
     }
 
     fn filtered_artists(&self) -> Vec<(String, u64)> {
-        filter_artists(&self.artists, &self.artist_search)
+        filter_artists(&self.artists, self.text_input.text())
     }
 
     fn filtered_genres(&self) -> Vec<(String, u64)> {
-        filter_genres(&self.genres, &self.genre_search)
+        filter_genres(&self.genres, self.text_input.text())
     }
 
     fn is_track_missing(&self, track_id: TrackId, cx: &Context<Self>) -> bool {
         self.row.read(cx).is_track_missing(track_id)
+    }
+}
+
+impl EntityInputHandler for LibraryView {
+    fn text_for_range(
+        &mut self,
+        range: Range<usize>,
+        adjusted_range: &mut Option<Range<usize>>,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) -> Option<String> {
+        Some(self.text_input.text_for_range(range, adjusted_range))
+    }
+
+    fn selected_text_range(
+        &mut self,
+        _ignore_disabled_input: bool,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) -> Option<UTF16Selection> {
+        Some(self.text_input.selected_text_range())
+    }
+
+    fn marked_text_range(
+        &self,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) -> Option<Range<usize>> {
+        self.text_input.marked_text_range()
+    }
+
+    fn unmark_text(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        self.text_input.unmark_text();
+        cx.notify();
+    }
+
+    fn replace_text_in_range(
+        &mut self,
+        range: Option<Range<usize>>,
+        text: &str,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.text_input.replace_text_in_range(range, text);
+        cx.notify();
+    }
+
+    fn replace_and_mark_text_in_range(
+        &mut self,
+        range: Option<Range<usize>>,
+        new_text: &str,
+        new_selected_range: Option<Range<usize>>,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.text_input
+            .replace_and_mark_text_in_range(range, new_text, new_selected_range);
+        cx.notify();
+    }
+
+    fn bounds_for_range(
+        &mut self,
+        _range_utf16: Range<usize>,
+        element_bounds: Bounds<Pixels>,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) -> Option<Bounds<Pixels>> {
+        Some(element_bounds)
+    }
+
+    fn character_index_for_point(
+        &mut self,
+        _point: Point<Pixels>,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) -> Option<usize> {
+        Some(self.text_input.character_index_utf16())
     }
 }
 
@@ -1832,17 +1912,18 @@ fn render_library_opening(progress: BackfillProgress) -> AnyElement {
         .into_any_element()
 }
 
-/// The standard single-line text input: chrome, caret, cursor, and key
-/// routing defined once so a styling change lands in one place. The shell
-/// search field is the one exception — it carries real IME plumbing.
+/// The standard single-line text input: chrome, native input registration,
+/// caret, selection, and key routing defined once for every library field.
 fn render_text_input(
     id: &'static str,
-    value: String,
+    input: &TextInput,
     input_focus: &FocusHandle,
     cx: &mut Context<LibraryView>,
 ) -> impl IntoElement {
+    let input_entity = cx.entity();
     div()
         .id(id)
+        .relative()
         .flex()
         .items_center()
         .cursor_text()
@@ -1860,8 +1941,25 @@ fn render_text_input(
         .font_family(theme::FONT_SANS)
         .text_size(px(12.))
         .text_color(theme::text_primary())
-        .child(value)
-        .child(crate::components::input_caret())
+        .child(text_input::render_text(input, true))
+        .child(
+            canvas(
+                |_, _, _| {},
+                move |bounds, _, window, cx| {
+                    let focus = input_entity.read(cx).input_focus.clone();
+                    window.handle_input(
+                        &focus,
+                        ElementInputHandler::new(bounds, input_entity.clone()),
+                        cx,
+                    );
+                },
+            )
+            .absolute()
+            .top_0()
+            .right_0()
+            .bottom_0()
+            .left_0(),
+        )
 }
 
 /// List-level loading state: shown in place of a list's empty state while the

@@ -19,6 +19,7 @@ use crate::{
     playback_row::PlaybackRow,
     preferences,
     settings::{AboutLink, SettingsSection, SettingsViewModel},
+    text_input::{self, TextInput},
     theme,
     update::{self, UpdateCheckKind, UpdateState},
 };
@@ -78,15 +79,13 @@ pub struct Shell {
     destination: Destination,
     row: Entity<PlaybackRow>,
     library: Entity<LibraryView>,
-    search_query: String,
+    search_input: TextInput,
     search: SearchViewModel,
     search_open: bool,
     search_loading: bool,
     search_revision: u64,
     search_scroll: ScrollHandle,
     search_focus: FocusHandle,
-    search_selection: Range<usize>,
-    search_marked_range: Option<Range<usize>>,
     settings_section: Option<SettingsSection>,
     settings_output_toggle_press_closed: bool,
     check_updates_on_launch: bool,
@@ -109,15 +108,13 @@ impl Shell {
             destination: Destination::Albums,
             row,
             library,
-            search_query: String::new(),
+            search_input: TextInput::default(),
             search: SearchViewModel::default(),
             search_open: false,
             search_loading: false,
             search_revision: 0,
             search_scroll: ScrollHandle::new(),
             search_focus: cx.focus_handle(),
-            search_selection: 0..0,
-            search_marked_range: None,
             settings_section: None,
             settings_output_toggle_press_closed: false,
             check_updates_on_launch,
@@ -134,7 +131,7 @@ impl Shell {
     fn open_settings(&mut self, section: SettingsSection, cx: &mut Context<Self>) {
         self.settings_section = Some(section);
         self.search_open = false;
-        self.search_marked_range = None;
+        self.search_input.unmark_text();
         self.row.update(cx, |row, cx| row.enter_settings(cx));
         cx.notify();
     }
@@ -204,9 +201,9 @@ impl Shell {
     }
 
     fn focus_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.search_selection = self.search_query.len()..self.search_query.len();
+        self.search_input.move_to_end();
         window.focus(&self.search_focus, cx);
-        if !self.search_query.is_empty() {
+        if !self.search_input.text().is_empty() {
             self.search_open = true;
         }
         cx.notify();
@@ -219,23 +216,6 @@ impl Shell {
         cx: &mut Context<Self>,
     ) {
         match event.keystroke.key.as_str() {
-            "backspace" => {
-                let range = if self.search_selection.is_empty() {
-                    let end = self.search_selection.end.min(self.search_query.len());
-                    let start = self.search_query[..end]
-                        .char_indices()
-                        .next_back()
-                        .map(|(index, _)| index)
-                        .unwrap_or(end);
-                    start..end
-                } else {
-                    self.search_selection.clone()
-                };
-                self.search_query.replace_range(range.clone(), "");
-                self.search_selection = range.start..range.start;
-                self.search_marked_range = None;
-                self.search_query_changed(cx);
-            }
             "down" => {
                 if self.search_open {
                     self.search.move_next();
@@ -259,29 +239,25 @@ impl Shell {
             }
             "escape" => {
                 self.search_open = false;
-                self.search_marked_range = None;
+                self.search_input.unmark_text();
                 window.blur();
                 cx.notify();
             }
-            "v" if event.keystroke.modifiers.platform => {
-                if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
-                    let text = text.replace(['\r', '\n'], " ");
-                    let range = self.search_selection.clone();
-                    self.search_query.replace_range(range.clone(), &text);
-                    let end = range.start + text.len();
-                    self.search_selection = end..end;
-                    self.search_marked_range = None;
+            _ => {
+                let outcome = text_input::handle_key_down(&mut self.search_input, event, cx);
+                if outcome.content_changed {
                     self.search_query_changed(cx);
+                } else if outcome.handled {
+                    cx.notify();
                 }
             }
-            _ => {}
         }
     }
 
     fn search_query_changed(&mut self, cx: &mut Context<Self>) {
         self.search_revision = self.search_revision.wrapping_add(1);
         let revision = self.search_revision;
-        let query = self.search_query.trim().to_string();
+        let query = self.search_input.text().trim().to_string();
         if query.is_empty() {
             self.search.clear();
             self.search_open = false;
@@ -371,19 +347,9 @@ impl Shell {
             }
         }
         self.search_open = false;
-        self.search_marked_range = None;
+        self.search_input.unmark_text();
         window.blur();
         cx.notify();
-    }
-
-    fn search_range_from_utf16(&self, range: &Range<usize>) -> Range<usize> {
-        utf16_offset_to_utf8(&self.search_query, range.start)
-            ..utf16_offset_to_utf8(&self.search_query, range.end)
-    }
-
-    fn search_range_to_utf16(&self, range: &Range<usize>) -> Range<usize> {
-        self.search_query[..range.start].encode_utf16().count()
-            ..self.search_query[..range.end].encode_utf16().count()
     }
 
     fn render_titlebar_drag_area(
@@ -1175,7 +1141,7 @@ impl Shell {
     }
 
     fn render_search(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
-        let query = self.search_query.clone();
+        let query = self.search_input.text().to_string();
         let focused = self.search_focus.is_focused(window);
         let input_entity = cx.entity();
         let mut search = div()
@@ -1222,25 +1188,30 @@ impl Shell {
                             .when(query.is_empty() && focused, |text| {
                                 text.child(crate::components::input_caret())
                             })
-                            .child(
-                                div()
-                                    .min_w_0()
-                                    .truncate()
-                                    .font_family(theme::FONT_SANS)
-                                    .text_size(px(13.))
-                                    .text_color(if query.is_empty() {
-                                        theme::text_muted()
-                                    } else {
-                                        theme::text_primary()
-                                    })
-                                    .child(if query.is_empty() {
-                                        "Search library".to_string()
-                                    } else {
-                                        query.clone()
-                                    }),
-                            )
-                            .when(!query.is_empty() && focused, |text| {
-                                text.child(crate::components::input_caret())
+                            .when(query.is_empty(), |text| {
+                                text.child(
+                                    div()
+                                        .min_w_0()
+                                        .truncate()
+                                        .font_family(theme::FONT_SANS)
+                                        .text_size(px(13.))
+                                        .text_color(theme::text_muted())
+                                        .child("Search library"),
+                                )
+                            })
+                            .when(!query.is_empty(), |text| {
+                                text.child(
+                                    div()
+                                        .min_w_0()
+                                        .truncate()
+                                        .font_family(theme::FONT_SANS)
+                                        .text_size(px(13.))
+                                        .text_color(theme::text_primary())
+                                        .child(text_input::render_text(
+                                            &self.search_input,
+                                            focused,
+                                        )),
+                                )
                             }),
                     )
                     .child(
@@ -1305,7 +1276,10 @@ impl Shell {
                     .font_family(theme::FONT_SANS)
                     .text_size(px(11.))
                     .text_color(theme::text_secondary())
-                    .child(format!("No matches for “{}”", self.search_query.trim())),
+                    .child(format!(
+                        "No matches for “{}”",
+                        self.search_input.text().trim()
+                    )),
             );
         }
 
@@ -1342,7 +1316,7 @@ impl Shell {
             .bg(theme::bg_surface())
             .on_mouse_down_out(cx.listener(|this, _, window, cx| {
                 this.search_open = false;
-                this.search_marked_range = None;
+                this.search_input.unmark_text();
                 window.blur();
                 cx.notify();
             }))
@@ -1468,9 +1442,7 @@ impl EntityInputHandler for Shell {
         _window: &mut Window,
         _cx: &mut Context<Self>,
     ) -> Option<String> {
-        let range = self.search_range_from_utf16(&range);
-        adjusted_range.replace(self.search_range_to_utf16(&range));
-        Some(self.search_query[range].to_string())
+        Some(self.search_input.text_for_range(range, adjusted_range))
     }
 
     fn selected_text_range(
@@ -1479,10 +1451,7 @@ impl EntityInputHandler for Shell {
         _window: &mut Window,
         _cx: &mut Context<Self>,
     ) -> Option<UTF16Selection> {
-        Some(UTF16Selection {
-            range: self.search_range_to_utf16(&self.search_selection),
-            reversed: false,
-        })
+        Some(self.search_input.selected_text_range())
     }
 
     fn marked_text_range(
@@ -1490,13 +1459,12 @@ impl EntityInputHandler for Shell {
         _window: &mut Window,
         _cx: &mut Context<Self>,
     ) -> Option<Range<usize>> {
-        self.search_marked_range
-            .as_ref()
-            .map(|range| self.search_range_to_utf16(range))
+        self.search_input.marked_text_range()
     }
 
-    fn unmark_text(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {
-        self.search_marked_range = None;
+    fn unmark_text(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        self.search_input.unmark_text();
+        cx.notify();
     }
 
     fn replace_text_in_range(
@@ -1506,16 +1474,11 @@ impl EntityInputHandler for Shell {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let range = range
-            .as_ref()
-            .map(|range| self.search_range_from_utf16(range))
-            .or_else(|| self.search_marked_range.clone())
-            .unwrap_or_else(|| self.search_selection.clone());
-        self.search_query.replace_range(range.clone(), text);
-        let end = range.start + text.len();
-        self.search_selection = end..end;
-        self.search_marked_range = None;
-        self.search_query_changed(cx);
+        if self.search_input.replace_text_in_range(range, text) {
+            self.search_query_changed(cx);
+        } else {
+            cx.notify();
+        }
     }
 
     fn replace_and_mark_text_in_range(
@@ -1526,24 +1489,14 @@ impl EntityInputHandler for Shell {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let range = range
-            .as_ref()
-            .map(|range| self.search_range_from_utf16(range))
-            .or_else(|| self.search_marked_range.clone())
-            .unwrap_or_else(|| self.search_selection.clone());
-        self.search_query.replace_range(range.clone(), new_text);
-        self.search_marked_range =
-            (!new_text.is_empty()).then_some(range.start..range.start + new_text.len());
-        self.search_selection = new_selected_range
-            .map(|selection| {
-                range.start + utf16_offset_to_utf8(new_text, selection.start)
-                    ..range.start + utf16_offset_to_utf8(new_text, selection.end)
-            })
-            .unwrap_or_else(|| {
-                let end = range.start + new_text.len();
-                end..end
-            });
-        self.search_query_changed(cx);
+        if self
+            .search_input
+            .replace_and_mark_text_in_range(range, new_text, new_selected_range)
+        {
+            self.search_query_changed(cx);
+        } else {
+            cx.notify();
+        }
     }
 
     fn bounds_for_range(
@@ -1562,11 +1515,7 @@ impl EntityInputHandler for Shell {
         _window: &mut Window,
         _cx: &mut Context<Self>,
     ) -> Option<usize> {
-        Some(
-            self.search_query[..self.search_selection.end]
-                .encode_utf16()
-                .count(),
-        )
+        Some(self.search_input.character_index_utf16())
     }
 }
 
@@ -1883,17 +1832,6 @@ fn search_copy(title: String, meta: String) -> impl IntoElement {
         )
 }
 
-fn utf16_offset_to_utf8(text: &str, offset: usize) -> usize {
-    let mut utf16_offset = 0;
-    for (utf8_offset, character) in text.char_indices() {
-        if utf16_offset >= offset {
-            return utf8_offset;
-        }
-        utf16_offset += character.len_utf16();
-    }
-    text.len()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1945,15 +1883,5 @@ mod tests {
                 destination.icon()
             );
         }
-    }
-
-    #[test]
-    fn converts_utf16_offsets_for_cjk_and_surrogate_pairs() {
-        let text = "王😀菲";
-
-        assert_eq!(utf16_offset_to_utf8(text, 0), 0);
-        assert_eq!(utf16_offset_to_utf8(text, 1), "王".len());
-        assert_eq!(utf16_offset_to_utf8(text, 3), "王😀".len());
-        assert_eq!(utf16_offset_to_utf8(text, 4), text.len());
     }
 }

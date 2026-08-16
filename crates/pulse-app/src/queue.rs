@@ -57,28 +57,145 @@ pub(crate) enum PreviousAction {
     PlayPrevious(TrackRef),
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) enum RepeatMode {
+    #[default]
+    Off,
+    All,
+    One,
+}
+
+impl RepeatMode {
+    fn next(self) -> Self {
+        match self {
+            Self::Off => Self::All,
+            Self::All => Self::One,
+            Self::One => Self::Off,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct QueueEntry {
+    original_position: usize,
+    track: TrackRef,
+}
+
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct QueueState {
-    entries: Vec<TrackRef>,
+    entries: Vec<QueueEntry>,
     index: Option<usize>,
     started: bool,
     skipped: usize,
+    consecutive_failures: usize,
+    shuffle_enabled: bool,
+    repeat_mode: RepeatMode,
+    history: Vec<usize>,
+    true_history: bool,
 }
 
 impl QueueState {
+    #[cfg(test)]
     pub(crate) fn from_tracks(tracks: &[Track], start_index: usize) -> Self {
-        let entries = tracks.iter().map(TrackRef::from).collect::<Vec<_>>();
-        let index = (start_index < entries.len()).then_some(start_index);
-        Self {
-            entries,
-            index,
-            started: false,
-            skipped: 0,
+        let mut queue = Self::default();
+        queue.rebuild(tracks, start_index);
+        queue
+    }
+
+    pub(crate) fn rebuild(&mut self, tracks: &[Track], start_index: usize) {
+        let mut rng = fastrand::Rng::new();
+        self.rebuild_with_rng(tracks, start_index, &mut rng);
+    }
+
+    pub(crate) fn rebuild_shuffled(&mut self, tracks: &[Track]) {
+        let mut rng = fastrand::Rng::new();
+        self.rebuild_shuffled_with_rng(tracks, &mut rng);
+    }
+
+    fn rebuild_shuffled_with_rng(&mut self, tracks: &[Track], rng: &mut fastrand::Rng) {
+        self.shuffle_enabled = true;
+        let start_index = if tracks.is_empty() {
+            0
+        } else {
+            rng.usize(..tracks.len())
+        };
+        self.rebuild_with_rng(tracks, start_index, rng);
+    }
+
+    fn rebuild_with_rng(&mut self, tracks: &[Track], start_index: usize, rng: &mut fastrand::Rng) {
+        self.entries = tracks
+            .iter()
+            .enumerate()
+            .map(|(original_position, track)| QueueEntry {
+                original_position,
+                track: TrackRef::from(track),
+            })
+            .collect();
+        self.index = (start_index < self.entries.len()).then_some(start_index);
+        if self.shuffle_enabled
+            && let Some(index) = self.index
+        {
+            let current = self.entries.remove(index);
+            self.entries.insert(0, current);
+            self.index = Some(0);
         }
+        self.started = false;
+        self.skipped = 0;
+        self.consecutive_failures = 0;
+        self.history.clear();
+        self.true_history = self.shuffle_enabled;
+        if self.shuffle_enabled {
+            self.shuffle_upcoming(rng);
+        }
+    }
+
+    pub(crate) fn clear(&mut self) {
+        self.entries.clear();
+        self.index = None;
+        self.started = false;
+        self.skipped = 0;
+        self.consecutive_failures = 0;
+        self.history.clear();
+        self.true_history = self.shuffle_enabled;
+    }
+
+    pub(crate) fn shuffle_enabled(&self) -> bool {
+        self.shuffle_enabled
+    }
+
+    pub(crate) fn toggle_shuffle(&mut self) {
+        self.set_shuffle(!self.shuffle_enabled);
+    }
+
+    pub(crate) fn set_shuffle(&mut self, enabled: bool) {
+        let mut rng = fastrand::Rng::new();
+        self.set_shuffle_with_rng(enabled, &mut rng);
+    }
+
+    fn set_shuffle_with_rng(&mut self, enabled: bool, rng: &mut fastrand::Rng) {
+        if self.shuffle_enabled == enabled {
+            return;
+        }
+        self.shuffle_enabled = enabled;
+        if enabled {
+            self.true_history = true;
+            self.shuffle_upcoming(rng);
+        } else {
+            self.restore_upcoming_order();
+        }
+    }
+
+    pub(crate) fn repeat_mode(&self) -> RepeatMode {
+        self.repeat_mode
+    }
+
+    pub(crate) fn cycle_repeat(&mut self) {
+        self.repeat_mode = self.repeat_mode.next();
     }
 
     pub(crate) fn mark_started(&mut self) {
         self.started = true;
+        self.consecutive_failures = 0;
     }
 
     pub(crate) fn skipped_count(&self) -> usize {
@@ -90,7 +207,12 @@ impl QueueState {
     /// poison queue (every attempted entry failed) from a partial failure.
     pub(crate) fn skip_failed(&mut self) -> Option<TrackRef> {
         self.skipped += 1;
-        self.advance()
+        self.consecutive_failures += 1;
+        if self.consecutive_failures >= self.entries.len() {
+            return None;
+        }
+        let next_index = self.next_index()?;
+        self.move_to_index(next_index, false)
     }
 
     pub(crate) fn nothing_played(&self) -> bool {
@@ -98,41 +220,69 @@ impl QueueState {
     }
 
     pub(crate) fn current(&self) -> Option<&TrackRef> {
-        self.index.and_then(|index| self.entries.get(index))
+        self.index
+            .and_then(|index| self.entries.get(index))
+            .map(|entry| &entry.track)
     }
 
     pub(crate) fn remaining_count(&self) -> usize {
-        self.index
-            .map(|index| self.entries.len().saturating_sub(index + 1))
-            .unwrap_or(0)
+        self.upcoming_indices().count()
     }
 
     pub(crate) fn can_advance(&self) -> bool {
-        self.remaining_count() > 0
+        self.next_index().is_some()
     }
 
     pub(crate) fn advance(&mut self) -> Option<TrackRef> {
-        let next_index = self.index?.checked_add(1)?;
-        let next = self.entries.get(next_index)?.clone();
+        let next_index = self.next_index()?;
+        self.move_to_index(next_index, true)
+    }
+
+    pub(crate) fn advance_on_end(&mut self) -> Option<TrackRef> {
+        if self.repeat_mode == RepeatMode::One {
+            return self.current().cloned();
+        }
+        self.advance()
+    }
+
+    fn next_index(&self) -> Option<usize> {
+        let current = self.index?;
+        if current + 1 < self.entries.len() {
+            return Some(current + 1);
+        }
+        (self.repeat_mode == RepeatMode::All && !self.entries.is_empty()).then_some(0)
+    }
+
+    fn move_to_index(&mut self, next_index: usize, record_history: bool) -> Option<TrackRef> {
+        let current_index = self.index?;
+        let next = self.entries.get(next_index)?.track.clone();
+        if record_history && current_index != next_index {
+            self.history
+                .push(self.entries[current_index].original_position);
+        }
         self.index = Some(next_index);
         Some(next)
     }
 
-    fn upcoming_start(&self) -> usize {
-        match self.index {
-            Some(index) => index + 1,
-            None => self.entries.len(),
-        }
+    fn upcoming_indices(&self) -> impl Iterator<Item = usize> + '_ {
+        let index = self.index.unwrap_or(self.entries.len());
+        let start = index.saturating_add(1).min(self.entries.len());
+        let wrap_end = if self.repeat_mode == RepeatMode::All
+            && self.index.is_some()
+            && !self.entries.is_empty()
+        {
+            index
+        } else {
+            0
+        };
+        (start..self.entries.len()).chain(0..wrap_end)
     }
 
     /// Upcoming entries paired with their 1-based queue positions (row
     /// numbering continues past the current track).
     pub(crate) fn upcoming(&self) -> impl Iterator<Item = (usize, &TrackRef)> {
-        let start = self.upcoming_start().min(self.entries.len());
-        self.entries[start..]
-            .iter()
-            .enumerate()
-            .map(move |(offset, track)| (start + offset + 1, track))
+        self.upcoming_indices()
+            .map(|index| (index + 1, &self.entries[index].track))
     }
 
     /// Sum of the known upcoming durations; unknown durations contribute
@@ -146,8 +296,27 @@ impl QueueState {
     /// Moves the queue index to `index` and returns that entry to play.
     /// Nothing is dropped, so Previous still walks back over jumped entries.
     pub(crate) fn jump_to(&mut self, index: usize) -> Option<TrackRef> {
-        let track = self.entries.get(index)?.clone();
-        self.index = Some(index);
+        let current_index = self.index?;
+        let track = self.entries.get(index)?.track.clone();
+        if index == current_index {
+            return Some(track);
+        }
+        self.history
+            .push(self.entries[current_index].original_position);
+        if self.shuffle_enabled {
+            let current_position = self.entries[current_index].original_position;
+            let target = self.entries.remove(index);
+            let current_index = self
+                .entries
+                .iter()
+                .position(|entry| entry.original_position == current_position)?;
+            let target_index = current_index + 1;
+            self.entries.insert(target_index, target);
+            self.index = Some(target_index);
+        } else {
+            self.index = Some(index);
+        }
+        self.consecutive_failures = 0;
         Some(track)
     }
 
@@ -157,7 +326,8 @@ impl QueueState {
         if index >= self.entries.len() || Some(index) == self.index {
             return;
         }
-        self.entries.remove(index);
+        let removed = self.entries.remove(index).original_position;
+        self.history.retain(|position| *position != removed);
         if let Some(current) = self.index
             && index < current
         {
@@ -168,27 +338,99 @@ impl QueueState {
     /// Drops every upcoming entry; the current track and the entries behind
     /// it stay so Previous keeps working.
     pub(crate) fn clear_upcoming(&mut self) {
-        let start = self.upcoming_start();
-        self.entries.truncate(start);
+        let Some(current) = self.index else {
+            return;
+        };
+        if self.repeat_mode == RepeatMode::All {
+            let current = self.entries[current].clone();
+            self.entries = vec![current];
+            self.index = Some(0);
+            self.history.clear();
+            return;
+        }
+        self.entries.truncate(current + 1);
+        self.history.retain(|position| {
+            self.entries
+                .iter()
+                .any(|entry| entry.original_position == *position)
+        });
     }
 
     pub(crate) fn previous(&mut self, position_ms: u64) -> Option<PreviousAction> {
         let index = self.index?;
-        if position_ms > 3_000 || index == 0 {
+        if position_ms > 3_000 {
             return self.current().cloned().map(PreviousAction::Restart);
         }
-        let previous_index = index - 1;
-        let previous = self.entries.get(previous_index)?.clone();
+        if self.true_history {
+            while let Some(position) = self.history.pop() {
+                if let Some(previous_index) = self
+                    .entries
+                    .iter()
+                    .position(|entry| entry.original_position == position)
+                    && previous_index != index
+                {
+                    let previous = self.entries[previous_index].track.clone();
+                    self.index = Some(previous_index);
+                    return Some(PreviousAction::PlayPrevious(previous));
+                }
+            }
+            if self.repeat_mode != RepeatMode::All || self.entries.len() <= 1 {
+                return self.current().cloned().map(PreviousAction::Restart);
+            }
+        }
+        let previous_index = if index > 0 {
+            index - 1
+        } else if self.repeat_mode == RepeatMode::All && self.entries.len() > 1 {
+            self.entries.len() - 1
+        } else {
+            return self.current().cloned().map(PreviousAction::Restart);
+        };
+        let previous = self.entries.get(previous_index)?.track.clone();
+        let previous_position = self.entries[previous_index].original_position;
+        if self.history.last() == Some(&previous_position) {
+            self.history.pop();
+        } else {
+            self.history.clear();
+        }
         self.index = Some(previous_index);
         Some(PreviousAction::PlayPrevious(previous))
+    }
+
+    fn shuffle_upcoming(&mut self, rng: &mut fastrand::Rng) {
+        let Some(index) = self.index else {
+            return;
+        };
+        rng.shuffle(&mut self.entries[index + 1..]);
+    }
+
+    fn restore_upcoming_order(&mut self) {
+        let Some(index) = self.index else {
+            return;
+        };
+        self.entries[index + 1..].sort_by_key(|entry| entry.original_position);
     }
 
     #[cfg(test)]
     fn paths(&self) -> Vec<&str> {
         self.entries
             .iter()
-            .map(|entry| entry.path.to_str().unwrap())
+            .map(|entry| entry.track.path.to_str().unwrap())
             .collect()
+    }
+
+    #[cfg(test)]
+    fn set_shuffle_with_seed(&mut self, enabled: bool, seed: u64) {
+        self.set_shuffle_with_rng(enabled, &mut fastrand::Rng::with_seed(seed));
+    }
+
+    #[cfg(test)]
+    fn rebuild_with_seed(&mut self, tracks: &[Track], start_index: usize, seed: u64) {
+        self.rebuild_with_rng(tracks, start_index, &mut fastrand::Rng::with_seed(seed));
+    }
+
+    #[cfg(test)]
+    fn rebuild_shuffled_with_seed(&mut self, tracks: &[Track], seed: u64) {
+        self.rebuild_shuffled_with_rng(tracks, &mut fastrand::Rng::with_seed(seed));
     }
 }
 
@@ -326,6 +568,32 @@ mod tests {
     }
 
     #[test]
+    fn repeat_all_stops_after_one_lap_when_every_entry_fails() {
+        let tracks = [track(1, "first"), track(2, "second"), track(3, "third")];
+        let mut queue = QueueState::from_tracks(&tracks, 0);
+        queue.cycle_repeat();
+
+        assert_eq!(queue.skip_failed(), Some(TrackRef::from(&tracks[1])));
+        assert_eq!(queue.skip_failed(), Some(TrackRef::from(&tracks[2])));
+        assert!(queue.skip_failed().is_none());
+        assert_eq!(queue.skipped_count(), tracks.len());
+        assert!(queue.nothing_played());
+    }
+
+    #[test]
+    fn successful_playback_resets_the_repeat_all_failure_lap() {
+        let tracks = [track(1, "bad"), track(2, "good")];
+        let mut queue = QueueState::from_tracks(&tracks, 0);
+        queue.cycle_repeat();
+
+        assert_eq!(queue.skip_failed(), Some(TrackRef::from(&tracks[1])));
+        queue.mark_started();
+        assert_eq!(queue.advance(), Some(TrackRef::from(&tracks[0])));
+        assert_eq!(queue.skip_failed(), Some(TrackRef::from(&tracks[1])));
+        assert!(!queue.nothing_played());
+    }
+
+    #[test]
     fn a_fresh_queue_with_no_failures_is_not_poisoned() {
         let queue = QueueState::from_tracks(&[track(1, "only")], 0);
         assert!(!queue.nothing_played());
@@ -441,6 +709,232 @@ mod tests {
             Some(PreviousAction::PlayPrevious(TrackRef::from(&tracks[0]))),
             "history stays for Previous"
         );
+    }
+
+    #[test]
+    fn shuffle_keeps_current_stable_and_contains_every_upcoming_entry_once() {
+        let tracks = [
+            track(1, "current"),
+            track(2, "second"),
+            track(3, "third"),
+            track(4, "fourth"),
+            track(5, "fifth"),
+        ];
+        let mut queue = QueueState::from_tracks(&tracks, 0);
+
+        queue.set_shuffle_with_seed(true, 7);
+
+        assert_eq!(queue.current().unwrap().title, "current");
+        let mut shuffled = queue
+            .upcoming()
+            .map(|(_, track)| track.title.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(shuffled.len(), 4);
+        shuffled.sort();
+        assert_eq!(shuffled, ["fifth", "fourth", "second", "third"]);
+    }
+
+    #[test]
+    fn collection_shuffle_randomizes_the_opener_and_includes_every_track_once() {
+        let tracks = [
+            track(1, "first"),
+            track(2, "second"),
+            track(3, "third"),
+            track(4, "fourth"),
+        ];
+        let mut queue = QueueState::default();
+
+        queue.rebuild_shuffled_with_seed(&tracks, 7);
+
+        assert!(queue.shuffle_enabled());
+        assert_ne!(queue.current().unwrap().title, "first");
+        let mut queued = std::iter::once(queue.current().unwrap().title.as_str())
+            .chain(queue.upcoming().map(|(_, track)| track.title.as_str()))
+            .collect::<Vec<_>>();
+        queued.sort_unstable();
+        assert_eq!(queued, ["first", "fourth", "second", "third"]);
+    }
+
+    #[test]
+    fn previous_walks_true_play_history_through_shuffle() {
+        let tracks = [
+            track(1, "first"),
+            track(2, "second"),
+            track(3, "third"),
+            track(4, "fourth"),
+        ];
+        let mut queue = QueueState::from_tracks(&tracks, 0);
+        queue.set_shuffle_with_seed(true, 11);
+        let first_shuffled = queue.advance().unwrap();
+        let second_shuffled = queue.advance().unwrap();
+
+        assert_eq!(
+            queue.previous(0),
+            Some(PreviousAction::PlayPrevious(first_shuffled.clone()))
+        );
+        assert_eq!(queue.current(), Some(&first_shuffled));
+        assert_eq!(
+            queue.previous(0),
+            Some(PreviousAction::PlayPrevious(TrackRef::from(&tracks[0])))
+        );
+        assert_ne!(first_shuffled, second_shuffled);
+    }
+
+    #[test]
+    fn disabling_shuffle_restores_original_order_after_the_current_track() {
+        let tracks = [
+            track(1, "first"),
+            track(2, "second"),
+            track(3, "third"),
+            track(4, "fourth"),
+            track(5, "fifth"),
+        ];
+        let mut queue = QueueState::from_tracks(&tracks, 0);
+        queue.set_shuffle_with_seed(true, 3);
+        let current = queue.advance().unwrap();
+
+        queue.set_shuffle_with_seed(false, 0);
+
+        assert_eq!(queue.current(), Some(&current));
+        let restored = queue
+            .upcoming()
+            .map(|(_, track)| track.title.as_str())
+            .collect::<Vec<_>>();
+        let expected = tracks
+            .iter()
+            .skip(1)
+            .filter(|track| track.id != current.id)
+            .map(|track| track.title.as_deref().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(restored, expected);
+    }
+
+    #[test]
+    fn repeat_one_replays_natural_end_while_manual_next_advances() {
+        let tracks = [track(1, "first"), track(2, "second")];
+        let mut queue = QueueState::from_tracks(&tracks, 0);
+        queue.cycle_repeat();
+        queue.cycle_repeat();
+        assert_eq!(queue.repeat_mode(), RepeatMode::One);
+
+        assert_eq!(queue.advance_on_end(), Some(TrackRef::from(&tracks[0])));
+        assert_eq!(queue.current().unwrap().title, "first");
+        assert_eq!(queue.advance(), Some(TrackRef::from(&tracks[1])));
+    }
+
+    #[test]
+    fn repeat_all_wraps_next_previous_and_the_upcoming_view() {
+        let tracks = [track(1, "first"), track(2, "second"), track(3, "third")];
+        let mut queue = QueueState::from_tracks(&tracks, 2);
+        queue.cycle_repeat();
+
+        assert_eq!(queue.advance(), Some(TrackRef::from(&tracks[0])));
+        assert_eq!(
+            queue.previous(0),
+            Some(PreviousAction::PlayPrevious(TrackRef::from(&tracks[2])))
+        );
+        assert_eq!(
+            queue
+                .upcoming()
+                .map(|(_, track)| track.title.as_str())
+                .collect::<Vec<_>>(),
+            ["first", "second"]
+        );
+
+        let mut from_first = QueueState::from_tracks(&tracks, 0);
+        from_first.cycle_repeat();
+        assert_eq!(
+            from_first.previous(0),
+            Some(PreviousAction::PlayPrevious(TrackRef::from(&tracks[2])))
+        );
+    }
+
+    #[test]
+    fn rebuilding_a_shuffled_queue_keeps_modes_and_uses_only_the_new_selection() {
+        let old_tracks = [track(1, "old-1"), track(2, "old-2")];
+        let new_tracks = [
+            track(3, "new-1"),
+            track(4, "new-current"),
+            track(5, "new-3"),
+            track(6, "new-4"),
+        ];
+        let mut queue = QueueState::from_tracks(&old_tracks, 0);
+        queue.set_shuffle_with_seed(true, 5);
+        let _ = queue.advance();
+
+        queue.rebuild_with_seed(&new_tracks, 1, 13);
+
+        assert!(queue.shuffle_enabled());
+        assert_eq!(queue.current().unwrap().title, "new-current");
+        assert!(queue.paths().iter().all(|path| path.contains("new-")));
+        let mut upcoming = queue
+            .upcoming()
+            .map(|(_, track)| track.title.as_str())
+            .collect::<Vec<_>>();
+        upcoming.sort_unstable();
+        assert_eq!(upcoming, ["new-1", "new-3", "new-4"]);
+        assert_eq!(
+            queue.previous(0),
+            Some(PreviousAction::Restart(TrackRef::from(&new_tracks[1])))
+        );
+    }
+
+    #[test]
+    fn off_mode_rebuild_keeps_the_supplied_order_exactly() {
+        let first = [track(1, "first"), track(2, "second")];
+        let second = [track(3, "third"), track(4, "fourth"), track(5, "fifth")];
+        let mut queue = QueueState::from_tracks(&first, 0);
+
+        queue.rebuild(&second, 1);
+
+        assert!(!queue.shuffle_enabled());
+        assert_eq!(
+            queue.paths(),
+            ["/third.flac", "/fourth.flac", "/fifth.flac"]
+        );
+        assert_eq!(queue.current().unwrap().title, "fourth");
+    }
+
+    #[test]
+    fn remove_jump_and_clear_stay_coherent_while_shuffled() {
+        let tracks = [
+            track(1, "current"),
+            track(2, "second"),
+            track(3, "third"),
+            track(4, "fourth"),
+            track(5, "fifth"),
+        ];
+        let mut queue = QueueState::from_tracks(&tracks, 0);
+        queue.set_shuffle_with_seed(true, 17);
+        let removed_position = queue.upcoming().next().unwrap().0;
+        let removed_title = queue.entries[removed_position - 1].track.title.clone();
+
+        queue.remove_at(removed_position - 1);
+        assert_eq!(queue.remaining_count(), 3);
+        assert!(
+            queue
+                .paths()
+                .iter()
+                .all(|path| !path.contains(&removed_title))
+        );
+
+        let (jump_position, jump_track) = queue
+            .upcoming()
+            .next()
+            .map(|(position, track)| (position, track.clone()))
+            .unwrap();
+        assert_eq!(queue.jump_to(jump_position - 1), Some(jump_track.clone()));
+        assert_eq!(queue.current(), Some(&jump_track));
+        assert_eq!(
+            queue.previous(0),
+            Some(PreviousAction::PlayPrevious(TrackRef::from(&tracks[0])))
+        );
+
+        let _ = queue.advance();
+        let current = queue.current().cloned().unwrap();
+        queue.clear_upcoming();
+        assert_eq!(queue.remaining_count(), 0);
+        assert_eq!(queue.current(), Some(&current));
     }
 
     #[test]
