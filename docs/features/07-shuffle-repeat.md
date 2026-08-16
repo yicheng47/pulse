@@ -6,9 +6,13 @@
 
 Visible playback controls should have honest behavior. The queue already provides deterministic next, previous, jump, remove, and clear operations; shuffle and repeat are the remaining transport modes needed to make the existing affordances real.
 
+## Design source
+
+`design/pulse-desktop.pen`, read via the `pencil` MCP only: **`Spec — Shuffle & Repeat States`** (`GCs9J`). Fixed there: shuffle toggles between `shuffle` in `$text-secondary` (off) and `$accent` (on); repeat cycles OFF → ALL → ONE → OFF rendering `repeat-2` muted, `repeat-2` accent, and `repeat-1` accent respectively (glyphs at the transport's existing 19px). Semantics: shuffle randomizes only the upcoming order, keeps the current track stable, Previous walks true play history, and toggling off restores the original order; repeat ALL wraps the queue at both ends; repeat ONE loops the current track on natural end while manual Next still advances; album/playlist Shuffle actions start playback over that collection with shuffle ON; modes are per launch, never persisted.
+
 ## Scope
 
-- Design the inactive and active states for playback-bar Shuffle and Repeat, plus enabled album and playlist Shuffle actions, in Pencil before implementation.
+- ~~Design the inactive and active states~~ Done — see Design source.
 - Add queue-level shuffle behavior that keeps the current track stable and preserves coherent Previous history.
 - Add repeat modes with explicit queue-end behavior and a visible active state.
 - Make Album Shuffle and Playlist Shuffle start playback from a shuffled version of the selected collection.
