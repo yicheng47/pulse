@@ -26,6 +26,8 @@ libc = "0.2"
 lofty = "0.24"
 rusqlite = { version = "0.40", default-features = false, features = ["bundled", "functions"] }
 unicode-normalization = "0.1"
+unicode-segmentation = "1"
+fastrand = "2"
 
 gpui = { git = "https://github.com/gpui-ce/gpui-ce", rev = "6c799b8e99" }
 # `font-kit` is off by default in gpui_platform, and without it MacPlatform

@@ -553,7 +553,7 @@ impl LibraryView {
             .rename_draft
             .as_ref()
             .filter(|draft| draft.root_id == root_id)
-            .map(|draft| draft.display_name.clone());
+            .is_some();
 
         div()
             .flex()
@@ -639,9 +639,7 @@ impl LibraryView {
                             ),
                     ),
             )
-            .when_some(rename, |panel, value| {
-                panel.child(self.render_rename_form(value, cx))
-            })
+            .when(rename, |panel| panel.child(self.render_rename_form(cx)))
             .when_some(progress, |panel, progress| {
                 panel.child(render_scan_progress(progress))
             })
@@ -685,7 +683,7 @@ impl LibraryView {
             .into_any_element()
     }
 
-    fn render_rename_form(&self, value: String, cx: &mut Context<Self>) -> AnyElement {
+    fn render_rename_form(&self, cx: &mut Context<Self>) -> AnyElement {
         div()
             .flex()
             .flex_col()
@@ -694,7 +692,7 @@ impl LibraryView {
             .pt(px(14.))
             .child(super::render_text_input(
                 "rename-storage-input",
-                value,
+                &self.text_input,
                 &self.input_focus,
                 cx,
             ))
@@ -910,7 +908,7 @@ impl LibraryView {
         match self.modal.as_ref().expect("modal exists") {
             Modal::AddStorage(draft) => self.render_add_storage_modal(
                 draft.path.as_ref().map(|path| path.display().to_string()),
-                draft.display_name.clone(),
+                self.text_input.text().to_string(),
                 draft.scan_now,
                 cx,
             ),
@@ -918,9 +916,7 @@ impl LibraryView {
                 root_id,
                 display_name,
             } => self.render_remove_storage_modal(*root_id, display_name.clone(), cx),
-            Modal::PlaylistName { mode, name } => {
-                self.render_playlist_name_modal(*mode, name.clone(), cx)
-            }
+            Modal::PlaylistName { mode } => self.render_playlist_name_modal(*mode, cx),
             Modal::DeleteAlbum { album } => self.render_delete_album_modal(album.clone(), cx),
             Modal::DeletePlaylist {
                 playlist_id,
@@ -1024,7 +1020,7 @@ impl LibraryView {
                         .child(render_field_label("DISPLAY NAME"))
                         .child(super::render_text_input(
                             "storage-display-name",
-                            display_name,
+                            &self.text_input,
                             &self.input_focus,
                             cx,
                         ))

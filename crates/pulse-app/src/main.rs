@@ -8,6 +8,7 @@ mod preferences;
 mod queue;
 mod settings;
 mod shell;
+mod text_input;
 mod theme;
 mod update;
 

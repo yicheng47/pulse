@@ -16,7 +16,9 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 unicode-normalization.workspace = true
+unicode-segmentation.workspace = true
 ureq.workspace = true
+fastrand.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2.workspace = true

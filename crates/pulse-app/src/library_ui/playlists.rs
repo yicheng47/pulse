@@ -357,6 +357,7 @@ impl LibraryView {
                             )
                             .child(
                                 div()
+                                    .id("shuffle-playlist")
                                     .flex()
                                     .items_center()
                                     .justify_center()
@@ -365,7 +366,14 @@ impl LibraryView {
                                     .border_1()
                                     .border_color(theme::border())
                                     .bg(theme::bg_muted())
-                                    .opacity(0.45)
+                                    .opacity(if entries.is_empty() { 0.45 } else { 1.0 })
+                                    .when(!entries.is_empty(), |button| {
+                                        button.cursor_pointer().on_click(cx.listener(
+                                            |this, _, _, cx| {
+                                                this.shuffle_playlist(cx);
+                                            },
+                                        ))
+                                    })
                                     .child(
                                         svg()
                                             .path("icons/shuffle.svg")
@@ -579,7 +587,6 @@ impl LibraryView {
     pub(super) fn render_playlist_name_modal(
         &self,
         mode: PlaylistNameMode,
-        name: String,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let (title, confirm) = match mode {
@@ -606,7 +613,7 @@ impl LibraryView {
                         .child(super::storage::render_field_label("NAME"))
                         .child(super::render_text_input(
                             "playlist-name-input",
-                            name,
+                            &self.text_input,
                             &self.input_focus,
                             cx,
                         ))

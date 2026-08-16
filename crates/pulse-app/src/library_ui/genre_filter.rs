@@ -1,6 +1,6 @@
 use gpui::{
-    AnyElement, Context, FontWeight, IntoElement, MouseButton, MouseDownEvent,
-    StatefulInteractiveElement, deferred, div, prelude::*, px, svg,
+    AnyElement, Context, ElementInputHandler, FontWeight, IntoElement, MouseButton, MouseDownEvent,
+    StatefulInteractiveElement, canvas, deferred, div, prelude::*, px, svg,
 };
 
 use super::{LibraryView, selected_genre};
@@ -47,7 +47,7 @@ impl LibraryView {
                 }
                 this.artist_popover_open = false;
                 this.genre_popover_open = true;
-                this.genre_search.clear();
+                this.text_input.reset("");
                 window.focus(&this.input_focus, cx);
                 cx.notify();
             }))
@@ -213,14 +213,11 @@ impl LibraryView {
     }
 
     fn render_genre_search_input(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let empty = self.genre_search.is_empty();
-        let value = if empty {
-            "Search genres".to_string()
-        } else {
-            self.genre_search.clone()
-        };
+        let empty = self.text_input.text().is_empty();
+        let input_entity = cx.entity();
         div()
             .id("genre-search-input")
+            .relative()
             .flex()
             .items_center()
             .gap(px(8.))
@@ -254,9 +251,30 @@ impl LibraryView {
                     } else {
                         theme::text_primary()
                     })
-                    .child(value),
+                    .when(empty, |text| text.child("Search genres"))
+                    .when(!empty, |text| {
+                        text.child(crate::text_input::render_text(&self.text_input, true))
+                    }),
             )
-            .child(crate::components::input_caret())
+            .when(empty, |input| input.child(crate::components::input_caret()))
+            .child(
+                canvas(
+                    |_, _, _| {},
+                    move |bounds, _, window, cx| {
+                        let focus = input_entity.read(cx).input_focus.clone();
+                        window.handle_input(
+                            &focus,
+                            ElementInputHandler::new(bounds, input_entity.clone()),
+                            cx,
+                        );
+                    },
+                )
+                .absolute()
+                .top_0()
+                .right_0()
+                .bottom_0()
+                .left_0(),
+            )
     }
 
     fn active_genre_filter(&self) -> Option<&str> {

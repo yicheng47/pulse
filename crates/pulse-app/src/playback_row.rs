@@ -21,7 +21,7 @@ use crate::{
     components,
     library::{Track, TrackId},
     preferences,
-    queue::{PreviousAction, QueueState, TrackRef},
+    queue::{PreviousAction, QueueState, RepeatMode, TrackRef},
     theme,
 };
 
@@ -521,7 +521,21 @@ impl PlaybackRow {
         start_index: usize,
         cx: &mut Context<Self>,
     ) {
-        self.queue = QueueState::from_tracks(tracks, start_index);
+        self.queue.rebuild(tracks, start_index);
+        self.notice = None;
+        self.retry = None;
+        let Some(track) = self.queue.current().cloned() else {
+            return;
+        };
+        self.play_queue_track(track, cx);
+    }
+
+    pub(crate) fn play_library_tracks_shuffled(
+        &mut self,
+        tracks: &[Track],
+        cx: &mut Context<Self>,
+    ) {
+        self.queue.rebuild_shuffled(tracks);
         self.notice = None;
         self.retry = None;
         let Some(track) = self.queue.current().cloned() else {
@@ -536,7 +550,8 @@ impl PlaybackRow {
         start_index: usize,
         cx: &mut Context<Self>,
     ) {
-        let queue = QueueState::from_tracks(tracks, start_index);
+        let mut queue = self.queue.clone();
+        queue.rebuild(tracks, start_index);
         let Some(track) = queue.current().cloned() else {
             return;
         };
@@ -572,7 +587,7 @@ impl PlaybackRow {
         self.retry = None;
         self.pending_seek_ms = None;
         self.cover_art_path = None;
-        self.queue = QueueState::default();
+        self.queue.clear();
         self.play_file(path.clone(), cx);
     }
 
@@ -627,6 +642,16 @@ impl PlaybackRow {
         if let Some(track) = self.queue.advance() {
             self.play_queue_track(track, cx);
         }
+    }
+
+    fn toggle_shuffle(&mut self, cx: &mut Context<Self>) {
+        self.queue.toggle_shuffle();
+        cx.notify();
+    }
+
+    fn cycle_repeat(&mut self, cx: &mut Context<Self>) {
+        self.queue.cycle_repeat();
+        cx.notify();
     }
 
     fn previous_track(&mut self, cx: &mut Context<Self>) {
@@ -994,7 +1019,7 @@ impl PlaybackRow {
                 if let Some(duration_ms) = self.duration_ms {
                     self.position_ms = duration_ms;
                 }
-                return self.queue.advance();
+                return self.queue.advance_on_end();
             }
             PlaybackEvent::CommandRejected { command, state } => {
                 self.error = Some(format!(
@@ -1499,6 +1524,13 @@ impl PlaybackRow {
         } else {
             "icons/play.svg"
         };
+        let shuffle_enabled = self.queue.shuffle_enabled();
+        let repeat_mode = self.queue.repeat_mode();
+        let repeat_icon = if repeat_mode == RepeatMode::One {
+            "icons/repeat-1.svg"
+        } else {
+            "icons/repeat-2.svg"
+        };
 
         div()
             .flex()
@@ -1528,7 +1560,23 @@ impl PlaybackRow {
                     .items_center()
                     .justify_center()
                     .gap(px(16.))
-                    .child(transport_icon("icons/shuffle.svg"))
+                    .child(
+                        div()
+                            .id("playback-shuffle")
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .size(px(19.))
+                            .cursor_pointer()
+                            .on_click(cx.listener(|this, _, _, cx| this.toggle_shuffle(cx)))
+                            .child(svg().path("icons/shuffle.svg").size(px(19.)).text_color(
+                                if shuffle_enabled {
+                                    theme::accent()
+                                } else {
+                                    theme::text_secondary()
+                                },
+                            )),
+                    )
                     .child(
                         div()
                             .id("playback-previous")
@@ -1589,7 +1637,23 @@ impl PlaybackRow {
                                     .text_color(theme::text_secondary()),
                             ),
                     )
-                    .child(transport_icon("icons/repeat-2.svg")),
+                    .child(
+                        div()
+                            .id("playback-repeat")
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .size(px(19.))
+                            .cursor_pointer()
+                            .on_click(cx.listener(|this, _, _, cx| this.cycle_repeat(cx)))
+                            .child(svg().path(repeat_icon).size(px(19.)).text_color(
+                                if repeat_mode == RepeatMode::Off {
+                                    theme::text_secondary()
+                                } else {
+                                    theme::accent()
+                                },
+                            )),
+                    ),
             )
             .child(
                 div().flex().items_center().w(px(44.)).flex_none().child(
@@ -2724,20 +2788,6 @@ fn format_device_capabilities(capabilities: device::OutputDeviceCapabilities) ->
         Some(bits) => format!("Up to {bits}-bit / {sample_rate}"),
         None => format!("Up to {sample_rate}"),
     }
-}
-
-fn transport_icon(path: &'static str) -> impl IntoElement {
-    div()
-        .flex()
-        .items_center()
-        .justify_center()
-        .size(px(19.))
-        .child(
-            svg()
-                .path(path)
-                .size(px(19.))
-                .text_color(theme::text_secondary()),
-        )
 }
 
 fn is_supported_audio(path: &Path) -> bool {

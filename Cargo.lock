@@ -4503,6 +4503,7 @@ name = "pulse-app"
 version = "0.1.2"
 dependencies = [
  "dirs 6.0.0",
+ "fastrand 2.5.0",
  "gpui",
  "gpui_platform",
  "libc",
@@ -4517,6 +4518,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "unicode-normalization",
+ "unicode-segmentation",
  "ureq",
 ]
 

@@ -574,6 +574,7 @@ impl LibraryView {
                                     )
                                     .child(
                                         div()
+                                            .id("shuffle-album")
                                             .flex()
                                             .items_center()
                                             .gap(px(8.))
@@ -583,7 +584,14 @@ impl LibraryView {
                                             .border_1()
                                             .border_color(theme::border())
                                             .bg(theme::bg_muted())
-                                            .opacity(0.5)
+                                            .opacity(if has_tracks { 1.0 } else { 0.45 })
+                                            .when(has_tracks, |button| {
+                                                button.cursor_pointer().on_click(cx.listener(
+                                                    |this, _, _, cx| {
+                                                        this.shuffle_album(cx);
+                                                    },
+                                                ))
+                                            })
                                             .child(
                                                 svg()
                                                     .path("icons/shuffle.svg")
