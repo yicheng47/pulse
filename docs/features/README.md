@@ -6,6 +6,7 @@ Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phase
 
 ## Active
 
+- [`20-now-playing-page.md`](20-now-playing-page.md) - P2, issue #56. Click the playback row's track cluster to open an immersive now-playing view: full-size album art, track identity, quality badge; playback row stays as the transport. Lyrics land here later.
 - [`19-mcp-server.md`](19-mcp-server.md) - P2, issue #55. `pulse mcp` stdio server on the app binary, Quill-style: library reads always on; playlist CRUD and rescan behind a Settings write gate; WAL for cross-process safety.
 - [`17-playback-dropout-reporting.md`](17-playback-dropout-reporting.md) - P2, issue #50. Read side for the callback's write-only underrun counter: dropout events through the controller, startup-priming excluded, surfaced in the app.
 - [`16-gapless-playback.md`](16-gapless-playback.md) - P1, issue #46. Keep the AUHAL sink and ring alive across same-format track transitions via controller next-track lookahead, flipping NowPlaying at the audible boundary; format changes keep the rebuild path.
