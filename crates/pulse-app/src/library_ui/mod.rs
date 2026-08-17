@@ -873,19 +873,6 @@ impl LibraryView {
         }
     }
 
-    fn shuffle_album(&mut self, cx: &mut Context<Self>) {
-        let Some(detail) = &self.album_detail else {
-            return;
-        };
-        if detail.tracks.is_empty() {
-            return;
-        }
-        let tracks = detail.tracks.clone();
-        self.row.update(cx, |row, cx| {
-            row.play_library_tracks_shuffled(&tracks, cx);
-        });
-    }
-
     fn play_playlist(&mut self, cx: &mut Context<Self>) {
         let Some(detail) = &self.playlist_detail else {
             return;

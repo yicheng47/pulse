@@ -20341,7 +20341,7 @@
                               "name": "Copy",
                               "width": "fill_container",
                               "layout": "vertical",
-                              "gap": 8,
+                              "gap": 6,
                               "children": [
                                 {
                                   "type": "text",
@@ -20360,6 +20360,7 @@
                                   "name": "Title",
                                   "fill": "$text-primary",
                                   "content": "Blonde",
+                                  "lineHeight": 1.1,
                                   "fontFamily": "$font-display",
                                   "fontSize": 38,
                                   "fontWeight": "700"
@@ -20461,6 +20462,12 @@
                                   "id": "S8Eaxe",
                                   "name": "Actions",
                                   "gap": 10,
+                                  "padding": [
+                                    10,
+                                    0,
+                                    0,
+                                    0
+                                  ],
                                   "alignItems": "center",
                                   "children": [
                                     {
@@ -20492,44 +20499,6 @@
                                           "name": "Label",
                                           "fill": "$bg-inset",
                                           "content": "Play Album",
-                                          "fontFamily": "$font-display",
-                                          "fontSize": 14,
-                                          "fontWeight": "700"
-                                        }
-                                      ]
-                                    },
-                                    {
-                                      "type": "frame",
-                                      "id": "WDhF2",
-                                      "name": "Shuffle",
-                                      "fill": "$bg-muted",
-                                      "cornerRadius": "$radius-md",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "strokeAlignment": "inner",
-                                      "gap": 8,
-                                      "padding": [
-                                        9,
-                                        14
-                                      ],
-                                      "alignItems": "center",
-                                      "children": [
-                                        {
-                                          "type": "icon",
-                                          "id": "FTRz5",
-                                          "name": "Icon",
-                                          "width": 15,
-                                          "height": 15,
-                                          "icon": "shuffle",
-                                          "library": "lucide",
-                                          "fill": "$text-secondary"
-                                        },
-                                        {
-                                          "type": "text",
-                                          "id": "FuQv9",
-                                          "name": "Label",
-                                          "fill": "$text-primary",
-                                          "content": "Shuffle",
                                           "fontFamily": "$font-display",
                                           "fontSize": 14,
                                           "fontWeight": "700"
@@ -45185,7 +45154,7 @@
                               "name": "Copy",
                               "width": "fill_container",
                               "layout": "vertical",
-                              "gap": 8,
+                              "gap": 6,
                               "children": [
                                 {
                                   "type": "text",
@@ -45204,6 +45173,7 @@
                                   "name": "Title",
                                   "fill": "$text-primary",
                                   "content": "Blonde",
+                                  "lineHeight": 1.1,
                                   "fontFamily": "$font-display",
                                   "fontSize": 38,
                                   "fontWeight": "700"
@@ -45305,6 +45275,12 @@
                                   "id": "sDcrJ",
                                   "name": "Actions",
                                   "gap": 10,
+                                  "padding": [
+                                    10,
+                                    0,
+                                    0,
+                                    0
+                                  ],
                                   "alignItems": "center",
                                   "children": [
                                     {
@@ -45336,44 +45312,6 @@
                                           "name": "Label",
                                           "fill": "$bg-inset",
                                           "content": "Play Album",
-                                          "fontFamily": "$font-display",
-                                          "fontSize": 14,
-                                          "fontWeight": "700"
-                                        }
-                                      ]
-                                    },
-                                    {
-                                      "type": "frame",
-                                      "id": "USDgV",
-                                      "name": "Shuffle",
-                                      "fill": "$bg-muted",
-                                      "cornerRadius": "$radius-md",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "strokeAlignment": "inner",
-                                      "gap": 8,
-                                      "padding": [
-                                        9,
-                                        14
-                                      ],
-                                      "alignItems": "center",
-                                      "children": [
-                                        {
-                                          "type": "icon",
-                                          "id": "jkhbc",
-                                          "name": "Icon",
-                                          "width": 15,
-                                          "height": 15,
-                                          "icon": "shuffle",
-                                          "library": "lucide",
-                                          "fill": "$text-secondary"
-                                        },
-                                        {
-                                          "type": "text",
-                                          "id": "C0GP4y",
-                                          "name": "Label",
-                                          "fill": "$text-primary",
-                                          "content": "Shuffle",
                                           "fontFamily": "$font-display",
                                           "fontSize": 14,
                                           "fontWeight": "700"
@@ -46978,7 +46916,7 @@
                               "name": "Copy",
                               "width": "fill_container",
                               "layout": "vertical",
-                              "gap": 8,
+                              "gap": 6,
                               "children": [
                                 {
                                   "type": "text",
@@ -46997,6 +46935,7 @@
                                   "name": "Title",
                                   "fill": "$text-primary",
                                   "content": "Blonde",
+                                  "lineHeight": 1.1,
                                   "fontFamily": "$font-display",
                                   "fontSize": 38,
                                   "fontWeight": "700"
@@ -47098,6 +47037,12 @@
                                   "id": "z3vqdb",
                                   "name": "Actions",
                                   "gap": 10,
+                                  "padding": [
+                                    10,
+                                    0,
+                                    0,
+                                    0
+                                  ],
                                   "alignItems": "center",
                                   "children": [
                                     {
@@ -47129,44 +47074,6 @@
                                           "name": "Label",
                                           "fill": "$bg-inset",
                                           "content": "Play Album",
-                                          "fontFamily": "$font-display",
-                                          "fontSize": 14,
-                                          "fontWeight": "700"
-                                        }
-                                      ]
-                                    },
-                                    {
-                                      "type": "frame",
-                                      "id": "WbILj",
-                                      "name": "Shuffle",
-                                      "fill": "$bg-muted",
-                                      "cornerRadius": "$radius-md",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "strokeAlignment": "inner",
-                                      "gap": 8,
-                                      "padding": [
-                                        9,
-                                        14
-                                      ],
-                                      "alignItems": "center",
-                                      "children": [
-                                        {
-                                          "type": "icon",
-                                          "id": "w0SLYk",
-                                          "name": "Icon",
-                                          "width": 15,
-                                          "height": 15,
-                                          "icon": "shuffle",
-                                          "library": "lucide",
-                                          "fill": "$text-secondary"
-                                        },
-                                        {
-                                          "type": "text",
-                                          "id": "PrLnv",
-                                          "name": "Label",
-                                          "fill": "$text-primary",
-                                          "content": "Shuffle",
                                           "fontFamily": "$font-display",
                                           "fontSize": 14,
                                           "fontWeight": "700"

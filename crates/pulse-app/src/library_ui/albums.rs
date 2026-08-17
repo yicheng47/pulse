@@ -465,7 +465,7 @@ impl LibraryView {
                             .flex_col()
                             .flex_1()
                             .min_w_0()
-                            .gap(px(8.))
+                            .gap(px(6.))
                             .child(
                                 div()
                                     .font_family(theme::FONT_MONO)
@@ -481,6 +481,7 @@ impl LibraryView {
                                     .font_family(theme::FONT_DISPLAY)
                                     .font_weight(FontWeight::BOLD)
                                     .text_size(px(38.))
+                                    .line_height(px(42.))
                                     .text_color(theme::text_primary())
                                     .child(album.title.clone()),
                             )
@@ -539,6 +540,7 @@ impl LibraryView {
                                     .flex()
                                     .items_center()
                                     .gap(px(10.))
+                                    .mt(px(10.))
                                     .child(
                                         div()
                                             .id("play-album")
@@ -570,41 +572,6 @@ impl LibraryView {
                                                     .text_size(px(14.))
                                                     .text_color(theme::bg_inset())
                                                     .child("Play Album"),
-                                            ),
-                                    )
-                                    .child(
-                                        div()
-                                            .id("shuffle-album")
-                                            .flex()
-                                            .items_center()
-                                            .gap(px(8.))
-                                            .h(px(36.))
-                                            .px(px(14.))
-                                            .rounded(px(theme::RADIUS_MD))
-                                            .border_1()
-                                            .border_color(theme::border())
-                                            .bg(theme::bg_muted())
-                                            .opacity(if has_tracks { 1.0 } else { 0.45 })
-                                            .when(has_tracks, |button| {
-                                                button.cursor_pointer().on_click(cx.listener(
-                                                    |this, _, _, cx| {
-                                                        this.shuffle_album(cx);
-                                                    },
-                                                ))
-                                            })
-                                            .child(
-                                                svg()
-                                                    .path("icons/shuffle.svg")
-                                                    .size(px(15.))
-                                                    .text_color(theme::text_secondary()),
-                                            )
-                                            .child(
-                                                div()
-                                                    .font_family(theme::FONT_DISPLAY)
-                                                    .font_weight(FontWeight::SEMIBOLD)
-                                                    .text_size(px(14.))
-                                                    .text_color(theme::text_secondary())
-                                                    .child("Shuffle"),
                                             ),
                                     )
                                     .child(
