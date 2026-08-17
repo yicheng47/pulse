@@ -20,7 +20,8 @@ impl From<&EngineError> for PlaybackErrorKind {
             EngineError::Os { .. }
             | EngineError::NoOutputDevice
             | EngineError::NoOutputCapabilities(_)
-            | EngineError::NoMatchingFormat(_)
+            | EngineError::UnsupportedNominalSampleRate(_)
+            | EngineError::NoMatchingPhysicalFormat(_)
             | EngineError::Timeout(_)
             | EngineError::AudioUnit(_) => Self::Device { hog_pid: None },
         }
@@ -39,6 +40,10 @@ pub enum PlaybackEvent {
         duration_ms: Option<u64>,
     },
     OutputDeviceChanged {
+        device_id: crate::device::DeviceId,
+        exclusive_mode: bool,
+    },
+    ExclusiveModeFallback {
         device_id: crate::device::DeviceId,
     },
     Ended {

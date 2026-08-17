@@ -35,6 +35,9 @@ struct PendingDeviceChange {
     device: device::Device,
     persist: bool,
     success_message: Option<DeviceMessage>,
+    capabilities: Result<device::OutputDeviceCapabilities, EngineError>,
+    default_exclusive_mode: bool,
+    exclusive_mode: bool,
 }
 
 #[derive(Clone)]
@@ -49,6 +52,7 @@ struct DeviceMessage {
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum PlaybackNotice {
     Skip { text: String },
+    ExclusiveFallback { text: String },
     Stopped { text: String },
     DeviceFailure { text: String },
 }
@@ -125,7 +129,10 @@ pub struct PlaybackRow {
     device_capability_message: Option<DeviceMessage>,
     pending_device_change: Option<PendingDeviceChange>,
     device_message: Option<DeviceMessage>,
+    exclusive_mode_preferences: preferences::ExclusiveModePreferences,
+    default_exclusive_mode: bool,
     exclusive_mode: bool,
+    playback_exclusive_mode: bool,
     volume_level: f32,
     volume_muted: bool,
     surface: PlaybackSurface,
@@ -165,7 +172,6 @@ impl PlaybackRow {
         let mut row = Self::initial();
         row.volume_popover_focus = Some(cx.focus_handle());
         row.queue_popover_focus = Some(cx.focus_handle());
-        row.exclusive_mode = preferences::load_exclusive_mode().unwrap_or(true);
         row.volume_level = preferences::load_volume_level().unwrap_or_else(|error| {
             eprintln!("Could not load the volume level preference: {error}");
             1.0
@@ -216,7 +222,10 @@ impl PlaybackRow {
             device_capability_message: None,
             pending_device_change: None,
             device_message: None,
+            exclusive_mode_preferences: preferences::ExclusiveModePreferences::default(),
+            default_exclusive_mode: true,
             exclusive_mode: true,
+            playback_exclusive_mode: true,
             volume_level: 1.0,
             volume_muted: false,
             surface: PlaybackSurface::Transport,
@@ -283,26 +292,33 @@ impl PlaybackRow {
                 None
             }
         };
-        let (active_device, saved_device_missing) =
+        let active_device =
             resolve_output_device(&devices, &system_default, preferred_uid.as_deref());
 
         self.devices = devices;
         self.active_device = Some(active_device.clone());
-        if saved_device_missing {
+        self.exclusive_mode_preferences = preferences::load_exclusive_mode_preferences(
+            &active_device.uid,
+        )
+        .unwrap_or_else(|error| {
             self.device_message = Some(DeviceMessage {
-                text: format!(
-                    "Saved output device is unavailable. Using system default: {}.",
-                    active_device.name
-                ),
-                is_error: false,
+                text: format!("Could not load exclusive-mode preferences: {error}"),
+                is_error: true,
             });
-        }
-        self.update_device_capabilities(&active_device);
-        self.install_controller(active_device.id);
+            preferences::ExclusiveModePreferences::default()
+        });
+        let capabilities = device::output_device_capabilities(active_device.id);
+        self.default_exclusive_mode = default_exclusive_mode(&capabilities);
+        self.exclusive_mode = self
+            .exclusive_mode_preferences
+            .effective_mode(&active_device.uid, self.default_exclusive_mode);
+        self.playback_exclusive_mode = self.exclusive_mode;
+        self.apply_device_capabilities_result(&active_device, capabilities);
+        self.install_controller(active_device.id, self.exclusive_mode);
     }
 
-    fn install_controller(&mut self, device_id: device::DeviceId) {
-        let controller = PlaybackController::spawn(device_id, self.exclusive_mode);
+    fn install_controller(&mut self, device_id: device::DeviceId, exclusive_mode: bool) {
+        let controller = PlaybackController::spawn(device_id, exclusive_mode);
         self.event_rx = Some(controller.subscribe());
         let command_tx = controller.command_sender();
         if command_tx.send(self.volume_command()).is_err() {
@@ -413,8 +429,10 @@ impl PlaybackRow {
         self.active_device.as_ref()
     }
 
-    pub(crate) fn exclusive_mode(&self) -> bool {
-        self.exclusive_mode
+    fn exclusive_mode_is_automatic(&self) -> bool {
+        self.active_device
+            .as_ref()
+            .is_none_or(|device| !self.exclusive_mode_preferences.is_overridden(&device.uid))
     }
 
     pub(crate) fn output_popover_open(&self) -> bool {
@@ -447,9 +465,14 @@ impl PlaybackRow {
         self.toggle_output_popover(cx);
     }
 
-    pub(crate) fn toggle_exclusive_mode(&mut self, cx: &mut Context<Self>) {
+    fn toggle_exclusive_mode(&mut self, cx: &mut Context<Self>) {
+        let Some(active_device) = &self.active_device else {
+            return;
+        };
         let enabled = !self.exclusive_mode;
-        if let Err(error) = preferences::save_exclusive_mode(enabled) {
+        let mut updated_preferences = self.exclusive_mode_preferences.clone();
+        updated_preferences.set_override(&active_device.uid, enabled);
+        if let Err(error) = preferences::save_exclusive_mode_preferences(&updated_preferences) {
             self.device_message = Some(DeviceMessage {
                 text: format!("Could not save the exclusive-mode preference: {error}"),
                 is_error: true,
@@ -457,7 +480,31 @@ impl PlaybackRow {
             cx.notify();
             return;
         }
+        self.exclusive_mode_preferences = updated_preferences;
         self.exclusive_mode = enabled;
+        self.playback_exclusive_mode = enabled;
+        self.send_command(PlaybackCommand::SetExclusiveMode { enabled }, cx);
+        cx.notify();
+    }
+
+    fn reset_exclusive_mode_to_auto(&mut self, cx: &mut Context<Self>) {
+        let Some(active_device) = &self.active_device else {
+            return;
+        };
+        let mut updated_preferences = self.exclusive_mode_preferences.clone();
+        updated_preferences.clear_override(&active_device.uid);
+        if let Err(error) = preferences::save_exclusive_mode_preferences(&updated_preferences) {
+            self.device_message = Some(DeviceMessage {
+                text: format!("Could not save the exclusive-mode preference: {error}"),
+                is_error: true,
+            });
+            cx.notify();
+            return;
+        }
+        let enabled = self.default_exclusive_mode;
+        self.exclusive_mode_preferences = updated_preferences;
+        self.exclusive_mode = enabled;
+        self.playback_exclusive_mode = enabled;
         self.send_command(PlaybackCommand::SetExclusiveMode { enabled }, cx);
         cx.notify();
     }
@@ -995,8 +1042,37 @@ impl PlaybackRow {
                     attempt.target.position_ms = position_ms;
                 }
             }
-            PlaybackEvent::OutputDeviceChanged { device_id } => {
-                self.complete_output_device_change(device_id);
+            PlaybackEvent::OutputDeviceChanged {
+                device_id,
+                exclusive_mode,
+            } => {
+                self.complete_output_device_change(device_id, exclusive_mode);
+            }
+            PlaybackEvent::ExclusiveModeFallback { device_id } => {
+                self.playback_exclusive_mode = false;
+                let device_name = self
+                    .pending_device_change
+                    .as_ref()
+                    .filter(|pending| pending.device.id == device_id)
+                    .map(|pending| pending.device.name.as_str())
+                    .or_else(|| {
+                        self.active_device
+                            .as_ref()
+                            .filter(|device| device.id == device_id)
+                            .map(|device| device.name.as_str())
+                    })
+                    .or_else(|| {
+                        self.devices
+                            .iter()
+                            .find(|device| device.id == device_id)
+                            .map(|device| device.name.as_str())
+                    })
+                    .unwrap_or("The output device");
+                self.notice = Some(PlaybackNotice::ExclusiveFallback {
+                    text: format!(
+                        "{device_name} could not start in exclusive mode. Playback continues in shared mode."
+                    ),
+                });
             }
             PlaybackEvent::Ended { attempt } => {
                 if attempt != self.dispatched_plays {
@@ -1070,7 +1146,11 @@ impl PlaybackRow {
         None
     }
 
-    fn complete_output_device_change(&mut self, device_id: device::DeviceId) {
+    fn complete_output_device_change(
+        &mut self,
+        device_id: device::DeviceId,
+        playback_exclusive_mode: bool,
+    ) {
         let Some(pending) = self.pending_device_change.take() else {
             return;
         };
@@ -1079,8 +1159,8 @@ impl PlaybackRow {
         }
 
         let persist = pending.persist;
-        let output_device = self.apply_completed_output_device_change(pending);
-        self.update_device_capabilities(&output_device);
+        let output_device =
+            self.apply_completed_output_device_change(pending, playback_exclusive_mode);
 
         if persist && let Err(error) = preferences::save_output_device_uid(&output_device.uid) {
             self.device_message = Some(DeviceMessage {
@@ -1096,10 +1176,22 @@ impl PlaybackRow {
     fn apply_completed_output_device_change(
         &mut self,
         pending: PendingDeviceChange,
+        playback_exclusive_mode: bool,
     ) -> device::Device {
-        let output_device = pending.device;
+        let PendingDeviceChange {
+            device: output_device,
+            success_message,
+            capabilities,
+            default_exclusive_mode,
+            exclusive_mode,
+            ..
+        } = pending;
         self.active_device = Some(output_device.clone());
-        self.device_message = pending.success_message;
+        self.device_message = success_message;
+        self.default_exclusive_mode = default_exclusive_mode;
+        self.exclusive_mode = exclusive_mode;
+        self.playback_exclusive_mode = playback_exclusive_mode;
+        self.apply_device_capabilities_result(&output_device, capabilities);
         output_device
     }
 
@@ -1220,29 +1312,39 @@ impl PlaybackRow {
         success_message: Option<DeviceMessage>,
         cx: &mut Context<Self>,
     ) {
+        // The popover stays open on selection so the current-device card
+        // (capability line, mode control) reflects the switch in place.
         if persist {
-            self.output_popover_open = false;
             self.notice = None;
             self.retry = None;
         }
         self.error = None;
         self.device_message = None;
         self.device_capability_message = None;
+        let capabilities = device::output_device_capabilities(output_device.id);
+        let default_exclusive_mode = default_exclusive_mode(&capabilities);
+        let exclusive_mode = self
+            .exclusive_mode_preferences
+            .effective_mode(&output_device.uid, default_exclusive_mode);
         self.pending_device_change = Some(PendingDeviceChange {
             device: output_device.clone(),
             persist,
             success_message,
+            capabilities,
+            default_exclusive_mode,
+            exclusive_mode,
         });
 
         let Some(command_tx) = &self.command_tx else {
-            self.install_controller(output_device.id);
-            self.complete_output_device_change(output_device.id);
+            self.install_controller(output_device.id, exclusive_mode);
+            self.complete_output_device_change(output_device.id, exclusive_mode);
             cx.notify();
             return;
         };
         if command_tx
             .send(PlaybackCommand::SetOutputDevice {
                 device_id: output_device.id,
+                exclusive_mode,
             })
             .is_err()
         {
@@ -1670,13 +1772,11 @@ impl PlaybackRow {
             })
             .unwrap_or_else(|| ("—".to_string(), theme::text_muted()));
         let device = match (self.format, &self.active_device) {
-            (Some(format), Some(device)) => {
-                format!(
-                    "{} · {}",
-                    format_sample_rate(format.sample_rate),
-                    device.name
-                )
-            }
+            (Some(format), Some(device)) => format_output_device(
+                format.sample_rate,
+                &device.name,
+                self.playback_exclusive_mode,
+            ),
             (_, Some(device)) => device.name.clone(),
             (_, None) => "No output selected".to_string(),
         };
@@ -2090,8 +2190,7 @@ impl PlaybackRow {
             .child(
                 div()
                     .flex()
-                    .items_center()
-                    .gap(px(12.))
+                    .flex_col()
                     .w_full()
                     .p(px(12.))
                     .rounded(px(theme::RADIUS_MD))
@@ -2099,68 +2198,132 @@ impl PlaybackRow {
                     .border_color(theme::accent())
                     .bg(theme::bg_inset())
                     .child(
-                        svg()
-                            .path("icons/speaker.svg")
-                            .size(px(22.))
-                            .flex_none()
-                            .text_color(theme::accent()),
-                    )
-                    .child(
                         div()
                             .flex()
-                            .flex_1()
-                            .min_w_0()
-                            .flex_col()
-                            .gap(px(3.))
+                            .items_center()
+                            .gap(px(12.))
+                            .w_full()
                             .child(
-                                div()
-                                    .w_full()
-                                    .font_family(theme::FONT_DISPLAY)
-                                    .font_weight(FontWeight::BOLD)
-                                    .text_size(px(17.))
-                                    .text_color(theme::text_primary())
-                                    .overflow_hidden()
-                                    .whitespace_nowrap()
-                                    .child(active_name),
+                                svg()
+                                    .path("icons/speaker.svg")
+                                    .size(px(22.))
+                                    .flex_none()
+                                    .text_color(theme::accent()),
                             )
                             .child(
                                 div()
-                                    .w_full()
-                                    .font_family(theme::FONT_SANS)
-                                    .text_size(px(12.))
-                                    .text_color(theme::text_secondary())
-                                    .overflow_hidden()
-                                    .whitespace_nowrap()
-                                    .child(if self.exclusive_mode {
-                                        "CoreAudio · Exclusive during playback"
-                                    } else {
-                                        "CoreAudio · Shared playback"
-                                    }),
+                                    .flex()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .flex_col()
+                                    .gap(px(3.))
+                                    .child(
+                                        div()
+                                            .w_full()
+                                            .font_family(theme::FONT_DISPLAY)
+                                            .font_weight(FontWeight::BOLD)
+                                            .text_size(px(17.))
+                                            .text_color(theme::text_primary())
+                                            .overflow_hidden()
+                                            .whitespace_nowrap()
+                                            .child(active_name),
+                                    )
+                                    .child(
+                                        div()
+                                            .w_full()
+                                            .font_family(theme::FONT_SANS)
+                                            .text_size(px(12.))
+                                            .text_color(theme::text_secondary())
+                                            .overflow_hidden()
+                                            .whitespace_nowrap()
+                                            .child(if self.playback_exclusive_mode {
+                                                "CoreAudio · Exclusive during playback"
+                                            } else {
+                                                "CoreAudio · Shared playback"
+                                            }),
+                                    )
+                                    .child(
+                                        div()
+                                            .w_full()
+                                            .font_family(theme::FONT_MONO)
+                                            .font_weight(FontWeight::BOLD)
+                                            .text_size(px(11.))
+                                            .text_color(if self.device_capabilities.is_some() {
+                                                theme::quality()
+                                            } else {
+                                                theme::warning()
+                                            })
+                                            .overflow_hidden()
+                                            .whitespace_nowrap()
+                                            .child(capability),
+                                    ),
                             )
-                            .child(
-                                div()
-                                    .w_full()
-                                    .font_family(theme::FONT_MONO)
-                                    .font_weight(FontWeight::BOLD)
-                                    .text_size(px(11.))
-                                    .text_color(if self.device_capabilities.is_some() {
-                                        theme::quality()
-                                    } else {
-                                        theme::warning()
-                                    })
-                                    .overflow_hidden()
-                                    .whitespace_nowrap()
-                                    .child(capability),
-                            ),
+                            .when(self.active_device.is_some(), |device| {
+                                device.child(
+                                    svg()
+                                        .path("icons/check.svg")
+                                        .size(px(18.))
+                                        .flex_none()
+                                        .text_color(theme::accent()),
+                                )
+                            }),
                     )
                     .when(self.active_device.is_some(), |card| {
-                        card.child(
-                            svg()
-                                .path("icons/check.svg")
-                                .size(px(18.))
-                                .flex_none()
-                                .text_color(theme::accent()),
-                        )
+                        card.child(div().w_full().h(px(1.)).my(px(10.)).bg(theme::border()))
+                            .child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .w_full()
+                                    .child(
+                                        div()
+                                            .font_family(theme::FONT_SANS)
+                                            .font_weight(FontWeight::SEMIBOLD)
+                                            .text_size(px(12.))
+                                            .text_color(theme::text_primary())
+                                            .child("Exclusive mode"),
+                                    )
+                                    .child(if self.exclusive_mode_is_automatic() {
+                                        div()
+                                            .ml(px(8.))
+                                            .px(px(5.))
+                                            .py(px(2.))
+                                            .rounded(px(theme::RADIUS_SM))
+                                            .bg(theme::accent_soft())
+                                            .font_family(theme::FONT_MONO)
+                                            .font_weight(FontWeight::BOLD)
+                                            .text_size(px(9.))
+                                            .text_color(theme::accent())
+                                            .child("AUTO")
+                                            .into_any_element()
+                                    } else {
+                                        div()
+                                            .id("exclusive-mode-reset-auto")
+                                            .ml(px(8.))
+                                            .cursor_pointer()
+                                            .font_family(theme::FONT_SANS)
+                                            .font_weight(FontWeight::SEMIBOLD)
+                                            .text_size(px(11.))
+                                            .text_color(theme::accent())
+                                            .child("Reset to Auto")
+                                            .on_click(cx.listener(|this, _, _, cx| {
+                                                this.reset_exclusive_mode_to_auto(cx);
+                                            }))
+                                            .into_any_element()
+                                    })
+                                    .child(div().flex_1())
+                                    .child(
+                                        crate::components::toggle(
+                                            "exclusive-mode-toggle",
+                                            self.exclusive_mode,
+                                        )
+                                        .on_click(
+                                            cx.listener(|this, _, _, cx| {
+                                                this.toggle_exclusive_mode(cx);
+                                            }),
+                                        ),
+                                    ),
+                            )
                     }),
             );
 
@@ -2671,6 +2834,7 @@ impl PlaybackRow {
     fn render_notice(&self, notice: PlaybackNotice, cx: &mut Context<Self>) -> impl IntoElement {
         let (text, color, recovery) = match notice {
             PlaybackNotice::Skip { text } => (text, theme::warning(), false),
+            PlaybackNotice::ExclusiveFallback { text } => (text, theme::warning(), false),
             PlaybackNotice::Stopped { text } => (text, theme::danger(), false),
             PlaybackNotice::DeviceFailure { text } => (text, theme::danger(), true),
         };
@@ -2740,18 +2904,26 @@ fn section_label(label: &'static str) -> impl IntoElement {
         .child(label)
 }
 
+// The saved UID is deliberately left untouched on fallback: an absent device
+// (undocked DAC, sleeping AirPods) is a normal state, and the preference must
+// win again the next time the device is present.
 fn resolve_output_device(
     devices: &[device::Device],
     system_default: &device::Device,
     preferred_uid: Option<&str>,
-) -> (device::Device, bool) {
-    let Some(preferred_uid) = preferred_uid else {
-        return (system_default.clone(), false);
-    };
-    match devices.iter().find(|device| device.uid == preferred_uid) {
-        Some(device) => (device.clone(), false),
-        None => (system_default.clone(), true),
-    }
+) -> device::Device {
+    preferred_uid
+        .and_then(|uid| devices.iter().find(|device| device.uid == uid))
+        .cloned()
+        .unwrap_or_else(|| system_default.clone())
+}
+
+fn default_exclusive_mode(
+    capabilities: &Result<device::OutputDeviceCapabilities, EngineError>,
+) -> bool {
+    capabilities
+        .as_ref()
+        .is_ok_and(|capabilities| capabilities.max_bits_per_channel.is_some())
 }
 
 fn format_device_capabilities(capabilities: device::OutputDeviceCapabilities) -> String {
@@ -2800,6 +2972,15 @@ fn format_sample_rate(sample_rate: u32) -> String {
         format!("{} kHz", sample_rate / 1_000)
     } else {
         format!("{:.1} kHz", sample_rate as f64 / 1_000.0)
+    }
+}
+
+fn format_output_device(sample_rate: u32, device_name: &str, exclusive_mode: bool) -> String {
+    let sample_rate = format_sample_rate(sample_rate);
+    if exclusive_mode {
+        format!("{sample_rate} · {device_name}")
+    } else {
+        format!("{sample_rate} source · {device_name}")
     }
 }
 
@@ -3029,19 +3210,28 @@ mod tests {
     }
 
     #[test]
-    fn resolves_saved_output_by_uid_and_falls_back_visibly() {
+    fn shared_output_labels_the_track_rate_as_source_metadata() {
+        assert_eq!(
+            format_output_device(44_100, "AirPods Pro", false),
+            "44.1 kHz source · AirPods Pro"
+        );
+        assert_eq!(
+            format_output_device(44_100, "mini-i Series", true),
+            "44.1 kHz · mini-i Series"
+        );
+    }
+
+    #[test]
+    fn resolves_saved_output_by_uid_and_falls_back_silently() {
         let system_default = output_device(1, "built-in", "Mac Speakers");
         let dac = output_device(9, "matrix", "mini-i Series");
         let devices = vec![system_default.clone(), dac.clone()];
 
-        let (selected, missing) = resolve_output_device(&devices, &system_default, Some("matrix"));
+        let selected = resolve_output_device(&devices, &system_default, Some("matrix"));
         assert_eq!(selected.id, dac.id);
-        assert!(!missing);
 
-        let (selected, missing) =
-            resolve_output_device(&devices, &system_default, Some("unplugged"));
+        let selected = resolve_output_device(&devices, &system_default, Some("unplugged"));
         assert_eq!(selected.id, system_default.id);
-        assert!(missing);
     }
 
     #[test]
@@ -3059,6 +3249,43 @@ mod tests {
                 max_sample_rate: 48_000.0,
             }),
             "Up to 48 kHz"
+        );
+    }
+
+    #[test]
+    fn device_capabilities_choose_the_unset_exclusive_mode_default() {
+        assert!(default_exclusive_mode(&Ok(
+            device::OutputDeviceCapabilities {
+                max_bits_per_channel: Some(24),
+                max_sample_rate: 192_000.0,
+            }
+        )));
+        assert!(!default_exclusive_mode(&Ok(
+            device::OutputDeviceCapabilities {
+                max_bits_per_channel: None,
+                max_sample_rate: 48_000.0,
+            }
+        )));
+        assert!(!default_exclusive_mode(&Err(
+            EngineError::NoOutputCapabilities(9)
+        )));
+    }
+
+    #[test]
+    fn exclusive_fallback_notice_names_the_device_and_marks_playback_shared() {
+        let mut row = PlaybackRow::initial();
+        row.active_device = Some(output_device(9, "matrix", "mini-i Series"));
+        row.playback_exclusive_mode = true;
+
+        row.handle_event(PlaybackEvent::ExclusiveModeFallback { device_id: 9 });
+
+        assert!(!row.playback_exclusive_mode);
+        assert_eq!(
+            row.notice,
+            Some(PlaybackNotice::ExclusiveFallback {
+                text: "mini-i Series could not start in exclusive mode. Playback continues in shared mode."
+                    .to_string(),
+            })
         );
     }
 
@@ -3091,14 +3318,23 @@ mod tests {
         let mut row = PlaybackRow::initial();
         let selected = output_device(9, "matrix", "mini-i Series");
 
-        let applied = row.apply_completed_output_device_change(PendingDeviceChange {
-            device: selected.clone(),
-            persist: false,
-            success_message: Some(DeviceMessage {
-                text: "Using the system default.".to_string(),
-                is_error: false,
-            }),
-        });
+        let applied = row.apply_completed_output_device_change(
+            PendingDeviceChange {
+                device: selected.clone(),
+                persist: false,
+                success_message: Some(DeviceMessage {
+                    text: "Using the system default.".to_string(),
+                    is_error: false,
+                }),
+                capabilities: Ok(device::OutputDeviceCapabilities {
+                    max_bits_per_channel: Some(24),
+                    max_sample_rate: 192_000.0,
+                }),
+                default_exclusive_mode: true,
+                exclusive_mode: true,
+            },
+            true,
+        );
 
         assert_eq!(applied.id, selected.id);
         assert_eq!(row.active_device.as_ref().unwrap().uid, selected.uid);
@@ -3115,6 +3351,12 @@ mod tests {
             device: output_device(9, "matrix", "mini-i Series"),
             persist: false,
             success_message: None,
+            capabilities: Ok(device::OutputDeviceCapabilities {
+                max_bits_per_channel: Some(24),
+                max_sample_rate: 192_000.0,
+            }),
+            default_exclusive_mode: true,
+            exclusive_mode: true,
         });
 
         row.handle_event(PlaybackEvent::Error {

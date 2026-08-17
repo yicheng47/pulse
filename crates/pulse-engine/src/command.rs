@@ -4,12 +4,24 @@ use crate::device::DeviceId;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PlaybackCommand {
-    PlayFile { path: PathBuf },
+    PlayFile {
+        path: PathBuf,
+    },
     Pause,
     Resume,
-    Seek { position_ms: u64 },
+    Seek {
+        position_ms: u64,
+    },
     Stop,
-    SetOutputDevice { device_id: DeviceId },
-    SetExclusiveMode { enabled: bool },
-    SetVolume { gain: f32, muted: bool },
+    SetOutputDevice {
+        device_id: DeviceId,
+        exclusive_mode: bool,
+    },
+    SetExclusiveMode {
+        enabled: bool,
+    },
+    SetVolume {
+        gain: f32,
+        muted: bool,
+    },
 }

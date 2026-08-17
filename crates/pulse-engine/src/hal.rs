@@ -235,7 +235,7 @@ pub(crate) fn set_nominal_sample_rate(
 ) -> Result<f64, EngineError> {
     let requested = f64::from(format.sample_rate);
     if !sample_rate_supported(device_id, requested)? {
-        return Err(EngineError::NoMatchingFormat(format));
+        return Err(EngineError::UnsupportedNominalSampleRate(format));
     }
 
     let address = address(
@@ -279,7 +279,7 @@ pub(crate) fn set_matching_physical_format(
         }
     }
 
-    Err(EngineError::NoMatchingFormat(format))
+    Err(EngineError::NoMatchingPhysicalFormat(format))
 }
 
 pub(crate) fn output_device_capabilities(

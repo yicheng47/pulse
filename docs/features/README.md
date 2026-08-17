@@ -4,7 +4,7 @@ Product features that are not part of a numbered roadmap stage. Roadmap stages l
 
 Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phases, and verification.
 
-- [`18-polite-shared-mode.md`](18-polite-shared-mode.md) - P2, issue #51. Shared mode stops switching the device's nominal rate (a system-wide side effect) and lets AUHAL resample; native-rate switching becomes exclusive-mode behavior.
+- [`18-polite-shared-mode.md`](18-polite-shared-mode.md) - P1, issue #51. Shared mode stops switching the device's nominal rate (a system-wide side effect that leaves AirPods-class devices unable to play even CD-rate tracks) and lets AUHAL resample; native-rate switching becomes exclusive-mode behavior.
 - [`17-playback-dropout-reporting.md`](17-playback-dropout-reporting.md) - P2, issue #50. Read side for the callback's write-only underrun counter: dropout events through the controller, startup-priming excluded, surfaced in the app.
 - [`16-gapless-playback.md`](16-gapless-playback.md) - P1, issue #46. Keep the AUHAL sink and ring alive across same-format track transitions via controller next-track lookahead, flipping NowPlaying at the audible boundary; format changes keep the rebuild path.
 - [`15-in-app-update-install.md`](15-in-app-update-install.md) - P2, issue #52. Adopt Sparkle 2 as the updater, retiring the hand-rolled checker: EdDSA-signed appcast on GitHub Releases, inside-out signing for the embedded framework, standard Sparkle UI in v1. Also gives the DMG an Applications drag target.
@@ -14,7 +14,7 @@ Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phase
 - [`11-artists-page.md`](11-artists-page.md) - P2. Top-level Artists index (effective-album-artist identity, counts, type-to-filter) whose rows open Albums filtered by that artist; reverses mvp.md's no-artists-page scope cut.
 - [`10-genre-filter-picker.md`](10-genre-filter-picker.md) - P2. Move arbitrary embedded genre values out of the top-level chip row and into one searchable picker with album counts.
 - [`09-collapsible-library-sidebar.md`](09-collapsible-library-sidebar.md) - P3, issue #34. Design and implement the compact state behind the library sidebar's existing Pencil collapse affordance.
-- [`08-per-device-exclusive-mode.md`](08-per-device-exclusive-mode.md) - P2, issue #33. Persist exclusive/shared playback mode by Core Audio device UID instead of one global toggle.
+- [`08-per-device-exclusive-mode.md`](08-per-device-exclusive-mode.md) - P2, issue #33. Exclusive mode becomes per-device: capability-probed defaults (integer-format DACs → exclusive, float-only Bluetooth → shared), overrides set from an Auto-aware control in the output device popover (the global Settings toggle is deleted), and exclusive-failure fallback to shared with a notice.
 - [`07-shuffle-repeat.md`](07-shuffle-repeat.md) - P2, issue #32. Wire the deliberately inert Shuffle and Repeat controls through the queue, album, and playlist surfaces.
 - [`06-settings-surface.md`](06-settings-surface.md) - P1. Gives the sidebar's inert Settings entry a destination: a dedicated page whose sidebar is the section nav, with General / Update / About pages. Designed; adds Pulse's first toggle component.
 - [`05-update-check.md`](05-update-check.md) - P2. Check GitHub Releases on launch and notify through the existing notice banner. GitHub stays the artifact host; self-installing updates (Sparkle) are deliberately deferred.

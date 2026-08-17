@@ -727,7 +727,6 @@ impl Shell {
         model: &SettingsViewModel,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let exclusive_mode = self.row.read(cx).exclusive_mode();
         let output_picker = div()
             .id("settings-output-picker")
             .relative()
@@ -770,23 +769,12 @@ impl Shell {
 
         settings_group(
             "PLAYBACK",
-            settings_card()
-                .child(settings_row(
-                    "Default output device",
-                    "Where Pulse sends audio.",
-                    output_picker,
-                    true,
-                ))
-                .child(settings_row(
-                    "Exclusive mode",
-                    "Take exclusive control of the device so nothing else can resample the stream.",
-                    components::toggle("exclusive-mode-toggle", exclusive_mode).on_click(
-                        cx.listener(|this, _, _, cx| {
-                            this.row.update(cx, |row, cx| row.toggle_exclusive_mode(cx));
-                        }),
-                    ),
-                    false,
-                )),
+            settings_card().child(settings_row(
+                "Default output device",
+                "Where Pulse sends audio.",
+                output_picker,
+                false,
+            )),
         )
         .max_w(px(820.))
         .into_any_element()
@@ -935,7 +923,7 @@ impl Shell {
                                 .font_family(theme::FONT_SANS)
                                 .text_size(px(12.))
                                 .text_color(theme::text_muted())
-                                .child("Native-rate music player for macOS."),
+                                .child("Local music player for macOS."),
                         ),
                 ),
         );

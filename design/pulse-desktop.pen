@@ -4905,8 +4905,8 @@
     {
       "type": "frame",
       "id": "vH78z",
-      "x": 957,
-      "y": 109,
+      "x": 6237,
+      "y": 795,
       "name": "Output Device Popover",
       "width": 360,
       "fill": "$bg-surface",
@@ -4950,7 +4950,7 @@
         },
         {
           "type": "frame",
-          "id": "jvvCP",
+          "id": "JgNYd",
           "name": "Current Device",
           "width": "fill_container",
           "fill": "$bg-inset",
@@ -4958,75 +4958,155 @@
           "stroke": "$accent",
           "strokeWidth": 1,
           "strokeAlignment": "inner",
-          "gap": 12,
+          "layout": "vertical",
+          "gap": 10,
           "padding": 12,
-          "alignItems": "center",
           "children": [
             {
-              "type": "icon",
-              "id": "aaOXa",
-              "name": "Icon",
-              "width": 22,
-              "height": 22,
-              "icon": "speaker",
-              "library": "lucide",
-              "fill": "$accent"
-            },
-            {
               "type": "frame",
-              "id": "NViSd",
-              "name": "Copy",
+              "id": "rexG4",
+              "name": "Device",
               "width": "fill_container",
-              "layout": "vertical",
-              "gap": 3,
+              "gap": 12,
+              "alignItems": "center",
               "children": [
                 {
-                  "type": "text",
-                  "id": "lf3pr",
-                  "name": "Name",
-                  "fill": "$text-primary",
-                  "textGrowth": "fixed-width",
-                  "width": "fill_container",
-                  "content": "mini-i Series",
-                  "fontFamily": "$font-display",
-                  "fontSize": 17,
-                  "fontWeight": "700"
+                  "type": "icon",
+                  "id": "uaVXs",
+                  "name": "Icon",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "speaker",
+                  "library": "lucide",
+                  "fill": "$accent"
                 },
                 {
-                  "type": "text",
-                  "id": "hZs5P",
-                  "name": "Driver",
-                  "fill": "$text-secondary",
-                  "textGrowth": "fixed-width",
+                  "type": "frame",
+                  "id": "lq49g",
+                  "name": "Copy",
                   "width": "fill_container",
-                  "content": "CoreAudio · Exclusive mode",
-                  "fontFamily": "$font-sans",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
+                  "layout": "vertical",
+                  "gap": 3,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "LqfGy",
+                      "name": "Name",
+                      "fill": "$text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "mini-i Series",
+                      "fontFamily": "$font-display",
+                      "fontSize": 17,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "OPHMY",
+                      "name": "Driver",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "CoreAudio · Exclusive mode",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "B7uEMi",
+                      "name": "Info",
+                      "fill": "$quality",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Up to 24-bit / 192 kHz",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "700"
+                    }
+                  ]
                 },
                 {
-                  "type": "text",
-                  "id": "Y0Oz6z",
-                  "name": "Info",
-                  "fill": "$quality",
-                  "textGrowth": "fixed-width",
-                  "width": "fill_container",
-                  "content": "Up to 24-bit / 192 kHz",
-                  "fontFamily": "$font-mono",
-                  "fontSize": 11,
-                  "fontWeight": "700"
+                  "type": "icon",
+                  "id": "TEdbI",
+                  "name": "Check",
+                  "width": 18,
+                  "height": 18,
+                  "icon": "check",
+                  "library": "lucide",
+                  "fill": "$accent"
                 }
               ]
             },
             {
-              "type": "icon",
-              "id": "iH1j3",
-              "name": "Check",
-              "width": 18,
-              "height": 18,
-              "icon": "check",
-              "library": "lucide",
-              "fill": "$accent"
+              "type": "rectangle",
+              "id": "NhDKm",
+              "name": "Divider",
+              "fill": "$border",
+              "width": "fill_container",
+              "height": 1
+            },
+            {
+              "type": "frame",
+              "id": "L6s5P",
+              "name": "Mode Row",
+              "width": "fill_container",
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "jqvyL",
+                  "name": "Mode Label Group",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "nWPqX",
+                      "name": "Mode Label",
+                      "fill": "$text-primary",
+                      "content": "Exclusive mode",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "RbzG2",
+                      "name": "Auto Tag",
+                      "fill": "$bg-elevated",
+                      "cornerRadius": "$radius-sm",
+                      "stroke": "$border-strong",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        2,
+                        6
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "P0Huz",
+                          "name": "Auto Label",
+                          "fill": "$text-secondary",
+                          "content": "AUTO",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 9,
+                          "fontWeight": "700",
+                          "letterSpacing": 0.8
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "HPpOK",
+                  "type": "ref",
+                  "ref": "SK7jO",
+                  "name": "Toggle"
+                }
+              ]
             }
           ]
         },
@@ -52768,6 +52848,585 @@
           "icon": "volume-x",
           "library": "lucide",
           "fill": "$text-secondary"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "r85ht",
+      "x": 6677,
+      "y": 795,
+      "name": "Spec — Exclusive Mode Control",
+      "fill": "$bg-page",
+      "cornerRadius": "$radius-lg",
+      "stroke": "$border",
+      "strokeWidth": 1,
+      "strokeAlignment": "inner",
+      "layout": "vertical",
+      "gap": 14,
+      "padding": 20,
+      "children": [
+        {
+          "type": "text",
+          "id": "lpaIs",
+          "name": "Board Title",
+          "fill": "$text-muted",
+          "content": "SPEC — EXCLUSIVE MODE CONTROL",
+          "fontFamily": "$font-mono",
+          "fontSize": 10,
+          "fontWeight": "700",
+          "letterSpacing": 0.8
+        },
+        {
+          "type": "text",
+          "id": "pCzNV",
+          "name": "Board Note",
+          "fill": "$text-secondary",
+          "textGrowth": "fixed-width",
+          "width": 332,
+          "content": "Feature 08: effective mode = per-device override, else capability-probe default. AUTO tag shows while no override is stored; toggling pins an override; Reset to Auto restores the probe default. Global Settings toggle is deleted.",
+          "lineHeight": 1.45,
+          "fontFamily": "$font-sans",
+          "fontSize": 11,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "xRPEB",
+          "name": "STATE 1 — AUTO · DAC",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "text",
+              "id": "j6yweQ",
+              "name": "State Label",
+              "fill": "$accent",
+              "content": "STATE 1 — AUTO · DAC",
+              "fontFamily": "$font-mono",
+              "fontSize": 10,
+              "fontWeight": "700",
+              "letterSpacing": 0.8
+            },
+            {
+              "type": "frame",
+              "id": "YPlrH",
+              "name": "Card",
+              "width": 332,
+              "fill": "$bg-inset",
+              "cornerRadius": "$radius-md",
+              "stroke": "$border-strong",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 10,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "DFo3s",
+                  "name": "Device",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "yAAXz",
+                      "name": "Icon",
+                      "width": 22,
+                      "height": 22,
+                      "icon": "speaker",
+                      "library": "lucide",
+                      "fill": "$accent"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Li2fj",
+                      "name": "Copy",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 3,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "El2Jb",
+                          "name": "Name",
+                          "fill": "$text-primary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "mini-i Series",
+                          "fontFamily": "$font-display",
+                          "fontSize": 17,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "CGDg1",
+                          "name": "Driver",
+                          "fill": "$text-secondary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "CoreAudio · Exclusive mode",
+                          "fontFamily": "$font-sans",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "W2WOr",
+                          "name": "Info",
+                          "fill": "$quality",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Up to 24-bit / 192 kHz",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "rectangle",
+                  "id": "kOwng",
+                  "name": "Divider",
+                  "fill": "$border",
+                  "width": "fill_container",
+                  "height": 1
+                },
+                {
+                  "type": "frame",
+                  "id": "O6ajnS",
+                  "name": "Mode Row",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "X9unEb",
+                      "name": "Mode Label Group",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "j6INV",
+                          "name": "Mode Label",
+                          "fill": "$text-primary",
+                          "content": "Exclusive mode",
+                          "fontFamily": "$font-sans",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "YFjQY",
+                          "name": "Auto Tag",
+                          "fill": "$bg-elevated",
+                          "cornerRadius": "$radius-sm",
+                          "stroke": "$border-strong",
+                          "strokeWidth": 1,
+                          "strokeAlignment": "inner",
+                          "padding": [
+                            2,
+                            6
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "z9iHF",
+                              "name": "Auto Label",
+                              "fill": "$text-secondary",
+                              "content": "AUTO",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 9,
+                              "fontWeight": "700",
+                              "letterSpacing": 0.8
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "id": "f0SLW",
+                      "type": "ref",
+                      "ref": "SK7jO",
+                      "name": "Toggle"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "lxv4z",
+              "name": "Caption",
+              "fill": "$text-secondary",
+              "textGrowth": "fixed-width",
+              "width": 332,
+              "content": "No override stored. Probe finds signed-integer physical formats → defaults to exclusive. AUTO tag visible; toggle shows the effective mode.",
+              "lineHeight": 1.45,
+              "fontFamily": "$font-sans",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "G1fWXx",
+          "name": "STATE 2 — AUTO · BLUETOOTH",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "text",
+              "id": "q4Fhw9",
+              "name": "State Label",
+              "fill": "$accent",
+              "content": "STATE 2 — AUTO · BLUETOOTH",
+              "fontFamily": "$font-mono",
+              "fontSize": 10,
+              "fontWeight": "700",
+              "letterSpacing": 0.8
+            },
+            {
+              "type": "frame",
+              "id": "a168k",
+              "name": "Card",
+              "width": 332,
+              "fill": "$bg-inset",
+              "cornerRadius": "$radius-md",
+              "stroke": "$border-strong",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 10,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "BeAbO",
+                  "name": "Device",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "c0EqR",
+                      "name": "Icon",
+                      "width": 22,
+                      "height": 22,
+                      "icon": "bluetooth",
+                      "library": "lucide",
+                      "fill": "$accent"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "D2oax",
+                      "name": "Copy",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 3,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "BapYH",
+                          "name": "Name",
+                          "fill": "$text-primary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "逸成's AirPods Pro",
+                          "fontFamily": "$font-display",
+                          "fontSize": 17,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "D4RQp",
+                          "name": "Driver",
+                          "fill": "$text-secondary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "CoreAudio · Shared mode",
+                          "fontFamily": "$font-sans",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "pC8CC",
+                          "name": "Info",
+                          "fill": "$quality",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Up to 48 kHz",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "rectangle",
+                  "id": "l2rgwd",
+                  "name": "Divider",
+                  "fill": "$border",
+                  "width": "fill_container",
+                  "height": 1
+                },
+                {
+                  "type": "frame",
+                  "id": "i6eQ3",
+                  "name": "Mode Row",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "jj8xp",
+                      "name": "Mode Label Group",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "drJ65",
+                          "name": "Mode Label",
+                          "fill": "$text-primary",
+                          "content": "Exclusive mode",
+                          "fontFamily": "$font-sans",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "j9pqS",
+                          "name": "Auto Tag",
+                          "fill": "$bg-elevated",
+                          "cornerRadius": "$radius-sm",
+                          "stroke": "$border-strong",
+                          "strokeWidth": 1,
+                          "strokeAlignment": "inner",
+                          "padding": [
+                            2,
+                            6
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "zeVoy",
+                              "name": "Auto Label",
+                              "fill": "$text-secondary",
+                              "content": "AUTO",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 9,
+                              "fontWeight": "700",
+                              "letterSpacing": 0.8
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "id": "qNONl",
+                      "type": "ref",
+                      "ref": "jkTS9",
+                      "name": "Toggle"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "GME09",
+              "name": "Caption",
+              "fill": "$text-secondary",
+              "textGrowth": "fixed-width",
+              "width": 332,
+              "content": "No override stored. Float-only device → defaults to shared; AUHAL resamples. Exclusive buys nothing on this class, so Auto lands on shared.",
+              "lineHeight": 1.45,
+              "fontFamily": "$font-sans",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "JNU5u",
+          "name": "STATE 3 — PINNED OVERRIDE",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "text",
+              "id": "PSc1l",
+              "name": "State Label",
+              "fill": "$accent",
+              "content": "STATE 3 — PINNED OVERRIDE",
+              "fontFamily": "$font-mono",
+              "fontSize": 10,
+              "fontWeight": "700",
+              "letterSpacing": 0.8
+            },
+            {
+              "type": "frame",
+              "id": "wyWO9",
+              "name": "Card",
+              "width": 332,
+              "fill": "$bg-inset",
+              "cornerRadius": "$radius-md",
+              "stroke": "$border-strong",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 10,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "PNyut",
+                  "name": "Device",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "wMnz4",
+                      "name": "Icon",
+                      "width": 22,
+                      "height": 22,
+                      "icon": "speaker",
+                      "library": "lucide",
+                      "fill": "$accent"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "xmdZn",
+                      "name": "Copy",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 3,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "L14pII",
+                          "name": "Name",
+                          "fill": "$text-primary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "mini-i Series",
+                          "fontFamily": "$font-display",
+                          "fontSize": 17,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "txxLh",
+                          "name": "Driver",
+                          "fill": "$text-secondary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "CoreAudio · Shared mode",
+                          "fontFamily": "$font-sans",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "JPF5a",
+                          "name": "Info",
+                          "fill": "$quality",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Up to 24-bit / 192 kHz",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "rectangle",
+                  "id": "T06mO",
+                  "name": "Divider",
+                  "fill": "$border",
+                  "width": "fill_container",
+                  "height": 1
+                },
+                {
+                  "type": "frame",
+                  "id": "bnJuC",
+                  "name": "Mode Row",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "m0A2Q",
+                      "name": "Mode Label Group",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "ToSlr",
+                          "name": "Mode Label",
+                          "fill": "$text-primary",
+                          "content": "Exclusive mode",
+                          "fontFamily": "$font-sans",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "gdof5",
+                          "name": "Reset Link",
+                          "fill": "$accent",
+                          "content": "Reset to Auto",
+                          "fontFamily": "$font-sans",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "id": "ZRDnr",
+                      "type": "ref",
+                      "ref": "jkTS9",
+                      "name": "Toggle"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "EAp8I",
+              "name": "Caption",
+              "fill": "$text-secondary",
+              "textGrowth": "fixed-width",
+              "width": 332,
+              "content": "User toggled the DAC to shared (e.g. to keep other apps audible). AUTO tag is replaced by Reset to Auto, which clears the override and returns to the probe default.",
+              "lineHeight": 1.45,
+              "fontFamily": "$font-sans",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            }
+          ]
         }
       ]
     }

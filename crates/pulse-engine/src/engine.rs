@@ -37,6 +37,7 @@ impl FloatPacker {
 /// Playback engine for one output device.
 pub struct Engine {
     device: device::DeviceId,
+    exclusive_mode: bool,
     _hog: Option<hal::HogGuard>,
     producer: Option<Producer<u8>>,
     consumer: Option<Consumer<u8>>,
@@ -51,6 +52,7 @@ impl Engine {
     pub fn open(device: device::DeviceId, exclusive_mode: bool) -> Result<Self, EngineError> {
         Ok(Self {
             device,
+            exclusive_mode,
             _hog: exclusive_mode
                 .then(|| hal::HogGuard::acquire(device))
                 .transpose()?,
@@ -64,12 +66,15 @@ impl Engine {
         })
     }
 
-    /// Switches the device to the requested native rate and configures the
-    /// preferred physical format. The AUHAL client format is always float32.
+    /// Configures exclusive devices for native-rate playback and prepares the
+    /// AUHAL client format. Shared playback leaves the device format alone.
     pub fn set_format(&mut self, fmt: PcmFormat) -> Result<(), EngineError> {
         self.pause()?;
-        hal::set_nominal_sample_rate(self.device, fmt)?;
-        let _ = hal::set_matching_physical_format(self.device, fmt);
+        configure_device_format(
+            self.exclusive_mode,
+            || hal::set_nominal_sample_rate(self.device, fmt).map(|_| ()),
+            || hal::set_matching_physical_format(self.device, fmt).map(|_| ()),
+        )?;
         let packer = FloatPacker::new(fmt)?;
 
         self.reset_ring(fmt, packer)?;
@@ -176,6 +181,18 @@ impl Engine {
     }
 }
 
+fn configure_device_format(
+    exclusive_mode: bool,
+    set_nominal_sample_rate: impl FnOnce() -> Result<(), EngineError>,
+    set_matching_physical_format: impl FnOnce() -> Result<(), EngineError>,
+) -> Result<(), EngineError> {
+    if exclusive_mode {
+        set_nominal_sample_rate()?;
+        let _ = set_matching_physical_format();
+    }
+    Ok(())
+}
+
 impl Drop for Engine {
     fn drop(&mut self) {
         let _ = self.pause();
@@ -220,7 +237,41 @@ fn read_i24_ne(bytes: &[u8]) -> i32 {
 
 #[cfg(test)]
 mod tests {
+    use std::{cell::RefCell, rc::Rc};
+
     use super::*;
+
+    #[test]
+    fn shared_mode_does_not_reconfigure_the_device() {
+        configure_device_format(
+            false,
+            || panic!("shared mode must not set the nominal sample rate"),
+            || panic!("shared mode must not set the physical format"),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn exclusive_mode_reconfigures_rate_then_physical_format() {
+        let calls = Rc::new(RefCell::new(Vec::new()));
+        let rate_calls = Rc::clone(&calls);
+        let format_calls = Rc::clone(&calls);
+
+        configure_device_format(
+            true,
+            move || {
+                rate_calls.borrow_mut().push("nominal-rate");
+                Ok(())
+            },
+            move || {
+                format_calls.borrow_mut().push("physical-format");
+                Ok(())
+            },
+        )
+        .unwrap();
+
+        assert_eq!(*calls.borrow(), ["nominal-rate", "physical-format"]);
+    }
 
     #[test]
     fn pack_pcm_as_f32_maps_i16_samples() {
