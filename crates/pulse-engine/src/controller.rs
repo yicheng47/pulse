@@ -211,6 +211,7 @@ struct Worker {
     attempt: u64,
     output_device: DeviceId,
     exclusive_mode: bool,
+    shared_mode_fallback: bool,
     volume_gain: f32,
     muted: bool,
     current: Option<CurrentTrack>,
@@ -239,6 +240,7 @@ impl Worker {
             attempt: 0,
             output_device,
             exclusive_mode,
+            shared_mode_fallback: false,
             volume_gain: 1.0,
             muted: false,
             current: None,
@@ -284,7 +286,10 @@ impl Worker {
             PlaybackCommand::Resume => self.resume(),
             PlaybackCommand::Seek { position_ms } => self.seek(position_ms),
             PlaybackCommand::Stop => self.stop(),
-            PlaybackCommand::SetOutputDevice { device_id } => self.set_output_device(device_id),
+            PlaybackCommand::SetOutputDevice {
+                device_id,
+                exclusive_mode,
+            } => self.set_output_device(device_id, exclusive_mode),
             PlaybackCommand::SetExclusiveMode { enabled } => self.set_exclusive_mode(enabled),
             PlaybackCommand::SetVolume { gain, muted } => {
                 self.set_volume(gain, muted);
@@ -393,9 +398,16 @@ impl Worker {
         Ok(())
     }
 
-    fn set_output_device(&mut self, device_id: DeviceId) -> Result<(), EngineError> {
-        if self.output_device == device_id {
-            self.broadcast(PlaybackEvent::OutputDeviceChanged { device_id });
+    fn set_output_device(
+        &mut self,
+        device_id: DeviceId,
+        exclusive_mode: bool,
+    ) -> Result<(), EngineError> {
+        if self.output_device == device_id && self.exclusive_mode == exclusive_mode {
+            self.broadcast(PlaybackEvent::OutputDeviceChanged {
+                device_id,
+                exclusive_mode: self.actual_exclusive_mode(),
+            });
             return Ok(());
         }
 
@@ -405,12 +417,21 @@ impl Worker {
             self.set_state(PlaybackState::Loading);
             self.release_backend()?;
             let previous_device = self.output_device;
+            let previous_exclusive_mode = self.exclusive_mode;
+            let previous_shared_mode_fallback = self.shared_mode_fallback;
             self.output_device = device_id;
+            self.exclusive_mode = exclusive_mode;
+            self.shared_mode_fallback = false;
             if let Err(error) = self.start_path(&path, position_ms, false, true) {
                 self.output_device = previous_device;
+                self.exclusive_mode = previous_exclusive_mode;
+                self.shared_mode_fallback = previous_shared_mode_fallback;
                 return Err(error);
             }
-            self.broadcast(PlaybackEvent::OutputDeviceChanged { device_id });
+            self.broadcast(PlaybackEvent::OutputDeviceChanged {
+                device_id,
+                exclusive_mode: self.actual_exclusive_mode(),
+            });
             return Ok(());
         }
 
@@ -419,12 +440,17 @@ impl Worker {
         }
 
         self.output_device = device_id;
-        self.broadcast(PlaybackEvent::OutputDeviceChanged { device_id });
+        self.exclusive_mode = exclusive_mode;
+        self.shared_mode_fallback = false;
+        self.broadcast(PlaybackEvent::OutputDeviceChanged {
+            device_id,
+            exclusive_mode: self.actual_exclusive_mode(),
+        });
         Ok(())
     }
 
     fn set_exclusive_mode(&mut self, enabled: bool) -> Result<(), EngineError> {
-        if self.exclusive_mode == enabled {
+        if self.exclusive_mode == enabled && !self.shared_mode_fallback {
             return Ok(());
         }
 
@@ -432,16 +458,18 @@ impl Worker {
             let position_ms = self.logical_position_ms();
             let path = self.current_path()?;
             self.set_state(PlaybackState::Loading);
-            self.exclusive_mode = enabled;
             self.release_backend()?;
+            self.exclusive_mode = enabled;
+            self.shared_mode_fallback = false;
             self.start_path(&path, position_ms, false, true)?;
             return Ok(());
         }
 
-        self.exclusive_mode = enabled;
         if self.state == PlaybackState::Paused {
             self.release_backend()?;
         }
+        self.exclusive_mode = enabled;
+        self.shared_mode_fallback = false;
         Ok(())
     }
 
@@ -451,6 +479,57 @@ impl Worker {
         if let Some((_, _, backend)) = &mut self.backend {
             backend.set_volume(gain, muted);
         }
+    }
+
+    fn actual_exclusive_mode(&self) -> bool {
+        self.exclusive_mode && !self.shared_mode_fallback
+    }
+
+    fn start_backend(&mut self, format: PcmFormat) -> Result<(), EngineError> {
+        let exclusive_mode = self.actual_exclusive_mode();
+        let mut backend = match self.take_or_open_backend(exclusive_mode) {
+            Ok(backend) => backend,
+            Err(_) if exclusive_mode => return self.start_shared_fallback(format),
+            Err(error) => return Err(error),
+        };
+        backend.set_volume(self.volume_gain, self.muted);
+        match backend.start(format) {
+            Ok(()) => {
+                self.backend = Some((self.output_device, exclusive_mode, backend));
+                Ok(())
+            }
+            Err(error) if exclusive_mode && exclusive_start_can_fallback(&error) => {
+                self.start_shared_fallback(format)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    fn take_or_open_backend(
+        &mut self,
+        exclusive_mode: bool,
+    ) -> Result<Box<dyn PlaybackBackend>, EngineError> {
+        match self
+            .backend
+            .take()
+            .filter(|(device_id, backend_exclusive_mode, _)| {
+                *device_id == self.output_device && *backend_exclusive_mode == exclusive_mode
+            }) {
+            Some((_, _, backend)) => Ok(backend),
+            None => (self.backend_factory)(self.output_device, exclusive_mode),
+        }
+    }
+
+    fn start_shared_fallback(&mut self, format: PcmFormat) -> Result<(), EngineError> {
+        let mut backend = self.take_or_open_backend(false)?;
+        backend.set_volume(self.volume_gain, self.muted);
+        backend.start(format)?;
+        self.shared_mode_fallback = true;
+        self.backend = Some((self.output_device, false, backend));
+        self.broadcast(PlaybackEvent::ExclusiveModeFallback {
+            device_id: self.output_device,
+        });
+        Ok(())
     }
 
     fn start_path(
@@ -478,18 +557,7 @@ impl Worker {
             None => decoder.seek(requested_position_ms)?,
         };
 
-        let mut backend = match self
-            .backend
-            .take()
-            .filter(|(device_id, exclusive_mode, _)| {
-                *device_id == self.output_device && *exclusive_mode == self.exclusive_mode
-            }) {
-            Some((_, _, backend)) => backend,
-            None => (self.backend_factory)(self.output_device, self.exclusive_mode)?,
-        };
-        backend.set_volume(self.volume_gain, self.muted);
-        backend.start(format)?;
-        self.backend = Some((self.output_device, self.exclusive_mode, backend));
+        self.start_backend(format)?;
 
         let source = PlayableSource {
             path: path.to_path_buf(),
@@ -741,6 +809,15 @@ fn frames_to_ms(frames: u64, sample_rate: u32) -> u64 {
     frames.saturating_mul(1_000) / u64::from(sample_rate)
 }
 
+fn exclusive_start_can_fallback(error: &EngineError) -> bool {
+    matches!(
+        error,
+        EngineError::UnsupportedNominalSampleRate(_)
+            | EngineError::Os { .. }
+            | EngineError::Timeout(_)
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use std::{
@@ -757,7 +834,9 @@ mod tests {
         seek_positions: Vec<u64>,
         started_volumes: Vec<(f32, bool)>,
         stops: usize,
-        fail_open_device: Option<DeviceId>,
+        fail_exclusive_open_device: Option<DeviceId>,
+        fail_exclusive_start_device: Option<DeviceId>,
+        fail_all_open_device: Option<DeviceId>,
         stop_error: bool,
         position_limit: u64,
     }
@@ -770,7 +849,9 @@ mod tests {
                 seek_positions: Vec::new(),
                 started_volumes: Vec::new(),
                 stops: 0,
-                fail_open_device: None,
+                fail_exclusive_open_device: None,
+                fail_exclusive_start_device: None,
+                fail_all_open_device: None,
                 stop_error: false,
                 position_limit: 1_000,
             }
@@ -779,12 +860,19 @@ mod tests {
 
     struct FakeBackend {
         log: Arc<Mutex<FakeLog>>,
+        device_id: DeviceId,
+        exclusive_mode: bool,
         fed_frames: u64,
         volume: (f32, bool),
     }
 
     impl PlaybackBackend for FakeBackend {
         fn start(&mut self, _format: PcmFormat) -> Result<(), EngineError> {
+            if self.exclusive_mode
+                && self.log.lock().unwrap().fail_exclusive_start_device == Some(self.device_id)
+            {
+                return Err(EngineError::UnsupportedNominalSampleRate(TEST_FORMAT));
+            }
             self.fed_frames = 0;
             self.log.lock().unwrap().started_volumes.push(self.volume);
             Ok(())
@@ -1018,18 +1106,25 @@ mod tests {
         });
 
         commands
-            .send(PlaybackCommand::SetOutputDevice { device_id: 9 })
+            .send(PlaybackCommand::SetOutputDevice {
+                device_id: 9,
+                exclusive_mode: false,
+            })
             .unwrap();
         wait_for(&events, |event| {
             *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
         });
         assert_eq!(
             events.recv_timeout(Duration::from_secs(1)).unwrap(),
-            PlaybackEvent::OutputDeviceChanged { device_id: 9 }
+            PlaybackEvent::OutputDeviceChanged {
+                device_id: 9,
+                exclusive_mode: false,
+            }
         );
 
         let log = log.lock().unwrap();
         assert_eq!(log.opened_devices, [7, 9]);
+        assert_eq!(log.exclusive_modes, [true, false]);
         assert_eq!(log.seek_positions, [1_000]);
     }
 
@@ -1064,6 +1159,115 @@ mod tests {
         assert_eq!(log.opened_devices, [7, 7]);
         assert_eq!(log.exclusive_modes, [true, false]);
         assert_eq!(log.seek_positions, [1_000]);
+    }
+
+    #[test]
+    fn shared_mode_start_uses_a_shared_backend() {
+        let (controller, log) = fake_controller_with_exclusive_mode(false);
+        let events = controller.subscribe();
+        controller
+            .command_sender()
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+
+        assert_eq!(log.lock().unwrap().exclusive_modes, [false]);
+    }
+
+    #[test]
+    fn exclusive_open_failure_retries_shared_once_for_the_device_session() {
+        let (controller, log) = fake_controller();
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("first.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            matches!(
+                event,
+                PlaybackEvent::Position {
+                    position_ms: 1_000,
+                    ..
+                }
+            )
+        });
+        log.lock().unwrap().fail_exclusive_open_device = Some(9);
+
+        commands
+            .send(PlaybackCommand::SetOutputDevice {
+                device_id: 9,
+                exclusive_mode: true,
+            })
+            .unwrap();
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::ExclusiveModeFallback { .. }
+            )),
+            PlaybackEvent::ExclusiveModeFallback { device_id: 9 }
+        );
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::OutputDeviceChanged { .. }
+            )),
+            PlaybackEvent::OutputDeviceChanged {
+                device_id: 9,
+                exclusive_mode: false,
+            }
+        );
+
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("second.flac"),
+            })
+            .unwrap();
+        wait_for(
+            &events,
+            |event| matches!(event, PlaybackEvent::NowPlaying { source, .. } if source.path == Path::new("second.flac")),
+        );
+        while let Ok(event) = events.recv_timeout(Duration::from_millis(50)) {
+            assert!(!matches!(
+                event,
+                PlaybackEvent::ExclusiveModeFallback { .. }
+            ));
+        }
+
+        let log = log.lock().unwrap();
+        assert_eq!(log.opened_devices, [7, 9, 9]);
+        assert_eq!(log.exclusive_modes, [true, true, false]);
+        assert_eq!(log.seek_positions, [1_000]);
+    }
+
+    #[test]
+    fn unsupported_exclusive_nominal_rate_retries_shared() {
+        let (controller, log) = fake_controller();
+        log.lock().unwrap().fail_exclusive_start_device = Some(7);
+        let events = controller.subscribe();
+        controller
+            .command_sender()
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::ExclusiveModeFallback { .. }
+            )),
+            PlaybackEvent::ExclusiveModeFallback { device_id: 7 }
+        );
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+        assert_eq!(log.lock().unwrap().exclusive_modes, [true, false]);
     }
 
     #[test]
@@ -1119,10 +1323,17 @@ mod tests {
         });
 
         commands
-            .send(PlaybackCommand::SetOutputDevice { device_id: 9 })
+            .send(PlaybackCommand::SetOutputDevice {
+                device_id: 9,
+                exclusive_mode: false,
+            })
             .unwrap();
         wait_for(&events, |event| {
-            *event == PlaybackEvent::OutputDeviceChanged { device_id: 9 }
+            *event
+                == PlaybackEvent::OutputDeviceChanged {
+                    device_id: 9,
+                    exclusive_mode: false,
+                }
         });
 
         assert_eq!(log.lock().unwrap().started_volumes, [(0.25, true); 5]);
@@ -1272,10 +1483,13 @@ mod tests {
                 }
             )
         });
-        log.lock().unwrap().fail_open_device = Some(9);
+        log.lock().unwrap().fail_all_open_device = Some(9);
 
         commands
-            .send(PlaybackCommand::SetOutputDevice { device_id: 9 })
+            .send(PlaybackCommand::SetOutputDevice {
+                device_id: 9,
+                exclusive_mode: true,
+            })
             .unwrap();
         let error = wait_for(&events, |event| {
             matches!(event, PlaybackEvent::Error { .. })
@@ -1285,8 +1499,8 @@ mod tests {
             error,
             PlaybackEvent::Error {
                 attempt: 1,
-                kind: crate::PlaybackErrorKind::Device { hog_pid: Some(42) },
-                message: "device hogged by pid 42".to_string()
+                kind: crate::PlaybackErrorKind::Device { hog_pid: None },
+                message: "audio unit: output unavailable".to_string()
             }
         );
 
@@ -1300,7 +1514,7 @@ mod tests {
         });
 
         let log = log.lock().unwrap();
-        assert_eq!(log.opened_devices, [7, 9, 7]);
+        assert_eq!(log.opened_devices, [7, 9, 9, 7]);
         assert_eq!(log.stops, 1);
     }
 
@@ -1383,9 +1597,11 @@ mod tests {
         let controller = PlaybackController::spawn_with_dependencies(
             7,
             true,
-            Arc::new(move |_, _| {
+            Arc::new(move |device_id, exclusive_mode| {
                 Ok(Box::new(FakeBackend {
                     log: Arc::clone(&backend_log),
+                    device_id,
+                    exclusive_mode,
                     fed_frames: 0,
                     volume: (f32::NAN, false),
                 }))
@@ -1412,10 +1628,23 @@ mod tests {
     }
 
     fn fake_controller() -> (PlaybackController, Arc<Mutex<FakeLog>>) {
-        fake_controller_with_seek_offset(0)
+        fake_controller_with_exclusive_mode_and_seek_offset(true, 0)
+    }
+
+    fn fake_controller_with_exclusive_mode(
+        exclusive_mode: bool,
+    ) -> (PlaybackController, Arc<Mutex<FakeLog>>) {
+        fake_controller_with_exclusive_mode_and_seek_offset(exclusive_mode, 0)
     }
 
     fn fake_controller_with_seek_offset(
+        seek_offset_ms: u64,
+    ) -> (PlaybackController, Arc<Mutex<FakeLog>>) {
+        fake_controller_with_exclusive_mode_and_seek_offset(true, seek_offset_ms)
+    }
+
+    fn fake_controller_with_exclusive_mode_and_seek_offset(
+        exclusive_mode: bool,
         seek_offset_ms: u64,
     ) -> (PlaybackController, Arc<Mutex<FakeLog>>) {
         let log = Arc::new(Mutex::new(FakeLog::default()));
@@ -1423,19 +1652,27 @@ mod tests {
         let decoder_log = Arc::clone(&log);
         let controller = PlaybackController::spawn_with_dependencies(
             7,
-            true,
+            exclusive_mode,
             Arc::new(move |device_id, exclusive_mode| {
-                let fail_open = {
+                let (fail_all_open, fail_exclusive_open) = {
                     let mut log = backend_log.lock().unwrap();
                     log.opened_devices.push(device_id);
                     log.exclusive_modes.push(exclusive_mode);
-                    log.fail_open_device == Some(device_id)
+                    (
+                        log.fail_all_open_device == Some(device_id),
+                        exclusive_mode && log.fail_exclusive_open_device == Some(device_id),
+                    )
                 };
-                if fail_open {
+                if fail_all_open {
+                    return Err(EngineError::AudioUnit("output unavailable".to_string()));
+                }
+                if fail_exclusive_open {
                     return Err(EngineError::Hogged(42));
                 }
                 Ok(Box::new(FakeBackend {
                     log: Arc::clone(&backend_log),
+                    device_id,
+                    exclusive_mode,
                     fed_frames: 0,
                     volume: (f32::NAN, false),
                 }))
