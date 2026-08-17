@@ -3251,8 +3251,8 @@
     {
       "type": "frame",
       "id": "MOUEy",
-      "x": 4357,
-      "y": 109,
+      "x": 6237,
+      "y": -311,
       "name": "Components Board",
       "clip": true,
       "width": 1200,
@@ -4905,7 +4905,7 @@
     {
       "type": "frame",
       "id": "vH78z",
-      "x": 6237,
+      "x": 7517,
       "y": 795,
       "name": "Output Device Popover",
       "width": 360,
@@ -35455,8 +35455,8 @@
     {
       "type": "frame",
       "id": "UNybN",
-      "x": -1763,
-      "y": 6560,
+      "x": -243,
+      "y": 5316,
       "name": "Playback — Device Interrupted",
       "clip": true,
       "width": 1440,
@@ -41508,8 +41508,8 @@
     {
       "type": "frame",
       "id": "LjEHI",
-      "x": -243,
-      "y": 6560,
+      "x": 1277,
+      "y": 5316,
       "name": "Playback — Queue Popover",
       "clip": true,
       "width": 1440,
@@ -44947,8 +44947,8 @@
     {
       "type": "frame",
       "id": "KhURs",
-      "x": -243,
-      "y": 5316,
+      "x": 4317,
+      "y": 1216,
       "name": "Library / Album Detail — Album Menu",
       "clip": true,
       "width": 1440,
@@ -46709,8 +46709,8 @@
     {
       "type": "frame",
       "id": "AlTSd",
-      "x": 1297,
-      "y": 5316,
+      "x": 5837,
+      "y": 1216,
       "name": "Library / Album Detail — Delete Album",
       "clip": true,
       "width": 1440,
@@ -48698,8 +48698,8 @@
     {
       "type": "frame",
       "id": "C5mRG",
-      "x": 5837,
-      "y": -311,
+      "x": -1763,
+      "y": 6560,
       "name": "Settings / General",
       "clip": true,
       "width": 1440,
@@ -48924,8 +48924,8 @@
     {
       "type": "frame",
       "id": "ADNMS",
-      "x": 5837,
-      "y": -1009,
+      "x": 7517,
+      "y": -311,
       "name": "Spec — Update States",
       "clip": true,
       "width": 760,
@@ -49240,8 +49240,8 @@
     {
       "type": "frame",
       "id": "D9PDB",
-      "x": 7361,
-      "y": -311,
+      "x": -243,
+      "y": 6560,
       "name": "Settings / Update",
       "clip": true,
       "width": 1440,
@@ -49594,8 +49594,8 @@
     {
       "type": "frame",
       "id": "Tnibv",
-      "x": 8881,
-      "y": -311,
+      "x": 1277,
+      "y": 6560,
       "name": "Settings / About",
       "clip": true,
       "width": 1440,
@@ -52490,8 +52490,8 @@
     {
       "type": "frame",
       "id": "IAPbC",
-      "x": -323,
-      "y": 690,
+      "x": 7517,
+      "y": 190,
       "name": "Spec — Volume States",
       "clip": true,
       "width": 640,
@@ -52699,8 +52699,8 @@
     {
       "type": "frame",
       "id": "IChZh",
-      "x": 350,
-      "y": 690,
+      "x": 8197,
+      "y": 190,
       "name": "Volume Popover",
       "width": 56,
       "fill": "$bg-surface",
@@ -52761,7 +52761,7 @@
     {
       "type": "frame",
       "id": "r85ht",
-      "x": 6677,
+      "x": 7957,
       "y": 795,
       "name": "Spec — Exclusive Mode Control",
       "fill": "$bg-page",
@@ -53332,6 +53332,1301 @@
               "fontFamily": "$font-sans",
               "fontSize": 11,
               "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "XmoeK",
+      "x": -1763,
+      "y": 7784,
+      "name": "Library / Devices",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$bg-page",
+      "cornerRadius": "$radius-lg",
+      "stroke": "$border",
+      "strokeWidth": {
+        "top": 1,
+        "right": 1,
+        "left": 1
+      },
+      "strokeAlignment": "inner",
+      "strokeLinejoin": "round",
+      "children": [
+        {
+          "id": "VvM0I",
+          "type": "ref",
+          "ref": "IqX8X",
+          "name": "Sidebar / Devices",
+          "width": 236,
+          "height": "fill_container",
+          "descendants": {
+            "GWXPo": {
+              "fill": "#00000000"
+            },
+            "bCZAw": {
+              "fill": "$text-muted"
+            },
+            "LOfz0": {
+              "fill": "$text-secondary"
+            },
+            "WNgrJ": {
+              "fill": "#00000000"
+            },
+            "Q98yur": {
+              "fill": "$text-muted"
+            },
+            "cSYYH": {
+              "fill": "$text-secondary"
+            },
+            "sfVum": {
+              "fill": "#00000000"
+            },
+            "w58Av2": {
+              "fill": "$text-muted"
+            },
+            "d6a9c": {
+              "fill": "$text-secondary"
+            },
+            "coGs2": {
+              "fill": "#00000000"
+            },
+            "dvTbd": {
+              "fill": "$text-muted"
+            },
+            "O9h6J1": {
+              "fill": "$text-secondary"
+            },
+            "e2Pal": {
+              "fill": "$accent-soft"
+            },
+            "fBGKp": {
+              "fill": "$accent"
+            },
+            "UigfG": {
+              "fill": "$text-primary"
+            }
+          }
+        },
+        {
+          "type": "frame",
+          "id": "diuk3",
+          "name": "Right Column",
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "children": [
+            {
+              "type": "frame",
+              "id": "nXTiU",
+              "name": "Main",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "$bg-page",
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "XgvwM",
+                  "name": "Top Bar",
+                  "width": "fill_container",
+                  "height": 74,
+                  "stroke": "$border",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "strokeAlignment": "inner",
+                  "strokeLinejoin": "round",
+                  "padding": [
+                    0,
+                    28
+                  ],
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "id": "JLjtX",
+                      "type": "ref",
+                      "ref": "VoSds",
+                      "width": 420
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "AoBy4",
+                  "name": "Body",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "faj2g",
+                      "name": "Library Content",
+                      "width": "fill_container",
+                      "height": "fill_container",
+                      "fill": "$bg-page",
+                      "layout": "vertical",
+                      "gap": 18,
+                      "padding": [
+                        26,
+                        28,
+                        24,
+                        28
+                      ],
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "TmCcc",
+                          "name": "Devices Page",
+                          "width": 720,
+                          "layout": "vertical",
+                          "gap": 18,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "UMwMv",
+                              "name": "Devices Header",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "CqD4X",
+                                  "name": "Title",
+                                  "fill": "$text-primary",
+                                  "content": "Devices",
+                                  "fontFamily": "$font-display",
+                                  "fontSize": 34,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "u5gLL",
+                                  "name": "Meta",
+                                  "fill": "$text-secondary",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "Every output Pulse knows — settings stick to each device whether it's connected or not. Exclusive mode follows the device's Auto default until you pin it.",
+                                  "fontFamily": "$font-sans",
+                                  "fontSize": 13,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "t5gpe0",
+                              "name": "CONNECTED Group",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 10,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "W5oFeZ",
+                                  "name": "CONNECTED Label",
+                                  "fill": "$text-muted",
+                                  "content": "CONNECTED",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 10,
+                                  "fontWeight": "700",
+                                  "letterSpacing": 0.8
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "Z1KSHT",
+                                  "name": "mini-i Series",
+                                  "width": "fill_container",
+                                  "fill": "$bg-inset",
+                                  "cornerRadius": "$radius-md",
+                                  "stroke": "$accent",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner",
+                                  "layout": "vertical",
+                                  "gap": 10,
+                                  "padding": 14,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "c38z83",
+                                      "name": "Device",
+                                      "width": "fill_container",
+                                      "gap": 12,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "aQ7ok",
+                                          "name": "Icon",
+                                          "width": 22,
+                                          "height": 22,
+                                          "icon": "speaker",
+                                          "library": "lucide",
+                                          "fill": "$accent"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "bvqBN",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 3,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "mjW7I",
+                                              "name": "Name",
+                                              "fill": "$text-primary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "mini-i Series",
+                                              "fontFamily": "$font-display",
+                                              "fontSize": 17,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "l6bC4j",
+                                              "name": "Class",
+                                              "fill": "$quality",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "DAC · Up to 24-bit / 192 kHz",
+                                              "fontFamily": "$font-mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "id": "y2Lzhp",
+                                          "type": "ref",
+                                          "ref": "Y8Ojv",
+                                          "name": "Active Pill",
+                                          "descendants": {
+                                            "kjQGY": {
+                                              "content": "Active"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "rectangle",
+                                      "id": "uVtCJ",
+                                      "name": "Divider",
+                                      "fill": "$border",
+                                      "width": "fill_container",
+                                      "height": 1
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "WRgFF",
+                                      "name": "Mode Row",
+                                      "width": "fill_container",
+                                      "justifyContent": "space_between",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "B35cGp",
+                                          "name": "Mode Label Group",
+                                          "gap": 8,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "ttLwc",
+                                              "name": "Mode Label",
+                                              "fill": "$text-primary",
+                                              "content": "Exclusive mode",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 12,
+                                              "fontWeight": "600"
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "zO5OT",
+                                              "name": "Auto Tag",
+                                              "fill": "$bg-elevated",
+                                              "cornerRadius": "$radius-sm",
+                                              "stroke": "$border-strong",
+                                              "strokeWidth": 1,
+                                              "strokeAlignment": "inner",
+                                              "padding": [
+                                                2,
+                                                6
+                                              ],
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "DtPk1",
+                                                  "name": "Auto Label",
+                                                  "fill": "$text-secondary",
+                                                  "content": "AUTO",
+                                                  "fontFamily": "$font-mono",
+                                                  "fontSize": 9,
+                                                  "fontWeight": "700",
+                                                  "letterSpacing": 0.8
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "id": "j6QNQE",
+                                          "type": "ref",
+                                          "ref": "SK7jO",
+                                          "name": "Toggle"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "vgK5o",
+                                  "name": "逸成's AirPods Pro",
+                                  "width": "fill_container",
+                                  "fill": "$bg-inset",
+                                  "cornerRadius": "$radius-md",
+                                  "stroke": "$border",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner",
+                                  "layout": "vertical",
+                                  "gap": 10,
+                                  "padding": 14,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "GEUJn",
+                                      "name": "Device",
+                                      "width": "fill_container",
+                                      "gap": 12,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "oXyBv",
+                                          "name": "Icon",
+                                          "width": 22,
+                                          "height": 22,
+                                          "icon": "bluetooth",
+                                          "library": "lucide",
+                                          "fill": "$accent"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "MyQjj",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 3,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "EYSua",
+                                              "name": "Name",
+                                              "fill": "$text-primary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "逸成's AirPods Pro",
+                                              "fontFamily": "$font-display",
+                                              "fontSize": 17,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "W9BALO",
+                                              "name": "Class",
+                                              "fill": "$quality",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Bluetooth · Up to 48 kHz",
+                                              "fontFamily": "$font-mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "rectangle",
+                                      "id": "iFTXX",
+                                      "name": "Divider",
+                                      "fill": "$border",
+                                      "width": "fill_container",
+                                      "height": 1
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "P3bGc",
+                                      "name": "Mode Row",
+                                      "width": "fill_container",
+                                      "justifyContent": "space_between",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "h3VGhy",
+                                          "name": "Mode Label Group",
+                                          "gap": 8,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "HbOY6",
+                                              "name": "Mode Label",
+                                              "fill": "$text-primary",
+                                              "content": "Exclusive mode",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 12,
+                                              "fontWeight": "600"
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "e74JPf",
+                                              "name": "Auto Tag",
+                                              "fill": "$bg-elevated",
+                                              "cornerRadius": "$radius-sm",
+                                              "stroke": "$border-strong",
+                                              "strokeWidth": 1,
+                                              "strokeAlignment": "inner",
+                                              "padding": [
+                                                2,
+                                                6
+                                              ],
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "x8CaG",
+                                                  "name": "Auto Label",
+                                                  "fill": "$text-secondary",
+                                                  "content": "AUTO",
+                                                  "fontFamily": "$font-mono",
+                                                  "fontSize": 9,
+                                                  "fontWeight": "700",
+                                                  "letterSpacing": 0.8
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "id": "w9b6Pz",
+                                          "type": "ref",
+                                          "ref": "jkTS9",
+                                          "name": "Toggle"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "KXZJk",
+                              "name": "NOT CONNECTED Group",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 10,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "B0YeWR",
+                                  "name": "NOT CONNECTED Label",
+                                  "fill": "$text-muted",
+                                  "content": "NOT CONNECTED",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 10,
+                                  "fontWeight": "700",
+                                  "letterSpacing": 0.8
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "o9L5W",
+                                  "name": "DELL U2718Q",
+                                  "width": "fill_container",
+                                  "fill": "$bg-inset",
+                                  "cornerRadius": "$radius-md",
+                                  "stroke": "$border",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner",
+                                  "layout": "vertical",
+                                  "gap": 10,
+                                  "padding": 14,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "X8qT9Z",
+                                      "name": "Device",
+                                      "width": "fill_container",
+                                      "gap": 12,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "giElx",
+                                          "name": "Icon",
+                                          "width": 22,
+                                          "height": 22,
+                                          "icon": "monitor-speaker",
+                                          "library": "lucide",
+                                          "fill": "$text-muted"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "LPM7E",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 3,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "xKEbq",
+                                              "name": "Name",
+                                              "fill": "$text-primary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "DELL U2718Q",
+                                              "fontFamily": "$font-display",
+                                              "fontSize": 17,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "UK5v2",
+                                              "name": "Class",
+                                              "fill": "$text-muted",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Display audio · Up to 48 kHz",
+                                              "fontFamily": "$font-mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "c755BY",
+                                              "name": "Status",
+                                              "fill": "$text-muted",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Last seen 2 weeks ago",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 11,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "HvfWV",
+                                          "name": "Forget Button",
+                                          "cornerRadius": "$radius-sm",
+                                          "stroke": "$border-strong",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "padding": [
+                                            4,
+                                            10
+                                          ],
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "eRUqp",
+                                              "name": "Forget Label",
+                                              "fill": "$text-secondary",
+                                              "content": "Forget",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 11,
+                                              "fontWeight": "600"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "rectangle",
+                                      "id": "GQ0c3",
+                                      "name": "Divider",
+                                      "fill": "$border",
+                                      "width": "fill_container",
+                                      "height": 1
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "HrZzl",
+                                      "name": "Mode Row",
+                                      "width": "fill_container",
+                                      "justifyContent": "space_between",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "EVjz9",
+                                          "name": "Mode Label Group",
+                                          "gap": 8,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "v7DfR",
+                                              "name": "Mode Label",
+                                              "fill": "$text-primary",
+                                              "content": "Exclusive mode",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 12,
+                                              "fontWeight": "600"
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "I01JT",
+                                              "name": "Auto Tag",
+                                              "fill": "$bg-elevated",
+                                              "cornerRadius": "$radius-sm",
+                                              "stroke": "$border-strong",
+                                              "strokeWidth": 1,
+                                              "strokeAlignment": "inner",
+                                              "padding": [
+                                                2,
+                                                6
+                                              ],
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "cXjEa",
+                                                  "name": "Auto Label",
+                                                  "fill": "$text-secondary",
+                                                  "content": "AUTO",
+                                                  "fontFamily": "$font-mono",
+                                                  "fontSize": 9,
+                                                  "fontWeight": "700",
+                                                  "letterSpacing": 0.8
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "id": "yDtEW",
+                                          "type": "ref",
+                                          "ref": "jkTS9",
+                                          "name": "Toggle"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "mo8cq",
+                                  "name": "Scarlett 2i2 4th Gen",
+                                  "width": "fill_container",
+                                  "fill": "$bg-inset",
+                                  "cornerRadius": "$radius-md",
+                                  "stroke": "$border",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner",
+                                  "layout": "vertical",
+                                  "gap": 10,
+                                  "padding": 14,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "xDd2N",
+                                      "name": "Device",
+                                      "width": "fill_container",
+                                      "gap": 12,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "ntS8v",
+                                          "name": "Icon",
+                                          "width": 22,
+                                          "height": 22,
+                                          "icon": "speaker",
+                                          "library": "lucide",
+                                          "fill": "$text-muted"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "niLd1",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 3,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "U0N8a5",
+                                              "name": "Name",
+                                              "fill": "$text-primary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Scarlett 2i2 4th Gen",
+                                              "fontFamily": "$font-display",
+                                              "fontSize": 17,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "A3h91M",
+                                              "name": "Class",
+                                              "fill": "$text-muted",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "DAC · Up to 24-bit / 192 kHz",
+                                              "fontFamily": "$font-mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "TWTTW",
+                                              "name": "Status",
+                                              "fill": "$text-muted",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Last seen 3 days ago",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 11,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "yPAKK",
+                                          "name": "Forget Button",
+                                          "cornerRadius": "$radius-sm",
+                                          "stroke": "$border-strong",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "padding": [
+                                            4,
+                                            10
+                                          ],
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "y1hdC8",
+                                              "name": "Forget Label",
+                                              "fill": "$text-secondary",
+                                              "content": "Forget",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 11,
+                                              "fontWeight": "600"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "rectangle",
+                                      "id": "TKDdB",
+                                      "name": "Divider",
+                                      "fill": "$border",
+                                      "width": "fill_container",
+                                      "height": 1
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "xUye0",
+                                      "name": "Mode Row",
+                                      "width": "fill_container",
+                                      "justifyContent": "space_between",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "e93S3K",
+                                          "name": "Mode Label Group",
+                                          "gap": 8,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "Cj0UU",
+                                              "name": "Mode Label",
+                                              "fill": "$text-primary",
+                                              "content": "Exclusive mode",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 12,
+                                              "fontWeight": "600"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "f87mw",
+                                              "name": "Reset Link",
+                                              "fill": "$accent",
+                                              "content": "Reset to Auto",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 11,
+                                              "fontWeight": "600"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "id": "VoHUU",
+                                          "type": "ref",
+                                          "ref": "jkTS9",
+                                          "name": "Toggle"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "P4wMQl",
+              "name": "Bottom Player",
+              "width": "fill_container",
+              "height": 92,
+              "fill": "$bg-surface",
+              "stroke": "$border",
+              "strokeAlignment": "inner",
+              "strokeLinejoin": "round",
+              "layout": "vertical",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "V1W78",
+                  "name": "Progress Strip",
+                  "width": "fill_container",
+                  "height": 3,
+                  "fill": "$bg-elevated",
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "id": "CL4gF",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Elapsed Fill",
+                      "fill": "$accent",
+                      "width": 340,
+                      "height": 3
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "IBkq1",
+                  "name": "Content Row",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "gap": 22,
+                  "padding": [
+                    12,
+                    20
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "yT750",
+                      "name": "Now Playing",
+                      "width": 317,
+                      "gap": 16,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "bqwnR",
+                          "name": "Track Info",
+                          "width": "fill_container",
+                          "gap": 12,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "bgl4y",
+                              "name": "Cover",
+                              "clip": true,
+                              "width": 60,
+                              "height": 60,
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "album-covers/pop/blonde.jpg",
+                                "mode": "fill"
+                              },
+                              "cornerRadius": "$radius-sm",
+                              "stroke": "$border-strong",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner",
+                              "layout": "none"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "JzbE9",
+                              "name": "Copy",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "w3nXrW",
+                                  "name": "Track Title",
+                                  "fill": "#F0F0EE",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "Nights",
+                                  "fontFamily": "Rajdhani",
+                                  "fontSize": 15,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "G1OXf1",
+                                  "name": "Artist And Album",
+                                  "fill": "#9D9D99",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "Frank Ocean - Blonde",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "rectangle",
+                          "id": "iGs3M",
+                          "name": "Now Playing Divider",
+                          "fill": "$border",
+                          "width": 1,
+                          "height": 44
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "wpUjZ",
+                      "name": "Transport Center",
+                      "width": "fill_container",
+                      "gap": 28,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "P83lgn",
+                          "name": "Elapsed Slot",
+                          "width": 44,
+                          "justifyContent": "end",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "T8Bzmy",
+                              "name": "Elapsed",
+                              "fill": "$text-secondary",
+                              "content": "2:14",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "MPElI",
+                          "name": "Controls",
+                          "gap": 16,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "kri13",
+                              "name": "Shuffle",
+                              "width": 19,
+                              "height": 19,
+                              "icon": "shuffle",
+                              "library": "lucide",
+                              "fill": "$text-secondary"
+                            },
+                            {
+                              "type": "icon",
+                              "id": "mNGQS",
+                              "name": "Previous",
+                              "width": 19,
+                              "height": 19,
+                              "icon": "skip-back",
+                              "library": "lucide",
+                              "fill": "$text-secondary"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "q1nwM9",
+                              "name": "Play",
+                              "width": 34,
+                              "height": 34,
+                              "fill": "$accent",
+                              "cornerRadius": "$radius-md",
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "fU5KY",
+                                  "name": "Play Icon",
+                                  "width": 18,
+                                  "height": 18,
+                                  "icon": "play",
+                                  "library": "lucide",
+                                  "fill": "$bg-inset"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "icon",
+                              "id": "d2zfi",
+                              "name": "Next",
+                              "width": 19,
+                              "height": 19,
+                              "icon": "skip-forward",
+                              "library": "lucide",
+                              "fill": "$text-secondary"
+                            },
+                            {
+                              "type": "icon",
+                              "id": "KHTqG",
+                              "name": "Repeat",
+                              "width": 19,
+                              "height": 19,
+                              "icon": "repeat-2",
+                              "library": "lucide",
+                              "fill": "$text-secondary"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Re80u",
+                          "name": "Duration Slot",
+                          "width": 44,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "EUq7A",
+                              "name": "Duration",
+                              "fill": "$text-muted",
+                              "content": "4:28",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "P3H7HG",
+                      "name": "Output Slot",
+                      "width": 317,
+                      "gap": 16,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "id": "KhE00",
+                          "name": "Output Leading Divider",
+                          "fill": "$border",
+                          "width": 1,
+                          "height": 44
+                        },
+                        {
+                          "type": "frame",
+                          "id": "N5gGm",
+                          "name": "Output Status",
+                          "width": 300,
+                          "gap": 14,
+                          "justifyContent": "end",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "n39lD",
+                              "name": "Format",
+                              "width": 132,
+                              "layout": "vertical",
+                              "gap": 3,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "fxWt8",
+                                  "name": "Quality",
+                                  "fill": "#9DE23A",
+                                  "content": "FLAC · 16-bit",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 12,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "kwjb5",
+                                  "name": "Device",
+                                  "fill": "$text-secondary",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "44.1 kHz · Matrix mini-i",
+                                  "fontFamily": "$font-sans",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "uorOU",
+                              "name": "Divider",
+                              "fill": "$border",
+                              "width": 1,
+                              "height": 24
+                            },
+                            {
+                              "type": "frame",
+                              "id": "R0zRGn",
+                              "name": "Volume",
+                              "gap": 8,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "X0hy0",
+                                  "name": "Volume Icon",
+                                  "width": 17,
+                                  "height": 17,
+                                  "icon": "volume-2",
+                                  "library": "lucide",
+                                  "fill": "$text-secondary"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "PJ7Pg",
+                              "name": "Divider",
+                              "fill": "$border",
+                              "width": 1,
+                              "height": 24
+                            },
+                            {
+                              "type": "icon",
+                              "id": "Akl1F",
+                              "name": "Output",
+                              "width": 17,
+                              "height": 17,
+                              "icon": "speaker",
+                              "library": "lucide",
+                              "fill": "$text-secondary"
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "p78O68",
+                              "name": "Divider",
+                              "fill": "$border",
+                              "width": 1,
+                              "height": 24
+                            },
+                            {
+                              "type": "frame",
+                              "id": "k8Y4fg",
+                              "name": "Queue Button",
+                              "width": 38,
+                              "height": 34,
+                              "layout": "none",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "XC34j",
+                                  "x": 0,
+                                  "y": 8,
+                                  "name": "Queue",
+                                  "width": 17,
+                                  "height": 17,
+                                  "icon": "list-music",
+                                  "library": "lucide",
+                                  "fill": "$text-secondary"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "L4m8q0",
+                                  "x": 22,
+                                  "y": 0,
+                                  "name": "Badge",
+                                  "width": 16,
+                                  "height": 16,
+                                  "fill": "$accent",
+                                  "cornerRadius": 8,
+                                  "stroke": "$bg-surface",
+                                  "strokeWidth": 2,
+                                  "strokeAlignment": "outer",
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "s1uqqs",
+                                      "name": "Count",
+                                      "fill": "$bg-inset",
+                                      "content": "7",
+                                      "fontFamily": "$font-mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "700"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "ellipse",
+                  "id": "j23j4X",
+                  "layoutPosition": "absolute",
+                  "x": 335,
+                  "y": -3,
+                  "name": "Hover Scrubber (hover and drag only)",
+                  "fill": "$accent",
+                  "width": 10,
+                  "height": 10
+                }
+              ]
             }
           ]
         }
