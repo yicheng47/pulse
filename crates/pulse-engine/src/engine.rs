@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use rtrb::{Consumer, Producer, RingBuffer};
 
 use crate::{EngineError, Levels, PcmFormat, auhal, device, gain::GainControl, hal};
@@ -88,6 +90,7 @@ impl Engine {
         if self.sink.is_some() {
             return Ok(());
         }
+        self.gain_control.fade_in();
         let format = self.format.ok_or_else(|| {
             EngineError::UnsupportedFormat("engine format is not set".to_string())
         })?;
@@ -112,7 +115,8 @@ impl Engine {
 
     pub fn pause(&mut self) -> Result<(), EngineError> {
         if let Some(sink) = self.sink.take() {
-            sink.stop()?;
+            let timeout = sink.transition_wait_timeout();
+            stop_after_fade(&self.gain_control, timeout, || sink.stop())?;
         }
         Ok(())
     }
@@ -181,6 +185,16 @@ impl Engine {
     }
 }
 
+fn stop_after_fade(
+    gain_control: &GainControl,
+    timeout: Duration,
+    stop: impl FnOnce() -> Result<(), EngineError>,
+) -> Result<(), EngineError> {
+    let transition = gain_control.fade_out();
+    let _ = gain_control.wait_for_transition(transition, timeout);
+    stop()
+}
+
 fn configure_device_format(
     exclusive_mode: bool,
     set_nominal_sample_rate: impl FnOnce() -> Result<(), EngineError>,
@@ -237,7 +251,10 @@ fn read_i24_ne(bytes: &[u8]) -> i32 {
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, rc::Rc};
+    use std::{
+        cell::{Cell, RefCell},
+        rc::Rc,
+    };
 
     use super::*;
 
@@ -271,6 +288,41 @@ mod tests {
         .unwrap();
 
         assert_eq!(*calls.borrow(), ["nominal-rate", "physical-format"]);
+    }
+
+    #[test]
+    fn stop_halts_after_the_bounded_wait_when_the_callback_never_runs() {
+        let control = GainControl::default();
+        let stopped = Cell::new(false);
+
+        stop_after_fade(&control, Duration::ZERO, || {
+            stopped.set(true);
+            Ok(())
+        })
+        .unwrap();
+
+        assert!(stopped.get());
+    }
+
+    #[test]
+    fn stop_halts_after_timeout_when_the_callback_stalls_mid_ramp() {
+        let control = GainControl::default();
+        let mut processor = crate::gain::GainProcessor::new(control.clone(), 1_000, 1);
+        let transition = control.fade_out();
+        let mut partial_ramp = 1.0_f32.to_ne_bytes().repeat(5);
+        processor.process(&mut partial_ramp);
+        let last_gain = f32::from_ne_bytes(partial_ramp[16..20].try_into().unwrap());
+        assert!((last_gain - 0.5).abs() < f32::EPSILON);
+        assert!(!control.wait_for_transition(transition, Duration::ZERO));
+        let stopped = Cell::new(false);
+
+        stop_after_fade(&control, Duration::ZERO, || {
+            stopped.set(true);
+            Ok(())
+        })
+        .unwrap();
+
+        assert!(stopped.get());
     }
 
     #[test]
