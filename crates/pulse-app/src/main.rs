@@ -1,5 +1,6 @@
 mod assets;
 mod components;
+mod device_management;
 pub mod library;
 mod library_ui;
 mod menu;

@@ -1,10 +1,10 @@
 use std::{
     cell::Cell,
-    collections::HashSet,
+    collections::{BTreeMap, HashSet},
     path::{Path, PathBuf},
     rc::Rc,
     sync::mpsc::{Receiver, Sender, TryRecvError},
-    time::Duration,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use gpui::{
@@ -84,6 +84,36 @@ enum PlaybackSurface {
     SettingsOutputPicker,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ManagedDevice {
+    pub uid: String,
+    pub name: String,
+    pub capabilities: Option<preferences::StoredDeviceCapabilities>,
+    pub last_seen_unix_seconds: Option<u64>,
+    pub connected: bool,
+    pub active: bool,
+    pub saved_default: bool,
+    pub default_exclusive_mode: bool,
+    pub exclusive_mode: bool,
+    pub automatic: bool,
+}
+
+impl ManagedDevice {
+    pub fn can_forget(&self) -> bool {
+        !self.connected
+    }
+
+    pub fn can_set_as_default(&self) -> bool {
+        self.connected && !self.saved_default
+    }
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub(crate) struct ManagedDeviceGroups {
+    pub connected: Vec<ManagedDevice>,
+    pub not_connected: Vec<ManagedDevice>,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum VolumeIconState {
     High,
@@ -125,11 +155,13 @@ pub struct PlaybackRow {
     format: Option<PcmFormat>,
     devices: Vec<device::Device>,
     active_device: Option<device::Device>,
+    saved_output_device_uid: Option<String>,
     device_capabilities: Option<device::OutputDeviceCapabilities>,
     device_capability_message: Option<DeviceMessage>,
     pending_device_change: Option<PendingDeviceChange>,
     device_message: Option<DeviceMessage>,
     exclusive_mode_preferences: preferences::ExclusiveModePreferences,
+    device_sightings_writable: bool,
     default_exclusive_mode: bool,
     exclusive_mode: bool,
     playback_exclusive_mode: bool,
@@ -218,11 +250,13 @@ impl PlaybackRow {
             format: None,
             devices: Vec::new(),
             active_device: None,
+            saved_output_device_uid: None,
             device_capabilities: None,
             device_capability_message: None,
             pending_device_change: None,
             device_message: None,
             exclusive_mode_preferences: preferences::ExclusiveModePreferences::default(),
+            device_sightings_writable: false,
             default_exclusive_mode: true,
             exclusive_mode: true,
             playback_exclusive_mode: true,
@@ -292,21 +326,27 @@ impl PlaybackRow {
                 None
             }
         };
+        self.saved_output_device_uid = preferred_uid.clone();
         let active_device =
             resolve_output_device(&devices, &system_default, preferred_uid.as_deref());
 
-        self.devices = devices;
         self.active_device = Some(active_device.clone());
-        self.exclusive_mode_preferences = preferences::load_exclusive_mode_preferences(
-            &active_device.uid,
-        )
-        .unwrap_or_else(|error| {
-            self.device_message = Some(DeviceMessage {
-                text: format!("Could not load exclusive-mode preferences: {error}"),
-                is_error: true,
-            });
-            preferences::ExclusiveModePreferences::default()
-        });
+        match preferences::load_exclusive_mode_preferences(&active_device.uid) {
+            Ok(preferences) => {
+                self.exclusive_mode_preferences = preferences;
+                self.device_sightings_writable = true;
+            }
+            Err(error) => {
+                self.device_message = Some(DeviceMessage {
+                    text: format!("Could not load exclusive-mode preferences: {error}"),
+                    is_error: true,
+                });
+                self.exclusive_mode_preferences = preferences::ExclusiveModePreferences::default();
+                self.device_sightings_writable = false;
+            }
+        }
+        self.record_device_sightings(&devices);
+        self.devices = devices;
         let capabilities = device::output_device_capabilities(active_device.id);
         self.default_exclusive_mode = default_exclusive_mode(&capabilities);
         self.exclusive_mode = self
@@ -409,6 +449,38 @@ impl PlaybackRow {
         }
     }
 
+    fn record_device_sightings(&mut self, devices: &[device::Device]) {
+        if !self.device_sightings_writable {
+            return;
+        }
+        let seen_at = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let mut updated = self.exclusive_mode_preferences.clone();
+        for output_device in devices {
+            let capabilities = updated.stored_capabilities(&output_device.uid).or_else(|| {
+                device::output_device_capabilities(output_device.id)
+                    .ok()
+                    .map(stored_device_capabilities)
+            });
+            updated.record_sighting(
+                &output_device.uid,
+                &output_device.name,
+                capabilities,
+                seen_at,
+            );
+        }
+        if let Err(error) = preferences::save_exclusive_mode_preferences(&updated) {
+            self.device_message = Some(DeviceMessage {
+                text: format!("Could not save output device details: {error}"),
+                is_error: true,
+            });
+            return;
+        }
+        self.exclusive_mode_preferences = updated;
+    }
+
     fn displayed_device_message(&self) -> Option<DeviceMessage> {
         match (&self.device_message, &self.device_capability_message) {
             (Some(message), Some(capability)) => Some(DeviceMessage {
@@ -421,12 +493,39 @@ impl PlaybackRow {
         }
     }
 
-    pub(crate) fn error(&self) -> Option<&str> {
-        self.error.as_deref()
-    }
-
     pub(crate) fn active_output_device(&self) -> Option<&device::Device> {
         self.active_device.as_ref()
+    }
+
+    pub(crate) fn managed_device_groups(&self) -> ManagedDeviceGroups {
+        let mut groups = merge_managed_devices(
+            &self.devices,
+            self.active_device
+                .as_ref()
+                .map(|device| device.uid.as_str()),
+            self.saved_output_device_uid.as_deref(),
+            &self.exclusive_mode_preferences,
+        );
+        if let Some(active) = groups.connected.iter_mut().find(|device| device.active) {
+            if let Some(capabilities) = self.device_capabilities {
+                active.capabilities = Some(stored_device_capabilities(capabilities));
+            }
+            active.default_exclusive_mode = self.default_exclusive_mode;
+            active.exclusive_mode = self.exclusive_mode;
+            active.automatic = self.exclusive_mode_is_automatic();
+        }
+        groups
+    }
+
+    pub(crate) fn device_management_messages(&self) -> Vec<(String, bool)> {
+        let mut messages = Vec::new();
+        if let Some(message) = self.displayed_device_message() {
+            messages.push((message.text, message.is_error));
+        }
+        if let Some(error) = &self.error {
+            messages.push((error.clone(), true));
+        }
+        messages
     }
 
     fn exclusive_mode_is_automatic(&self) -> bool {
@@ -469,9 +568,24 @@ impl PlaybackRow {
         let Some(active_device) = &self.active_device else {
             return;
         };
-        let enabled = !self.exclusive_mode;
+        self.toggle_device_exclusive_mode(
+            active_device.uid.clone(),
+            self.default_exclusive_mode,
+            cx,
+        );
+    }
+
+    pub(crate) fn toggle_device_exclusive_mode(
+        &mut self,
+        device_uid: String,
+        default: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let enabled = !self
+            .exclusive_mode_preferences
+            .effective_mode(&device_uid, default);
         let mut updated_preferences = self.exclusive_mode_preferences.clone();
-        updated_preferences.set_override(&active_device.uid, enabled);
+        updated_preferences.set_override(&device_uid, enabled);
         if let Err(error) = preferences::save_exclusive_mode_preferences(&updated_preferences) {
             self.device_message = Some(DeviceMessage {
                 text: format!("Could not save the exclusive-mode preference: {error}"),
@@ -481,9 +595,8 @@ impl PlaybackRow {
             return;
         }
         self.exclusive_mode_preferences = updated_preferences;
-        self.exclusive_mode = enabled;
-        self.playback_exclusive_mode = enabled;
-        self.send_command(PlaybackCommand::SetExclusiveMode { enabled }, cx);
+        self.device_sightings_writable = true;
+        self.apply_exclusive_mode_if_active(&device_uid, enabled, cx);
         cx.notify();
     }
 
@@ -491,8 +604,21 @@ impl PlaybackRow {
         let Some(active_device) = &self.active_device else {
             return;
         };
+        self.reset_device_exclusive_mode_to_auto(
+            active_device.uid.clone(),
+            self.default_exclusive_mode,
+            cx,
+        );
+    }
+
+    pub(crate) fn reset_device_exclusive_mode_to_auto(
+        &mut self,
+        device_uid: String,
+        default: bool,
+        cx: &mut Context<Self>,
+    ) {
         let mut updated_preferences = self.exclusive_mode_preferences.clone();
-        updated_preferences.clear_override(&active_device.uid);
+        updated_preferences.clear_override(&device_uid);
         if let Err(error) = preferences::save_exclusive_mode_preferences(&updated_preferences) {
             self.device_message = Some(DeviceMessage {
                 text: format!("Could not save the exclusive-mode preference: {error}"),
@@ -501,12 +627,91 @@ impl PlaybackRow {
             cx.notify();
             return;
         }
-        let enabled = self.default_exclusive_mode;
         self.exclusive_mode_preferences = updated_preferences;
+        self.device_sightings_writable = true;
+        self.apply_exclusive_mode_if_active(&device_uid, default, cx);
+        cx.notify();
+    }
+
+    fn apply_exclusive_mode_if_active(
+        &mut self,
+        device_uid: &str,
+        enabled: bool,
+        cx: &mut Context<Self>,
+    ) {
+        if !self
+            .active_device
+            .as_ref()
+            .is_some_and(|device| device.uid == device_uid)
+        {
+            return;
+        }
         self.exclusive_mode = enabled;
         self.playback_exclusive_mode = enabled;
         self.send_command(PlaybackCommand::SetExclusiveMode { enabled }, cx);
-        cx.notify();
+    }
+
+    pub(crate) fn forget_managed_device(
+        &mut self,
+        device_uid: &str,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        if self.devices.iter().any(|device| device.uid == device_uid) {
+            return false;
+        }
+        match preferences::forget_device(&mut self.exclusive_mode_preferences, device_uid) {
+            Ok(true) => {
+                if self.saved_output_device_uid.as_deref() == Some(device_uid) {
+                    self.saved_output_device_uid = None;
+                }
+                self.device_message = None;
+                cx.notify();
+                true
+            }
+            Ok(false) => false,
+            Err(error) => {
+                self.device_message = Some(DeviceMessage {
+                    text: format!("Could not forget the output device: {error}"),
+                    is_error: true,
+                });
+                cx.notify();
+                false
+            }
+        }
+    }
+
+    pub(crate) fn set_managed_device_as_default(
+        &mut self,
+        device_uid: &str,
+        cx: &mut Context<Self>,
+    ) {
+        match self.update_saved_output_device_uid(device_uid, preferences::save_output_device_uid) {
+            Ok(true) => {
+                self.device_message = None;
+                cx.notify();
+            }
+            Ok(false) => {}
+            Err(error) => {
+                self.device_message = Some(DeviceMessage {
+                    text: format!("Could not save the default output device: {error}"),
+                    is_error: true,
+                });
+                cx.notify();
+            }
+        }
+    }
+
+    fn update_saved_output_device_uid(
+        &mut self,
+        device_uid: &str,
+        save: impl FnOnce(&str) -> std::io::Result<()>,
+    ) -> std::io::Result<bool> {
+        if !self.devices.iter().any(|device| device.uid == device_uid) {
+            return Ok(false);
+        }
+        save(device_uid)?;
+        self.saved_output_device_uid = Some(device_uid.to_string());
+        Ok(true)
     }
 
     /// Library rows marked unplayable because their file was gone at play
@@ -535,10 +740,6 @@ impl PlaybackRow {
         self.notice = None;
         self.retry = None;
         cx.notify();
-    }
-
-    pub(crate) fn has_track(&self) -> bool {
-        self.source_path.is_some()
     }
 
     pub(crate) fn is_now_playing(&self, path: &Path) -> bool {
@@ -1162,14 +1363,19 @@ impl PlaybackRow {
         let output_device =
             self.apply_completed_output_device_change(pending, playback_exclusive_mode);
 
-        if persist && let Err(error) = preferences::save_output_device_uid(&output_device.uid) {
-            self.device_message = Some(DeviceMessage {
-                text: format!(
-                    "Could not save {} as the output device: {error}",
-                    output_device.name
-                ),
-                is_error: true,
-            });
+        if persist {
+            match preferences::save_output_device_uid(&output_device.uid) {
+                Ok(()) => self.saved_output_device_uid = Some(output_device.uid.clone()),
+                Err(error) => {
+                    self.device_message = Some(DeviceMessage {
+                        text: format!(
+                            "Could not save {} as the output device: {error}",
+                            output_device.name
+                        ),
+                        is_error: true,
+                    });
+                }
+            }
         }
     }
 
@@ -1215,6 +1421,15 @@ impl PlaybackRow {
     /// engine has no mid-playback device-loss signal, so the row watches for
     /// it while playing.
     fn note_device_loss(&mut self, devices: Vec<device::Device>) -> bool {
+        let devices_changed = self.devices.len() != devices.len()
+            || self
+                .devices
+                .iter()
+                .zip(&devices)
+                .any(|(known, current)| known.uid != current.uid || known.name != current.name);
+        if devices_changed {
+            self.record_device_sightings(&devices);
+        }
         let Some(active) = self.active_device.clone() else {
             self.devices = devices;
             return false;
@@ -1245,7 +1460,7 @@ impl PlaybackRow {
         cx.notify();
     }
 
-    fn refresh_output_devices(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn refresh_output_devices(&mut self, cx: &mut Context<Self>) {
         let devices = match device::list_output_devices() {
             Ok(devices) => devices,
             Err(error) => {
@@ -1256,6 +1471,7 @@ impl PlaybackRow {
                 return;
             }
         };
+        self.record_device_sightings(&devices);
 
         let Some(active_device) = self.active_device.clone() else {
             self.initialize_output();
@@ -2270,60 +2486,19 @@ impl PlaybackRow {
                     )
                     .when(self.active_device.is_some(), |card| {
                         card.child(div().w_full().h(px(1.)).my(px(10.)).bg(theme::border()))
-                            .child(
-                                div()
-                                    .flex()
-                                    .items_center()
-                                    .w_full()
-                                    .child(
-                                        div()
-                                            .font_family(theme::FONT_SANS)
-                                            .font_weight(FontWeight::SEMIBOLD)
-                                            .text_size(px(12.))
-                                            .text_color(theme::text_primary())
-                                            .child("Exclusive mode"),
-                                    )
-                                    .child(if self.exclusive_mode_is_automatic() {
-                                        div()
-                                            .ml(px(8.))
-                                            .px(px(5.))
-                                            .py(px(2.))
-                                            .rounded(px(theme::RADIUS_SM))
-                                            .bg(theme::accent_soft())
-                                            .font_family(theme::FONT_MONO)
-                                            .font_weight(FontWeight::BOLD)
-                                            .text_size(px(9.))
-                                            .text_color(theme::accent())
-                                            .child("AUTO")
-                                            .into_any_element()
-                                    } else {
-                                        div()
-                                            .id("exclusive-mode-reset-auto")
-                                            .ml(px(8.))
-                                            .cursor_pointer()
-                                            .font_family(theme::FONT_SANS)
-                                            .font_weight(FontWeight::SEMIBOLD)
-                                            .text_size(px(11.))
-                                            .text_color(theme::accent())
-                                            .child("Reset to Auto")
-                                            .on_click(cx.listener(|this, _, _, cx| {
-                                                this.reset_exclusive_mode_to_auto(cx);
-                                            }))
-                                            .into_any_element()
-                                    })
-                                    .child(div().flex_1())
-                                    .child(
-                                        crate::components::toggle(
-                                            "exclusive-mode-toggle",
-                                            self.exclusive_mode,
-                                        )
-                                        .on_click(
-                                            cx.listener(|this, _, _, cx| {
-                                                this.toggle_exclusive_mode(cx);
-                                            }),
-                                        ),
-                                    ),
-                            )
+                            .child(components::exclusive_mode_control(
+                                self.exclusive_mode_is_automatic(),
+                                components::exclusive_mode_reset_link("exclusive-mode-reset-auto")
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        this.reset_exclusive_mode_to_auto(cx);
+                                    }))
+                                    .into_any_element(),
+                                components::toggle("exclusive-mode-toggle", self.exclusive_mode)
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        this.toggle_exclusive_mode(cx);
+                                    }))
+                                    .into_any_element(),
+                            ))
                     }),
             );
 
@@ -2918,6 +3093,84 @@ fn resolve_output_device(
         .unwrap_or_else(|| system_default.clone())
 }
 
+fn stored_device_capabilities(
+    capabilities: device::OutputDeviceCapabilities,
+) -> preferences::StoredDeviceCapabilities {
+    preferences::StoredDeviceCapabilities {
+        max_bits_per_channel: capabilities.max_bits_per_channel,
+        max_sample_rate: capabilities.max_sample_rate.round() as u32,
+    }
+}
+
+fn merge_managed_devices(
+    connected_devices: &[device::Device],
+    active_device_uid: Option<&str>,
+    saved_output_device_uid: Option<&str>,
+    preferences: &preferences::ExclusiveModePreferences,
+) -> ManagedDeviceGroups {
+    let mut merged = BTreeMap::new();
+    for (uid, stored) in preferences.devices() {
+        let default_exclusive_mode = stored
+            .capabilities
+            .is_some_and(|capabilities| capabilities.max_bits_per_channel.is_some());
+        merged.insert(
+            uid.to_string(),
+            ManagedDevice {
+                uid: uid.to_string(),
+                name: stored.name.clone().unwrap_or_else(|| uid.to_string()),
+                capabilities: stored.capabilities,
+                last_seen_unix_seconds: stored.last_seen_unix_seconds,
+                connected: false,
+                active: false,
+                saved_default: saved_output_device_uid == Some(uid),
+                default_exclusive_mode,
+                exclusive_mode: preferences.effective_mode(uid, default_exclusive_mode),
+                automatic: stored.exclusive_mode_override().is_none(),
+            },
+        );
+    }
+    for connected in connected_devices {
+        let managed = merged
+            .entry(connected.uid.clone())
+            .or_insert_with(|| ManagedDevice {
+                uid: connected.uid.clone(),
+                name: connected.name.clone(),
+                capabilities: None,
+                last_seen_unix_seconds: None,
+                connected: true,
+                active: false,
+                saved_default: saved_output_device_uid == Some(connected.uid.as_str()),
+                default_exclusive_mode: false,
+                exclusive_mode: preferences.effective_mode(&connected.uid, false),
+                automatic: !preferences.is_overridden(&connected.uid),
+            });
+        managed.name = connected.name.clone();
+        managed.connected = true;
+        managed.active = active_device_uid == Some(connected.uid.as_str());
+        managed.saved_default = saved_output_device_uid == Some(connected.uid.as_str());
+    }
+
+    let mut groups = ManagedDeviceGroups::default();
+    for managed in merged.into_values() {
+        if managed.connected {
+            groups.connected.push(managed);
+        } else {
+            groups.not_connected.push(managed);
+        }
+    }
+    groups.connected.sort_by_cached_key(|managed| {
+        (
+            !managed.active,
+            managed.name.to_lowercase(),
+            managed.uid.clone(),
+        )
+    });
+    groups
+        .not_connected
+        .sort_by_cached_key(|managed| (managed.name.to_lowercase(), managed.uid.clone()));
+    groups
+}
+
 fn default_exclusive_mode(
     capabilities: &Result<device::OutputDeviceCapabilities, EngineError>,
 ) -> bool {
@@ -2927,8 +3180,24 @@ fn default_exclusive_mode(
 }
 
 fn format_device_capabilities(capabilities: device::OutputDeviceCapabilities) -> String {
-    let sample_rate = format_sample_rate(capabilities.max_sample_rate.round() as u32);
-    match capabilities.max_bits_per_channel {
+    format_capability_ceiling(
+        capabilities.max_bits_per_channel,
+        capabilities.max_sample_rate.round() as u32,
+    )
+}
+
+pub(crate) fn format_stored_device_capabilities(
+    capabilities: preferences::StoredDeviceCapabilities,
+) -> String {
+    format_capability_ceiling(
+        capabilities.max_bits_per_channel,
+        capabilities.max_sample_rate,
+    )
+}
+
+fn format_capability_ceiling(max_bits_per_channel: Option<u32>, max_sample_rate: u32) -> String {
+    let sample_rate = format_sample_rate(max_sample_rate);
+    match max_bits_per_channel {
         Some(bits) => format!("Up to {bits}-bit / {sample_rate}"),
         None => format!("Up to {sample_rate}"),
     }
@@ -3232,6 +3501,183 @@ mod tests {
 
         let selected = resolve_output_device(&devices, &system_default, Some("unplugged"));
         assert_eq!(selected.id, system_default.id);
+    }
+
+    #[test]
+    fn managed_devices_merge_connected_and_stored_rows_without_duplicates() {
+        let mut preferences = preferences::ExclusiveModePreferences::default();
+        preferences.record_sighting(
+            "matrix",
+            "mini-i Series",
+            Some(preferences::StoredDeviceCapabilities {
+                max_bits_per_channel: Some(24),
+                max_sample_rate: 192_000,
+            }),
+            100,
+        );
+        preferences.record_sighting(
+            "airpods",
+            "AirPods Pro",
+            Some(preferences::StoredDeviceCapabilities {
+                max_bits_per_channel: None,
+                max_sample_rate: 48_000,
+            }),
+            90,
+        );
+        let connected = vec![
+            output_device(9, "matrix", "mini-i Series"),
+            output_device(1, "built-in", "Mac Speakers"),
+        ];
+
+        let groups =
+            merge_managed_devices(&connected, Some("matrix"), Some("matrix"), &preferences);
+        let uids = groups
+            .connected
+            .iter()
+            .chain(&groups.not_connected)
+            .map(|device| device.uid.as_str())
+            .collect::<HashSet<_>>();
+
+        assert_eq!(groups.connected.len(), 2);
+        assert_eq!(groups.not_connected.len(), 1);
+        assert_eq!(uids.len(), 3);
+        assert_eq!(groups.not_connected[0].uid, "airpods");
+    }
+
+    #[test]
+    fn managed_device_group_moves_keep_the_stored_override() {
+        let mut preferences = preferences::ExclusiveModePreferences::default();
+        preferences.record_sighting(
+            "matrix",
+            "mini-i Series",
+            Some(preferences::StoredDeviceCapabilities {
+                max_bits_per_channel: Some(24),
+                max_sample_rate: 192_000,
+            }),
+            100,
+        );
+        preferences.set_override("matrix", false);
+
+        let disconnected = merge_managed_devices(&[], None, None, &preferences);
+        assert!(!disconnected.not_connected[0].exclusive_mode);
+        assert!(!disconnected.not_connected[0].automatic);
+
+        let connected = merge_managed_devices(
+            &[output_device(9, "matrix", "mini-i Series")],
+            Some("matrix"),
+            None,
+            &preferences,
+        );
+        assert!(!connected.connected[0].exclusive_mode);
+        assert!(!connected.connected[0].automatic);
+        assert!(preferences.is_overridden("matrix"));
+    }
+
+    #[test]
+    fn managed_device_groups_sort_active_first_then_alphabetically() {
+        let mut preferences = preferences::ExclusiveModePreferences::default();
+        for (uid, name) in [
+            ("delta", "Delta"),
+            ("charlie", "charlie"),
+            ("alpha", "alpha"),
+            ("zulu", "Zulu"),
+            ("beta", "Beta"),
+        ] {
+            preferences.record_sighting(uid, name, None, 100);
+        }
+        let connected = vec![
+            output_device(1, "zulu", "Zulu"),
+            output_device(2, "beta", "Beta"),
+            output_device(3, "alpha", "alpha"),
+        ];
+
+        let groups = merge_managed_devices(&connected, Some("beta"), None, &preferences);
+
+        assert_eq!(
+            groups
+                .connected
+                .iter()
+                .map(|device| device.uid.as_str())
+                .collect::<Vec<_>>(),
+            vec!["beta", "alpha", "zulu"]
+        );
+        assert_eq!(
+            groups
+                .not_connected
+                .iter()
+                .map(|device| device.uid.as_str())
+                .collect::<Vec<_>>(),
+            vec!["charlie", "delta"]
+        );
+    }
+
+    #[test]
+    fn only_not_connected_devices_can_be_forgotten() {
+        let mut preferences = preferences::ExclusiveModePreferences::default();
+        preferences.record_sighting("matrix", "mini-i Series", None, 100);
+        preferences.record_sighting("airpods", "AirPods Pro", None, 100);
+
+        let groups = merge_managed_devices(
+            &[output_device(9, "matrix", "mini-i Series")],
+            Some("matrix"),
+            None,
+            &preferences,
+        );
+
+        assert!(!groups.connected[0].can_forget());
+        assert!(groups.not_connected[0].can_forget());
+    }
+
+    #[test]
+    fn set_as_default_moves_the_marker_without_changing_the_active_output() {
+        let matrix = output_device(9, "matrix", "mini-i Series");
+        let airpods = output_device(10, "airpods", "AirPods Pro");
+        let mut row = PlaybackRow::initial();
+        row.devices = vec![matrix.clone(), airpods];
+        row.active_device = Some(matrix.clone());
+        row.saved_output_device_uid = Some(matrix.uid.clone());
+        let mut saved_uid = None;
+
+        assert!(
+            row.update_saved_output_device_uid("airpods", |uid| {
+                saved_uid = Some(uid.to_string());
+                Ok(())
+            })
+            .unwrap()
+        );
+
+        assert_eq!(saved_uid.as_deref(), Some("airpods"));
+        assert_eq!(
+            row.active_device.as_ref().map(|device| device.uid.as_str()),
+            Some("matrix")
+        );
+        let groups = row.managed_device_groups();
+        let active = groups
+            .connected
+            .iter()
+            .find(|device| device.uid == "matrix")
+            .unwrap();
+        let saved_default = groups
+            .connected
+            .iter()
+            .find(|device| device.uid == "airpods")
+            .unwrap();
+        assert!(active.active);
+        assert!(!active.saved_default);
+        assert!(active.can_set_as_default());
+        assert!(saved_default.saved_default);
+        assert!(!saved_default.can_set_as_default());
+    }
+
+    #[test]
+    fn device_page_keeps_legacy_playback_errors_visible() {
+        let mut row = PlaybackRow::initial();
+        row.error = Some("Drop one audio file at a time.".to_string());
+
+        assert_eq!(
+            row.device_management_messages(),
+            vec![("Drop one audio file at a time.".to_string(), true)]
+        );
     }
 
     #[test]

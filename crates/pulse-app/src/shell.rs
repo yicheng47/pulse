@@ -10,6 +10,7 @@ use gpui::{
 
 use crate::{
     components,
+    device_management::DeviceManagementPage,
     library::{Album, PlaylistSummary, Track},
     library_ui::{
         LibraryView,
@@ -76,6 +77,7 @@ const NAV_GROUPS: &[(&str, &[Destination])] = &[
 pub struct Shell {
     destination: Destination,
     row: Entity<PlaybackRow>,
+    devices: Entity<DeviceManagementPage>,
     library: Entity<LibraryView>,
     search_input: TextInput,
     search: SearchViewModel,
@@ -93,11 +95,13 @@ pub struct Shell {
 impl Shell {
     pub fn new(cx: &mut Context<Self>) -> Self {
         let row = cx.new(PlaybackRow::new);
+        let devices = cx.new(|cx| DeviceManagementPage::new(row.clone(), cx));
         let library = cx.new(|cx| LibraryView::new(row.clone(), cx));
         cx.observe(&library, |_, _, cx| cx.notify()).detach();
         Self {
             destination: Destination::Albums,
             row,
+            devices,
             library,
             search_input: TextInput::default(),
             search: SearchViewModel::default(),
@@ -421,6 +425,10 @@ impl Shell {
             .cursor_pointer()
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.destination = destination;
+                if destination == Destination::Devices {
+                    this.row
+                        .update(cx, |row, cx| row.refresh_output_devices(cx));
+                }
                 this.library
                     .update(cx, |library, cx| library.set_destination(destination, cx));
                 cx.notify();
@@ -958,63 +966,11 @@ impl Shell {
             .into_any_element()
     }
 
-    fn render_body(&self, cx: &Context<Self>) -> AnyElement {
+    fn render_body(&self, _cx: &Context<Self>) -> AnyElement {
         if self.destination != Destination::Devices {
             return self.library.clone().into_any_element();
         }
-
-        let row = self.row.read(cx);
-        let error = row.error().map(str::to_string);
-        let hint = match &error {
-            Some(error) => error.clone(),
-            None if !row.has_track() => "Drop an audio file anywhere in the window".to_string(),
-            None => String::new(),
-        };
-
-        div()
-            .flex()
-            .flex_col()
-            .flex_1()
-            .min_h_0()
-            .w_full()
-            .gap(px(18.))
-            .pt(px(26.))
-            .pr(px(28.))
-            .pb(px(24.))
-            .pl(px(28.))
-            .child(
-                div()
-                    .font_family(theme::FONT_DISPLAY)
-                    .font_weight(FontWeight::BOLD)
-                    .text_size(px(26.))
-                    .text_color(theme::text_primary())
-                    .child(self.destination.label()),
-            )
-            .child(
-                div()
-                    .font_family(theme::FONT_MONO)
-                    .font_weight(FontWeight::BOLD)
-                    .text_size(px(10.))
-                    .text_color(theme::text_muted())
-                    .child("NOT BUILT YET"),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_1()
-                    .min_h_0()
-                    .items_center()
-                    .justify_center()
-                    .font_family(theme::FONT_SANS)
-                    .text_size(px(13.))
-                    .text_color(if error.is_some() {
-                        theme::danger()
-                    } else {
-                        theme::text_muted()
-                    })
-                    .child(hint),
-            )
-            .into_any_element()
+        self.devices.clone().into_any_element()
     }
 
     fn render_search(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {

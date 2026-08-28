@@ -75,6 +75,57 @@ pub(crate) fn toggle(id: impl Into<ElementId>, on: bool) -> Stateful<Div> {
     )
 }
 
+pub(crate) fn exclusive_mode_reset_link(id: impl Into<ElementId>) -> Stateful<Div> {
+    div()
+        .id(id)
+        .ml(px(8.))
+        .cursor_pointer()
+        .font_family(theme::FONT_SANS)
+        .font_weight(FontWeight::SEMIBOLD)
+        .text_size(px(11.))
+        .text_color(theme::accent())
+        .child("Reset to Auto")
+}
+
+pub(crate) fn exclusive_mode_control(
+    automatic: bool,
+    reset_link: AnyElement,
+    toggle: AnyElement,
+) -> Div {
+    div()
+        .flex()
+        .items_center()
+        .w_full()
+        .child(
+            div()
+                .font_family(theme::FONT_SANS)
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_size(px(12.))
+                .text_color(theme::text_primary())
+                .child("Exclusive mode"),
+        )
+        .child(if automatic {
+            div()
+                .ml(px(8.))
+                .px(px(5.))
+                .py(px(2.))
+                .rounded(px(theme::RADIUS_SM))
+                .border_1()
+                .border_color(theme::border_strong())
+                .bg(theme::bg_elevated())
+                .font_family(theme::FONT_MONO)
+                .font_weight(FontWeight::BOLD)
+                .text_size(px(9.))
+                .text_color(theme::text_secondary())
+                .child("AUTO")
+                .into_any_element()
+        } else {
+            reset_link
+        })
+        .child(div().flex_1())
+        .child(toggle)
+}
+
 /// Filled accent button for a modal's confirming action.
 pub(crate) fn primary_button(
     id: impl Into<ElementId>,
