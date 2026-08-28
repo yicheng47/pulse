@@ -53478,6 +53478,7 @@
                         24,
                         28
                       ],
+                      "alignItems": "center",
                       "children": [
                         {
                           "type": "frame",
@@ -53752,6 +53753,31 @@
                                               "fontFamily": "$font-mono",
                                               "fontSize": 11,
                                               "fontWeight": "700"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "jlSvS",
+                                          "name": "Set as default Button",
+                                          "cornerRadius": "$radius-sm",
+                                          "stroke": "$border-strong",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "padding": [
+                                            4,
+                                            10
+                                          ],
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "o0pclv",
+                                              "name": "Set as default Label",
+                                              "fill": "$text-secondary",
+                                              "content": "Set as default",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 11,
+                                              "fontWeight": "600"
                                             }
                                           ]
                                         }

@@ -6,7 +6,6 @@ Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phase
 
 ## Active
 
-- [`22-device-management-page.md`](22-device-management-page.md) - P1, issue #58. The sidebar's existing OUTPUT → Devices destination (today a legacy drop surface) becomes the device manager: every known device (connected or not) with class, capability ceiling, and the Auto-aware exclusive control — edit offline overrides, forget stale devices. Refines 08's no-mirror non-goal.
 - [`21-launch-state-restore.md`](21-launch-state-restore.md) - P2, issue #57. Relaunch lands where you left off: queue, current track paused at position, shuffle/repeat, and the open library route restored; never auto-plays; NAS-offline paths degrade softly.
 - [`20-now-playing-page.md`](20-now-playing-page.md) - P2, issue #56. Click the playback row's track cluster to open an immersive now-playing view: full-size album art, track identity, quality badge; playback row stays as the transport. Lyrics land here later.
 - [`19-mcp-server.md`](19-mcp-server.md) - P2, issue #55. `pulse mcp` stdio server on the app binary, Quill-style: library reads always on; playlist CRUD and rescan behind a Settings write gate; WAL for cross-process safety.
@@ -17,6 +16,7 @@ Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phase
 
 ## Implemented
 
+- [`22-device-management-page.md`](archive/22-device-management-page.md) - P1, issue #58. The sidebar's OUTPUT → Devices destination became the device manager: every known device (connected or not) with class, capability ceiling, the Auto-aware exclusive control editable offline, Set as default, and Forget for stale devices. Refines 08's no-mirror non-goal.
 - [`18-polite-shared-mode.md`](archive/18-polite-shared-mode.md) - P1, issue #51. Shared mode stops switching the device's nominal rate (a system-wide side effect that left AirPods-class devices unable to play even CD-rate tracks) and lets AUHAL resample; native-rate switching became exclusive-mode behavior.
 - [`15-in-app-update-install.md`](archive/15-in-app-update-install.md) - P2, issue #52. Adopt Sparkle 2 as the updater, retiring the hand-rolled checker: EdDSA-signed appcast on GitHub Releases, inside-out signing for the embedded framework, standard Sparkle UI in v1. Also gives the DMG an Applications drag target.
 - [`14-activity-brand-mark.md`](archive/14-activity-brand-mark.md) - P2, issue #43. Swap the hand-drawn waveform for the lucide `activity` glyph across sidebar, settings tiles, and the dock icon — one mark everywhere; artwork only.
