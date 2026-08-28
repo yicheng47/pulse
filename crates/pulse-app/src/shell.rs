@@ -1,5 +1,10 @@
-use std::{ops::Range, path::Path, time::Duration};
+use std::{
+    ops::Range,
+    path::Path,
+    time::{Duration, SystemTime},
+};
 
+use chrono::{DateTime, Local};
 use gpui::{
     AnyElement, Bounds, Context, ElementInputHandler, Entity, EntityInputHandler, ExternalPaths,
     FocusHandle, FontWeight, IntoElement, KeyDownEvent, MouseButton, MouseDownEvent,
@@ -29,6 +34,29 @@ const SIDEBAR_TOP_PADDING: f32 = 56.0;
 pub(crate) const TOP_BAR_HEIGHT: f32 = 74.0;
 const SEARCH_WIDTH: f32 = 420.0;
 const SEARCH_DEBOUNCE: Duration = Duration::from_millis(150);
+const UPDATE_CHECK_POLL_INTERVAL: Duration = Duration::from_secs(30);
+
+struct UpdateHintTooltip {
+    content: SharedString,
+}
+
+impl Render for UpdateHintTooltip {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .max_w(px(320.))
+            .px(px(8.))
+            .py(px(4.))
+            .rounded(px(theme::RADIUS_SM))
+            .border_1()
+            .border_color(theme::border_strong())
+            .bg(theme::bg_elevated())
+            .font_family(theme::FONT_SANS)
+            .font_weight(FontWeight::NORMAL)
+            .text_size(px(11.))
+            .text_color(theme::text_secondary())
+            .child(self.content.clone())
+    }
+}
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Destination {
@@ -88,7 +116,8 @@ pub struct Shell {
     search_focus: FocusHandle,
     settings_section: Option<SettingsSection>,
     settings_output_toggle_press_closed: bool,
-    updater: Updater,
+    updater: Entity<Updater>,
+    update_check_poll_generation: u64,
     titlebar_drag_armed: bool,
 }
 
@@ -97,7 +126,10 @@ impl Shell {
         let row = cx.new(PlaybackRow::new);
         let devices = cx.new(|cx| DeviceManagementPage::new(row.clone(), cx));
         let library = cx.new(|cx| LibraryView::new(row.clone(), cx));
+        let updater = cx.new(Updater::new);
         cx.observe(&library, |_, _, cx| cx.notify()).detach();
+        cx.observe(&updater, |_, _, cx| cx.notify()).detach();
+        updater.read(cx).start();
         Self {
             destination: Destination::Albums,
             row,
@@ -112,7 +144,8 @@ impl Shell {
             search_focus: cx.focus_handle(),
             settings_section: None,
             settings_output_toggle_press_closed: false,
-            updater: Updater::new(),
+            updater,
+            update_check_poll_generation: 0,
             titlebar_drag_armed: false,
         }
     }
@@ -122,28 +155,63 @@ impl Shell {
         self.search_open = false;
         self.search_input.unmark_text();
         self.row.update(cx, |row, cx| row.enter_settings(cx));
+        self.sync_update_check_polling(cx);
         cx.notify();
     }
 
     fn close_settings(&mut self, cx: &mut Context<Self>) {
         self.settings_section = None;
         self.row.update(cx, |row, cx| row.leave_settings(cx));
+        self.sync_update_check_polling(cx);
         cx.notify();
     }
 
     fn select_settings_section(&mut self, section: SettingsSection, cx: &mut Context<Self>) {
         self.settings_section = Some(section);
         self.row.update(cx, |row, cx| row.close_output_popover(cx));
+        self.sync_update_check_polling(cx);
         cx.notify();
     }
 
     fn toggle_check_updates_on_launch(&mut self, cx: &mut Context<Self>) {
-        if !self.updater.is_available() {
+        if !self.updater.read(cx).is_available() {
             return;
         }
-        let enabled = !self.updater.automatically_checks_for_updates();
-        self.updater.set_automatically_checks_for_updates(enabled);
-        cx.notify();
+        let enabled = !self.updater.read(cx).automatically_checks_for_updates();
+        self.updater.update(cx, |updater, cx| {
+            updater.set_automatically_checks_for_updates(enabled, cx)
+        });
+    }
+
+    fn sync_update_check_polling(&mut self, cx: &mut Context<Self>) {
+        self.update_check_poll_generation = self.update_check_poll_generation.wrapping_add(1);
+        if self.settings_section != Some(SettingsSection::Update) {
+            return;
+        }
+
+        let generation = self.update_check_poll_generation;
+        cx.spawn(async move |this, cx| {
+            loop {
+                cx.background_executor()
+                    .timer(UPDATE_CHECK_POLL_INTERVAL)
+                    .await;
+                let keep_polling = this
+                    .update(cx, |this, cx| {
+                        if this.settings_section != Some(SettingsSection::Update)
+                            || this.update_check_poll_generation != generation
+                        {
+                            return false;
+                        }
+                        cx.notify();
+                        true
+                    })
+                    .unwrap_or(false);
+                if !keep_polling {
+                    break;
+                }
+            }
+        })
+        .detach();
     }
 
     fn focus_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -474,6 +542,43 @@ impl Shell {
     }
 
     fn render_settings_footer(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let updater = self.updater.clone();
+        let update_version = updater
+            .read(cx)
+            .available()
+            .map(|update| update.version().to_owned());
+        let update_hint = update_version.map(|version| {
+            let click_updater = updater.clone();
+            let tooltip = SharedString::from(format!("Pulse {version} is ready to install"));
+            let tooltip_content = tooltip.clone();
+            div()
+                .id("sidebar-update")
+                .flex()
+                .items_center()
+                .justify_center()
+                .size(px(36.))
+                .flex_none()
+                .rounded(px(theme::RADIUS_MD))
+                .cursor_pointer()
+                .hover(|style| style.bg(theme::accent_soft()))
+                .tooltip(move |_, cx| {
+                    cx.new(|_| UpdateHintTooltip {
+                        content: tooltip_content.clone(),
+                    })
+                    .into()
+                })
+                .on_click(move |_, _, cx| {
+                    click_updater.read(cx).check_for_updates();
+                })
+                .child(
+                    svg()
+                        .path("icons/circle-arrow-down.svg")
+                        .size(px(16.))
+                        .flex_none()
+                        .text_color(theme::accent()),
+                )
+        });
+
         div()
             .w_full()
             .pt(px(12.))
@@ -481,42 +586,51 @@ impl Shell {
             .border_color(theme::border())
             .child(
                 div()
-                    .id("open-settings")
-                    .group("sidebar-settings")
                     .flex()
                     .items_center()
-                    .gap(px(10.))
+                    .gap(px(4.))
                     .w_full()
-                    .px(px(10.))
-                    .py(px(9.))
-                    .rounded(px(theme::RADIUS_MD))
-                    .cursor_pointer()
-                    .hover(|style| style.bg(theme::accent_soft()))
-                    .on_click(cx.listener(|this, _, window, cx| {
-                        window.blur();
-                        this.open_settings(SettingsSection::General, cx);
-                    }))
-                    .child(
-                        svg()
-                            .path("icons/settings.svg")
-                            .size(px(18.))
-                            .flex_none()
-                            .text_color(theme::text_muted())
-                            .group_hover("sidebar-settings", |style| {
-                                style.text_color(theme::accent())
-                            }),
-                    )
                     .child(
                         div()
-                            .font_family(theme::FONT_DISPLAY)
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .text_size(px(14.))
-                            .text_color(theme::text_secondary())
-                            .group_hover("sidebar-settings", |style| {
-                                style.text_color(theme::text_primary())
-                            })
-                            .child("Settings"),
-                    ),
+                            .id("open-settings")
+                            .group("sidebar-settings")
+                            .flex()
+                            .items_center()
+                            .gap(px(10.))
+                            .min_w_0()
+                            .flex_1()
+                            .px(px(10.))
+                            .py(px(9.))
+                            .rounded(px(theme::RADIUS_MD))
+                            .cursor_pointer()
+                            .hover(|style| style.bg(theme::accent_soft()))
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                window.blur();
+                                this.open_settings(SettingsSection::General, cx);
+                            }))
+                            .child(
+                                svg()
+                                    .path("icons/settings.svg")
+                                    .size(px(18.))
+                                    .flex_none()
+                                    .text_color(theme::text_muted())
+                                    .group_hover("sidebar-settings", |style| {
+                                        style.text_color(theme::accent())
+                                    }),
+                            )
+                            .child(
+                                div()
+                                    .font_family(theme::FONT_DISPLAY)
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .text_size(px(14.))
+                                    .text_color(theme::text_secondary())
+                                    .group_hover("sidebar-settings", |style| {
+                                        style.text_color(theme::text_primary())
+                                    })
+                                    .child("Settings"),
+                            ),
+                    )
+                    .children(update_hint),
             )
     }
 
@@ -789,8 +903,28 @@ impl Shell {
     }
 
     fn render_update_settings(&self, cx: &mut Context<Self>) -> AnyElement {
-        let updater_available = self.updater.is_available();
-        let automatically_checks = self.updater.automatically_checks_for_updates();
+        let (updater_available, available_version, automatically_checks, last_checked) = {
+            let updater = self.updater.read(cx);
+            (
+                updater.is_available(),
+                updater
+                    .available()
+                    .map(|update| update.version().to_owned()),
+                updater.automatically_checks_for_updates(),
+                format_last_checked(updater.last_check_at()),
+            )
+        };
+        let (status, status_color) = match available_version.as_deref() {
+            Some(version) => (format!("Update available: v{version}"), theme::quality()),
+            None if updater_available => (
+                "You're on the latest version.".to_owned(),
+                theme::text_muted(),
+            ),
+            None => (
+                "Update controls are disabled in development builds.".to_owned(),
+                theme::text_muted(),
+            ),
+        };
         let action = div()
             .id("check-for-updates")
             .flex()
@@ -807,8 +941,8 @@ impl Shell {
             .when(updater_available, |button| {
                 button
                     .cursor_pointer()
-                    .on_click(cx.listener(|this, _, _, _| {
-                        this.updater.check_for_updates();
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.updater.read(cx).check_for_updates();
                     }))
             })
             .when(!updater_available, |button| button.cursor_default())
@@ -827,48 +961,60 @@ impl Shell {
                     .text_color(theme::text_primary())
                     .child("Check for Updates"),
             );
-        let hero = settings_card().child(
-            div()
-                .flex()
-                .items_center()
-                .gap(px(14.))
-                .w_full()
-                .py(px(15.))
-                .child(settings_app_mark())
-                .child(
-                    div()
-                        .flex()
-                        .flex_1()
-                        .min_w_0()
-                        .flex_col()
-                        .gap(px(4.))
-                        .child(
-                            div()
-                                .flex()
-                                .items_center()
-                                .gap(px(8.))
-                                .child(
-                                    div()
-                                        .font_family(theme::FONT_SANS)
-                                        .font_weight(FontWeight::SEMIBOLD)
-                                        .text_size(px(14.))
-                                        .text_color(theme::text_primary())
-                                        .child("Pulse"),
-                                )
-                                .child(version_chip()),
-                        )
-                        .when(!updater_available, |details| {
-                            details.child(
+        let hero = settings_card()
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(14.))
+                    .w_full()
+                    .py(px(15.))
+                    .child(settings_app_mark())
+                    .child(
+                        div()
+                            .flex()
+                            .flex_1()
+                            .min_w_0()
+                            .flex_col()
+                            .gap(px(4.))
+                            .child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .gap(px(8.))
+                                    .child(
+                                        div()
+                                            .font_family(theme::FONT_SANS)
+                                            .font_weight(FontWeight::SEMIBOLD)
+                                            .text_size(px(14.))
+                                            .text_color(theme::text_primary())
+                                            .child("Pulse"),
+                                    )
+                                    .child(version_chip()),
+                            )
+                            .child(
                                 div()
                                     .font_family(theme::FONT_SANS)
                                     .text_size(px(12.))
-                                    .text_color(theme::text_muted())
-                                    .child("Update controls are disabled in development builds."),
-                            )
-                        }),
-                )
-                .child(action),
-        );
+                                    .text_color(status_color)
+                                    .child(status),
+                            ),
+                    )
+                    .child(action),
+            )
+            .child(div().w_full().h(px(1.)).flex_none().bg(theme::border()))
+            .child(settings_row(
+                "Last checked",
+                last_checked.description,
+                div()
+                    .flex_none()
+                    .font_family(theme::FONT_MONO)
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_size(px(11.))
+                    .text_color(theme::text_secondary())
+                    .child(last_checked.value),
+                false,
+            ));
 
         div()
             .flex()
@@ -1382,9 +1528,9 @@ impl Render for Shell {
                 window.blur();
                 this.open_settings(SettingsSection::General, cx);
             }))
-            .on_action(cx.listener(|this, _: &CheckForUpdates, window, _| {
+            .on_action(cx.listener(|this, _: &CheckForUpdates, window, cx| {
                 window.blur();
-                this.updater.check_for_updates();
+                this.updater.read(cx).check_for_updates();
             }))
             .on_action(cx.listener(|this, _: &About, window, cx| {
                 window.blur();
@@ -1483,6 +1629,49 @@ fn settings_row(
                 ),
         )
         .child(trailing)
+}
+
+struct LastCheckedCopy {
+    description: String,
+    value: String,
+}
+
+fn format_last_checked(checked_at: Option<SystemTime>) -> LastCheckedCopy {
+    format_last_checked_at(checked_at, SystemTime::now())
+}
+
+fn format_last_checked_at(checked_at: Option<SystemTime>, now: SystemTime) -> LastCheckedCopy {
+    let Some(checked_at) = checked_at else {
+        return LastCheckedCopy {
+            description: "Refreshes while this page is open".into(),
+            value: "Never".into(),
+        };
+    };
+
+    let checked_at_local = DateTime::<Local>::from(checked_at);
+    let now_local = DateTime::<Local>::from(now);
+    let checked_at_label = if checked_at_local.date_naive() == now_local.date_naive() {
+        checked_at_local.format("Today at %-I:%M %p").to_string()
+    } else {
+        checked_at_local
+            .format("%b %-d, %Y at %-I:%M %p")
+            .to_string()
+    };
+    let elapsed_seconds = now
+        .duration_since(checked_at)
+        .map(|elapsed| elapsed.as_secs())
+        .unwrap_or_default();
+    let value = match elapsed_seconds {
+        0..60 => "Just now".into(),
+        60..3600 => format!("{} min ago", elapsed_seconds / 60),
+        3600..86400 => format!("{} hr ago", elapsed_seconds / 3600),
+        _ => format!("{} d ago", elapsed_seconds / 86400),
+    };
+
+    LastCheckedCopy {
+        description: format!("{checked_at_label} — refreshes while this page is open"),
+        value,
+    }
 }
 
 fn settings_app_mark() -> impl IntoElement {
@@ -1667,6 +1856,37 @@ fn search_copy(title: String, meta: String) -> impl IntoElement {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn last_checked_copy_tracks_boundaries_and_local_dates() {
+        let now = SystemTime::UNIX_EPOCH + Duration::from_secs(2_000_000_000);
+        let cases = [
+            (59, "Just now"),
+            (60, "1 min ago"),
+            (3_599, "59 min ago"),
+            (3_600, "1 hr ago"),
+            (86_399, "23 hr ago"),
+            (86_400, "1 d ago"),
+        ];
+        for (elapsed, expected) in cases {
+            assert_eq!(
+                format_last_checked_at(Some(now - Duration::from_secs(elapsed)), now).value,
+                expected
+            );
+        }
+
+        assert_eq!(format_last_checked_at(None, now).value, "Never");
+        assert!(
+            format_last_checked_at(Some(now - Duration::from_secs(60)), now)
+                .description
+                .starts_with("Today at ")
+        );
+        assert!(
+            !format_last_checked_at(Some(now - Duration::from_secs(86_400)), now)
+                .description
+                .starts_with("Today at ")
+        );
+    }
 
     #[test]
     fn every_destination_is_reachable_from_exactly_one_nav_group() {
