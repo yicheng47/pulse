@@ -9,6 +9,7 @@ default = []
 updater = []
 
 [dependencies]
+chrono.workspace = true
 dirs.workspace = true
 gpui.workspace = true
 gpui_platform.workspace = true
@@ -25,7 +26,7 @@ fastrand.workspace = true
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2.workspace = true
 objc2-app-kit.workspace = true
-objc2-foundation.workspace = true
+objc2-foundation = { workspace = true, features = ["NSDate", "NSDictionary", "NSError", "NSString"] }
 
 [dev-dependencies]
 tempfile.workspace = true
