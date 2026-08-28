@@ -1,6 +1,6 @@
 # Per-Device Exclusive Mode
 
-> Feature 08 · P2 · GitHub issue [#33](https://github.com/yicheng47/pulse/issues/33). Exclusive mode is one global on-by-default preference, so every device pays for a choice that only fits DACs; each device should pick its own correct default and remember overrides.
+> Feature 08 · P2 · GitHub issue [#33](https://github.com/yicheng47/pulse-src/issues/33). Exclusive mode is one global on-by-default preference, so every device pays for a choice that only fits DACs; each device should pick its own correct default and remember overrides.
 
 ## Motivation
 

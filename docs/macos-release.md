@@ -2,7 +2,7 @@
 
 Pulse ships as an arm64-only, non-sandboxed Developer ID application. The bundle identifier is `com.wycstudios.pulse`; changing it would change the app's signature and TCC identity. Pulse has no entitlements file, App ID, or provisioning profile because audio output and non-sandboxed file access need no additional entitlement.
 
-The bundle declares `LSMinimumSystemVersion` 12.0 and builds against the same deployment target. That figure is conservative rather than measured — gpui builds against a 10.15.7 target upstream, so 12.0 leaves headroom — but Pulse has only ever been launched on the current OS. Because `objc2` sends messages at runtime, no compile-time availability check would catch an API newer than the floor. GitHub issue [#36](https://github.com/yicheng47/pulse/issues/36) tracks validating the signed app on macOS 12 or raising the declared floor.
+The bundle declares `LSMinimumSystemVersion` 12.0 and builds against the same deployment target. That figure is conservative rather than measured — gpui builds against a 10.15.7 target upstream, so 12.0 leaves headroom — but Pulse has only ever been launched on the current OS. Because `objc2` sends messages at runtime, no compile-time availability check would catch an API newer than the floor. GitHub issue [#36](https://github.com/yicheng47/pulse-src/issues/36) tracks validating the signed app on macOS 12 or raising the declared floor.
 
 ## Local bundle
 
@@ -59,13 +59,20 @@ Inspect a local result with `codesign --verify --strict --verbose=2 target/relea
 | `APPLE_PASSWORD` | App-specific password for that Apple ID, not the account password. |
 | `APPLE_TEAM_ID` | Apple Developer team identifier passed to `notarytool`. |
 | `SPARKLE_ED_PRIVATE_KEY` | Base64-encoded EdDSA private seed consumed by Sparkle's `generate_appcast`; it must never be written to the repository or workflow logs. |
+| `RELEASE_TOKEN` | Fine-grained personal access token with **Contents: read and write** on the public `yicheng47/pulse` repo only. The workflow's own `GITHUB_TOKEN` is scoped to this private repo and cannot create releases there. |
 
 CI derives `APPLE_SIGNING_IDENTITY` from the imported certificate at runtime. Pulse does not use any `TAURI_SIGNING_*` secret.
 
 The Sparkle key lives under the `com.wycstudios.pulse` account in the login Keychain. Its public half is pinned as `SUPublicEDKey` in the app's `Info.plist`; the private half lives only in that Keychain and the `SPARKLE_ED_PRIVATE_KEY` Actions secret. Back up the private key alongside the Developer ID certificate: losing it can force users through a manual-download recovery, while leaking it weakens the update chain to Apple code signing alone.
 
+## Two repositories
+
+Since 2026-08-28 the source lives in the private `yicheng47/pulse-src` repo (this one; local checkout `~/repos/yicheng47/pulse-src`, with the public repo cloned beside it at `~/repos/yicheng47/pulse`). The public `yicheng47/pulse` repo holds no code: only a README, the GitHub Releases with their DMG and appcast assets, and customer-facing issues. Release assets on a private repo need authentication to download, which breaks Sparkle and plain browser downloads, so everything users fetch must live on the public repo. The public repo kept the original name so the feed URL and download prefix baked into v0.1.3 and v0.1.4 keep resolving without a rebuild.
+
+Releases v0.1.0–v0.1.4 were re-published to the public repo by hand with identical tags, titles, notes, and assets (all tags point at the public repo's single README commit). Later releases are published there by CI.
+
 ## Release appcast
 
-For every matching version tag, `.github/workflows/release.yml` keeps the tag-version guard and draft-release flow, completes the existing signed/notarized DMG build, then downloads the same checksum-pinned Sparkle tools. It streams `SPARKLE_ED_PRIVATE_KEY` into `generate_appcast`, signs the built DMG entry, points its download and release-notes links at the tagged GitHub release, and uploads `appcast.xml` beside the DMG.
+For every matching version tag, `.github/workflows/release.yml` keeps the tag-version guard and draft-release flow, completes the existing signed/notarized DMG build, then downloads the same checksum-pinned Sparkle tools. It streams `SPARKLE_ED_PRIVATE_KEY` into `generate_appcast`, signs the built DMG entry, points its download and release-notes links at the tagged release on the public repo, and uploads `appcast.xml` beside the DMG as a draft release on `yicheng47/pulse` using `RELEASE_TOKEN`. Release notes are written by hand when publishing the draft; auto-generated notes are off because the public repo has no commit history to summarize.
 
-Bundled apps read the stable feed URL `https://github.com/yicheng47/pulse/releases/latest/download/appcast.xml`. The alias starts resolving to a draft's appcast only after that release is published, so publishing the GitHub release is the final activation step.
+Bundled apps read the stable feed URL `https://github.com/yicheng47/pulse/releases/latest/download/appcast.xml`. The alias starts resolving to a draft's appcast only after that release is published, so publishing the GitHub release is the final activation step. GitHub's anonymous edge cache can keep serving the previous alias target for several minutes after publishing; verify with a cache-busting query string (`?cb=1`) rather than assuming the publish failed.

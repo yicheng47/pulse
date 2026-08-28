@@ -94,13 +94,14 @@ jobs:
             "$appcast_dir"
           cp "$appcast_dir/appcast.xml" target/release/appcast.xml
 
-      - name: Attach DMG and appcast to GitHub release
+      - name: Attach DMG and appcast to the public release
         uses: softprops/action-gh-release@v2
         with:
+          repository: yicheng47/pulse
+          token: ${{ secrets.RELEASE_TOKEN }}
           files: |
             target/release/Pulse-${{ steps.version.outputs.version }}-arm64.dmg
             target/release/appcast.xml
           fail_on_unmatched_files: true
-          generate_release_notes: true
           name: Pulse ${{ github.ref_name }}
           draft: true

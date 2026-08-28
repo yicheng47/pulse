@@ -1,6 +1,6 @@
 # Now Playing Page
 
-> Feature 20 · P2 · GitHub issue [#56](https://github.com/yicheng47/pulse/issues/56). The playback row is the only surface for the current track; clicking it should open a full now-playing view built around enlarged album art.
+> Feature 20 · P2 · GitHub issue [#56](https://github.com/yicheng47/pulse-src/issues/56). The playback row is the only surface for the current track; clicking it should open a full now-playing view built around enlarged album art.
 
 ## Motivation
 

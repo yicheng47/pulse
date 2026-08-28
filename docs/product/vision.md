@@ -10,11 +10,11 @@ The first release scope is defined separately in [`mvp.md`](mvp.md). This vision
 
 ## Commercialization Stance
 
-Pulse is open-source first, especially during the initial engine, design, and product-validation stage.
+Pulse is a commercial, closed-source product as of 2026-08-28. It was open-source under MIT through engine validation and the first app releases (v0.1.0–v0.1.4), which is what that phase was for: credibility, inspectable engineering, and fast feedback while the playback path was unproven.
 
-The project may still become commercial later, but only after playback proof and early UI attract real demand from local-library and audiophile users. Until then, optimize for credibility, inspectable engineering, and fast feedback rather than licensing complexity or paid packaging.
+Distribution plan: direct sales first (Developer ID + notarization + Sparkle already ship this way; a merchant-of-record handles tax), one-time purchase with paid major versions rather than a subscription. The Mac App Store is a possible second channel later, but it would require dropping Sparkle and proving exclusive-mode Core Audio under the App Sandbox, so it is not on the path to v1.0.
 
-No GPL dependencies remains a constraint. Open-source does not mean giving up the option for commercial distribution later.
+No GPL dependencies remains a constraint; every current dependency is MIT/Apache/MPL-2.0 and compatible with closed distribution. `symphonia` is MPL-2.0, which only obliges publishing modifications to symphonia's own files — do not vendor-patch it.
 
 ## Scope
 

@@ -1,6 +1,6 @@
 # Launch State Restore
 
-> Feature 21 · P2 · GitHub issue [#57](https://github.com/yicheng47/pulse/issues/57). Every launch starts cold — empty playback row, default library page. The app should reopen where it left off: the last track ready to resume and the last page open.
+> Feature 21 · P2 · GitHub issue [#57](https://github.com/yicheng47/pulse-src/issues/57). Every launch starts cold — empty playback row, default library page. The app should reopen where it left off: the last track ready to resume and the last page open.
 
 ## Motivation
 

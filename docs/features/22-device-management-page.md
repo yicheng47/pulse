@@ -1,6 +1,6 @@
 # Device Management Page
 
-> Feature 22 · P1 · GitHub issue [#58](https://github.com/yicheng47/pulse/issues/58). The sidebar already ships an OUTPUT → Devices destination, and it still renders the legacy file-drop surface. That page becomes the device manager: every known device and its stored state.
+> Feature 22 · P1 · GitHub issue [#58](https://github.com/yicheng47/pulse-src/issues/58). The sidebar already ships an OUTPUT → Devices destination, and it still renders the legacy file-drop surface. That page becomes the device manager: every known device and its stored state.
 
 ## Motivation
 

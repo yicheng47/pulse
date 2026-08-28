@@ -1,6 +1,6 @@
 # Playback Dropout Reporting
 
-> Feature 17 · P2 · GitHub issue [#50](https://github.com/yicheng47/pulse/issues/50). The realtime callback counts underrun bytes but nothing reads them; audible dropouts are invisible to the controller, the UI, and diagnostics.
+> Feature 17 · P2 · GitHub issue [#50](https://github.com/yicheng47/pulse-src/issues/50). The realtime callback counts underrun bytes but nothing reads them; audible dropouts are invisible to the controller, the UI, and diagnostics.
 
 ## Motivation
 

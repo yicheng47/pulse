@@ -12,7 +12,7 @@ Manage Pulse bugs with enough technical context to make them actionable.
 1. Clarify what failed, what was expected, and how to reproduce it.
 2. Inspect the relevant code before filing or summarizing the bug.
 3. Assign a priority using the rubric below.
-4. If creating a GitHub issue, use labels `bug` and exactly one of `P0`, `P1`, `P2`, `P3`.
+4. If creating a GitHub issue, use labels `bug` and exactly one of `P0`, `P1`, `P2`, `P3`. Engineering issues go in the private source repo (`gh` defaults to it). Customer reports arrive on the public `yicheng47/pulse` repo: reply and close there with `--repo yicheng47/pulse`, and file the engineering issue in the source repo with a link back.
 5. Include relevant file paths, environment details, and verification status.
 
 ## Issue Template

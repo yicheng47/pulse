@@ -4,7 +4,7 @@ This is the remaining human-only acceptance work as of 2026-08-01. Check an item
 
 Already verified and intentionally not repeated here: live Core Audio device enumeration, real-library scan counts/timing, cached and folder artwork rendering, Albums Grid/List switching, page-header sizing, and single-click arming and double-click playback basics.
 
-Intentional MVP behavior: Shuffle and Repeat remain inert ([#32](https://github.com/yicheng47/pulse/issues/32)); the queue button now opens the post-MVP queue popover. Playlist reorder uses Move Up / Move Down rather than drag. Library text fields still support only the existing append/backspace path, without CJK IME composition or caret movement ([#35](https://github.com/yicheng47/pulse/issues/35)).
+Intentional MVP behavior: Shuffle and Repeat remain inert ([#32](https://github.com/yicheng47/pulse-src/issues/32)); the queue button now opens the post-MVP queue popover. Playlist reorder uses Move Up / Move Down rather than drag. Library text fields still support only the existing append/backspace path, without CJK IME composition or caret movement ([#35](https://github.com/yicheng47/pulse-src/issues/35)).
 
 ## Setup and data safety
 

@@ -1,6 +1,6 @@
 # Collapsible Library Sidebar
 
-> Feature 09 · P3 · GitHub issue [#34](https://github.com/yicheng47/pulse/issues/34). The Pencil library sidebar contains a collapse affordance, but the runtime sidebar has no collapsed state and intentionally omits the inert control.
+> Feature 09 · P3 · GitHub issue [#34](https://github.com/yicheng47/pulse-src/issues/34). The Pencil library sidebar contains a collapse affordance, but the runtime sidebar has no collapsed state and intentionally omits the inert control.
 
 ## Motivation
 

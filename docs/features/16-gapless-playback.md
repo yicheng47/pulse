@@ -1,6 +1,6 @@
 # Gapless Playback
 
-> Feature 16 · P1 · GitHub issue [#46](https://github.com/yicheng47/pulse/issues/46). Every track transition tears down and rebuilds the playback path, so even same-format consecutive tracks get an audible gap of silence.
+> Feature 16 · P1 · GitHub issue [#46](https://github.com/yicheng47/pulse-src/issues/46). Every track transition tears down and rebuilds the playback path, so even same-format consecutive tracks get an audible gap of silence.
 
 ## Motivation
 

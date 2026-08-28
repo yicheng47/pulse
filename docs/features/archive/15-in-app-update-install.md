@@ -1,6 +1,6 @@
 # In-App Update Install
 
-> Feature 15 · P2 · Issue [#52](https://github.com/yicheng47/pulse/issues/52). Builds on [02-macos-packaging](02-macos-packaging.md) (the signing/notarization pipeline this feature extends) and supersedes [05-update-check](05-update-check.md): the hand-rolled checker and its banner states retire in favor of Sparkle, which owns checking, downloading, verifying, installing, and relaunching.
+> Feature 15 · P2 · Issue [#52](https://github.com/yicheng47/pulse-src/issues/52). Builds on [02-macos-packaging](02-macos-packaging.md) (the signing/notarization pipeline this feature extends) and supersedes [05-update-check](05-update-check.md): the hand-rolled checker and its banner states retire in favor of Sparkle, which owns checking, downloading, verifying, installing, and relaunching.
 
 ## Motivation
 

@@ -1,6 +1,6 @@
 # Shuffle and Repeat Playback
 
-> Feature 07 · P2 · GitHub issue [#32](https://github.com/yicheng47/pulse/issues/32). Pulse renders Shuffle and Repeat in the playback bar and Shuffle on album and playlist surfaces, but those controls are deliberately inert.
+> Feature 07 · P2 · GitHub issue [#32](https://github.com/yicheng47/pulse-src/issues/32). Pulse renders Shuffle and Repeat in the playback bar and Shuffle on album and playlist surfaces, but those controls are deliberately inert.
 
 ## Motivation
 

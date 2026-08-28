@@ -4,7 +4,12 @@ Local music library player for macOS. PCM only (FLAC / ALAC / AIFF / WAV), nativ
 
 ## Stance
 
-Open-source first under the MIT license, especially through the engine validation and early app stages. Commercial packaging can be revisited only after Pulse proves real demand from local-library and audiophile users.
+Proprietary, commercial. Pulse started open-source under MIT through engine validation and the first app releases (v0.1.0–v0.1.4); as of 2026-08-28 the source is private and the product is being prepared for paid distribution. Commits before that date remain MIT-licensed for anyone who obtained them; everything after is closed.
+
+## Repositories
+
+- `yicheng47/pulse-src` (private, this repo) — all source, design files, engineering issues, PRs, and CI.
+- `yicheng47/pulse` (public) — releases, changelog, and customer bug reports. No code. Sparkle's feed URL and the DMG download links point here.
 
 ## Privacy
 
@@ -20,4 +25,4 @@ Bundled releases use Sparkle to fetch a signed `appcast.xml` from GitHub Release
 
 ## Status
 
-Engine playback is proven through `pulse-cli` on the Matrix Mini-i Pro 4 using AUHAL, the engine-owned playback controller has landed, and the desktop product surfaces are designed in Pencil. Current goal: the playback row surface and controller wiring in `pulse-app` (stage 7).
+All MVP stages (1–13) are built and v0.1.4 is shipped. Work now runs through feature specs in [`docs/features/`](docs/features/) and GitHub issues.

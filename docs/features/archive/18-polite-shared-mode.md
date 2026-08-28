@@ -1,6 +1,6 @@
 # Polite Shared Mode
 
-> Feature 18 · P1 · GitHub issue [#51](https://github.com/yicheng47/pulse/issues/51). Shared (non-exclusive) playback still switches the device's nominal sample rate per track — a system-wide side effect on a device other apps are using, and a hard failure on devices that can't do the track's rate.
+> Feature 18 · P1 · GitHub issue [#51](https://github.com/yicheng47/pulse-src/issues/51). Shared (non-exclusive) playback still switches the device's nominal sample rate per track — a system-wide side effect on a device other apps are using, and a hard failure on devices that can't do the track's rate.
 
 ## Motivation
 
