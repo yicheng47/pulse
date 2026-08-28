@@ -16,6 +16,7 @@ Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phase
 
 ## Implemented
 
+- [`23-updater-parity.md`](archive/23-updater-parity.md) - P2, issue #60. Sparkle updater at parity with Runner: delegate-driven update state, silent background checks (no launch alert), an accent hint beside the sidebar's Settings row when a release is ready, and Update available / Last checked in Settings ▸ Update; `PULSE_DEV_UPDATE_AVAILABLE` exercises it from `cargo run`.
 - [`22-device-management-page.md`](archive/22-device-management-page.md) - P1, issue #58. The sidebar's OUTPUT → Devices destination became the device manager: every known device (connected or not) with class, capability ceiling, the Auto-aware exclusive control editable offline, Set as default, and Forget for stale devices. Refines 08's no-mirror non-goal.
 - [`18-polite-shared-mode.md`](archive/18-polite-shared-mode.md) - P1, issue #51. Shared mode stops switching the device's nominal rate (a system-wide side effect that left AirPods-class devices unable to play even CD-rate tracks) and lets AUHAL resample; native-rate switching became exclusive-mode behavior.
 - [`15-in-app-update-install.md`](archive/15-in-app-update-install.md) - P2, issue #52. Adopt Sparkle 2 as the updater, retiring the hand-rolled checker: EdDSA-signed appcast on GitHub Releases, inside-out signing for the embedded framework, standard Sparkle UI in v1. Also gives the DMG an Applications drag target.

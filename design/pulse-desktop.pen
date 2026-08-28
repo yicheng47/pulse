@@ -4683,6 +4683,15 @@
                       ]
                     }
                   ]
+                },
+                {
+                  "id": "Jn15b",
+                  "type": "ref",
+                  "ref": "QQFSz",
+                  "name": "Traffic Lights",
+                  "layoutPosition": "absolute",
+                  "x": 18,
+                  "y": 24
                 }
               ]
             },
@@ -4895,6 +4904,15 @@
                       ]
                     }
                   ]
+                },
+                {
+                  "id": "I9JuyE",
+                  "type": "ref",
+                  "ref": "QQFSz",
+                  "name": "Traffic Lights",
+                  "layoutPosition": "absolute",
+                  "x": 18,
+                  "y": 24
                 }
               ]
             }
@@ -48955,7 +48973,7 @@
           "fill": "$text-muted",
           "textGrowth": "fixed-width",
           "width": "fill_container",
-          "content": "Notify-only flow per feature 05. Pulse never installs an update itself — the action opens the release page.",
+          "content": "Feature 23: Sparkle checks silently in the background and never opens its sheet on its own. A found release lights the sidebar hint below and the status line in Settings ▸ Update; Sparkle's sheet opens only from Check for updates, the menu item, or the hint.",
           "fontFamily": "$font-sans",
           "fontSize": 12,
           "fontWeight": "normal"
@@ -49234,6 +49252,103 @@
               ]
             }
           ]
+        },
+        {
+          "type": "frame",
+          "id": "eR34c",
+          "name": "Sidebar Hint",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 10,
+          "children": [
+            {
+              "type": "text",
+              "id": "K9h2u4",
+              "name": "Sidebar Hint Label",
+              "fill": "#FF2D7E",
+              "content": "SIDEBAR HINT — shown while an update is available",
+              "fontFamily": "Geist Mono",
+              "fontSize": 11,
+              "fontWeight": "600",
+              "letterSpacing": 1.2
+            },
+            {
+              "type": "frame",
+              "id": "gYZui",
+              "name": "Sidebar Footer Sample",
+              "width": 208,
+              "fill": "#0E0E0D",
+              "cornerRadius": 8,
+              "padding": 6,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "v2nkV",
+                  "name": "Sidebar Footer / Settings — Update Hint",
+                  "width": "fill_container",
+                  "fill": "#00000000",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    9,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "EzNPj",
+                      "name": "Settings Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "GcqcO",
+                      "name": "Label",
+                      "fill": "$text-secondary",
+                      "content": "Settings",
+                      "fontFamily": "$font-display",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "XaFqW",
+                      "name": "Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "pGins",
+                      "name": "Update Hint Icon",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "circle-arrow-down",
+                      "library": "lucide",
+                      "fill": "#FF2D7E"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "P5kze",
+              "name": "Sidebar Hint Note",
+              "fill": "#9D9D99",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Accent circle-arrow-down at the right end of the Settings row, 16px like the row's icon. Tooltip: “Pulse 0.2.0 is ready to install”. Click opens Sparkle's sheet at the install prompt and does not open Settings. Hidden when nothing is available — the row then looks exactly like the component.",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            }
+          ]
         }
       ]
     },
@@ -49490,8 +49605,8 @@
                                       "type": "text",
                                       "id": "ZpZ9k",
                                       "name": "Status",
-                                      "fill": "$text-muted",
-                                      "content": "You're on the latest version.",
+                                      "fill": "#9DE23A",
+                                      "content": "Update available: v0.2.0",
                                       "fontFamily": "$font-sans",
                                       "fontSize": 12,
                                       "fontWeight": "normal"
@@ -49513,6 +49628,44 @@
                                   }
                                 }
                               ]
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "jOtnp",
+                              "name": "Divider",
+                              "fill": "#312F2C",
+                              "width": "fill_container",
+                              "height": 1
+                            },
+                            {
+                              "id": "O5aSj",
+                              "type": "ref",
+                              "ref": "pF8bk",
+                              "name": "Row / Last checked",
+                              "width": "fill_container",
+                              "padding": [
+                                13,
+                                0
+                              ],
+                              "strokeWidth": 0,
+                              "descendants": {
+                                "l9GWAM": {
+                                  "content": "Last checked"
+                                },
+                                "Mo9R6": {
+                                  "content": "Today at 9:41 PM — refreshes while this page is open"
+                                },
+                                "p4In90": {
+                                  "type": "text",
+                                  "id": "XGYhS",
+                                  "name": "Value",
+                                  "fill": "#9D9D99",
+                                  "content": "2 min ago",
+                                  "fontFamily": "Geist Mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "600"
+                                }
+                              }
                             }
                           ]
                         }
@@ -54655,6 +54808,42 @@
               ]
             }
           ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "QQFSz",
+      "x": 6237,
+      "y": 1042,
+      "name": "Traffic Lights",
+      "reusable": true,
+      "gap": 8,
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "ellipse",
+          "id": "UdHMk",
+          "name": "Close",
+          "fill": "#FF5F57",
+          "width": 12,
+          "height": 12
+        },
+        {
+          "type": "ellipse",
+          "id": "kPTYO",
+          "name": "Minimize",
+          "fill": "#FEBC2E",
+          "width": 12,
+          "height": 12
+        },
+        {
+          "type": "ellipse",
+          "id": "ZDvTq",
+          "name": "Zoom",
+          "fill": "#28C840",
+          "width": 12,
+          "height": 12
         }
       ]
     }
