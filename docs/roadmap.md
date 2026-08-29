@@ -24,13 +24,14 @@ Make the domain layer structural before more features land on it.
 | [Feature 25 — backend layer + library repo layer](features/archive/25-library-repo-layer.md) | P2 | done | Four phases merged: `965965b` (backend boundary + gpui gate), `aa211ec` (repo layer), `49a6f00` (model + ops), `c1975cd` (facade retirement, SQL boundary gate, arch doc §4). |
 | [Bug — app menu items disabled without focus](bugs/app-menu-items-disabled.md) | P2 | planned | Global `cx.on_action` handlers, Runner's pattern. Small; run right after phase 1. |
 | [Bug — macOS 12 deployment target](bugs/macos-deployment-target.md) | P2 | planned | Release hygiene; validate or raise before the next release. |
+| [Bug — playback row transport feedback](bugs/playback-row-transport-feedback.md) | P2 | planned | Hover/pressed states on the transport buttons (kit-level), optimistic play/pause, and prev/next availability from the queue rather than the engine's `Loading` state. |
 | [Bug — effective-artist SQL copies](bugs/archive/effective-artist-sql-copies.md) | P3 | done | Fixed by 25 phase 2 (`aa211ec`). |
 | [Bug — album card image clipping](bugs/album-card-image-clipping.md) | P3 | planned | Same fix as the artist avatar: radius on the `img`. |
 | [Bug — track-artist SQL copies](bugs/track-artist-sql-copies.md) | P3 | planned | Hoist the three `tracks.rs` copies into one `repo/mod.rs` fragment and extend the boundary gate; found in 25 phase 4 review. |
 
-## M2 — Playback correctness → v0.1.9
+## M2 — Playback, metadata, session, integrations → v0.2.0
 
-The audio path is the product; fix what is known before adding features around it.
+Everything after the backend foundations, in build order: the audio path first, then artist metadata, then session state and the now-playing page, then integrations and polish.
 
 | Item | Priority | Status | Notes |
 |---|---|---|---|
@@ -38,26 +39,9 @@ The audio path is the product; fix what is known before adding features around i
 | [Bug — seek lands early](bugs/seek-lands-early.md) | P2 | planned | Coarse seek, no decode-forward. |
 | [Bug — built-in speakers exclusive mode freezes volume](bugs/builtin-speakers-exclusive-volume.md) | P2 | planned | Probably: never take exclusive on the built-in output, or restore the hardware level on release. |
 | [Feature 17 — playback dropout reporting](features/17-playback-dropout-reporting.md) | P2 | planned | Read side of the underrun counter. |
-
-## M3 — Artists & metadata → v0.2.0
-
-Photos and identity for the Artists surface shipped in v0.1.7.
-
-| Item | Priority | Status | Notes |
-|---|---|---|---|
 | Feature 26 — metadata enrichment (spec to write) | P2 | planned | `artist_metadata` keyed by MBID (Lidarr's Artist/ArtistMetadata split), a `MetadataProvider` trait with a MusicBrainz + fanart.tv implementation, opt-in, cached, off the render path; artist photos fill the Artists grid/detail avatars; unidentified artists stay visible. Reference: [`docs/reference/lidarr-library-model.md`](reference/lidarr-library-model.md). Chromaprint/AcoustID is a licensing decision before any fingerprinting. |
-
-## M4 — Session & now playing
-
-| Item | Priority | Status | Notes |
-|---|---|---|---|
 | [Feature 21 — launch state restore](features/21-launch-state-restore.md) | P2 | planned | Persists into `settings.json`; never auto-plays. |
 | [Feature 20 — now playing page](features/20-now-playing-page.md) | P2 | planned | Design pinned. |
-
-## M5 — Integrations & polish
-
-| Item | Priority | Status | Notes |
-|---|---|---|---|
 | [Feature 19 — MCP server](features/19-mcp-server.md) | P2 | planned | Needs 25's ops layer; the trigger for splitting `backend/` into a crate. |
 | [Feature 09 — collapsible library sidebar](features/09-collapsible-library-sidebar.md) | P3 | planned | |
 
