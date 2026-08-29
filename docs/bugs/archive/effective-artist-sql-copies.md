@@ -1,6 +1,6 @@
 # Centralize effective album artist SQL across catalog queries
 
-> Bug · P3 · filed 2026-08-29 as GitHub issue #66 (closed when tracking moved to docs, 2026-08-29)
+> Bug · P3 · filed 2026-08-29 as GitHub issue #66 (closed when tracking moved to docs, 2026-08-29). **Fixed** in feature 25 phase 2, commit `aa211ec` — one shared fragment in `backend/library/repo/mod.rs`.
 
 ## Context
 

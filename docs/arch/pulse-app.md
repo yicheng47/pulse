@@ -106,7 +106,7 @@ The only scanned entity. Identity is `(storage_root_id, path_key)`; a rescan mat
 
 ### 3.4 Album — *derived, not stored*
 
-An album is the group of tracks sharing `(effective album artist, album title)`, where the effective album artist is the shared SQL fragment `COALESCE(NULLIF(trim(album_artist), ''), NULLIF(trim(artist), ''), 'Unknown Artist')` defined once in `backend/library/store/mod.rs` (`EFFECTIVE_ALBUM_ARTIST_SQL`). The Albums page, Album Detail, the genre filter, and the Artists refresh all group with that one expression; a "feat." credit on `artist` therefore never splits an album whose `album_artist` is set. Album-level facts (year, duration, quality ceiling, cover, added-at) are aggregates computed in the page query. There is no album id: routes carry `(artist, title)`.
+An album is the group of tracks sharing `(effective album artist, album title)`, where the effective album artist is the shared SQL fragment `COALESCE(NULLIF(trim(album_artist), ''), NULLIF(trim(artist), ''), 'Unknown Artist')` defined once in `backend/library/repo/mod.rs` (`EFFECTIVE_ALBUM_ARTIST_SQL`). The Albums page, Album Detail, the genre filter, and the Artists refresh all group with that one expression; a "feat." credit on `artist` therefore never splits an album whose `album_artist` is set. Album-level facts (year, duration, quality ceiling, cover, added-at) are aggregates computed in the page query. There is no album id: routes carry `(artist, title)`.
 
 ### 3.5 Artist — *stored, refreshed by the app*
 
