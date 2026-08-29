@@ -6,6 +6,7 @@ Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phase
 
 ## Active
 
+- [`27-flatten-backend-layout.md`](27-flatten-backend-layout.md) - P2, chore. Remove the `backend/library/` wrapper: `backend/{model.rs, repo/, ops/, scan/}` beside `playback/`, `queue.rs`, `settings.rs`, matching Runner's `runner-backend` layout. Moves only.
 - [`21-launch-state-restore.md`](21-launch-state-restore.md) - P2, issue #57. Relaunch lands where you left off: queue, current track paused at position, shuffle/repeat, and the open library route restored; never auto-plays; NAS-offline paths degrade softly.
 - [`20-now-playing-page.md`](20-now-playing-page.md) - P2, issue #56. Click the playback row's track cluster to open an immersive now-playing view: full-size album art, track identity, quality badge; playback row stays as the transport. Lyrics land here later.
 - [`19-mcp-server.md`](19-mcp-server.md) - P2, issue #55. `pulse mcp` stdio server on the app binary, Quill-style: library reads always on; playlist CRUD and rescan behind a Settings write gate; WAL for cross-process safety.
