@@ -1,40 +1,13 @@
 use super::*;
 
 impl LibraryView {
-    pub(super) fn load_artist_detail(
-        store: &LibraryStore,
-        artist: Artist,
-        album_sort: AlbumSortOrder,
-    ) -> Result<ArtistDetail, LibraryError> {
-        let album_count = usize::try_from(artist.album_count)
-            .map_err(|_| LibraryError::IntegerOutOfRange("artist album count"))?;
-        let albums = store
-            .album_page(
-                album_sort,
-                &crate::backend::AlbumQueryFilter::All,
-                Some(&artist.name),
-                album_count.max(1),
-                0,
-            )?
-            .albums;
-        let mut tracks = Vec::with_capacity(artist.track_count as usize);
-        for album in &albums {
-            tracks.extend(store.tracks_for_album(&album.artist, &album.title)?);
-        }
-        Ok(ArtistDetail {
-            artist,
-            albums,
-            tracks,
-        })
-    }
-
     pub(super) fn open_artist(&mut self, artist: Artist, cx: &mut Context<Self>) {
         let Some(store) = self.store.as_ref() else {
             self.error = Some(self.store_busy_message());
             cx.notify();
             return;
         };
-        let detail = match Self::load_artist_detail(store, artist, self.album_sort) {
+        let detail = match ops::catalog::artist_detail(store, artist, self.album_sort) {
             Ok(detail) => detail,
             Err(error) => {
                 self.error = Some(error.to_string());
@@ -86,7 +59,8 @@ impl LibraryView {
         let Some(store) = self.store.as_ref() else {
             return false;
         };
-        match store.album_page(
+        match ops::catalog::album_page(
+            store,
             self.album_sort,
             &self.album_filter.album_query_filter(current_time_ms()),
             None,
@@ -184,7 +158,8 @@ impl LibraryView {
         let Some(store) = self.store.as_ref() else {
             return false;
         };
-        match store.track_page(
+        match ops::catalog::track_page(
+            store,
             self.track_sort,
             &self.track_filter.track_query_filter(current_time_ms()),
             self.artist_filter.as_deref(),
@@ -216,7 +191,7 @@ impl LibraryView {
 
     pub(super) fn open_album(&mut self, album: Album, cx: &mut Context<Self>) {
         let tracks = if let Some(store) = &self.store {
-            match store.tracks_for_album(&album.artist, &album.title) {
+            match ops::catalog::album_tracks(store, &album.artist, &album.title) {
                 Ok(tracks) => tracks,
                 Err(error) => {
                     self.error = Some(error.to_string());

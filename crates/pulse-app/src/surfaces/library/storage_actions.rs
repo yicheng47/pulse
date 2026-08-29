@@ -76,7 +76,7 @@ impl LibraryView {
             return;
         }
         let store = self.store.as_mut().expect("store availability checked");
-        match store.add_storage_root(path, &display_name) {
+        match ops::storage::add(store, path, &display_name) {
             Ok(root) => {
                 self.selected_root_id = Some(root.id);
                 self.reload_or_show_error();
@@ -120,7 +120,7 @@ impl LibraryView {
             return;
         };
         let store = self.store.as_mut().expect("store availability checked");
-        match store.remove_storage_root(root_id) {
+        match ops::storage::remove(store, root_id) {
             Ok(cover_paths) => {
                 for path in cover_paths {
                     if let Err(error) = fs::remove_file(&path)
@@ -166,7 +166,7 @@ impl LibraryView {
         };
         let display_name = self.text_input.text().trim().to_string();
         let store = self.store.as_mut().expect("store availability checked");
-        if let Err(error) = store.rename_storage_root(draft.root_id, &display_name) {
+        if let Err(error) = ops::storage::rename(store, draft.root_id, &display_name) {
             self.error = Some(error.to_string());
             self.rename_draft = Some(draft);
         } else {
@@ -200,7 +200,7 @@ impl LibraryView {
             .spawn(move || {
                 let progress_sender = sender.clone();
                 let outcome = catch_unwind(AssertUnwindSafe(|| {
-                    let result = scan_storage_root_cancellable(
+                    let result = ops::scan::storage_root_cancellable(
                         &mut store,
                         root_id,
                         cover_cache_directory,

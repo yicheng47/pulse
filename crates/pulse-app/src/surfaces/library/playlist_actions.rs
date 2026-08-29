@@ -72,16 +72,12 @@ impl LibraryView {
         };
         let result = match mode {
             PlaylistNameMode::Create { add_track_id } => {
-                store.create_playlist(&name).and_then(|playlist| {
-                    if let Some(track_id) = add_track_id {
-                        store.append_playlist_tracks(playlist.id, &[track_id])?;
-                    }
-                    Ok(playlist.id)
-                })
+                ops::playlists::create(store, &name, add_track_id.as_slice())
+                    .map(|playlist| playlist.id)
             }
-            PlaylistNameMode::Rename { playlist_id } => store
-                .rename_playlist(playlist_id, &name)
-                .map(|playlist| playlist.id),
+            PlaylistNameMode::Rename { playlist_id } => {
+                ops::playlists::rename(store, playlist_id, &name).map(|playlist| playlist.id)
+            }
         };
         match result {
             Ok(playlist_id) => {
@@ -137,7 +133,7 @@ impl LibraryView {
             cx.notify();
             return;
         };
-        match store.delete_playlist(playlist_id) {
+        match ops::playlists::delete(store, playlist_id) {
             Ok(()) => {
                 if self.selected_playlist_id == Some(playlist_id) {
                     self.selected_playlist_id = None;
@@ -184,7 +180,7 @@ impl LibraryView {
             .name("pulse-album-delete".to_string())
             .spawn(move || {
                 let outcome = catch_unwind(AssertUnwindSafe(|| {
-                    let result = delete_album_tracks(&mut store, &album.artist, &album.title)
+                    let result = ops::delete::album_tracks(&mut store, &album.artist, &album.title)
                         .map_err(|error| error.to_string());
                     (store, result)
                 }));
@@ -211,7 +207,7 @@ impl LibraryView {
             cx.notify();
             return;
         };
-        if let Err(error) = store.append_playlist_tracks(playlist_id, &[track_id]) {
+        if let Err(error) = ops::playlists::append_tracks(store, playlist_id, &[track_id]) {
             self.error = Some(error.to_string());
         } else {
             self.reload_or_show_error();
@@ -231,7 +227,7 @@ impl LibraryView {
             cx.notify();
             return;
         };
-        if let Err(error) = store.remove_playlist_entry(playlist_id, position) {
+        if let Err(error) = ops::playlists::remove_entry(store, playlist_id, position) {
             self.error = Some(error.to_string());
         } else {
             self.selected_playlist_position = None;
@@ -253,7 +249,9 @@ impl LibraryView {
             cx.notify();
             return;
         };
-        if let Err(error) = store.move_playlist_entry(playlist_id, from_position, to_position) {
+        if let Err(error) =
+            ops::playlists::move_entry(store, playlist_id, from_position, to_position)
+        {
             self.error = Some(error.to_string());
         } else {
             self.selected_playlist_position = Some(to_position);

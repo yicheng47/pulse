@@ -32,8 +32,14 @@ use super::{
     Album, AlbumPage, AlbumQueryFilter, AlbumSortOrder, Artist, LibraryError, LibrarySearchResults,
     LibrarySummary, Playlist, PlaylistId, PlaylistSummary, PlaylistTrack, ScanHistoryEntry,
     StorageRoot, StorageRootId, Track, TrackId, TrackPage, TrackQueryFilter, TrackSortOrder,
-    system_time_ms,
+    metadata::AudioMetadata, system_time_ms, walk::DiscoveredFile,
 };
+
+impl From<rusqlite::Error> for LibraryError {
+    fn from(error: rusqlite::Error) -> Self {
+        Self::Database(error.to_string())
+    }
+}
 
 // SQLite expression indexes cannot match a bound fallback parameter, so the
 // shared identity expression keeps the shipped unknown-artist value literal.
@@ -60,24 +66,74 @@ fn qualified_select_list(alias: &str, columns: &[&str]) -> String {
 
 pub(super) use scan_history::CompletedScan;
 pub use schema::BackfillProgress;
-pub(super) use tracks::{
-    ExistingTrack, clear_track_cover, delete_track, set_track_cover, update_track_path,
-    upsert_track,
-};
+pub(super) use tracks::ExistingTrack;
+
+pub(super) struct LibraryTransaction<'connection> {
+    inner: Transaction<'connection>,
+}
+
+impl LibraryTransaction<'_> {
+    pub(super) fn commit(self) -> Result<(), LibraryError> {
+        self.inner.commit()?;
+        Ok(())
+    }
+}
 
 pub(super) fn artist_name_key_for_track(
-    conn: &Connection,
+    transaction: &LibraryTransaction<'_>,
     track_id: TrackId,
 ) -> Result<Option<String>, LibraryError> {
-    artists::name_key_for_track(conn, track_id)
+    artists::name_key_for_track(&transaction.inner, track_id)
 }
 
 pub(super) fn refresh_artist_keys(
-    transaction: &Transaction<'_>,
+    transaction: &LibraryTransaction<'_>,
     name_keys: &[String],
     refreshed_at_ms: i64,
 ) -> Result<(), LibraryError> {
-    artists::refresh_keys(transaction, name_keys, refreshed_at_ms)
+    artists::refresh_keys(&transaction.inner, name_keys, refreshed_at_ms)
+}
+
+pub(super) fn upsert_track(
+    transaction: &LibraryTransaction<'_>,
+    storage_root_id: StorageRootId,
+    file: &DiscoveredFile,
+    metadata: &AudioMetadata,
+    now_ms: i64,
+) -> Result<TrackId, LibraryError> {
+    tracks::upsert_track(&transaction.inner, storage_root_id, file, metadata, now_ms)
+}
+
+pub(super) fn update_track_path(
+    transaction: &LibraryTransaction<'_>,
+    track_id: TrackId,
+    path: &str,
+    updated_at_ms: i64,
+) -> Result<(), LibraryError> {
+    tracks::update_track_path(&transaction.inner, track_id, path, updated_at_ms)
+}
+
+pub(super) fn set_track_cover(
+    transaction: &LibraryTransaction<'_>,
+    track_id: TrackId,
+    path: &str,
+    mime_type: Option<&str>,
+) -> Result<(), LibraryError> {
+    tracks::set_track_cover(&transaction.inner, track_id, path, mime_type)
+}
+
+pub(super) fn clear_track_cover(
+    transaction: &LibraryTransaction<'_>,
+    track_id: TrackId,
+) -> Result<(), LibraryError> {
+    tracks::clear_track_cover(&transaction.inner, track_id)
+}
+
+pub(super) fn delete_track(
+    transaction: &LibraryTransaction<'_>,
+    track_id: TrackId,
+) -> Result<(), LibraryError> {
+    tracks::delete_track(&transaction.inner, track_id)
 }
 
 pub struct LibraryStore {
@@ -86,6 +142,12 @@ pub struct LibraryStore {
 }
 
 impl LibraryStore {
+    pub(super) fn transaction(&mut self) -> Result<LibraryTransaction<'_>, LibraryError> {
+        Ok(LibraryTransaction {
+            inner: self.connection.transaction()?,
+        })
+    }
+
     pub fn open(path: impl AsRef<Path>) -> Result<Self, LibraryError> {
         Self::open_with_progress(path, |_| {})
     }
@@ -505,6 +567,18 @@ pub(crate) mod testing {
             .unwrap();
     }
 
+    pub fn fail_second_artist_refresh(store: &mut LibraryStore) {
+        store
+            .connection
+            .execute_batch(
+                "CREATE TRIGGER fail_second_artist
+                 BEFORE INSERT ON artists
+                 WHEN NEW.name_key = 'Second Artist'
+                 BEGIN SELECT RAISE(ABORT, 'artist refresh failed'); END;",
+            )
+            .unwrap();
+    }
+
     pub fn test_file(
         root: &StorageRoot,
         name: &str,
@@ -559,5 +633,21 @@ pub(crate) mod testing {
         super::artists::refresh_keys(&transaction, &[name_key], 100).unwrap();
         transaction.commit().unwrap();
         id
+    }
+}
+
+#[cfg(test)]
+mod error_tests {
+    use super::*;
+
+    #[test]
+    fn database_error_display_keeps_the_existing_user_message() {
+        let source = Connection::open_in_memory()
+            .unwrap()
+            .execute("SELECT missing_column", [])
+            .unwrap_err();
+        let expected = format!("SQLite error: {source}");
+
+        assert_eq!(LibraryError::from(source).to_string(), expected);
     }
 }

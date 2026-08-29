@@ -54,7 +54,7 @@ impl LibraryView {
 
     pub(super) fn matching_tracks(&self) -> Result<Vec<Track>, LibraryError> {
         let fallback_store = if self.store.is_none() {
-            Some(LibraryStore::open(&self.database_path)?)
+            Some(ops::open(&self.database_path)?)
         } else {
             None
         };
@@ -63,7 +63,8 @@ impl LibraryView {
             .as_ref()
             .or(fallback_store.as_ref())
             .expect("library store is available");
-        store.matching_tracks(
+        ops::catalog::matching_tracks(
+            store,
             self.track_sort,
             &self.track_filter.track_query_filter(current_time_ms()),
             self.artist_filter.as_deref(),
@@ -200,7 +201,7 @@ impl LibraryView {
 
     pub(crate) fn search_library(&self, query: &str) -> Result<LibrarySearchResults, LibraryError> {
         match &self.store {
-            Some(store) => store.search(query),
+            Some(store) => ops::catalog::search(store, query),
             None => Ok(LibrarySearchResults::default()),
         }
     }
@@ -224,7 +225,7 @@ impl LibraryView {
             .to_string();
         let album = view_model::track_album(&track).to_string();
         let tracks = if let Some(store) = &self.store {
-            match store.tracks_for_album(&album_artist, &album) {
+            match ops::catalog::album_tracks(store, &album_artist, &album) {
                 Ok(tracks) => tracks,
                 Err(error) => {
                     self.error = Some(error.to_string());

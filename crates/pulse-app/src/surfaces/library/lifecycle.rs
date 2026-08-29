@@ -10,7 +10,7 @@ impl LibraryView {
             .spawn(move || {
                 let progress_sender = sender.clone();
                 let result = catch_unwind(AssertUnwindSafe(|| {
-                    LibraryStore::open_with_progress(&database_path, move |progress| {
+                    ops::open_with_progress(&database_path, move |progress| {
                         let _ = progress_sender.send(WorkerEvent::BootProgress(progress));
                     })
                     .map_err(|error| error.to_string())
@@ -71,37 +71,41 @@ impl LibraryView {
         };
         // Refresh the already-loaded portions so infinite-scroll positions
         // survive reloads; at least one page always loads.
-        let album_page = store.album_page(
+        let album_page = ops::catalog::album_page(
+            store,
             self.album_sort,
             &self.album_filter.album_query_filter(current_time_ms()),
             None,
             self.albums.len().max(LIST_PAGE_SIZE),
             0,
         )?;
-        let track_page = store.track_page(
+        let track_page = ops::catalog::track_page(
+            store,
             self.track_sort,
             &self.track_filter.track_query_filter(current_time_ms()),
             self.artist_filter.as_deref(),
             self.tracks.len().max(LIST_PAGE_SIZE),
             0,
         )?;
-        let genres = store.genre_album_counts()?;
-        let artists = store.artists()?;
-        let artist_index = store.artist_index()?;
+        let genres = ops::catalog::genre_album_counts(store)?;
+        let artists = ops::catalog::artist_filter_counts(store)?;
+        let artist_index = ops::catalog::artist_index(store)?;
         let artist_detail = self
             .artist_route
             .artist()
             .and_then(|name| artist_index.iter().find(|artist| artist.name == name))
             .cloned()
-            .map(|artist| Self::load_artist_detail(store, artist, self.album_sort))
+            .map(|artist| ops::catalog::artist_detail(store, artist, self.album_sort))
             .transpose()?;
-        let playlists = store.playlists()?;
-        let catalog_summary = store.catalog_summary()?;
+        let playlists = ops::playlists::list(store)?;
+        let catalog_summary = ops::catalog::summary(store)?;
         let mut roots = Vec::new();
-        for root in store.storage_roots()? {
+        for root in ops::storage::list(store)? {
             roots.push(StorageRootView {
-                summary: store.root_summary(root.id)?,
-                latest_scan: store.recent_scans(root.id, 1)?.into_iter().next(),
+                summary: ops::storage::summary(store, root.id)?,
+                latest_scan: ops::storage::recent_scans(store, root.id, 1)?
+                    .into_iter()
+                    .next(),
                 root,
             });
         }
@@ -140,7 +144,7 @@ impl LibraryView {
                 .cloned()
             {
                 self.album_detail = Some(AlbumDetail {
-                    tracks: store.tracks_for_album(&album.artist, &album.title)?,
+                    tracks: ops::catalog::album_tracks(store, &album.artist, &album.title)?,
                     album,
                 });
             } else {
@@ -180,7 +184,7 @@ impl LibraryView {
                 .cloned()
             {
                 Some(summary) => Some(PlaylistDetail {
-                    entries: store.playlist_tracks(playlist_id)?,
+                    entries: ops::playlists::tracks(store, playlist_id)?,
                     summary,
                 }),
                 None => None,

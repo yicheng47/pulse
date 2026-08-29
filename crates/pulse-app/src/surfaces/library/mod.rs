@@ -45,11 +45,11 @@ use pulse_engine::PlaybackState;
 use crate::{
     app_store::{AppStore, StoreRevisions, global_app_store},
     backend::{
-        Album, AlbumSortOrder, Artist, BackfillProgress, DeleteAlbumOutcome, LibraryError,
-        LibrarySearchResults, LibraryStore, LibrarySummary, PlaybackAction, PlaylistId,
+        Album, AlbumSortOrder, Artist, ArtistDetail, BackfillProgress, DeleteAlbumOutcome,
+        LibraryError, LibrarySearchResults, LibrarySummary, PlaybackAction, PlaylistId,
         PlaylistSummary, PlaylistTrack, ScanHistoryEntry, ScanOutcome, ScanProgress, StorageRoot,
-        StorageRootId, Track, TrackId, TrackSortOrder, cover_cache_directory, delete_album_tracks,
-        library_database_path, scan_storage_root_cancellable,
+        StorageRootId, Track, TrackId, TrackSortOrder, cover_cache_directory, library::ops,
+        library_database_path,
     },
     surfaces::Destination,
     text_input::{self, TextInput},
@@ -102,18 +102,18 @@ enum ScanCompletion {
 /// offline/failed) and the missing-row removal pass actually ran.
 enum WorkerEvent {
     BootProgress(BackfillProgress),
-    BootFinished(Result<LibraryStore, String>),
+    BootFinished(Result<ops::Store, String>),
     ScanProgress {
         root_id: StorageRootId,
         progress: ScanProgress,
     },
     ScanFinished {
         root_id: StorageRootId,
-        store: LibraryStore,
+        store: ops::Store,
         result: Result<ScanCompletion, String>,
     },
     DeleteAlbumFinished {
-        store: LibraryStore,
+        store: ops::Store,
         result: Result<DeleteAlbumOutcome, String>,
     },
     /// The delete worker panicked and the store moved into it is gone; the
@@ -136,12 +136,6 @@ enum LibraryBoot {
 
 struct AlbumDetail {
     album: Album,
-    tracks: Vec<Track>,
-}
-
-struct ArtistDetail {
-    artist: Artist,
-    albums: Vec<Album>,
     tracks: Vec<Track>,
 }
 
@@ -215,7 +209,7 @@ pub(crate) struct LibraryView {
     playback_source_path: Option<PathBuf>,
     playback_state: PlaybackState,
     missing_track_ids: Arc<HashSet<TrackId>>,
-    store: Option<LibraryStore>,
+    store: Option<ops::Store>,
     boot: LibraryBoot,
     database_path: PathBuf,
     cover_cache_directory: PathBuf,

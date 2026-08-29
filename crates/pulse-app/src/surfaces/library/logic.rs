@@ -318,8 +318,8 @@ mod tests {
 
     use super::*;
     use crate::backend::{
-        Album, AlbumSortOrder, LibraryStore, Playlist, PlaylistSummary, QueueState,
-        ScanProgressAction, StorageRootId, metadata, scan_storage_root,
+        Album, AlbumSortOrder, Playlist, PlaylistSummary, QueueState, ScanProgressAction,
+        StorageRootId, library::ops, metadata,
     };
     use tempfile::tempdir;
 
@@ -416,19 +416,17 @@ mod tests {
         )
         .unwrap();
 
-        let mut store = LibraryStore::open(&database_path).unwrap();
-        let music_root = store.add_storage_root(&music, "Music").unwrap();
-        let offline_root = store
-            .add_storage_root(&offline_music, "Offline Music")
-            .unwrap();
-        scan_storage_root(
+        let mut store = ops::open(&database_path).unwrap();
+        let music_root = ops::storage::add(&mut store, &music, "Music").unwrap();
+        let offline_root = ops::storage::add(&mut store, &offline_music, "Offline Music").unwrap();
+        ops::scan::storage_root(
             &mut store,
             music_root.id,
             temp.path().join("covers"),
             |_| {},
         )
         .unwrap();
-        scan_storage_root(
+        ops::scan::storage_root(
             &mut store,
             offline_root.id,
             temp.path().join("covers"),
@@ -436,7 +434,7 @@ mod tests {
         )
         .unwrap();
         fs::rename(&offline_music, temp.path().join("disconnected-music")).unwrap();
-        scan_storage_root(
+        ops::scan::storage_root(
             &mut store,
             offline_root.id,
             temp.path().join("covers"),
@@ -445,16 +443,25 @@ mod tests {
         .unwrap();
         drop(store);
 
-        let mut store = LibraryStore::open(&database_path).unwrap();
-        let albums = store.albums(AlbumSortOrder::Title).unwrap();
+        let mut store = ops::open(&database_path).unwrap();
+        // The proof fixture has two albums, so one bounded page is sufficient.
+        let albums = ops::catalog::album_page(
+            &store,
+            AlbumSortOrder::Title,
+            &AlbumQueryFilter::All,
+            None,
+            100,
+            0,
+        )
+        .unwrap()
+        .albums;
         println!("album count: {}", albums.len());
         let proof_album = albums
             .iter()
             .find(|album| album.title == "Proof Album")
             .unwrap();
-        let ordered_tracks = store
-            .tracks_for_album(&proof_album.artist, &proof_album.title)
-            .unwrap();
+        let ordered_tracks =
+            ops::catalog::album_tracks(&store, &proof_album.artist, &proof_album.title).unwrap();
         println!(
             "ordered tracks for {} / {}:",
             proof_album.artist, proof_album.title
@@ -468,8 +475,11 @@ mod tests {
                 track.path.display()
             );
         }
-        for root in store.storage_roots().unwrap() {
-            let latest = store.recent_scans(root.id, 1).unwrap().into_iter().next();
+        for root in ops::storage::list(&store).unwrap() {
+            let latest = ops::storage::recent_scans(&store, root.id, 1)
+                .unwrap()
+                .into_iter()
+                .next();
             println!(
                 "root {}: {:?}",
                 root.display_name,
@@ -477,17 +487,13 @@ mod tests {
             );
         }
 
-        let playlist = store.create_playlist("Proof Playlist").unwrap();
         let track_ids = ordered_tracks
             .iter()
             .map(|track| track.id)
             .collect::<Vec<_>>();
-        store
-            .append_playlist_tracks(playlist.id, &track_ids)
-            .unwrap();
-        store.move_playlist_entry(playlist.id, 0, 1).unwrap();
-        let playlist_tracks = store
-            .playlist_tracks(playlist.id)
+        let playlist = ops::playlists::create(&mut store, "Proof Playlist", &track_ids).unwrap();
+        ops::playlists::move_entry(&mut store, playlist.id, 0, 1).unwrap();
+        let playlist_tracks = ops::playlists::tracks(&store, playlist.id)
             .unwrap()
             .into_iter()
             .map(|entry| entry.track)
@@ -510,8 +516,7 @@ mod tests {
         assert_eq!(playlist_tracks.len(), 2);
         assert_eq!(queue.remaining_count(), 0);
         assert!(
-            !store
-                .storage_root(offline_root.id)
+            !ops::storage::get(&store, offline_root.id)
                 .unwrap()
                 .unwrap()
                 .is_reachable
