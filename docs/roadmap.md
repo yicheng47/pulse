@@ -11,24 +11,10 @@ The active-development tracker for Pulse. Since 2026-08-29 this file — not Git
 
 ## Shipped
 
+- **v0.1.8** (2026-08-29) — Backend foundations: `backend/{model.rs, repo/, ops/, scan/}` with gpui and SQL boundary gates ([25](features/archive/25-library-repo-layer.md), [27](features/archive/27-flatten-backend-layout.md)); transport buttons with hover/pressed feedback and a stable play button; app menu items and ⌘M / ⌘W working without focus; rounded album covers; one track-artist SQL fragment; macOS 13 floor.
 - **v0.1.7** (2026-08-29) — Artists page with the v5 `artists` table ([11](features/archive/11-artists-page.md)); app architecture parity with Runner: `ui/` kit, `settings.json` + migration, `AppStore`, surfaces split ([24](features/archive/24-app-architecture-parity.md)).
 - **v0.1.6** (2026-08-28) — Device management page ([22](features/archive/22-device-management-page.md)); updater parity with Runner ([23](features/archive/23-updater-parity.md)); click-free transport transitions; stalled-output detection.
 - v0.1.0–v0.1.5 — MVP and hardening; see [`docs/impls/ROADMAP.md`](impls/ROADMAP.md) and the archived specs.
-
-## M1 — Backend foundations → v0.1.8 (in progress)
-
-Make the domain layer structural before more features land on it. All rows done 2026-08-29; awaiting Jason's smoke test, then the v0.1.8 release.
-
-| Item | Priority | Status | Notes |
-|---|---|---|---|
-| [Feature 25 — backend layer + library repo layer](features/archive/25-library-repo-layer.md) | P2 | done | Four phases merged: `965965b` (backend boundary + gpui gate), `aa211ec` (repo layer), `49a6f00` (model + ops), `c1975cd` (facade retirement, SQL boundary gate, arch doc §4). |
-| [Feature 27 — flatten the backend layout](features/archive/27-flatten-backend-layout.md) | P2 | done | `9b8205a`: `backend/{model.rs, repo/, ops/, scan/}`, moves only. |
-| [Bug — app menu items disabled without focus](bugs/archive/app-menu-items-disabled.md) | P2 | done | `f51accf`: global handlers + `cx.defer`; also fixed Cmd-M / Cmd-W and Edit ▸ Search. |
-| [Bug — macOS 12 deployment target](bugs/archive/macos-deployment-target.md) | P2 | done | `84cf129`: floor raised to 13.0 (arm64-only build; Monterey EOL). |
-| [Bug — playback row transport feedback](bugs/archive/playback-row-transport-feedback.md) | P2 | done | `3d85c64`: kit-level hover/active, prev/next from the queue, play button stable across resume and next/previous. |
-| [Bug — effective-artist SQL copies](bugs/archive/effective-artist-sql-copies.md) | P3 | done | Fixed by 25 phase 2 (`aa211ec`). |
-| [Bug — album card image clipping](bugs/archive/album-card-image-clipping.md) | P3 | done | `84cf129`: radius on the cover `img`; Album Detail hero included. |
-| [Bug — track-artist SQL copies](bugs/archive/track-artist-sql-copies.md) | P3 | done | `84cf129`: `EFFECTIVE_TRACK_ARTIST_SQL`, gated. |
 
 ## M2 — Playback, metadata, session, integrations → v0.2.0
 
