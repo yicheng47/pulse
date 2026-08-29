@@ -43,18 +43,31 @@ mod boundary_tests {
         let sql_prefixes = ["SELECT", "INSERT", "UPDATE", "DELETE", "WITH", "CREATE"]
             .map(|keyword| ["\"", keyword, " "].concat());
         let album_artist_fragment = ["NULLIF", "(trim(album_artist)"].concat();
+        let track_artist_fragment = [
+            "COALESCE(NULLIF",
+            "(trim(artist), ''), ",
+            "'Unknown Artist')",
+        ]
+        .concat();
         let mut sources = Vec::new();
         collect_rust_sources(&source_root, &mut sources);
 
         let mut offenders = Vec::new();
         let mut fragment_files = Vec::new();
         let mut fragment_occurrences = 0;
+        let mut track_fragment_files = Vec::new();
+        let mut track_fragment_occurrences = 0;
         for path in sources {
             let source = fs::read_to_string(&path).expect("failed to read app source");
             let occurrences = source.matches(&album_artist_fragment).count();
             if occurrences > 0 {
                 fragment_occurrences += occurrences;
                 fragment_files.push(path.clone());
+            }
+            let track_occurrences = source.matches(&track_artist_fragment).count();
+            if track_occurrences > 0 {
+                track_fragment_occurrences += track_occurrences;
+                track_fragment_files.push(path.clone());
             }
             if !path.starts_with(&repo_root)
                 && source_contains_library_persistence(&source, &driver, &sql_prefixes)
@@ -87,6 +100,21 @@ mod boundary_tests {
             fragment_files[0].starts_with(&repo_root),
             "effective album-artist SQL must stay under backend/repo: {}",
             fragment_files[0].display()
+        );
+        assert_eq!(
+            track_fragment_occurrences,
+            1,
+            "effective track-artist SQL must be defined in exactly one file: {}",
+            track_fragment_files
+                .iter()
+                .map(|path| path.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        assert!(
+            track_fragment_files[0].starts_with(&repo_root),
+            "effective track-artist SQL must stay under backend/repo: {}",
+            track_fragment_files[0].display()
         );
     }
 

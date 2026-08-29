@@ -28,9 +28,11 @@ impl From<rusqlite::Error> for LibraryError {
 }
 
 // SQLite expression indexes cannot match a bound fallback parameter, so the
-// shared identity expression keeps the shipped unknown-artist value literal.
+// album identity keeps the shipped unknown-artist value literal; the track
+// identity uses the same literal to keep every identity surface consistent.
 const EFFECTIVE_ALBUM_ARTIST_SQL: &str =
     "COALESCE(NULLIF(trim(album_artist), ''), NULLIF(trim(artist), ''), 'Unknown Artist')";
+const EFFECTIVE_TRACK_ARTIST_SQL: &str = "COALESCE(NULLIF(trim(artist), ''), 'Unknown Artist')";
 
 const ALBUM_TITLE_SQL: &str = "COALESCE(NULLIF(trim(album), ''), {fallback})";
 
@@ -269,6 +271,7 @@ pub(crate) mod testing {
 #[cfg(test)]
 mod error_tests {
     use super::*;
+    use crate::backend::UNKNOWN_ARTIST;
 
     #[test]
     fn database_error_display_keeps_the_existing_user_message() {
@@ -279,5 +282,13 @@ mod error_tests {
         let expected = format!("SQLite error: {source}");
 
         assert_eq!(LibraryError::from(source).to_string(), expected);
+    }
+
+    #[test]
+    fn effective_track_artist_sql_uses_the_model_fallback() {
+        assert_eq!(
+            EFFECTIVE_TRACK_ARTIST_SQL,
+            format!("COALESCE(NULLIF(trim(artist), ''), '{UNKNOWN_ARTIST}')")
+        );
     }
 }

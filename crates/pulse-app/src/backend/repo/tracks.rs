@@ -11,8 +11,8 @@ use super::super::{
     scan::{metadata::AudioMetadata, walk::DiscoveredFile},
 };
 use super::{
-    EFFECTIVE_ALBUM_ARTIST_SQL, LibraryStore, LibraryTransaction, album_title_sql,
-    qualified_select_list, select_list, usize_to_i64,
+    EFFECTIVE_ALBUM_ARTIST_SQL, EFFECTIVE_TRACK_ARTIST_SQL, LibraryStore, LibraryTransaction,
+    album_title_sql, qualified_select_list, select_list, usize_to_i64,
 };
 
 /// Column list matching `track_from_row_at`'s positional mapping — every
@@ -284,17 +284,19 @@ fn for_album_sql() -> String {
 }
 
 /// Distinct normalized artists with track counts for the artist-filter popover.
-/// Keep this normalization aligned with the artist branch in `track_filter_clause`.
+/// `EFFECTIVE_TRACK_ARTIST_SQL` is shared with artist filtering and sorting so
+/// every facet value matches the rows it filters.
 pub fn artists(store: &LibraryStore) -> Result<Vec<(String, u64)>, LibraryError> {
     let conn = &store.connection;
-    let mut statement = conn.prepare(
-        "SELECT COALESCE(NULLIF(trim(artist), ''), ?1) AS artist_name, COUNT(*)
+    let sql = format!(
+        "SELECT {EFFECTIVE_TRACK_ARTIST_SQL} AS artist_name, COUNT(*)
          FROM tracks
          GROUP BY artist_name COLLATE NOCASE
-         ORDER BY artist_name COLLATE NOCASE, artist_name",
-    )?;
+         ORDER BY artist_name COLLATE NOCASE, artist_name"
+    );
+    let mut statement = conn.prepare(&sql)?;
     let artists = statement
-        .query_map([UNKNOWN_ARTIST], |row| {
+        .query_map([], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as u64))
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -611,9 +613,10 @@ fn track_order_by(sort_order: TrackSortOrder) -> String {
             "COALESCE(NULLIF(trim(title), ''), path) COLLATE NOCASE, path_key".to_string()
         }
         TrackSortOrder::Artist => {
-            "COALESCE(NULLIF(trim(artist), ''), 'Unknown Artist') COLLATE NOCASE,
+            format!(
+                "{EFFECTIVE_TRACK_ARTIST_SQL} COLLATE NOCASE,
              COALESCE(NULLIF(trim(title), ''), path) COLLATE NOCASE, path_key"
-                .to_string()
+            )
         }
         TrackSortOrder::Album => format!(
             "{} COLLATE NOCASE,
@@ -662,9 +665,7 @@ fn track_filter_clause(
         }
     }
     if let Some(artist) = artist_filter {
-        clauses.push(
-            "COALESCE(NULLIF(trim(artist), ''), 'Unknown Artist') = ? COLLATE NOCASE".to_string(),
-        );
+        clauses.push(format!("{EFFECTIVE_TRACK_ARTIST_SQL} = ? COLLATE NOCASE"));
         parameters.push(Value::Text(artist.to_string()));
     }
     let where_clause = if clauses.is_empty() {

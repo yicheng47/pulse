@@ -202,6 +202,7 @@ impl LibraryView {
                 44.,
                 44.,
                 20.,
+                theme::RADIUS_SM,
             ))
             .child(
                 div()
@@ -289,6 +290,7 @@ impl LibraryView {
                         92.,
                         92.,
                         34.,
+                        theme::RADIUS_SM,
                     ))
                     .child(
                         div()

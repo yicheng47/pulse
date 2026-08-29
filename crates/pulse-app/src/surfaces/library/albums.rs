@@ -317,7 +317,7 @@ impl LibraryView {
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.open_album(album.clone(), cx);
             }))
-            .child(render_cover(cover.as_deref(), 194.4, 140., 30.).w_full())
+            .child(render_cover(cover.as_deref(), 194.4, 140., 30., theme::RADIUS_SM).w_full())
             .child(
                 div()
                     .flex()
@@ -455,20 +455,15 @@ impl LibraryView {
                     .w_full()
                     .flex_none()
                     .child(
-                        div()
-                            .flex()
-                            .size(px(190.))
-                            .flex_none()
-                            .overflow_hidden()
-                            .rounded(px(theme::RADIUS_MD))
-                            .border_1()
-                            .border_color(theme::border())
-                            .child(render_cover(
-                                album.cover_art_path.as_deref(),
-                                190.,
-                                190.,
-                                42.,
-                            )),
+                        render_cover(
+                            album.cover_art_path.as_deref(),
+                            190.,
+                            190.,
+                            42.,
+                            theme::RADIUS_MD,
+                        )
+                        .border_1()
+                        .border_color(theme::border()),
                     )
                     .child(
                         div()
@@ -834,7 +829,13 @@ impl LibraryView {
                     .flex()
                     .items_center()
                     .gap(px(12.))
-                    .child(render_cover(album.cover_art_path.as_deref(), 44., 44., 18.))
+                    .child(render_cover(
+                        album.cover_art_path.as_deref(),
+                        44.,
+                        44.,
+                        18.,
+                        theme::RADIUS_SM,
+                    ))
                     .child(
                         div()
                             .flex()
@@ -925,6 +926,7 @@ pub(super) fn render_cover(
     width: f32,
     height: f32,
     icon_size: f32,
+    radius: f32,
 ) -> gpui::Div {
     let base = div()
         .flex()
@@ -934,13 +936,14 @@ pub(super) fn render_cover(
         .h(px(height))
         .flex_none()
         .overflow_hidden()
-        .rounded(px(theme::RADIUS_SM))
+        .rounded(px(radius))
         .bg(theme::bg_muted());
     match cover_path {
         Some(path) => base.child(
             img(path.to_path_buf())
                 .size_full()
-                .object_fit(ObjectFit::Cover),
+                .object_fit(ObjectFit::Cover)
+                .rounded(px(radius)),
         ),
         None => base.child(
             svg()
