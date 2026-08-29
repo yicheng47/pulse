@@ -14,7 +14,7 @@ A large class of albums is mastered as continuous audio — live recordings, cla
 - A next-track lookahead surface on the controller (e.g. `SetNext { path }` / `ClearNext`), so the app can hand the engine the upcoming queue entry before the current track drains. The app keeps queue ownership; the engine holds at most one preloaded source.
 - Per-track fed-frame accounting so the controller distinguishes the decode boundary (decoder EOF) from the audible boundary (callback consumed the last frame of the outgoing track). `NowPlaying`, position, and `Ended`/advance events flip at the audible boundary, not the decode boundary.
 - Format-change transitions keep the existing stop/rebuild path (nominal-rate switch and ring rebuild are inherently audible), falling back automatically when the preloaded source's format differs or no next source is set.
-- Lookahead invalidation: queue edits (skip, remove, reorder, clear) while a next source is preloaded must replace or clear the preload without disturbing the playing track.
+- Lookahead invalidation: queue edits (skip, remove, reorder, clear) while a next source is preloaded must replace or clear the preload without disturbing the playing track. **Buffered window:** once the current decoder has hit EOF and the incoming track's PCM is already in the ring (up to the ring's ~4 s, in the last seconds of the outgoing track), the ring cannot be rewound — `ClearNext` / `SetNext` then act on the *incoming track's successor*, and the incoming track still plays. Removing the upcoming track in that window is therefore not honored; the app may skip explicitly (a `PlayFile`) if it must.
 
 ## Non-Goals
 
@@ -25,6 +25,8 @@ A large class of albums is mastered as continuous audio — live recordings, cla
 - Preloading more than one track ahead, or speculative decode of unqueued tracks.
 
 ## Implementation Phases
+
+Phases 1–2 merged 2026-08-30 in `4ae4fe4`: `PlaybackCommand::SetNext { path }` / `ClearNext`; `PlaybackEvent::Advanced { attempt, source, format }` (same `attempt`, followed by `Position 0`) replaces `Ended` + `PlayFile` whenever a next source is set — seamless on matching formats, engine-driven stop/rebuild otherwise; `Ended` only when no next source is set.
 
 1. Engine accounting: track the fed-frame boundary between the outgoing and incoming track so the controller can observe when the callback's position crosses it; verify the position/underrun atomics stay callback-safe.
 2. Controller: add the next-source command surface; on decoder EOF with a matching preloaded format, swap decoders and keep feeding the live ring, emitting `NowPlaying`/position/advance events at the audible boundary; fall back to the rebuild path on format mismatch or missing preload.
