@@ -1,9 +1,11 @@
 mod app_settings;
+mod app_store;
 mod assets;
 mod device_management;
 pub mod library;
 mod library_ui;
 mod menu;
+mod playback;
 mod playback_row;
 mod preferences;
 mod queue;
@@ -14,6 +16,7 @@ mod theme;
 mod ui;
 mod updater;
 
+use app_store::{AppStore, GlobalAppStore};
 use assets::Assets;
 use gpui::{
     App, AppContext, Bounds, TitlebarOptions, WindowBounds, WindowOptions, point, px, size,
@@ -46,6 +49,21 @@ fn main() {
                 .add_fonts(assets::fonts())
                 .expect("failed to load bundled fonts");
             menu::install(cx);
+
+            let app_data_directory =
+                preferences::app_data_directory().expect("failed to resolve app data directory");
+            let settings_path = app_settings::settings_path(&app_data_directory);
+            let settings = preferences::load_or_migrate_app_settings().unwrap_or_else(|error| {
+                eprintln!("Could not load app settings: {error}");
+                app_settings::AppSettings::default()
+            });
+            let app_store = cx.new(|cx| AppStore::new(settings_path, settings, cx));
+            cx.set_global(GlobalAppStore(app_store.clone()));
+            cx.on_app_quit(move |cx| {
+                app_store.update(cx, |store, _| store.shutdown());
+                std::future::ready(())
+            })
+            .detach();
 
             let bounds = Bounds::centered(None, size(px(1440.), px(900.)), cx);
             cx.open_window(

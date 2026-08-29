@@ -2,11 +2,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use gpui::{
     AnyElement, Context, Entity, FontWeight, IntoElement, Pixels, Render, ScrollHandle, Size,
-    StatefulInteractiveElement, Window, div, prelude::*, px, svg,
+    StatefulInteractiveElement, Subscription, Window, div, prelude::*, px, svg,
 };
 
 use crate::{
-    playback_row::{ManagedDevice, PlaybackRow, format_stored_device_capabilities},
+    app_store::{AppStore, StoreRevisions, global_app_store},
+    playback::{ManagedDevice, PlaybackAction, format_stored_device_capabilities},
     theme,
     ui::{self, Scrollbar},
 };
@@ -19,31 +20,43 @@ struct LayoutSignature {
 }
 
 pub(crate) struct DeviceManagementPage {
-    row: Entity<PlaybackRow>,
+    app_store: Entity<AppStore>,
+    store_revisions: StoreRevisions,
     forget_device_uid: Option<String>,
     scroll: ScrollHandle,
     scrollbar: Entity<Scrollbar>,
     last_window_size: Option<Size<Pixels>>,
     last_layout_signature: Option<LayoutSignature>,
     scrollbar_measure_pending: bool,
+    _store_subscription: Subscription,
 }
 
 impl DeviceManagementPage {
-    pub(crate) fn new(row: Entity<PlaybackRow>, cx: &mut Context<Self>) -> Self {
-        cx.observe(&row, |_, _, cx| cx.notify()).detach();
+    pub(crate) fn new(cx: &mut Context<Self>) -> Self {
+        let app_store = global_app_store(cx);
+        let store_revisions = app_store.read(cx).revisions;
         let scroll = ScrollHandle::new();
         let scrollbar = cx.new(|_| {
             Scrollbar::new("device-management-scrollbar", scroll.clone())
                 .thumb_id("device-management-scrollbar-thumb")
         });
         Self {
-            row,
+            app_store: app_store.clone(),
+            store_revisions,
             forget_device_uid: None,
             scroll,
             scrollbar,
             last_window_size: None,
             last_layout_signature: None,
             scrollbar_measure_pending: true,
+            _store_subscription: cx.observe(&app_store, |this, _, cx| {
+                let revisions = this.app_store.read(cx).revisions;
+                let reactions = revisions.reactions_since(this.store_revisions);
+                this.store_revisions = revisions;
+                if reactions.devices {
+                    cx.notify();
+                }
+            }),
         }
     }
 
@@ -108,13 +121,16 @@ impl DeviceManagementPage {
         if device.saved_default {
             actions = actions.child(ui::pill("Default", false));
         } else if device.can_set_as_default() {
-            let row = self.row.clone();
+            let app_store = self.app_store.clone();
             let uid = device.uid.clone();
             actions = actions.child(
                 device_action_button(("set-default-device", index), "Set as default").on_click(
                     move |_, _, cx| {
-                        row.update(cx, |row, cx| {
-                            row.set_managed_device_as_default(&uid, cx);
+                        app_store.update(cx, |store, store_cx| {
+                            store.send_command(
+                                PlaybackAction::SetManagedDeviceAsDefault(uid.clone()),
+                                store_cx,
+                            );
                         });
                     },
                 ),
@@ -170,10 +186,10 @@ impl DeviceManagementPage {
             );
         }
 
-        let reset_row = self.row.clone();
+        let reset_store = self.app_store.clone();
         let reset_uid = device.uid.clone();
         let reset_default = device.default_exclusive_mode;
-        let toggle_row = self.row.clone();
+        let toggle_store = self.app_store.clone();
         let toggle_uid = device.uid.clone();
         let toggle_default = device.default_exclusive_mode;
         div()
@@ -212,22 +228,26 @@ impl DeviceManagementPage {
                 device.automatic,
                 ui::exclusive_mode_reset_link(("device-mode-reset", index))
                     .on_click(move |_, _, cx| {
-                        reset_row.update(cx, |row, cx| {
-                            row.reset_device_exclusive_mode_to_auto(
-                                reset_uid.clone(),
-                                reset_default,
-                                cx,
+                        reset_store.update(cx, |store, store_cx| {
+                            store.send_command(
+                                PlaybackAction::ResetDeviceExclusiveMode {
+                                    device_uid: reset_uid.clone(),
+                                    default: reset_default,
+                                },
+                                store_cx,
                             );
                         });
                     })
                     .into_any_element(),
                 ui::Toggle::new(("device-mode-toggle", index), device.exclusive_mode)
                     .on_click(move |_, _, cx| {
-                        toggle_row.update(cx, |row, cx| {
-                            row.toggle_device_exclusive_mode(
-                                toggle_uid.clone(),
-                                toggle_default,
-                                cx,
+                        toggle_store.update(cx, |store, store_cx| {
+                            store.send_command(
+                                PlaybackAction::ToggleDeviceExclusiveMode {
+                                    device_uid: toggle_uid.clone(),
+                                    default: toggle_default,
+                                },
+                                store_cx,
                             );
                         });
                     })
@@ -238,7 +258,7 @@ impl DeviceManagementPage {
 
     fn render_forget_modal(&self, device: &ManagedDevice, cx: &mut Context<Self>) -> AnyElement {
         let uid = device.uid.clone();
-        let row = self.row.clone();
+        let app_store = self.app_store.clone();
         let body = div()
             .flex()
             .flex_col()
@@ -272,7 +292,9 @@ impl DeviceManagementPage {
                 cx.notify();
             }))
             .on_confirm(cx.listener(move |this, _, _, cx| {
-                if row.update(cx, |row, cx| row.forget_managed_device(&uid, cx)) {
+                if app_store.update(cx, |store, store_cx| {
+                    store.send_command(PlaybackAction::ForgetManagedDevice(uid.clone()), store_cx)
+                }) {
                     this.forget_device_uid = None;
                     cx.notify();
                 }
@@ -288,9 +310,8 @@ impl Render for DeviceManagementPage {
             self.last_window_size = Some(window_size);
             self.scrollbar_measure_pending = true;
         }
-        let row = self.row.read(cx);
-        let groups = row.managed_device_groups();
-        let messages = row.device_management_messages();
+        let groups = self.app_store.read(cx).managed_device_groups();
+        let messages = self.app_store.read(cx).device_management_messages();
         let layout_signature = LayoutSignature {
             connected: groups.connected.len(),
             not_connected: groups.not_connected.len(),

@@ -14,6 +14,7 @@ use gpui::{
 };
 
 use crate::{
+    app_store::global_app_store,
     device_management::DeviceManagementPage,
     library::{Album, PlaylistSummary, Track},
     library_ui::{
@@ -21,6 +22,7 @@ use crate::{
         view_model::{self, SearchSelection, SearchViewModel},
     },
     menu::{About, CheckForUpdates, FocusSearch, OpenSettings},
+    playback::PlaybackAction,
     playback_row::PlaybackRow,
     settings::{AboutLink, SettingsSection, SettingsViewModel},
     text_input::{self, TextInput},
@@ -101,8 +103,8 @@ pub struct Shell {
 impl Shell {
     pub fn new(cx: &mut Context<Self>) -> Self {
         let row = cx.new(PlaybackRow::new);
-        let devices = cx.new(|cx| DeviceManagementPage::new(row.clone(), cx));
-        let library = cx.new(|cx| LibraryView::new(row.clone(), cx));
+        let devices = cx.new(DeviceManagementPage::new);
+        let library = cx.new(LibraryView::new);
         let updater = cx.new(Updater::new);
         cx.observe(&library, |_, _, cx| cx.notify()).detach();
         cx.observe(&updater, |_, _, cx| cx.notify()).detach();
@@ -471,8 +473,9 @@ impl Shell {
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.destination = destination;
                 if destination == Destination::Devices {
-                    this.row
-                        .update(cx, |row, cx| row.refresh_output_devices(cx));
+                    global_app_store(cx).update(cx, |store, store_cx| {
+                        store.send_command(PlaybackAction::RefreshOutputDevices, store_cx);
+                    });
                 }
                 this.library
                     .update(cx, |library, cx| library.set_destination(destination, cx));
@@ -609,7 +612,11 @@ impl Shell {
         let section = self
             .settings_section
             .expect("settings shell is only rendered for a settings section");
-        let model = SettingsViewModel::new(section, self.row.read(cx).active_output_device());
+        let active_output = global_app_store(cx)
+            .read(cx)
+            .active_output_device()
+            .cloned();
+        let model = SettingsViewModel::new(section, active_output.as_ref());
 
         div()
             .flex()
@@ -1469,8 +1476,13 @@ impl Render for Shell {
             .size_full()
             .bg(theme::bg_page())
             .drag_over::<ExternalPaths>(|style, _, _, _| style.bg(theme::accent_soft()))
-            .on_drop(cx.listener(|this, paths: &ExternalPaths, _, cx| {
-                this.row.update(cx, |row, cx| row.handle_drop(paths, cx));
+            .on_drop(cx.listener(|_, paths: &ExternalPaths, _, cx| {
+                global_app_store(cx).update(cx, |store, store_cx| {
+                    store.send_command(
+                        PlaybackAction::PlayDroppedPaths(paths.paths().to_vec()),
+                        store_cx,
+                    );
+                });
             }))
             .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _, cx| {
                 this.row.update(cx, |row, cx| row.update_drag(event, cx));

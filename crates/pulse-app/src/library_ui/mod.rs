@@ -23,17 +23,18 @@ use std::{
 use gpui::{
     AnyElement, Bounds, Context, ElementInputHandler, Entity, EntityInputHandler, FocusHandle,
     IntoElement, KeyDownEvent, PathPromptOptions, Pixels, Point, Render, ScrollHandle,
-    UTF16Selection, Window, canvas, div, prelude::*, px,
+    Subscription, UTF16Selection, Window, canvas, div, prelude::*, px,
 };
 
 use crate::{
+    app_store::{AppStore, StoreRevisions, global_app_store},
     library::{
         Album, AlbumSortOrder, BackfillProgress, DeleteAlbumOutcome, LibraryError,
         LibrarySearchResults, LibraryStore, LibrarySummary, PlaylistId, PlaylistSummary,
         PlaylistTrack, ScanHistoryEntry, ScanOutcome, ScanProgress, StorageRoot, StorageRootId,
         Track, TrackId, TrackSortOrder, delete_album_tracks, scan_storage_root_cancellable,
     },
-    playback_row::PlaybackRow,
+    playback::{PlaybackAction, PlaybackSnapshot},
     preferences,
     shell::Destination,
     text_input::{self, TextInput},
@@ -263,7 +264,9 @@ struct RenameDraft {
 
 pub(crate) struct LibraryView {
     destination: Destination,
-    row: Entity<PlaybackRow>,
+    app_store: Entity<AppStore>,
+    store_revisions: StoreRevisions,
+    playback: PlaybackSnapshot,
     store: Option<LibraryStore>,
     boot: LibraryBoot,
     database_path: PathBuf,
@@ -316,17 +319,18 @@ pub(crate) struct LibraryView {
     text_input: TextInput,
     input_focus: FocusHandle,
     error: Option<String>,
+    _store_subscription: Subscription,
 }
 
 impl LibraryView {
-    pub(crate) fn new(row: Entity<PlaybackRow>, cx: &mut Context<Self>) -> Self {
+    pub(crate) fn new(cx: &mut Context<Self>) -> Self {
         let database_path =
             preferences::library_database_path().expect("failed to resolve library database path");
         let cover_cache_directory = preferences::cover_cache_directory()
             .expect("failed to resolve library cover cache path");
-        // Missing-file marks and now-playing state live on the row and change
-        // asynchronously; without this the lists would render them stale.
-        cx.observe(&row, |_, _, cx| cx.notify()).detach();
+        let app_store = global_app_store(cx);
+        let store_revisions = app_store.read(cx).revisions;
+        let playback = app_store.read(cx).playback_snapshot();
         let (worker_tx, worker_rx) = mpsc::channel();
         let tracks_scroll = ScrollHandle::new();
         let track_scrollbar = cx.new(|_| {
@@ -335,7 +339,9 @@ impl LibraryView {
         });
         let mut view = Self {
             destination: Destination::Albums,
-            row,
+            app_store: app_store.clone(),
+            store_revisions,
+            playback,
             store: None,
             boot: LibraryBoot::Opening { backfill: None },
             database_path,
@@ -386,6 +392,15 @@ impl LibraryView {
             text_input: TextInput::default(),
             input_focus: cx.focus_handle(),
             error: None,
+            _store_subscription: cx.observe(&app_store, |this, _, cx| {
+                let revisions = this.app_store.read(cx).revisions;
+                let reactions = revisions.reactions_since(this.store_revisions);
+                this.store_revisions = revisions;
+                if reactions.playback || reactions.queue {
+                    this.playback = this.app_store.read(cx).playback_snapshot();
+                    cx.notify();
+                }
+            }),
         };
         view.begin_open_store();
 
@@ -782,13 +797,27 @@ impl LibraryView {
     }
 
     fn play_tracks(&mut self, tracks: Vec<Track>, index: usize, cx: &mut Context<Self>) {
-        self.row
-            .update(cx, |row, cx| row.play_library_tracks(&tracks, index, cx));
+        self.app_store.update(cx, |store, store_cx| {
+            store.send_command(
+                PlaybackAction::PlayLibraryTracks {
+                    tracks,
+                    start_index: index,
+                },
+                store_cx,
+            );
+        });
     }
 
     fn select_tracks(&mut self, tracks: Vec<Track>, index: usize, cx: &mut Context<Self>) {
-        self.row
-            .update(cx, |row, cx| row.select_library_tracks(&tracks, index, cx));
+        self.app_store.update(cx, |store, store_cx| {
+            store.send_command(
+                PlaybackAction::SelectLibraryTracks {
+                    tracks,
+                    start_index: index,
+                },
+                store_cx,
+            );
+        });
     }
 
     fn activate_album_track(&mut self, index: usize, play: bool, cx: &mut Context<Self>) {
@@ -917,8 +946,8 @@ impl LibraryView {
             .iter()
             .map(|entry| entry.track.clone())
             .collect::<Vec<_>>();
-        self.row.update(cx, |row, cx| {
-            row.play_library_tracks_shuffled(&tracks, cx);
+        self.app_store.update(cx, |store, store_cx| {
+            store.send_command(PlaybackAction::PlayLibraryTracksShuffled(tracks), store_cx);
         });
     }
 
@@ -1368,7 +1397,9 @@ impl LibraryView {
                         ));
                     }
                 }
-                self.row.update(cx, |row, _| row.clear_missing_marks());
+                self.app_store.update(cx, |store, store_cx| {
+                    store.send_command(PlaybackAction::ClearMissingMarks, store_cx);
+                });
                 self.reload_or_show_error();
             }
             Err(error) => self.error = Some(error.to_string()),
@@ -1519,7 +1550,9 @@ impl LibraryView {
                     self.store = Some(store);
                     match &result {
                         Ok(completion) if scan_verified_presence(completion) => {
-                            self.row.update(cx, |row, _| row.clear_missing_marks());
+                            self.app_store.update(cx, |store, store_cx| {
+                                store.send_command(PlaybackAction::ClearMissingMarks, store_cx);
+                            });
                         }
                         Ok(_) => {}
                         Err(error) => self.error = Some(error.clone()),
@@ -1541,8 +1574,13 @@ impl LibraryView {
                             // missing marks — remain. Ids are recyclable, so
                             // marks for committed deletions must go.
                             if outcome.db_error.is_none() && !outcome.deleted_ids.is_empty() {
-                                self.row.update(cx, |row, _| {
-                                    row.remove_missing_marks(&outcome.deleted_ids);
+                                self.app_store.update(cx, |store, store_cx| {
+                                    store.send_command(
+                                        PlaybackAction::RemoveMissingMarks(
+                                            outcome.deleted_ids.clone(),
+                                        ),
+                                        store_cx,
+                                    );
                                 });
                             }
                             self.error = None;
@@ -1648,8 +1686,14 @@ impl LibraryView {
         cx.notify();
     }
 
-    fn is_now_playing(&self, path: &Path, cx: &Context<Self>) -> bool {
-        self.row.read(cx).is_now_playing(path)
+    fn is_now_playing(&self, path: &Path, _cx: &Context<Self>) -> bool {
+        self.playback.source_path.as_deref() == Some(path)
+            && matches!(
+                self.playback.playback_state,
+                pulse_engine::PlaybackState::Loading
+                    | pulse_engine::PlaybackState::Playing
+                    | pulse_engine::PlaybackState::Paused
+            )
     }
 
     fn render_library_failed(&self, message: String, cx: &mut Context<Self>) -> AnyElement {
@@ -1702,7 +1746,8 @@ impl LibraryView {
     }
 
     fn is_track_missing(&self, track_id: TrackId, cx: &Context<Self>) -> bool {
-        self.row.read(cx).is_track_missing(track_id)
+        let _ = cx;
+        self.playback.missing_track_ids.contains(&track_id)
     }
 }
 
