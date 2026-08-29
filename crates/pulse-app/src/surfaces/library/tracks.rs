@@ -5,15 +5,13 @@ use gpui::{
 
 use super::{
     LibraryView, TrackMenu, TrackSurface, current_time_ms,
-    view_model::{
+    logic::{
         FilterChip, format_duration, format_label, is_hi_res, quality_label, track_album,
         track_artist, track_title,
     },
+    tracks_logic::{format_relative_time, track_sort_label},
 };
-use crate::{
-    library::{Track, TrackSortOrder},
-    theme, ui,
-};
+use crate::{library::Track, theme, ui};
 
 const TRACK_ROW_HEIGHT_PX: f32 = 58.;
 
@@ -427,8 +425,8 @@ impl LibraryView {
         now_ms: i64,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let playing = self.is_now_playing(&track.path, cx);
-        let missing = self.is_track_missing(track.id, cx);
+        let playing = self.is_now_playing(&track.path);
+        let missing = self.is_track_missing(track.id);
         let selected = self.selected_track_id == Some(track.id);
         let track_id = track.id;
         let artist = track_artist(&track).to_string();
@@ -609,29 +607,4 @@ fn header_cell(label: &'static str, width: f32, left_padding: f32) -> impl IntoE
         .text_size(px(10.))
         .text_color(theme::text_muted())
         .child(label)
-}
-
-fn track_sort_label(sort: TrackSortOrder) -> &'static str {
-    match sort {
-        TrackSortOrder::Title => "TITLE",
-        TrackSortOrder::Artist => "ARTIST",
-        TrackSortOrder::Album => "ALBUM",
-        TrackSortOrder::DateAdded => "DATE ADDED",
-        TrackSortOrder::ReleaseYear => "YEAR",
-        TrackSortOrder::Duration => "DURATION",
-    }
-}
-
-fn format_relative_time(timestamp_ms: i64, now_ms: i64) -> String {
-    let elapsed = now_ms.saturating_sub(timestamp_ms).max(0);
-    let minutes = elapsed / 60_000;
-    if minutes < 1 {
-        "now".to_string()
-    } else if minutes < 60 {
-        format!("{minutes} min")
-    } else if minutes < 24 * 60 {
-        format!("{} hr", minutes / 60)
-    } else {
-        format!("{} days", minutes / (24 * 60))
-    }
 }

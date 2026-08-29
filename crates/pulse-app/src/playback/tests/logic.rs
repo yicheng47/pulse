@@ -1,0 +1,379 @@
+use super::*;
+
+#[test]
+fn no_op_settings_update_does_not_save() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("settings.json");
+    let mut playback = Playback::initial();
+    playback.settings_path = path.clone();
+
+    assert!(
+        !playback
+            .update_settings(|settings| settings.volume_level = 1.0)
+            .unwrap()
+    );
+    assert!(!path.exists());
+}
+
+#[test]
+fn legacy_disabled_marker_becomes_one_active_device_override() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("settings.json");
+    let mut playback = Playback::initial();
+    playback.settings_path = path.clone();
+    playback.settings.legacy_exclusive_mode_disabled = Some(true);
+
+    assert!(playback.migrate_legacy_exclusive_mode("airpods").unwrap());
+
+    assert!(
+        playback
+            .settings
+            .exclusive_mode_preferences
+            .is_overridden("airpods")
+    );
+    assert!(
+        !playback
+            .settings
+            .exclusive_mode_preferences
+            .effective_mode("airpods", true)
+    );
+    assert_eq!(
+        AppSettings::load(&path)
+            .unwrap()
+            .legacy_exclusive_mode_disabled,
+        None
+    );
+}
+
+#[test]
+fn forgetting_a_saved_device_updates_both_json_fields_atomically() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("settings.json");
+    let mut playback = Playback::initial();
+    playback.settings_path = path.clone();
+    playback.settings.saved_output_device_uid = Some("matrix".to_string());
+    playback
+        .settings
+        .exclusive_mode_preferences
+        .record_sighting(
+            "matrix",
+            "mini-i Series",
+            Some(StoredDeviceCapabilities {
+                max_bits_per_channel: Some(24),
+                max_sample_rate: 192_000,
+            }),
+            100,
+        );
+
+    assert!(playback.forget_device_settings("matrix").unwrap());
+
+    let saved = AppSettings::load(&path).unwrap();
+    assert_eq!(saved.saved_output_device_uid, None);
+    assert!(
+        !saved
+            .exclusive_mode_preferences
+            .devices()
+            .any(|(uid, _)| uid == "matrix")
+    );
+}
+
+#[test]
+fn combined_volume_update_preserves_unrelated_settings_fields() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("settings.json");
+    let mut playback = Playback::initial();
+    playback.settings_path = path.clone();
+    playback.settings.saved_output_device_uid = Some("matrix".to_string());
+    playback.settings.legacy_exclusive_mode_disabled = Some(true);
+    playback
+        .settings
+        .exclusive_mode_preferences
+        .set_override("matrix", false);
+
+    playback
+        .update_settings(|settings| {
+            settings.volume_level = 0.25;
+            settings.volume_muted = false;
+        })
+        .unwrap();
+
+    let loaded = AppSettings::load(&path).unwrap();
+    assert_eq!(loaded.saved_output_device_uid.as_deref(), Some("matrix"));
+    assert!(
+        !loaded
+            .exclusive_mode_preferences
+            .effective_mode("matrix", true)
+    );
+    assert_eq!(loaded.legacy_exclusive_mode_disabled, Some(true));
+    assert_eq!(loaded.volume_level, 0.25);
+    assert!(!loaded.volume_muted);
+}
+
+#[test]
+fn explicit_exclusive_mode_write_clears_pending_legacy_intent() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("settings.json");
+    let mut playback = Playback::initial();
+    playback.settings_path = path.clone();
+    playback.settings.legacy_exclusive_mode_disabled = Some(true);
+    let mut exclusive_modes = ExclusiveModePreferences::default();
+    exclusive_modes.set_override("matrix", true);
+
+    playback
+        .set_exclusive_mode_preferences(exclusive_modes)
+        .unwrap();
+
+    let loaded = AppSettings::load(&path).unwrap();
+    assert_eq!(loaded.legacy_exclusive_mode_disabled, None);
+    assert!(
+        loaded
+            .exclusive_mode_preferences
+            .effective_mode("matrix", false)
+    );
+}
+
+#[test]
+fn accepts_only_supported_audio_extensions() {
+    for path in [
+        "track.flac",
+        "track.FLAC",
+        "track.m4a",
+        "track.aif",
+        "track.aiff",
+        "track.wav",
+    ] {
+        assert!(is_supported_audio(Path::new(path)), "{path}");
+    }
+    for path in ["track.mp3", "track.aac", "track"] {
+        assert!(!is_supported_audio(Path::new(path)), "{path}");
+    }
+}
+
+#[test]
+fn derives_display_text_from_the_path() {
+    let path = Path::new("/Music/Album/Track 01.flac");
+    assert_eq!(track_title(path), "Track 01");
+    assert_eq!(track_secondary(path), "Album");
+}
+
+#[test]
+fn formats_transport_time_without_a_leading_minute_zero() {
+    assert_eq!(format_time(0), "0:00");
+    assert_eq!(format_time(185_999), "3:05");
+    assert_eq!(format_time(3_661_000), "1:01:01");
+}
+
+#[test]
+fn clamps_progress_positions_to_the_track() {
+    assert_eq!(fraction_at_x(100.0, 200.0, 50.0), 0.0);
+    assert_eq!(fraction_at_x(100.0, 200.0, 200.0), 0.5);
+    assert_eq!(fraction_at_x(100.0, 200.0, 350.0), 1.0);
+    assert_eq!(fraction_at_x(100.0, 0.0, 100.0), 0.0);
+}
+
+#[test]
+fn maps_vertical_volume_positions_bottom_to_top() {
+    assert_eq!(fraction_at_y(100.0, 120.0, 220.0), 0.0);
+    assert_eq!(fraction_at_y(100.0, 120.0, 160.0), 0.5);
+    assert_eq!(fraction_at_y(100.0, 120.0, 100.0), 1.0);
+    assert_eq!(fraction_at_y(100.0, 120.0, 250.0), 0.0);
+    assert_eq!(fraction_at_y(100.0, 120.0, 50.0), 1.0);
+    assert_eq!(fraction_at_y(100.0, 0.0, 100.0), 0.0);
+}
+
+#[test]
+fn maps_scrub_fraction_to_position() {
+    assert_eq!(scrub_position_ms(0.0, 268_000), 0);
+    assert_eq!(scrub_position_ms(0.5, 268_000), 134_000);
+    assert_eq!(scrub_position_ms(1.0, 268_000), 268_000);
+
+    assert_eq!(
+        scrub_position_ms(fraction_at_x(100.0, 200.0, 250.0), 268_000),
+        201_000
+    );
+}
+
+#[test]
+fn maps_volume_level_to_a_perceptual_gain_curve() {
+    assert_eq!(volume_gain_for_level(0.0), 0.0);
+    assert_eq!(volume_gain_for_level(0.05), MIN_AUDIBLE_GAIN);
+    assert_eq!(volume_gain_for_level(0.5), 0.125);
+    assert_eq!(volume_gain_for_level(1.0), 1.0);
+    assert!(volume_gain_for_level(0.25) < volume_gain_for_level(0.5));
+    assert!(volume_gain_for_level(0.5) < volume_gain_for_level(0.75));
+}
+
+#[test]
+fn volume_icon_and_fill_follow_the_designed_states() {
+    assert_eq!(volume_icon_state(1.0, false), VolumeIconState::High);
+    assert_eq!(volume_icon_state(0.5, false), VolumeIconState::High);
+    assert_eq!(volume_icon_state(0.49, false), VolumeIconState::Low);
+    assert_eq!(volume_icon_state(0.0, false), VolumeIconState::Muted);
+    assert_eq!(volume_icon_state(0.75, true), VolumeIconState::Muted);
+    assert_eq!(displayed_volume_level(0.75, false), 0.75);
+    assert_eq!(displayed_volume_level(0.75, true), 0.0);
+    assert_eq!(format_volume_percent(0.0), "0%");
+    assert_eq!(format_volume_percent(0.7), "70%");
+    assert_eq!(format_volume_percent(1.0), "100%");
+}
+
+#[test]
+fn default_volume_command_is_unity_and_unmuted() {
+    assert_eq!(
+        Playback::initial().volume_command(),
+        PlaybackCommand::SetVolume {
+            gain: 1.0,
+            muted: false,
+        }
+    );
+}
+
+#[test]
+fn formats_reported_pcm_without_inventing_codec_details() {
+    let format = PcmFormat {
+        sample_rate: 44_100,
+        bits_per_sample: 24,
+        channels: 2,
+    };
+    assert_eq!(
+        format_quality(Some(Path::new("track.flac")), format),
+        "FLAC · 24-bit"
+    );
+    assert_eq!(
+        format_quality(Some(Path::new("track.m4a")), format),
+        "M4A · 24-bit"
+    );
+    assert_eq!(format_sample_rate(format.sample_rate), "44.1 kHz");
+}
+
+#[test]
+fn shared_output_labels_the_track_rate_as_source_metadata() {
+    assert_eq!(
+        format_output_device(44_100, "AirPods Pro", false),
+        "44.1 kHz source · AirPods Pro"
+    );
+    assert_eq!(
+        format_output_device(44_100, "mini-i Series", true),
+        "44.1 kHz · mini-i Series"
+    );
+}
+
+#[test]
+fn resolves_saved_output_by_uid_and_falls_back_silently() {
+    let system_default = output_device(1, "built-in", "Mac Speakers");
+    let dac = output_device(9, "matrix", "mini-i Series");
+    let devices = vec![system_default.clone(), dac.clone()];
+
+    let selected = resolve_output_device(&devices, &system_default, Some("matrix"));
+    assert_eq!(selected.id, dac.id);
+
+    let selected = resolve_output_device(&devices, &system_default, Some("unplugged"));
+    assert_eq!(selected.id, system_default.id);
+}
+
+#[test]
+fn managed_devices_merge_connected_and_stored_rows_without_duplicates() {
+    let mut preferences = app_settings::ExclusiveModePreferences::default();
+    preferences.record_sighting(
+        "matrix",
+        "mini-i Series",
+        Some(app_settings::StoredDeviceCapabilities {
+            max_bits_per_channel: Some(24),
+            max_sample_rate: 192_000,
+        }),
+        100,
+    );
+    preferences.record_sighting(
+        "airpods",
+        "AirPods Pro",
+        Some(app_settings::StoredDeviceCapabilities {
+            max_bits_per_channel: None,
+            max_sample_rate: 48_000,
+        }),
+        90,
+    );
+    let connected = vec![
+        output_device(9, "matrix", "mini-i Series"),
+        output_device(1, "built-in", "Mac Speakers"),
+    ];
+
+    let groups = merge_managed_devices(&connected, Some("matrix"), Some("matrix"), &preferences);
+    let uids = groups
+        .connected
+        .iter()
+        .chain(&groups.not_connected)
+        .map(|device| device.uid.as_str())
+        .collect::<HashSet<_>>();
+
+    assert_eq!(groups.connected.len(), 2);
+    assert_eq!(groups.not_connected.len(), 1);
+    assert_eq!(uids.len(), 3);
+    assert_eq!(groups.not_connected[0].uid, "airpods");
+}
+
+#[test]
+fn managed_device_group_moves_keep_the_stored_override() {
+    let mut preferences = app_settings::ExclusiveModePreferences::default();
+    preferences.record_sighting(
+        "matrix",
+        "mini-i Series",
+        Some(app_settings::StoredDeviceCapabilities {
+            max_bits_per_channel: Some(24),
+            max_sample_rate: 192_000,
+        }),
+        100,
+    );
+    preferences.set_override("matrix", false);
+
+    let disconnected = merge_managed_devices(&[], None, None, &preferences);
+    assert!(!disconnected.not_connected[0].exclusive_mode);
+    assert!(!disconnected.not_connected[0].automatic);
+
+    let connected = merge_managed_devices(
+        &[output_device(9, "matrix", "mini-i Series")],
+        Some("matrix"),
+        None,
+        &preferences,
+    );
+    assert!(!connected.connected[0].exclusive_mode);
+    assert!(!connected.connected[0].automatic);
+    assert!(preferences.is_overridden("matrix"));
+}
+
+#[test]
+fn managed_device_groups_sort_active_first_then_alphabetically() {
+    let mut preferences = app_settings::ExclusiveModePreferences::default();
+    for (uid, name) in [
+        ("delta", "Delta"),
+        ("charlie", "charlie"),
+        ("alpha", "alpha"),
+        ("zulu", "Zulu"),
+        ("beta", "Beta"),
+    ] {
+        preferences.record_sighting(uid, name, None, 100);
+    }
+    let connected = vec![
+        output_device(1, "zulu", "Zulu"),
+        output_device(2, "beta", "Beta"),
+        output_device(3, "alpha", "alpha"),
+    ];
+
+    let groups = merge_managed_devices(&connected, Some("beta"), None, &preferences);
+
+    assert_eq!(
+        groups
+            .connected
+            .iter()
+            .map(|device| device.uid.as_str())
+            .collect::<Vec<_>>(),
+        vec!["beta", "alpha", "zulu"]
+    );
+    assert_eq!(
+        groups
+            .not_connected
+            .iter()
+            .map(|device| device.uid.as_str())
+            .collect::<Vec<_>>(),
+        vec!["charlie", "delta"]
+    );
+}

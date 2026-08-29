@@ -1,53 +1,45 @@
-use std::{cell::Cell, ops::Deref, rc::Rc};
+use std::{cell::Cell, rc::Rc};
 
 use gpui::{
-    AnyElement, Bounds, Context, Entity, FocusHandle, FontWeight, IntoElement, ListSizingBehavior,
-    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ObjectFit, Pixels, Render,
-    Subscription, Window, canvas, div, img, prelude::*, px, relative, svg, uniform_list,
+    Bounds, Context, Entity, FocusHandle, FontWeight, IntoElement, MouseButton, MouseDownEvent,
+    MouseMoveEvent, MouseUpEvent, ObjectFit, Pixels, Render, Subscription, Window, canvas, div,
+    img, prelude::*, px, relative, svg,
 };
 use pulse_engine::{PlaybackState, device};
 
 use crate::{
     app_store::{AppStore, StoreRevisions, global_app_store},
     playback::*,
-    queue::{RepeatMode, TrackRef},
+    queue::RepeatMode,
     theme, ui,
 };
 
 #[derive(Clone, Copy, Eq, PartialEq)]
-enum PlaybackSurface {
+pub(crate) enum PlaybackSurface {
     Transport,
     SettingsOutputPicker,
 }
 
 pub(crate) struct PlaybackRow {
-    app_store: Entity<AppStore>,
-    store_revisions: StoreRevisions,
-    snapshot: PlaybackSnapshot,
-    surface: PlaybackSurface,
-    volume_popover_open: bool,
-    volume_toggle_press_closed_popover: bool,
-    output_popover_open: bool,
-    output_toggle_press_closed_popover: bool,
-    queue_popover_open: bool,
-    queue_toggle_press_closed_popover: bool,
-    hovered_upcoming: Option<usize>,
-    volume_popover_focus: Option<FocusHandle>,
-    queue_popover_focus: Option<FocusHandle>,
-    track_bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
-    scrubbing: bool,
-    scrub_fraction: Option<f32>,
-    volume_bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
-    volume_dragging: bool,
+    pub(super) app_store: Entity<AppStore>,
+    pub(super) store_revisions: StoreRevisions,
+    pub(super) snapshot: PlaybackSnapshot,
+    pub(super) surface: PlaybackSurface,
+    pub(super) volume_popover_open: bool,
+    pub(super) volume_toggle_press_closed_popover: bool,
+    pub(super) output_popover_open: bool,
+    pub(super) output_toggle_press_closed_popover: bool,
+    pub(super) queue_popover_open: bool,
+    pub(super) queue_toggle_press_closed_popover: bool,
+    pub(super) hovered_upcoming: Option<usize>,
+    pub(super) volume_popover_focus: Option<FocusHandle>,
+    pub(super) queue_popover_focus: Option<FocusHandle>,
+    pub(super) track_bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
+    pub(super) scrubbing: bool,
+    pub(super) scrub_fraction: Option<f32>,
+    pub(super) volume_bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
+    pub(super) volume_dragging: bool,
     _store_subscription: Subscription,
-}
-
-impl Deref for PlaybackRow {
-    type Target = PlaybackSnapshot;
-
-    fn deref(&self) -> &Self::Target {
-        &self.snapshot
-    }
 }
 
 impl PlaybackRow {
@@ -125,7 +117,7 @@ impl PlaybackRow {
         self.toggle_output_popover(cx);
     }
 
-    fn toggle_volume_mute(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn toggle_volume_mute(&mut self, cx: &mut Context<Self>) {
         self.send(PlaybackAction::ToggleVolumeMute, cx);
     }
 
@@ -157,16 +149,16 @@ impl PlaybackRow {
         self.send(PlaybackAction::CycleRepeat, cx);
     }
 
-    fn jump_to_queue_entry(&mut self, index: usize, cx: &mut Context<Self>) {
+    pub(super) fn jump_to_queue_entry(&mut self, index: usize, cx: &mut Context<Self>) {
         self.send(PlaybackAction::JumpToQueueEntry(index), cx);
     }
 
-    fn remove_queue_entry(&mut self, index: usize, cx: &mut Context<Self>) {
+    pub(super) fn remove_queue_entry(&mut self, index: usize, cx: &mut Context<Self>) {
         self.hovered_upcoming = None;
         self.send(PlaybackAction::RemoveQueueEntry(index), cx);
     }
 
-    fn clear_upcoming_queue(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn clear_upcoming_queue(&mut self, cx: &mut Context<Self>) {
         self.hovered_upcoming = None;
         self.send(PlaybackAction::ClearUpcomingQueue, cx);
     }
@@ -179,41 +171,45 @@ impl PlaybackRow {
         self.send(PlaybackAction::DismissNotice, cx);
     }
 
-    fn displayed_device_message(&self) -> Option<DeviceMessage> {
+    pub(super) fn displayed_device_message(&self) -> Option<DeviceMessage> {
         self.snapshot.device_message.clone()
     }
 
-    fn exclusive_mode_is_automatic(&self) -> bool {
+    pub(super) fn exclusive_mode_is_automatic(&self) -> bool {
         self.snapshot.exclusive_mode_automatic
     }
 
-    fn toggle_exclusive_mode(&mut self, cx: &mut Context<Self>) {
-        let Some(active_device) = self.active_device.clone() else {
+    pub(super) fn toggle_exclusive_mode(&mut self, cx: &mut Context<Self>) {
+        let Some(active_device) = self.snapshot.active_device.clone() else {
             return;
         };
         self.send(
             PlaybackAction::ToggleDeviceExclusiveMode {
                 device_uid: active_device.uid,
-                default: self.default_exclusive_mode,
+                default: self.snapshot.default_exclusive_mode,
             },
             cx,
         );
     }
 
-    fn reset_exclusive_mode_to_auto(&mut self, cx: &mut Context<Self>) {
-        let Some(active_device) = self.active_device.clone() else {
+    pub(super) fn reset_exclusive_mode_to_auto(&mut self, cx: &mut Context<Self>) {
+        let Some(active_device) = self.snapshot.active_device.clone() else {
             return;
         };
         self.send(
             PlaybackAction::ResetDeviceExclusiveMode {
                 device_uid: active_device.uid,
-                default: self.default_exclusive_mode,
+                default: self.snapshot.default_exclusive_mode,
             },
             cx,
         );
     }
 
-    fn select_output_device(&mut self, output_device: device::Device, cx: &mut Context<Self>) {
+    pub(super) fn select_output_device(
+        &mut self,
+        output_device: device::Device,
+        cx: &mut Context<Self>,
+    ) {
         self.send(PlaybackAction::SelectOutputDevice(output_device), cx);
     }
 
@@ -248,9 +244,12 @@ impl PlaybackRow {
 
     fn begin_scrub(&mut self, event: &MouseDownEvent, cx: &mut Context<Self>) {
         if !matches!(
-            self.playback_state,
+            self.snapshot.playback_state,
             PlaybackState::Playing | PlaybackState::Paused
-        ) || self.duration_ms.is_none_or(|duration_ms| duration_ms == 0)
+        ) || self
+            .snapshot
+            .duration_ms
+            .is_none_or(|duration_ms| duration_ms == 0)
         {
             return;
         }
@@ -258,16 +257,16 @@ impl PlaybackRow {
             return;
         };
         self.scrubbing = true;
-        self.scrub_fraction = Some(fraction_at_x(bounds, event.position.x));
+        self.scrub_fraction = Some(surface_fraction_at_x(bounds, event.position.x));
         cx.notify();
     }
 
-    fn begin_volume_drag(&mut self, event: &MouseDownEvent, cx: &mut Context<Self>) {
+    pub(super) fn begin_volume_drag(&mut self, event: &MouseDownEvent, cx: &mut Context<Self>) {
         let Some(bounds) = self.volume_bounds.get() else {
             return;
         };
         self.volume_dragging = true;
-        self.set_volume_level(fraction_at_y(bounds, event.position.y), cx);
+        self.set_volume_level(surface_fraction_at_y(bounds, event.position.y), cx);
     }
 
     pub(crate) fn update_drag(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) {
@@ -287,13 +286,13 @@ impl PlaybackRow {
         if self.scrubbing
             && let Some(bounds) = self.track_bounds.get()
         {
-            self.scrub_fraction = Some(fraction_at_x(bounds, event.position.x));
+            self.scrub_fraction = Some(surface_fraction_at_x(bounds, event.position.x));
             cx.notify();
         }
         if self.volume_dragging
             && let Some(bounds) = self.volume_bounds.get()
         {
-            self.set_volume_level(fraction_at_y(bounds, event.position.y), cx);
+            self.set_volume_level(surface_fraction_at_y(bounds, event.position.y), cx);
         }
     }
 
@@ -303,10 +302,10 @@ impl PlaybackRow {
             let fraction = self
                 .track_bounds
                 .get()
-                .map(|bounds| fraction_at_x(bounds, event.position.x))
+                .map(|bounds| surface_fraction_at_x(bounds, event.position.x))
                 .or(self.scrub_fraction);
             self.scrub_fraction = None;
-            if let (Some(fraction), Some(duration_ms)) = (fraction, self.duration_ms) {
+            if let (Some(fraction), Some(duration_ms)) = (fraction, self.snapshot.duration_ms) {
                 self.send(
                     PlaybackAction::Seek(scrub_position_ms(fraction, duration_ms)),
                     cx,
@@ -317,7 +316,7 @@ impl PlaybackRow {
         if self.volume_dragging {
             self.volume_dragging = false;
             if let Some(bounds) = self.volume_bounds.get() {
-                self.set_volume_level(fraction_at_y(bounds, event.position.y), cx);
+                self.set_volume_level(surface_fraction_at_y(bounds, event.position.y), cx);
             }
             self.persist_volume(cx);
             cx.notify();
@@ -329,15 +328,15 @@ impl PlaybackRow {
             .unwrap_or_else(|| self.snapshot.displayed_fraction())
     }
 
-    fn displayed_position_ms(&self) -> u64 {
-        match (self.scrub_fraction, self.duration_ms) {
+    pub(super) fn displayed_position_ms(&self) -> u64 {
+        match (self.scrub_fraction, self.snapshot.duration_ms) {
             (Some(fraction), Some(duration_ms)) => scrub_position_ms(fraction, duration_ms),
-            _ => self.position_ms,
+            _ => self.snapshot.position_ms,
         }
     }
 
     fn render_now_playing(&self) -> impl IntoElement {
-        let cover = match &self.cover_art_path {
+        let cover = match &self.snapshot.cover_art_path {
             Some(path) => img(path.clone())
                 .size_full()
                 .object_fit(ObjectFit::Cover)
@@ -391,7 +390,7 @@ impl PlaybackRow {
                                     .text_color(theme::text_primary())
                                     .overflow_hidden()
                                     .whitespace_nowrap()
-                                    .child(self.title.clone()),
+                                    .child(self.snapshot.title.clone()),
                             )
                             .child(
                                 div()
@@ -401,7 +400,7 @@ impl PlaybackRow {
                                     .text_color(theme::text_secondary())
                                     .overflow_hidden()
                                     .whitespace_nowrap()
-                                    .child(self.secondary.clone()),
+                                    .child(self.snapshot.secondary.clone()),
                             ),
                     ),
             )
@@ -480,23 +479,23 @@ impl PlaybackRow {
     }
 
     fn render_transport(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let previous_enabled = self.source_path.is_some()
+        let previous_enabled = self.snapshot.source_path.is_some()
             && !matches!(
-                self.playback_state,
+                self.snapshot.playback_state,
                 PlaybackState::Loading | PlaybackState::Stopping
             );
-        let next_enabled = self.queue.can_advance()
+        let next_enabled = self.snapshot.queue.can_advance()
             && !matches!(
-                self.playback_state,
+                self.snapshot.playback_state,
                 PlaybackState::Loading | PlaybackState::Stopping
             );
-        let play_icon = if self.playback_state == PlaybackState::Playing {
+        let play_icon = if self.snapshot.playback_state == PlaybackState::Playing {
             "icons/pause.svg"
         } else {
             "icons/play.svg"
         };
-        let shuffle_enabled = self.queue.shuffle_enabled();
-        let repeat_mode = self.queue.repeat_mode();
+        let shuffle_enabled = self.snapshot.queue.shuffle_enabled();
+        let repeat_mode = self.snapshot.queue.repeat_mode();
         let repeat_icon = if repeat_mode == RepeatMode::One {
             "icons/repeat-1.svg"
         } else {
@@ -633,7 +632,8 @@ impl PlaybackRow {
                         .text_size(px(10.))
                         .text_color(theme::text_muted())
                         .child(
-                            self.duration_ms
+                            self.snapshot
+                                .duration_ms
                                 .map(format_time)
                                 .unwrap_or_else(|| "--:--".to_string()),
                         ),
@@ -642,22 +642,23 @@ impl PlaybackRow {
     }
 
     fn render_output(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let remaining = self.queue.remaining_count();
-        let volume_icon = volume_icon_state(self.volume_level, self.volume_muted);
+        let remaining = self.snapshot.queue.remaining_count();
+        let volume_icon = volume_icon_state(self.snapshot.volume_level, self.snapshot.volume_muted);
         let (quality, quality_color) = self
+            .snapshot
             .format
             .map(|format| {
                 (
-                    format_quality(self.source_path.as_deref(), format),
+                    format_quality(self.snapshot.source_path.as_deref(), format),
                     theme::quality(),
                 )
             })
             .unwrap_or_else(|| ("—".to_string(), theme::text_muted()));
-        let device = match (self.format, &self.active_device) {
+        let device = match (self.snapshot.format, &self.snapshot.active_device) {
             (Some(format), Some(device)) => format_output_device(
                 format.sample_rate,
                 &device.name,
-                self.playback_exclusive_mode,
+                self.snapshot.playback_exclusive_mode,
             ),
             (_, Some(device)) => device.name.clone(),
             (_, None) => "No output selected".to_string(),
@@ -858,691 +859,6 @@ impl PlaybackRow {
                 )
             }))
     }
-
-    fn render_volume_popover(&self, cx: &mut Context<Self>) -> AnyElement {
-        let volume_bounds = Rc::clone(&self.volume_bounds);
-        let volume_fill = displayed_volume_level(self.volume_level, self.volume_muted);
-        let volume_dragging = self.volume_dragging;
-        let entity = cx.entity();
-        let mut popover = ui::PopoverMenu::new("volume-popover", px(56.))
-            .left(px(-19.5))
-            .bottom(px(54.))
-            .items_center()
-            .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _, cx| {
-                this.update_drag(event, cx);
-            }))
-            .on_mouse_up(cx.listener(|this, event: &MouseUpEvent, _, cx| {
-                this.finish_drag(event, cx);
-            }))
-            .on_dismiss(move |_, cx| {
-                entity.update(cx, |this, cx| {
-                    this.volume_popover_open = false;
-                    cx.notify();
-                });
-            })
-            .child(
-                div()
-                    .w_full()
-                    .flex_none()
-                    .font_family(theme::FONT_MONO)
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .text_size(px(11.))
-                    .text_center()
-                    .text_color(theme::text_secondary())
-                    .whitespace_nowrap()
-                    .child(format_volume_percent(self.volume_level)),
-            )
-            .child(
-                div()
-                    .id("volume-slider-target")
-                    .group("volume-slider")
-                    .relative()
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .w_full()
-                    .h(px(120.))
-                    .flex_none()
-                    .cursor_pointer()
-                    .on_mouse_down(
-                        MouseButton::Left,
-                        cx.listener(|this, event, _, cx| this.begin_volume_drag(event, cx)),
-                    )
-                    .child(
-                        div()
-                            .relative()
-                            .w(px(4.))
-                            .h_full()
-                            .rounded(px(2.))
-                            .bg(theme::bg_inset())
-                            .child(
-                                div()
-                                    .absolute()
-                                    .left_0()
-                                    .right_0()
-                                    .bottom_0()
-                                    .h(relative(volume_fill))
-                                    .rounded(px(2.))
-                                    .bg(theme::accent())
-                                    .child(
-                                        div()
-                                            .absolute()
-                                            .top(px(-6.))
-                                            .left(px(-4.))
-                                            .size(px(12.))
-                                            .rounded(px(6.))
-                                            .bg(theme::accent())
-                                            .opacity(if volume_dragging { 1.0 } else { 0.0 })
-                                            .when(!volume_dragging, |thumb| {
-                                                thumb.group_hover("volume-slider", |style| {
-                                                    style.opacity(1.0)
-                                                })
-                                            }),
-                                    ),
-                            ),
-                    )
-                    .child(
-                        canvas(
-                            move |bounds, _, _| volume_bounds.set(Some(bounds)),
-                            |_, _, _, _| {},
-                        )
-                        .absolute()
-                        .top_0()
-                        .right_0()
-                        .bottom_0()
-                        .left_0(),
-                    ),
-            )
-            .child(
-                div()
-                    .id("volume-mute-toggle")
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .size(px(17.))
-                    .flex_none()
-                    .cursor_pointer()
-                    .on_click(cx.listener(|this, _, _, cx| this.toggle_volume_mute(cx)))
-                    .child(
-                        svg()
-                            .path("icons/volume-x.svg")
-                            .size(px(17.))
-                            .text_color(theme::text_secondary()),
-                    ),
-            );
-        if let Some(focus) = &self.volume_popover_focus {
-            popover = popover.focus_handle(focus.clone());
-        }
-        popover.into_any_element()
-    }
-
-    fn render_output_popover(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let active_name = self
-            .active_device
-            .as_ref()
-            .map(|device| device.name.clone())
-            .unwrap_or_else(|| "No active output".to_string());
-        let capability = self
-            .device_capabilities
-            .map(format_device_capabilities)
-            .unwrap_or_else(|| "Capabilities unavailable".to_string());
-        let mut direct_devices = div().flex().flex_col().gap(px(2.)).w_full();
-        for (index, output_device) in self.devices.iter().cloned().enumerate() {
-            direct_devices =
-                direct_devices.child(self.render_output_device_row(output_device, index, cx));
-        }
-        if self.devices.is_empty() {
-            direct_devices = direct_devices.child(
-                div()
-                    .px(px(10.))
-                    .py(px(9.))
-                    .font_family(theme::FONT_SANS)
-                    .text_size(px(12.))
-                    .text_color(theme::text_muted())
-                    .child("No direct output devices found"),
-            );
-        }
-
-        let entity = cx.entity();
-        let mut popover =
-            ui::PopoverMenu::new("output-device-popover", px(360.)).on_dismiss(move |_, cx| {
-                entity.update(cx, |this, cx| {
-                    this.output_popover_open = false;
-                    cx.notify();
-                });
-            });
-        popover = if self.surface == PlaybackSurface::SettingsOutputPicker {
-            popover.right(px(0.)).top(px(30.))
-        } else {
-            popover.right(px(-52.)).bottom(px(54.))
-        };
-        popover = popover
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .w_full()
-                    .child(
-                        div()
-                            .font_family(theme::FONT_DISPLAY)
-                            .font_weight(FontWeight::BOLD)
-                            .text_size(px(17.))
-                            .text_color(theme::text_primary())
-                            .child("Choose audio output"),
-                    )
-                    .child(
-                        svg()
-                            .path("icons/settings.svg")
-                            .size(px(16.))
-                            .text_color(theme::text_secondary()),
-                    ),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .w_full()
-                    .p(px(12.))
-                    .rounded(px(theme::RADIUS_MD))
-                    .border_1()
-                    .border_color(theme::accent())
-                    .bg(theme::bg_inset())
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap(px(12.))
-                            .w_full()
-                            .child(
-                                svg()
-                                    .path("icons/speaker.svg")
-                                    .size(px(22.))
-                                    .flex_none()
-                                    .text_color(theme::accent()),
-                            )
-                            .child(
-                                div()
-                                    .flex()
-                                    .flex_1()
-                                    .min_w_0()
-                                    .flex_col()
-                                    .gap(px(3.))
-                                    .child(
-                                        div()
-                                            .w_full()
-                                            .font_family(theme::FONT_DISPLAY)
-                                            .font_weight(FontWeight::BOLD)
-                                            .text_size(px(17.))
-                                            .text_color(theme::text_primary())
-                                            .overflow_hidden()
-                                            .whitespace_nowrap()
-                                            .child(active_name),
-                                    )
-                                    .child(
-                                        div()
-                                            .w_full()
-                                            .font_family(theme::FONT_SANS)
-                                            .text_size(px(12.))
-                                            .text_color(theme::text_secondary())
-                                            .overflow_hidden()
-                                            .whitespace_nowrap()
-                                            .child(if self.playback_exclusive_mode {
-                                                "CoreAudio · Exclusive during playback"
-                                            } else {
-                                                "CoreAudio · Shared playback"
-                                            }),
-                                    )
-                                    .child(
-                                        div()
-                                            .w_full()
-                                            .font_family(theme::FONT_MONO)
-                                            .font_weight(FontWeight::BOLD)
-                                            .text_size(px(11.))
-                                            .text_color(if self.device_capabilities.is_some() {
-                                                theme::quality()
-                                            } else {
-                                                theme::warning()
-                                            })
-                                            .overflow_hidden()
-                                            .whitespace_nowrap()
-                                            .child(capability),
-                                    ),
-                            )
-                            .when(self.active_device.is_some(), |device| {
-                                device.child(
-                                    svg()
-                                        .path("icons/check.svg")
-                                        .size(px(18.))
-                                        .flex_none()
-                                        .text_color(theme::accent()),
-                                )
-                            }),
-                    )
-                    .when(self.active_device.is_some(), |card| {
-                        card.child(div().w_full().h(px(1.)).my(px(10.)).bg(theme::border()))
-                            .child(ui::exclusive_mode_control(
-                                self.exclusive_mode_is_automatic(),
-                                ui::exclusive_mode_reset_link("exclusive-mode-reset-auto")
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                        this.reset_exclusive_mode_to_auto(cx);
-                                    }))
-                                    .into_any_element(),
-                                ui::Toggle::new("exclusive-mode-toggle", self.exclusive_mode)
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                        this.toggle_exclusive_mode(cx);
-                                    }))
-                                    .into_any_element(),
-                            ))
-                    }),
-            );
-
-        if let Some(message) = self.displayed_device_message() {
-            popover = popover.child(
-                div()
-                    .w_full()
-                    .font_family(theme::FONT_SANS)
-                    .text_size(px(11.))
-                    .text_color(if message.is_error {
-                        theme::danger()
-                    } else {
-                        theme::warning()
-                    })
-                    .child(message.text),
-            );
-        }
-
-        popover
-            .child(section_label("DIRECT DEVICES"))
-            .child(direct_devices)
-            .child(section_label("NETWORK DEVICES"))
-            .child(
-                div()
-                    .font_family(theme::FONT_SANS)
-                    .text_size(px(12.))
-                    .text_color(theme::text_muted())
-                    .child("No network devices found"),
-            )
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .w_full()
-                    .pt(px(12.))
-                    .pr(px(2.))
-                    .pb(px(2.))
-                    .pl(px(2.))
-                    .border_t_1()
-                    .border_color(theme::border())
-                    .child(
-                        div()
-                            .font_family(theme::FONT_DISPLAY)
-                            .font_weight(FontWeight::MEDIUM)
-                            .text_size(px(14.))
-                            .text_color(theme::text_secondary())
-                            .child("Can't find your device?"),
-                    )
-                    .child(
-                        svg()
-                            .path("icons/log-in.svg")
-                            .size(px(16.))
-                            .text_color(theme::text_muted()),
-                    ),
-            )
-    }
-
-    fn render_output_device_row(
-        &self,
-        output_device: device::Device,
-        index: usize,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        let selected = self
-            .active_device
-            .as_ref()
-            .is_some_and(|active| active.uid == output_device.uid);
-        let selected_device = output_device.clone();
-
-        div()
-            .id(("output-device", index))
-            .flex()
-            .items_center()
-            .gap(px(12.))
-            .w_full()
-            .px(px(10.))
-            .py(px(9.))
-            .rounded(px(theme::RADIUS_MD))
-            .when(selected, |row| {
-                row.border_1()
-                    .border_color(theme::accent())
-                    .bg(theme::accent_soft())
-            })
-            .cursor_pointer()
-            .on_click(cx.listener(move |this, _, _, cx| {
-                this.select_output_device(selected_device.clone(), cx);
-            }))
-            .child(
-                svg()
-                    .path("icons/speaker.svg")
-                    .size(px(18.))
-                    .flex_none()
-                    .text_color(if selected {
-                        theme::accent()
-                    } else {
-                        theme::text_muted()
-                    }),
-            )
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .font_family(theme::FONT_DISPLAY)
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .text_size(px(14.))
-                    .text_color(if selected {
-                        theme::text_primary()
-                    } else {
-                        theme::text_secondary()
-                    })
-                    .overflow_hidden()
-                    .whitespace_nowrap()
-                    .child(output_device.name),
-            )
-            .when(selected, |row| {
-                row.child(
-                    svg()
-                        .path("icons/check.svg")
-                        .size(px(16.))
-                        .flex_none()
-                        .text_color(theme::accent()),
-                )
-            })
-    }
-
-    fn render_queue_popover(&self, cx: &mut Context<Self>) -> AnyElement {
-        let upcoming_count = self.queue.remaining_count();
-
-        let mut header = div().flex().items_center().gap(px(10.)).w_full().child(
-            div()
-                .font_family(theme::FONT_DISPLAY)
-                .font_weight(FontWeight::BOLD)
-                .text_size(px(17.))
-                .text_color(theme::text_primary())
-                .child("Queue"),
-        );
-        if upcoming_count > 0 {
-            header = header
-                .child(
-                    div()
-                        .font_family(theme::FONT_MONO)
-                        .font_weight(FontWeight::BOLD)
-                        .text_size(px(10.))
-                        .text_color(theme::text_muted())
-                        .child(format_queue_meta(
-                            upcoming_count,
-                            self.queue.upcoming_duration_ms(),
-                        )),
-                )
-                .child(div().flex_1())
-                .child(
-                    div()
-                        .id("queue-clear")
-                        .flex()
-                        .items_center()
-                        .h(px(23.))
-                        .px(px(8.))
-                        .flex_none()
-                        .rounded(px(theme::RADIUS_SM))
-                        .border_1()
-                        .border_color(theme::border())
-                        .bg(theme::bg_muted())
-                        .cursor_pointer()
-                        .font_family(theme::FONT_DISPLAY)
-                        .font_weight(FontWeight::BOLD)
-                        .text_size(px(12.))
-                        .text_color(theme::text_secondary())
-                        .child("Clear")
-                        .on_click(cx.listener(|this, _, _, cx| this.clear_upcoming_queue(cx))),
-                );
-        }
-
-        let entity = cx.entity();
-        let mut popover = ui::PopoverMenu::new("queue-popover", px(376.))
-            .right(px(0.))
-            .bottom(px(71.))
-            .max_height(px(541.))
-            .on_dismiss(move |_, cx| {
-                entity.update(cx, |this, cx| {
-                    this.queue_popover_open = false;
-                    cx.notify();
-                });
-            })
-            .child(header);
-
-        if let Some((title, secondary)) = self.now_playing_lines() {
-            popover = popover.child(section_label("NOW PLAYING")).child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(px(10.))
-                    .w_full()
-                    .h(px(58.))
-                    .flex_none()
-                    .px(px(10.))
-                    .relative()
-                    .overflow_hidden()
-                    .rounded(px(theme::RADIUS_MD))
-                    .border_1()
-                    .border_color(theme::border())
-                    .bg(theme::bg_inset())
-                    .child(ui::playing_row_glow())
-                    .child(ui::playing_row_bar())
-                    .child(
-                        svg()
-                            .path("icons/audio-lines.svg")
-                            .size(px(16.))
-                            .flex_none()
-                            .text_color(theme::accent()),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .flex_1()
-                            .min_w_0()
-                            .flex_col()
-                            .gap(px(2.))
-                            .child(
-                                div()
-                                    .w_full()
-                                    .truncate()
-                                    .font_family(theme::FONT_DISPLAY)
-                                    .font_weight(FontWeight::BOLD)
-                                    .text_size(px(14.))
-                                    .text_color(theme::text_primary())
-                                    .child(title),
-                            )
-                            .child(
-                                div()
-                                    .w_full()
-                                    .truncate()
-                                    .font_family(theme::FONT_SANS)
-                                    .text_size(px(11.))
-                                    .text_color(theme::text_secondary())
-                                    .child(secondary),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .flex_none()
-                            .font_family(theme::FONT_MONO)
-                            .font_weight(FontWeight::BOLD)
-                            .text_size(px(10.))
-                            .text_color(theme::quality())
-                            .child(format!(
-                                "{} / {}",
-                                format_queue_time(self.displayed_position_ms()),
-                                self.duration_ms
-                                    .map(format_queue_time)
-                                    .unwrap_or_else(|| "--:--".to_string())
-                            )),
-                    ),
-            );
-        }
-
-        popover = popover.child(section_label("UP NEXT"));
-        if upcoming_count == 0 {
-            popover = popover.child(
-                div()
-                    .px(px(10.))
-                    .py(px(6.))
-                    .font_family(theme::FONT_SANS)
-                    .text_size(px(12.))
-                    .text_color(theme::text_muted())
-                    .child("Nothing up next"),
-            );
-        } else {
-            // Virtualized: only the visible rows are built, so a full-library
-            // queue stays cheap through the 100 ms position ticks.
-            popover = popover.child(
-                uniform_list(
-                    "queue-upcoming-list",
-                    upcoming_count,
-                    cx.processor(|this, range: std::ops::Range<usize>, _, cx| {
-                        let visible = this
-                            .queue
-                            .upcoming()
-                            .skip(range.start)
-                            .take(range.len())
-                            .map(|(position, track)| (position, track.clone()))
-                            .collect::<Vec<_>>();
-                        visible
-                            .into_iter()
-                            .map(|(position, track)| this.render_upcoming_row(position, track, cx))
-                            .collect::<Vec<_>>()
-                    }),
-                )
-                .with_sizing_behavior(ListSizingBehavior::Infer)
-                .min_h_0(),
-            );
-        }
-
-        if let Some(focus) = &self.queue_popover_focus {
-            popover = popover.focus_handle(focus.clone());
-        }
-        popover.into_any_element()
-    }
-
-    fn render_upcoming_row(
-        &self,
-        position: usize,
-        track: TrackRef,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        let index = position - 1;
-        let hovered = self.hovered_upcoming == Some(index);
-        let duration = track
-            .duration_ms
-            .map(format_queue_time)
-            .unwrap_or_else(|| "--:--".to_string());
-
-        // Uniform 52px stride for the virtualized list: the 50px design row
-        // plus its 2px gap as bottom padding.
-        let row = div()
-            .id(("queue-upcoming", index))
-            .flex()
-            .items_center()
-            .gap(px(10.))
-            .w_full()
-            .h(px(50.))
-            .flex_none()
-            .px(px(10.))
-            .rounded(px(theme::RADIUS_MD))
-            .when(hovered, |row| row.bg(theme::bg_muted()))
-            .cursor_pointer()
-            .on_hover(cx.listener(move |this, &hovered, _, cx| {
-                if hovered {
-                    this.hovered_upcoming = Some(index);
-                } else if this.hovered_upcoming == Some(index) {
-                    this.hovered_upcoming = None;
-                }
-                cx.notify();
-            }))
-            .on_click(cx.listener(move |this, _, _, cx| this.jump_to_queue_entry(index, cx)))
-            .child(
-                div()
-                    .min_w(px(18.))
-                    .flex_none()
-                    .font_family(theme::FONT_MONO)
-                    .text_size(px(11.))
-                    .text_color(theme::text_muted())
-                    .child(position.to_string()),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_1()
-                    .min_w_0()
-                    .flex_col()
-                    .gap(px(1.))
-                    .child(
-                        div()
-                            .w_full()
-                            .truncate()
-                            .font_family(theme::FONT_SANS)
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .text_size(px(13.))
-                            .text_color(theme::text_primary())
-                            .child(track.title.clone()),
-                    )
-                    .child(
-                        div()
-                            .w_full()
-                            .truncate()
-                            .font_family(theme::FONT_SANS)
-                            .text_size(px(11.))
-                            .text_color(theme::text_secondary())
-                            .child(format!("{} · {}", track.artist, track.album)),
-                    ),
-            )
-            .child(
-                div()
-                    .flex_none()
-                    .font_family(theme::FONT_MONO)
-                    .text_size(px(11.))
-                    .text_color(theme::text_muted())
-                    .child(duration),
-            )
-            .when(hovered, |row| {
-                row.child(
-                    div()
-                        .id(("queue-remove", index))
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .size(px(14.))
-                        .flex_none()
-                        .cursor_pointer()
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            cx.stop_propagation();
-                            this.remove_queue_entry(index, cx);
-                        }))
-                        .child(
-                            svg()
-                                .path("icons/x.svg")
-                                .size(px(14.))
-                                .text_color(theme::text_muted()),
-                        ),
-                )
-            });
-
-        div()
-            .w_full()
-            .h(px(52.))
-            .pb(px(2.))
-            .child(row)
-            .into_any_element()
-    }
 }
 
 impl Render for PlaybackRow {
@@ -1561,7 +877,7 @@ impl Render for PlaybackRow {
             .flex_col()
             .w_full()
             .flex_none()
-            .when_some(self.notice.clone(), |column, notice| {
+            .when_some(self.snapshot.notice.clone(), |column, notice| {
                 column.child(self.render_notice(notice, cx))
             })
             .child(
@@ -1663,13 +979,12 @@ impl PlaybackRow {
     }
 }
 
-fn section_label(label: &'static str) -> impl IntoElement {
-    div()
-        .font_family(theme::FONT_MONO)
-        .font_weight(FontWeight::BOLD)
-        .text_size(px(10.))
-        .text_color(theme::text_muted())
-        .child(label)
+fn surface_fraction_at_x(bounds: Bounds<Pixels>, x: Pixels) -> f32 {
+    fraction_at_x(bounds.origin.x.into(), bounds.size.width.into(), x.into())
+}
+
+fn surface_fraction_at_y(bounds: Bounds<Pixels>, y: Pixels) -> f32 {
+    fraction_at_y(bounds.origin.y.into(), bounds.size.height.into(), y.into())
 }
 
 // The saved UID is deliberately left untouched on fallback: an absent device

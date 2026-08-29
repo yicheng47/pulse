@@ -4,7 +4,7 @@ use gpui::{
 };
 
 use super::{LibraryView, selected_genre};
-use crate::{shell::Destination, theme};
+use crate::{surfaces::Destination, theme};
 
 impl LibraryView {
     pub(super) fn render_genre_filter(&self, cx: &mut Context<Self>) -> AnyElement {

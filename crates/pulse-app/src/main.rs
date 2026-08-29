@@ -1,16 +1,13 @@
 mod app_settings;
 mod app_store;
 mod assets;
-mod device_management;
 pub mod library;
-mod library_ui;
 mod menu;
 mod playback;
-mod playback_row;
 mod preferences;
 mod queue;
 mod settings;
-mod shell;
+mod surfaces;
 mod text_input;
 mod theme;
 mod ui;
@@ -21,7 +18,7 @@ use assets::Assets;
 use gpui::{
     App, AppContext, Bounds, TitlebarOptions, WindowBounds, WindowOptions, point, px, size,
 };
-use shell::Shell;
+use surfaces::Shell;
 
 #[cfg(target_os = "macos")]
 fn install_app_icon() {

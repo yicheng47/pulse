@@ -5,9 +5,8 @@ use gpui::{
 
 use super::{
     LibraryView, PlaylistMenu, PlaylistNameMode, TrackMenu, TrackSurface, current_time_ms,
-    view_model::{
-        format_duration, format_label, quality_label, track_album, track_artist, track_title,
-    },
+    logic::{format_duration, format_label, quality_label, track_album, track_artist, track_title},
+    playlists_logic::{format_playlist_duration, format_updated},
 };
 use crate::{
     library::{PlaylistId, PlaylistSummary, PlaylistTrack},
@@ -479,8 +478,8 @@ impl LibraryView {
         let track = entry.track;
         let position = entry.position;
         let track_id = track.id;
-        let playing = self.is_now_playing(&track.path, cx);
-        let missing = self.is_track_missing(track.id, cx);
+        let playing = self.is_now_playing(&track.path);
+        let missing = self.is_track_missing(track.id);
         let selected = self.selected_playlist_position == Some(position);
         let quality = quality_label(track.bit_depth, track.sample_rate_hz)
             .unwrap_or_else(|| format_label(&track.path).to_string());
@@ -592,7 +591,7 @@ impl LibraryView {
             PlaylistNameMode::Create { .. } => ("New Playlist", "Create Playlist"),
             PlaylistNameMode::Rename { .. } => ("Rename Playlist", "Rename"),
         };
-        super::storage::render_modal_scrim(
+        super::storage_modals::render_modal_scrim(
             div()
                 .flex()
                 .flex_col()
@@ -602,14 +601,14 @@ impl LibraryView {
                 .border_1()
                 .border_color(theme::border_strong())
                 .bg(theme::bg_surface())
-                .child(super::storage::render_modal_header(title, cx))
+                .child(super::storage_modals::render_modal_header(title, cx))
                 .child(
                     div()
                         .flex()
                         .flex_col()
                         .gap(px(14.))
                         .p(px(22.))
-                        .child(super::storage::render_field_label("NAME"))
+                        .child(super::storage_modals::render_field_label("NAME"))
                         .child(super::render_text_input(
                             "playlist-name-input",
                             &self.text_input,
@@ -635,7 +634,7 @@ impl LibraryView {
                         .px(px(22.))
                         .border_t_1()
                         .border_color(theme::border())
-                        .child(super::storage::render_cancel_modal_button(cx))
+                        .child(super::storage_modals::render_cancel_modal_button(cx))
                         .child(
                             ui::Button::new("confirm-playlist-name", confirm)
                                 .variant(ui::ButtonVariant::Primary)
@@ -783,38 +782,4 @@ fn render_manual_badge() -> impl IntoElement {
         .text_size(px(9.))
         .text_color(theme::text_muted())
         .child("MANUAL")
-}
-
-fn format_playlist_duration(duration_ms: u64) -> String {
-    let minutes = duration_ms / 60_000;
-    if minutes >= 60 {
-        format!("{}h {}m", minutes / 60, minutes % 60)
-    } else {
-        format!("{minutes}m")
-    }
-}
-
-fn format_updated(timestamp_ms: i64, now_ms: i64) -> String {
-    let minutes = now_ms.saturating_sub(timestamp_ms) / 60_000;
-    if minutes < 1 {
-        "now".to_string()
-    } else if minutes < 60 {
-        format!("{minutes}m")
-    } else if minutes < 24 * 60 {
-        format!("{}h", minutes / 60)
-    } else {
-        format!("{}d", minutes / (24 * 60))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn formats_playlist_durations_for_rows() {
-        assert_eq!(format_playlist_duration(0), "0m");
-        assert_eq!(format_playlist_duration(55 * 60_000), "55m");
-        assert_eq!(format_playlist_duration(192 * 60_000), "3h 12m");
-    }
 }

@@ -7,20 +7,18 @@ use gpui::{
 
 use super::{
     LibraryView, TrackMenu, TrackSurface,
-    view_model::{
+    albums_logic::{
+        ALBUM_BODY_HORIZONTAL_PADDING, ALBUM_GRID_GAP, album_grid_columns, album_sort_label,
+    },
+    logic::{
         FilterChip, format_duration, format_label, is_hi_res, quality_label, track_artist,
         track_title,
     },
 };
 use crate::{
-    library::{Album, AlbumSortOrder, Track},
-    shell::SIDEBAR_WIDTH,
+    library::{Album, Track},
     theme, ui,
 };
-
-const ALBUM_BODY_HORIZONTAL_PADDING: f32 = 28.;
-const ALBUM_GRID_GAP: f32 = 14.;
-const ALBUM_CARD_MIN_WIDTH: f32 = 200.;
 
 impl LibraryView {
     pub(super) fn render_albums(
@@ -639,8 +637,8 @@ impl LibraryView {
         track: Track,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let playing = self.is_now_playing(&track.path, cx);
-        let missing = self.is_track_missing(track.id, cx);
+        let playing = self.is_now_playing(&track.path);
+        let missing = self.is_track_missing(track.id);
         let selected = self.selected_album_track_id == Some(track.id);
         let track_id = track.id;
         let number = track
@@ -960,13 +958,6 @@ fn render_page_title(title: &'static str, meta: String) -> impl IntoElement {
         )
 }
 
-fn album_grid_columns(viewport_width: f32) -> u16 {
-    let content_width =
-        (viewport_width - SIDEBAR_WIDTH - ALBUM_BODY_HORIZONTAL_PADDING * 2.).max(0.);
-    (((content_width + ALBUM_GRID_GAP) / (ALBUM_CARD_MIN_WIDTH + ALBUM_GRID_GAP)).floor() as u16)
-        .max(1)
-}
-
 fn render_no_filter_matches(message: &'static str) -> impl IntoElement {
     div()
         .flex()
@@ -1021,36 +1012,4 @@ fn table_header_cell(label: &'static str, width: f32) -> gpui::Div {
         .text_size(px(9.))
         .text_color(theme::text_muted())
         .child(label)
-}
-
-fn album_sort_label(sort: AlbumSortOrder) -> &'static str {
-    match sort {
-        AlbumSortOrder::Title => "TITLE",
-        AlbumSortOrder::Artist => "ARTIST",
-        AlbumSortOrder::DateAdded => "DATE ADDED",
-        AlbumSortOrder::ReleaseYear => "YEAR",
-        AlbumSortOrder::Duration => "DURATION",
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{
-        ALBUM_BODY_HORIZONTAL_PADDING, ALBUM_CARD_MIN_WIDTH, ALBUM_GRID_GAP, album_grid_columns,
-    };
-    use crate::shell::SIDEBAR_WIDTH;
-
-    #[test]
-    fn album_grid_respects_the_card_minimum_across_window_sizes() {
-        assert_eq!(album_grid_columns(1440.), 5);
-        assert_eq!(album_grid_columns(1600.), 6);
-
-        let five_column_threshold = SIDEBAR_WIDTH
-            + ALBUM_BODY_HORIZONTAL_PADDING * 2.
-            + ALBUM_CARD_MIN_WIDTH * 5.
-            + ALBUM_GRID_GAP * 4.;
-        assert_eq!(album_grid_columns(five_column_threshold - 1.), 4);
-        assert_eq!(album_grid_columns(five_column_threshold), 5);
-        assert_eq!(album_grid_columns(0.), 1);
-    }
 }

@@ -1,4 +1,4 @@
-use std::{path::PathBuf, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use gpui::{App, Context, Entity, Global};
 use pulse_engine::device;
@@ -78,7 +78,6 @@ impl StoreChanges {
 struct RevisionSnapshot {
     settings: AppSettings,
     playback: PlaybackSnapshot,
-    managed_devices: ManagedDeviceGroups,
     device_messages: Vec<(String, bool)>,
 }
 
@@ -138,90 +137,89 @@ impl AppStore {
     pub(crate) fn send_command(&mut self, command: PlaybackAction, cx: &mut Context<Self>) -> bool {
         let result = match command {
             PlaybackAction::ToggleVolumeMute => {
-                self.playback.toggle_volume_mute(cx);
+                self.playback.toggle_volume_mute();
                 false
             }
             PlaybackAction::SetVolumeLevel(level) => {
-                self.playback.set_volume_level(level, cx);
+                self.playback.set_volume_level(level);
                 false
             }
             PlaybackAction::PersistVolume => {
-                self.playback.persist_volume(cx);
+                self.playback.persist_volume();
                 false
             }
             PlaybackAction::TogglePlayback => {
-                self.playback.toggle_playback(cx);
+                self.playback.toggle_playback();
                 false
             }
             PlaybackAction::NextTrack => {
-                self.playback.next_track(cx);
+                self.playback.next_track();
                 false
             }
             PlaybackAction::PreviousTrack => {
-                self.playback.previous_track(cx);
+                self.playback.previous_track();
                 false
             }
             PlaybackAction::ToggleShuffle => {
-                self.playback.toggle_shuffle(cx);
+                self.playback.toggle_shuffle();
                 false
             }
             PlaybackAction::CycleRepeat => {
-                self.playback.cycle_repeat(cx);
+                self.playback.cycle_repeat();
                 false
             }
             PlaybackAction::PlayLibraryTracks {
                 tracks,
                 start_index,
             } => {
-                self.playback.play_library_tracks(&tracks, start_index, cx);
+                self.playback.play_library_tracks(&tracks, start_index);
                 false
             }
             PlaybackAction::PlayLibraryTracksShuffled(tracks) => {
-                self.playback.play_library_tracks_shuffled(&tracks, cx);
+                self.playback.play_library_tracks_shuffled(&tracks);
                 false
             }
             PlaybackAction::SelectLibraryTracks {
                 tracks,
                 start_index,
             } => {
-                self.playback
-                    .select_library_tracks(&tracks, start_index, cx);
+                self.playback.select_library_tracks(&tracks, start_index);
                 false
             }
             PlaybackAction::PlayDroppedPaths(paths) => {
-                self.playback.handle_drop(&paths, cx);
+                self.playback.handle_drop(&paths);
                 false
             }
             PlaybackAction::JumpToQueueEntry(index) => {
-                self.playback.jump_to_queue_entry(index, cx);
+                self.playback.jump_to_queue_entry(index);
                 false
             }
             PlaybackAction::RemoveQueueEntry(index) => {
-                self.playback.remove_queue_entry(index, cx);
+                self.playback.remove_queue_entry(index);
                 false
             }
             PlaybackAction::ClearUpcomingQueue => {
-                self.playback.clear_upcoming_queue(cx);
+                self.playback.clear_upcoming_queue();
                 false
             }
             PlaybackAction::RetryPlayback => {
-                self.playback.retry_playback(cx);
+                self.playback.retry_playback();
                 false
             }
             PlaybackAction::DismissNotice => {
-                self.playback.dismiss_notice(cx);
+                self.playback.dismiss_notice();
                 false
             }
             PlaybackAction::Seek(position_ms) => {
-                self.playback.seek(position_ms, cx);
+                self.playback.seek(position_ms);
                 false
             }
             PlaybackAction::RefreshOutputDevices => {
-                self.playback.refresh_output_devices(cx);
+                self.playback.refresh_output_devices();
                 false
             }
             PlaybackAction::SelectOutputDevice(output_device) => {
-                self.playback.select_output_device(output_device, cx);
+                self.playback.select_output_device(output_device);
                 false
             }
             PlaybackAction::ToggleDeviceExclusiveMode {
@@ -229,7 +227,7 @@ impl AppStore {
                 default,
             } => {
                 self.playback
-                    .toggle_device_exclusive_mode(device_uid, default, cx);
+                    .toggle_device_exclusive_mode(device_uid, default);
                 false
             }
             PlaybackAction::ResetDeviceExclusiveMode {
@@ -237,14 +235,14 @@ impl AppStore {
                 default,
             } => {
                 self.playback
-                    .reset_device_exclusive_mode_to_auto(device_uid, default, cx);
+                    .reset_device_exclusive_mode_to_auto(device_uid, default);
                 false
             }
             PlaybackAction::ForgetManagedDevice(device_uid) => {
-                self.playback.forget_managed_device(&device_uid, cx)
+                self.playback.forget_managed_device(&device_uid)
             }
             PlaybackAction::SetManagedDeviceAsDefault(device_uid) => {
-                self.playback.set_managed_device_as_default(&device_uid, cx);
+                self.playback.set_managed_device_as_default(&device_uid);
                 false
             }
             PlaybackAction::ClearMissingMarks => {
@@ -265,8 +263,8 @@ impl AppStore {
     }
 
     fn poll_playback(&mut self, watch_device: bool, cx: &mut Context<Self>) {
-        let events_changed = self.playback.drain_events(cx);
-        let devices_changed = watch_device && self.playback.check_active_device_presence(cx);
+        let events_changed = self.playback.drain_events();
+        let devices_changed = watch_device && self.playback.check_active_device_presence();
         if events_changed || devices_changed {
             self.finish_update(cx);
         }
@@ -282,7 +280,10 @@ impl AppStore {
             settings: self.revision_snapshot.settings != after.settings,
             devices: devices_changed(&self.revision_snapshot, &after),
             playback: playback_changed(&self.revision_snapshot.playback, &after.playback),
-            queue: self.revision_snapshot.playback.queue != after.playback.queue,
+            queue: !Arc::ptr_eq(
+                &self.revision_snapshot.playback.queue,
+                &after.playback.queue,
+            ),
         };
         self.revision_snapshot = after;
         if self.revisions.apply(changes) {
@@ -296,43 +297,90 @@ impl RevisionSnapshot {
         Self {
             settings: playback.settings().clone(),
             playback: playback.snapshot(),
-            managed_devices: playback.managed_device_groups(),
             device_messages: playback.device_management_messages(),
         }
     }
 }
 
 fn devices_changed(before: &RevisionSnapshot, after: &RevisionSnapshot) -> bool {
-    before.managed_devices != after.managed_devices
+    !Arc::ptr_eq(&before.playback.devices, &after.playback.devices)
+        || before.settings.saved_output_device_uid != after.settings.saved_output_device_uid
+        || before.settings.exclusive_mode_preferences != after.settings.exclusive_mode_preferences
         || before.device_messages != after.device_messages
-        || device_rows(&before.playback.devices) != device_rows(&after.playback.devices)
+        || active_device_row(before.playback.active_device.as_ref())
+            != active_device_row(after.playback.active_device.as_ref())
         || before.playback.device_capabilities != after.playback.device_capabilities
-}
-
-fn device_rows(devices: &[device::Device]) -> Vec<(device::DeviceId, &str, &str)> {
-    devices
-        .iter()
-        .map(|device| (device.id, device.uid.as_str(), device.name.as_str()))
-        .collect()
+        || before.playback.default_exclusive_mode != after.playback.default_exclusive_mode
+        || before.playback.exclusive_mode != after.playback.exclusive_mode
+        || before.playback.exclusive_mode_automatic != after.playback.exclusive_mode_automatic
 }
 
 fn playback_changed(before: &PlaybackSnapshot, after: &PlaybackSnapshot) -> bool {
-    before.playback_state != after.playback_state
-        || before.source_path != after.source_path
-        || before.cover_art_path != after.cover_art_path
-        || before.title != after.title
-        || before.secondary != after.secondary
-        || before.format != after.format
-        || active_device_row(before.active_device.as_ref())
-            != active_device_row(after.active_device.as_ref())
-        || before.playback_exclusive_mode != after.playback_exclusive_mode
-        || before.volume_level != after.volume_level
-        || before.volume_muted != after.volume_muted
-        || before.position_ms != after.position_ms
-        || before.duration_ms != after.duration_ms
-        || before.error != after.error
-        || before.notice != after.notice
-        || before.missing_track_ids != after.missing_track_ids
+    let PlaybackSnapshot {
+        playback_state: before_playback_state,
+        source_path: before_source_path,
+        cover_art_path: before_cover_art_path,
+        queue: _before_queue,
+        title: before_title,
+        secondary: before_secondary,
+        format: before_format,
+        devices: _before_devices,
+        active_device: before_active_device,
+        device_capabilities: _before_device_capabilities,
+        device_message: _before_device_message,
+        default_exclusive_mode: _before_default_exclusive_mode,
+        exclusive_mode: _before_exclusive_mode,
+        playback_exclusive_mode: before_playback_exclusive_mode,
+        exclusive_mode_automatic: _before_exclusive_mode_automatic,
+        volume_level: before_volume_level,
+        volume_muted: before_volume_muted,
+        position_ms: before_position_ms,
+        duration_ms: before_duration_ms,
+        error: before_error,
+        notice: before_notice,
+        missing_track_ids: before_missing_track_ids,
+    } = before;
+    let PlaybackSnapshot {
+        playback_state: after_playback_state,
+        source_path: after_source_path,
+        cover_art_path: after_cover_art_path,
+        queue: _after_queue,
+        title: after_title,
+        secondary: after_secondary,
+        format: after_format,
+        devices: _after_devices,
+        active_device: after_active_device,
+        device_capabilities: _after_device_capabilities,
+        device_message: _after_device_message,
+        default_exclusive_mode: _after_default_exclusive_mode,
+        exclusive_mode: _after_exclusive_mode,
+        playback_exclusive_mode: after_playback_exclusive_mode,
+        exclusive_mode_automatic: _after_exclusive_mode_automatic,
+        volume_level: after_volume_level,
+        volume_muted: after_volume_muted,
+        position_ms: after_position_ms,
+        duration_ms: after_duration_ms,
+        error: after_error,
+        notice: after_notice,
+        missing_track_ids: after_missing_track_ids,
+    } = after;
+
+    before_playback_state != after_playback_state
+        || before_source_path != after_source_path
+        || before_cover_art_path != after_cover_art_path
+        || before_title != after_title
+        || before_secondary != after_secondary
+        || before_format != after_format
+        || active_device_row(before_active_device.as_ref())
+            != active_device_row(after_active_device.as_ref())
+        || before_playback_exclusive_mode != after_playback_exclusive_mode
+        || before_volume_level != after_volume_level
+        || before_volume_muted != after_volume_muted
+        || before_position_ms != after_position_ms
+        || before_duration_ms != after_duration_ms
+        || before_error != after_error
+        || before_notice != after_notice
+        || !Arc::ptr_eq(before_missing_track_ids, after_missing_track_ids)
 }
 
 fn active_device_row(device: Option<&device::Device>) -> Option<(device::DeviceId, &str, &str)> {

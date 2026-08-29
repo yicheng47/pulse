@@ -2,7 +2,7 @@ use gpui::{AnyElement, Context, FontWeight, IntoElement, div, point, prelude::*,
 
 use super::{LibraryView, TrackSurface};
 use crate::{
-    shell::{SIDEBAR_WIDTH, TOP_BAR_HEIGHT},
+    surfaces::{SIDEBAR_WIDTH, TOP_BAR_HEIGHT},
     theme, ui,
 };
 
