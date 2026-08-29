@@ -14,7 +14,12 @@ use crate::{
         VolumeIconState, format_output_device, format_quality, format_time, fraction_at_x,
         fraction_at_y, scrub_position_ms, volume_icon_state,
     },
-    theme, ui,
+    theme,
+    ui::{self, IconButtonVariant},
+};
+
+use super::playback_row_logic::{
+    PendingToggle, begin_pending_toggle, reconcile_pending_toggle, transport_presentation,
 };
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -42,6 +47,7 @@ pub(crate) struct PlaybackRow {
     pub(super) scrub_fraction: Option<f32>,
     pub(super) volume_bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
     pub(super) volume_dragging: bool,
+    pending_toggle: Option<PendingToggle>,
     _store_subscription: Subscription,
 }
 
@@ -69,6 +75,7 @@ impl PlaybackRow {
             scrub_fraction: None,
             volume_bounds: Rc::new(Cell::new(None)),
             volume_dragging: false,
+            pending_toggle: None,
             _store_subscription: cx.observe(&app_store, |this, _, cx| {
                 this.handle_store_update(cx);
             }),
@@ -81,6 +88,10 @@ impl PlaybackRow {
         self.store_revisions = revisions;
         if reactions.playback || reactions.queue || reactions.devices || reactions.settings {
             self.snapshot = self.app_store.read(cx).playback_snapshot();
+            if reactions.playback {
+                self.pending_toggle =
+                    reconcile_pending_toggle(self.pending_toggle, self.snapshot.playback_state);
+            }
             cx.notify();
         }
     }
@@ -133,15 +144,24 @@ impl PlaybackRow {
     }
 
     fn toggle_playback(&mut self, cx: &mut Context<Self>) {
+        self.pending_toggle = begin_pending_toggle(
+            self.snapshot.playback_state,
+            self.snapshot.source_path.is_some(),
+        );
         self.send(PlaybackAction::TogglePlayback, cx);
+        cx.notify();
     }
 
     fn next_track(&mut self, cx: &mut Context<Self>) {
+        self.pending_toggle = None;
         self.send(PlaybackAction::NextTrack, cx);
+        cx.notify();
     }
 
     fn previous_track(&mut self, cx: &mut Context<Self>) {
+        self.pending_toggle = None;
         self.send(PlaybackAction::PreviousTrack, cx);
+        cx.notify();
     }
 
     fn toggle_shuffle(&mut self, cx: &mut Context<Self>) {
@@ -153,7 +173,9 @@ impl PlaybackRow {
     }
 
     pub(super) fn jump_to_queue_entry(&mut self, index: usize, cx: &mut Context<Self>) {
+        self.pending_toggle = None;
         self.send(PlaybackAction::JumpToQueueEntry(index), cx);
+        cx.notify();
     }
 
     pub(super) fn remove_queue_entry(&mut self, index: usize, cx: &mut Context<Self>) {
@@ -167,7 +189,9 @@ impl PlaybackRow {
     }
 
     fn retry_playback(&mut self, cx: &mut Context<Self>) {
+        self.pending_toggle = None;
         self.send(PlaybackAction::RetryPlayback, cx);
+        cx.notify();
     }
 
     fn dismiss_notice(&mut self, cx: &mut Context<Self>) {
@@ -482,17 +506,13 @@ impl PlaybackRow {
     }
 
     fn render_transport(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let previous_enabled = self.snapshot.source_path.is_some()
-            && !matches!(
-                self.snapshot.playback_state,
-                PlaybackState::Loading | PlaybackState::Stopping
-            );
-        let next_enabled = self.snapshot.queue.can_advance()
-            && !matches!(
-                self.snapshot.playback_state,
-                PlaybackState::Loading | PlaybackState::Stopping
-            );
-        let play_icon = if self.snapshot.playback_state == PlaybackState::Playing {
+        let transport = transport_presentation(
+            self.snapshot.playback_state,
+            self.pending_toggle,
+            self.snapshot.source_path.is_some(),
+            self.snapshot.queue.can_advance(),
+        );
+        let play_icon = if transport.show_pause {
             "icons/pause.svg"
         } else {
             "icons/play.svg"
@@ -534,98 +554,56 @@ impl PlaybackRow {
                     .justify_center()
                     .gap(px(16.))
                     .child(
-                        div()
-                            .id("playback-shuffle")
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .size(px(19.))
-                            .cursor_pointer()
-                            .on_click(cx.listener(|this, _, _, cx| this.toggle_shuffle(cx)))
-                            .child(svg().path("icons/shuffle.svg").size(px(19.)).text_color(
-                                if shuffle_enabled {
-                                    theme::accent()
-                                } else {
-                                    theme::text_secondary()
-                                },
-                            )),
-                    )
-                    .child(
-                        div()
-                            .id("playback-previous")
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .size(px(19.))
-                            .opacity(if previous_enabled { 1.0 } else { 0.35 })
-                            .when(previous_enabled, |button| {
-                                button
-                                    .cursor_pointer()
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                        this.previous_track(cx);
-                                    }))
+                        ui::IconButton::new("playback-shuffle", "icons/shuffle.svg")
+                            .variant(if shuffle_enabled {
+                                IconButtonVariant::Accent
+                            } else {
+                                IconButtonVariant::Secondary
                             })
-                            .child(
-                                svg()
-                                    .path("icons/skip-back.svg")
-                                    .size(px(19.))
-                                    .text_color(theme::text_secondary()),
-                            ),
+                            .button_size(28.)
+                            .icon_size(19.)
+                            .horizontal_margin(-4.5)
+                            .on_click(cx.listener(|this, _, _, cx| this.toggle_shuffle(cx))),
                     )
                     .child(
-                        div()
-                            .id("playback-toggle")
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .size(px(34.))
-                            .rounded(px(theme::RADIUS_MD))
-                            .bg(theme::accent())
-                            .cursor_pointer()
-                            .on_click(cx.listener(|this, _, _, cx| this.toggle_playback(cx)))
-                            .child(
-                                svg()
-                                    .path(play_icon)
-                                    .size(px(18.))
-                                    .text_color(theme::bg_inset()),
-                            ),
+                        ui::IconButton::new("playback-previous", "icons/skip-back.svg")
+                            .variant(IconButtonVariant::Secondary)
+                            .button_size(28.)
+                            .icon_size(19.)
+                            .horizontal_margin(-4.5)
+                            .disabled(!transport.previous_enabled)
+                            .disabled_opacity(0.35)
+                            .on_click(cx.listener(|this, _, _, cx| this.previous_track(cx))),
                     )
                     .child(
-                        div()
-                            .id("playback-next")
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .size(px(19.))
-                            .opacity(if next_enabled { 1.0 } else { 0.35 })
-                            .when(next_enabled, |button| {
-                                button
-                                    .cursor_pointer()
-                                    .on_click(cx.listener(|this, _, _, cx| this.next_track(cx)))
+                        ui::IconButton::new("playback-toggle", play_icon)
+                            .variant(IconButtonVariant::Primary)
+                            .button_size(34.)
+                            .icon_size(18.)
+                            .corner_radius(theme::RADIUS_MD)
+                            .on_click(cx.listener(|this, _, _, cx| this.toggle_playback(cx))),
+                    )
+                    .child(
+                        ui::IconButton::new("playback-next", "icons/skip-forward.svg")
+                            .variant(IconButtonVariant::Secondary)
+                            .button_size(28.)
+                            .icon_size(19.)
+                            .horizontal_margin(-4.5)
+                            .disabled(!transport.next_enabled)
+                            .disabled_opacity(0.35)
+                            .on_click(cx.listener(|this, _, _, cx| this.next_track(cx))),
+                    )
+                    .child(
+                        ui::IconButton::new("playback-repeat", repeat_icon)
+                            .variant(if repeat_mode == RepeatMode::Off {
+                                IconButtonVariant::Secondary
+                            } else {
+                                IconButtonVariant::Accent
                             })
-                            .child(
-                                svg()
-                                    .path("icons/skip-forward.svg")
-                                    .size(px(19.))
-                                    .text_color(theme::text_secondary()),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .id("playback-repeat")
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .size(px(19.))
-                            .cursor_pointer()
-                            .on_click(cx.listener(|this, _, _, cx| this.cycle_repeat(cx)))
-                            .child(svg().path(repeat_icon).size(px(19.)).text_color(
-                                if repeat_mode == RepeatMode::Off {
-                                    theme::text_secondary()
-                                } else {
-                                    theme::accent()
-                                },
-                            )),
+                            .button_size(28.)
+                            .icon_size(19.)
+                            .horizontal_margin(-4.5)
+                            .on_click(cx.listener(|this, _, _, cx| this.cycle_repeat(cx))),
                     ),
             )
             .child(

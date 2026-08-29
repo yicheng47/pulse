@@ -109,6 +109,13 @@ impl Playback {
         }
     }
 
+    pub(super) fn can_dispatch_track_navigation(&self) -> bool {
+        !matches!(
+            self.playback_state,
+            PlaybackState::Loading | PlaybackState::Stopping
+        )
+    }
+
     /// The file transport Play restarts. In Error state the failed attempt is
     /// the target, keeping Play and Try again in agreement when a new file
     /// failed before any NowPlaying updated `source_path`.

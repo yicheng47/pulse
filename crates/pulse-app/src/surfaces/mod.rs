@@ -5,6 +5,7 @@ mod devices_logic;
 pub(crate) mod library;
 mod playback_popovers;
 mod playback_row;
+mod playback_row_logic;
 mod search;
 mod settings;
 mod shell;

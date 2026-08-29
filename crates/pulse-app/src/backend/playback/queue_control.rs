@@ -93,6 +93,9 @@ impl Playback {
     }
 
     pub(crate) fn next_track(&mut self) {
+        if !self.can_dispatch_track_navigation() {
+            return;
+        }
         self.notice = None;
         self.retry = None;
         let track = self.queue.advance();
@@ -113,6 +116,9 @@ impl Playback {
     }
 
     pub(crate) fn previous_track(&mut self) {
+        if !self.can_dispatch_track_navigation() {
+            return;
+        }
         self.notice = None;
         self.retry = None;
         let action = self.queue.previous(self.position_ms);

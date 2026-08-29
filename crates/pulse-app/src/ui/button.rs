@@ -96,6 +96,8 @@ impl RenderOnce for Button {
     fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
         let tooltip_id = (self.id.clone(), "tooltip");
         let compact = self.size == ButtonSize::Compact;
+        let variant = self.variant;
+        let disabled = self.disabled;
         let content_color = if compact {
             theme::text_primary()
         } else if self.variant == ButtonVariant::Secondary {
@@ -105,6 +107,7 @@ impl RenderOnce for Button {
         };
         let mut button = div()
             .id(self.id)
+            .group("button")
             .flex()
             .items_center()
             .justify_center()
@@ -164,8 +167,30 @@ impl RenderOnce for Button {
                     .size(px(15.))
                     .flex_none()
                     .text_color(content_color)
+                    .when(variant == ButtonVariant::Danger && !disabled, |icon| {
+                        icon.group_hover("button", |style| style.text_color(theme::danger()))
+                    })
             }))
             .child(self.label);
+        if !self.disabled {
+            button = button
+                .hover(|style| match self.variant {
+                    ButtonVariant::Primary => style.bg(theme::accent_bright()),
+                    ButtonVariant::Danger => {
+                        style.bg(theme::danger_soft()).text_color(theme::danger())
+                    }
+                    ButtonVariant::Secondary if compact => style.bg(theme::bg_elevated()),
+                    ButtonVariant::Secondary => style.bg(theme::bg_muted()),
+                })
+                .active(|style| match self.variant {
+                    ButtonVariant::Primary => style.bg(theme::accent()),
+                    ButtonVariant::Danger => {
+                        style.bg(theme::bg_elevated()).text_color(theme::danger())
+                    }
+                    ButtonVariant::Secondary if compact => style.bg(theme::bg_selected()),
+                    ButtonVariant::Secondary => style.bg(theme::bg_elevated()),
+                });
+        }
         if !self.disabled
             && let Some(on_click) = self.on_click
         {
@@ -179,11 +204,26 @@ impl RenderOnce for Button {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) enum IconButtonVariant {
+    #[default]
+    Muted,
+    Secondary,
+    Accent,
+    Primary,
+}
+
 #[derive(IntoElement)]
 pub(crate) struct IconButton {
     id: ElementId,
     icon: SharedString,
+    variant: IconButtonVariant,
+    button_size: f32,
+    icon_size: f32,
+    corner_radius: f32,
+    horizontal_margin: f32,
     disabled: bool,
+    disabled_opacity: f32,
     tooltip: Option<SharedString>,
     on_click: Option<ClickHandler>,
 }
@@ -193,15 +233,50 @@ impl IconButton {
         Self {
             id: id.into(),
             icon: icon.into(),
+            variant: IconButtonVariant::Muted,
+            button_size: 28.,
+            icon_size: 16.,
+            corner_radius: theme::RADIUS_SM,
+            horizontal_margin: 0.,
             disabled: false,
+            disabled_opacity: 0.5,
             tooltip: None,
             on_click: None,
         }
     }
 
-    #[allow(dead_code)]
+    pub(crate) fn variant(mut self, variant: IconButtonVariant) -> Self {
+        self.variant = variant;
+        self
+    }
+
+    pub(crate) fn button_size(mut self, button_size: f32) -> Self {
+        self.button_size = button_size;
+        self
+    }
+
+    pub(crate) fn icon_size(mut self, icon_size: f32) -> Self {
+        self.icon_size = icon_size;
+        self
+    }
+
+    pub(crate) fn corner_radius(mut self, corner_radius: f32) -> Self {
+        self.corner_radius = corner_radius;
+        self
+    }
+
+    pub(crate) fn horizontal_margin(mut self, horizontal_margin: f32) -> Self {
+        self.horizontal_margin = horizontal_margin;
+        self
+    }
+
     pub(crate) fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
+        self
+    }
+
+    pub(crate) fn disabled_opacity(mut self, disabled_opacity: f32) -> Self {
+        self.disabled_opacity = disabled_opacity;
         self
     }
 
@@ -223,14 +298,28 @@ impl IconButton {
 impl RenderOnce for IconButton {
     fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
         let tooltip_id = (self.id.clone(), "tooltip");
+        let foreground = match self.variant {
+            IconButtonVariant::Muted => theme::text_muted(),
+            IconButtonVariant::Secondary => theme::text_secondary(),
+            IconButtonVariant::Accent => theme::accent(),
+            IconButtonVariant::Primary => theme::bg_inset(),
+        };
         let mut button = div()
             .id(self.id)
             .flex()
             .items_center()
             .justify_center()
-            .size(px(28.))
-            .rounded(px(theme::RADIUS_SM))
-            .opacity(if self.disabled { 0.5 } else { 1. })
+            .size(px(self.button_size))
+            .mx(px(self.horizontal_margin))
+            .rounded(px(self.corner_radius))
+            .when(self.variant == IconButtonVariant::Primary, |button| {
+                button.bg(theme::accent())
+            })
+            .opacity(if self.disabled {
+                self.disabled_opacity
+            } else {
+                1.
+            })
             .cursor(if self.disabled {
                 CursorStyle::Arrow
             } else {
@@ -239,9 +328,24 @@ impl RenderOnce for IconButton {
             .child(
                 svg()
                     .path(self.icon)
-                    .size(px(16.))
-                    .text_color(theme::text_muted()),
+                    .size(px(self.icon_size))
+                    .text_color(foreground),
             );
+        if !self.disabled {
+            button = button
+                .hover(|style| match self.variant {
+                    IconButtonVariant::Primary => style.bg(theme::accent_bright()),
+                    IconButtonVariant::Muted
+                    | IconButtonVariant::Secondary
+                    | IconButtonVariant::Accent => style.bg(theme::bg_muted()),
+                })
+                .active(|style| match self.variant {
+                    IconButtonVariant::Primary => style.bg(theme::accent()),
+                    IconButtonVariant::Muted
+                    | IconButtonVariant::Secondary
+                    | IconButtonVariant::Accent => style.bg(theme::bg_elevated()),
+                });
+        }
         if !self.disabled
             && let Some(on_click) = self.on_click
         {
@@ -263,5 +367,28 @@ mod tests {
     fn button_defaults_match_the_existing_secondary_control() {
         assert_eq!(ButtonVariant::default(), ButtonVariant::Secondary);
         assert_eq!(ButtonSize::default(), ButtonSize::Regular);
+    }
+
+    #[test]
+    fn icon_button_geometry_is_configurable_for_transport_controls() {
+        let default = IconButton::new("default", "icons/x.svg");
+        assert_eq!(default.variant, IconButtonVariant::Muted);
+        assert_eq!(default.button_size, 28.);
+        assert_eq!(default.icon_size, 16.);
+        assert_eq!(default.corner_radius, theme::RADIUS_SM);
+        assert_eq!(default.horizontal_margin, 0.);
+        assert_eq!(default.disabled_opacity, 0.5);
+
+        let transport = IconButton::new("transport", "icons/skip-forward.svg")
+            .variant(IconButtonVariant::Secondary)
+            .button_size(28.)
+            .icon_size(19.)
+            .horizontal_margin(-4.5)
+            .disabled_opacity(0.35);
+        assert_eq!(transport.variant, IconButtonVariant::Secondary);
+        assert_eq!(transport.button_size, 28.);
+        assert_eq!(transport.icon_size, 19.);
+        assert_eq!(transport.horizontal_margin, -4.5);
+        assert_eq!(transport.disabled_opacity, 0.35);
     }
 }

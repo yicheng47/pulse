@@ -73,6 +73,48 @@ fn a_decode_failure_mid_queue_skips_to_the_next_entry_and_reports() {
 }
 
 #[test]
+fn next_track_during_loading_does_not_dispatch() {
+    let temp = tempfile::tempdir().unwrap();
+    let tracks = wav_tracks(temp.path(), &["current", "next"]);
+    let mut playback = Playback::initial();
+    playback.seed_queue(QueueState::from_tracks(&tracks, 0));
+    playback.source_path = Some(tracks[0].path.clone());
+    playback.playback_state = PlaybackState::Loading;
+    let (command_tx, command_rx) = std::sync::mpsc::channel();
+    playback.command_tx = Some(command_tx);
+
+    playback.next_track();
+
+    assert_eq!(playback.queue.current().unwrap().title, "current");
+    assert!(playback.current_play.is_none());
+    assert_eq!(playback.dispatched_plays, 0);
+    assert!(matches!(
+        command_rx.try_recv(),
+        Err(std::sync::mpsc::TryRecvError::Empty)
+    ));
+}
+
+#[test]
+fn previous_track_during_loading_does_not_restart_the_source() {
+    let temp = tempfile::tempdir().unwrap();
+    let tracks = wav_tracks(temp.path(), &["current"]);
+    let mut playback = Playback::initial();
+    playback.source_path = Some(tracks[0].path.clone());
+    playback.playback_state = PlaybackState::Loading;
+    let (command_tx, command_rx) = std::sync::mpsc::channel();
+    playback.command_tx = Some(command_tx);
+
+    playback.previous_track();
+
+    assert!(playback.current_play.is_none());
+    assert_eq!(playback.dispatched_plays, 0);
+    assert!(matches!(
+        command_rx.try_recv(),
+        Err(std::sync::mpsc::TryRecvError::Empty)
+    ));
+}
+
+#[test]
 fn missing_files_are_marked_and_skipped_at_play_time() {
     let temp = tempfile::tempdir().unwrap();
     let tracks = wav_tracks(temp.path(), &["gone-1", "gone-2", "present"]);

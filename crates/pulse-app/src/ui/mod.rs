@@ -8,7 +8,7 @@ mod surfaces;
 mod toggle;
 mod tooltip;
 
-pub(crate) use button::{Button, ButtonSize, ButtonVariant, IconButton};
+pub(crate) use button::{Button, ButtonSize, ButtonVariant, IconButton, IconButtonVariant};
 pub(crate) use list::EmptyStateCard;
 pub(crate) use menu::{ContextMenu, PopoverMenu};
 pub(crate) use overlay::ConfirmDialog;
