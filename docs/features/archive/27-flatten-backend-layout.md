@@ -1,6 +1,6 @@
 # Flatten the Backend Layout
 
-> Feature 27 · P2 · chore. Remove the `backend/library/` wrapper so `pulse-app`'s backend reads like Runner's: `backend/{model.rs, repo/, ops/, scan/}` beside `playback/`, `queue.rs`, `settings.rs`, `preferences.rs`, `updater.rs`. Moves only; no behavior, schema, or SQL change.
+> Feature 27 · P2 · chore. Remove the `backend/library/` wrapper so `pulse-app`'s backend reads like Runner's: `backend/{model.rs, repo/, ops/, scan/}` beside `playback/`, `queue.rs`, `settings.rs`, `preferences.rs`, `updater.rs`. Moves only; no behavior, schema, or SQL change. **Merged** 2026-08-29, commit `9b8205a`. (The `library::` grep in Verification reads as intended only for `backend`: the two remaining hits are `surfaces/mod.rs` and `surfaces/search.rs` importing the `surfaces/library` view module.)
 
 ## Motivation
 

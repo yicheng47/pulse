@@ -4,7 +4,7 @@
 
 ## Description
 
-The Tracks page's artist identity — `COALESCE(NULLIF(trim(artist), ''), 'Unknown Artist')` — is written three times inside `crates/pulse-app/src/backend/library/repo/tracks.rs` and never hoisted: the artist-facet aggregate (`tracks::artists`, ~line 288, with the fallback bound as `?1`), the `TrackSortOrder::Artist` order-by (~line 611), and the artist filter clause in `track_filter_clause` (~line 663). Feature 25 phase 2 centralized the *album*-artist identity as `EFFECTIVE_ALBUM_ARTIST_SQL` in `repo/mod.rs` and the phase 4 boundary test pins that fragment to one definition; the track-artist fragment has no such guard.
+The Tracks page's artist identity — `COALESCE(NULLIF(trim(artist), ''), 'Unknown Artist')` — is written three times inside `crates/pulse-app/src/backend/repo/tracks.rs` and never hoisted: the artist-facet aggregate (`tracks::artists`, ~line 291, with the fallback bound as `?1`), the `TrackSortOrder::Artist` order-by (~line 614), and the artist filter clause in `track_filter_clause` (~line 666). Feature 25 phase 2 centralized the *album*-artist identity as `EFFECTIVE_ALBUM_ARTIST_SQL` in `repo/mod.rs` and the phase 4 boundary test pins that fragment to one definition; the track-artist fragment has no such guard.
 
 ## Expected
 
@@ -16,8 +16,8 @@ One `EFFECTIVE_TRACK_ARTIST_SQL` fragment in `repo/mod.rs`, interpolated by all 
 
 ## Relevant code
 
-- `crates/pulse-app/src/backend/library/repo/tracks.rs` — the three copies.
-- `crates/pulse-app/src/backend/library/repo/mod.rs` — `EFFECTIVE_ALBUM_ARTIST_SQL`, the pattern to follow.
+- `crates/pulse-app/src/backend/repo/tracks.rs` — the three copies.
+- `crates/pulse-app/src/backend/repo/mod.rs` — `EFFECTIVE_ALBUM_ARTIST_SQL`, the pattern to follow.
 - `crates/pulse-app/src/backend/mod.rs` — the SQL boundary gate that asserts the album-artist fragment has one definition; extend it to the track-artist fragment.
 
 ## Verification

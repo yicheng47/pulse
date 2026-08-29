@@ -22,7 +22,7 @@ Make the domain layer structural before more features land on it.
 | Item | Priority | Status | Notes |
 |---|---|---|---|
 | [Feature 25 — backend layer + library repo layer](features/archive/25-library-repo-layer.md) | P2 | done | Four phases merged: `965965b` (backend boundary + gpui gate), `aa211ec` (repo layer), `49a6f00` (model + ops), `c1975cd` (facade retirement, SQL boundary gate, arch doc §4). |
-| [Feature 27 — flatten the backend layout](features/27-flatten-backend-layout.md) | P2 | planned | Drop the `backend/library/` wrapper → `backend/{model.rs, repo/, ops/, scan/}`; moves only. Runs before the remaining M1 bugs since they touch `repo/`. |
+| [Feature 27 — flatten the backend layout](features/archive/27-flatten-backend-layout.md) | P2 | done | `9b8205a`: `backend/{model.rs, repo/, ops/, scan/}`, moves only. |
 | [Bug — app menu items disabled without focus](bugs/app-menu-items-disabled.md) | P2 | planned | Global `cx.on_action` handlers, Runner's pattern. Small; run right after phase 1. |
 | [Bug — macOS 12 deployment target](bugs/macos-deployment-target.md) | P2 | planned | Release hygiene; validate or raise before the next release. |
 | [Bug — playback row transport feedback](bugs/archive/playback-row-transport-feedback.md) | P2 | done | `3d85c64`: kit-level hover/active, prev/next from the queue, play button stable across resume and next/previous. |
