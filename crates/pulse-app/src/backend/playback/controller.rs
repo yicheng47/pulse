@@ -215,6 +215,8 @@ impl Playback {
                 self.position_ms = 0;
                 self.error = None;
             }
+            // Phase 3 wires gapless queue advancement; the app does not send SetNext yet.
+            PlaybackEvent::Advanced { .. } => {}
             PlaybackEvent::Position {
                 position_ms,
                 duration_ms,

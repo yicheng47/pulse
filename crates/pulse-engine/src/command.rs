@@ -7,6 +7,14 @@ pub enum PlaybackCommand {
     PlayFile {
         path: PathBuf,
     },
+    /// Preloads one source. Once same-format PCM has already been buffered for an audible
+    /// transition, this replaces that incoming track's successor instead of the buffered audio.
+    SetNext {
+        path: PathBuf,
+    },
+    /// Clears the preloaded source or, during a buffered transition, the incoming track's
+    /// successor. Already-buffered PCM remains scheduled for playback.
+    ClearNext,
     Pause,
     Resume,
     Seek {
