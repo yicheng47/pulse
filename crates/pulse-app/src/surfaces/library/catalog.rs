@@ -1,6 +1,53 @@
 use super::*;
 
 impl LibraryView {
+    pub(super) fn load_artist_detail(
+        store: &LibraryStore,
+        artist: Artist,
+        album_sort: AlbumSortOrder,
+    ) -> Result<ArtistDetail, LibraryError> {
+        let album_count = usize::try_from(artist.album_count)
+            .map_err(|_| LibraryError::IntegerOutOfRange("artist album count"))?;
+        let albums = store
+            .album_page(
+                album_sort,
+                &crate::library::AlbumQueryFilter::All,
+                Some(&artist.name),
+                album_count.max(1),
+                0,
+            )?
+            .albums;
+        let mut tracks = Vec::with_capacity(artist.track_count as usize);
+        for album in &albums {
+            tracks.extend(store.tracks_for_album(&album.artist, &album.title)?);
+        }
+        Ok(ArtistDetail {
+            artist,
+            albums,
+            tracks,
+        })
+    }
+
+    pub(super) fn open_artist(&mut self, artist: Artist, cx: &mut Context<Self>) {
+        let Some(store) = self.store.as_ref() else {
+            self.error = Some(self.store_busy_message());
+            cx.notify();
+            return;
+        };
+        let detail = match Self::load_artist_detail(store, artist, self.album_sort) {
+            Ok(detail) => detail,
+            Err(error) => {
+                self.error = Some(error.to_string());
+                cx.notify();
+                return;
+            }
+        };
+        self.artist_route.open_artist(detail.artist.name.clone());
+        self.artist_detail = Some(detail);
+        self.artist_detail_scroll = ScrollHandle::new();
+        cx.notify();
+    }
+
     pub(super) fn cycle_album_sort(&mut self, cx: &mut Context<Self>) {
         self.album_sort = match self.album_sort {
             AlbumSortOrder::Title => AlbumSortOrder::Artist,
@@ -42,6 +89,7 @@ impl LibraryView {
         match store.album_page(
             self.album_sort,
             &self.album_filter.album_query_filter(current_time_ms()),
+            None,
             LIST_PAGE_SIZE,
             self.albums.len(),
         ) {
@@ -202,6 +250,9 @@ impl LibraryView {
             tracks
         };
         self.album_detail_scroll = ScrollHandle::new();
+        if self.destination == Destination::Artists {
+            self.artist_route.open_album(album.title.clone());
+        }
         self.album_detail = Some(AlbumDetail { album, tracks });
         self.selected_album_track_id = None;
         self.album_menu_open = false;

@@ -1,5 +1,8 @@
 mod albums;
 mod albums_logic;
+mod artist_detail;
+mod artists;
+mod artists_logic;
 mod catalog;
 mod context_menu;
 mod genre_filter;
@@ -42,7 +45,7 @@ use pulse_engine::PlaybackState;
 use crate::{
     app_store::{AppStore, StoreRevisions, global_app_store},
     library::{
-        Album, AlbumSortOrder, BackfillProgress, DeleteAlbumOutcome, LibraryError,
+        Album, AlbumSortOrder, Artist, BackfillProgress, DeleteAlbumOutcome, LibraryError,
         LibrarySearchResults, LibraryStore, LibrarySummary, PlaylistId, PlaylistSummary,
         PlaylistTrack, ScanHistoryEntry, ScanOutcome, ScanProgress, StorageRoot, StorageRootId,
         Track, TrackId, TrackSortOrder, delete_album_tracks, scan_storage_root_cancellable,
@@ -55,6 +58,7 @@ use crate::{
     ui::{Button, Scrollbar},
 };
 
+use artists_logic::ArtistRoute;
 use lifecycle_logic::{
     delete_album_notice, filter_artists, filter_genres, scan_verified_presence, selected_genre,
 };
@@ -136,6 +140,12 @@ struct AlbumDetail {
     tracks: Vec<Track>,
 }
 
+struct ArtistDetail {
+    artist: Artist,
+    albums: Vec<Album>,
+    tracks: Vec<Track>,
+}
+
 struct PlaylistDetail {
     summary: PlaylistSummary,
     entries: Vec<PlaylistTrack>,
@@ -211,6 +221,9 @@ pub(crate) struct LibraryView {
     database_path: PathBuf,
     cover_cache_directory: PathBuf,
     albums: Vec<Album>,
+    artist_index: Vec<Artist>,
+    artist_detail: Option<ArtistDetail>,
+    artist_route: ArtistRoute,
     tracks: Vec<Track>,
     genres: Vec<(String, u64)>,
     genre_popover_open: bool,
@@ -243,6 +256,9 @@ pub(crate) struct LibraryView {
     track_total: usize,
     album_total: usize,
     albums_scroll: ScrollHandle,
+    artists_scroll: ScrollHandle,
+    artist_scrollbar: Entity<Scrollbar>,
+    artist_detail_scroll: ScrollHandle,
     album_detail_scroll: ScrollHandle,
     tracks_scroll: ScrollHandle,
     track_scrollbar: Entity<Scrollbar>,
@@ -276,6 +292,11 @@ impl LibraryView {
             Scrollbar::new("tracks-scrollbar", tracks_scroll.clone())
                 .thumb_id("tracks-scrollbar-thumb")
         });
+        let artists_scroll = ScrollHandle::new();
+        let artist_scrollbar = cx.new(|_| {
+            Scrollbar::new("artists-scrollbar", artists_scroll.clone())
+                .thumb_id("artists-scrollbar-thumb")
+        });
         let mut view = Self {
             destination: Destination::Albums,
             app_store: app_store.clone(),
@@ -288,6 +309,9 @@ impl LibraryView {
             database_path,
             cover_cache_directory,
             albums: Vec::new(),
+            artist_index: Vec::new(),
+            artist_detail: None,
+            artist_route: ArtistRoute::default(),
             tracks: Vec::new(),
             genres: Vec::new(),
             genre_popover_open: false,
@@ -318,6 +342,9 @@ impl LibraryView {
             track_total: 0,
             album_total: 0,
             albums_scroll: ScrollHandle::new(),
+            artists_scroll,
+            artist_scrollbar,
+            artist_detail_scroll: ScrollHandle::new(),
             album_detail_scroll: ScrollHandle::new(),
             tracks_scroll,
             track_scrollbar,
@@ -451,6 +478,7 @@ impl Render for LibraryView {
             } => render_library_opening(*progress),
             _ => match self.destination {
                 Destination::Albums => self.render_albums(window, cx),
+                Destination::Artists => self.render_artists(window, cx),
                 Destination::Tracks => self.render_tracks(window, cx),
                 Destination::Playlists => self.render_playlists(cx),
                 Destination::Storage => self.render_storage(window, cx),

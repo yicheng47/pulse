@@ -289,7 +289,7 @@ impl LibraryView {
             )
     }
 
-    fn render_album_card(
+    pub(super) fn render_album_card(
         &self,
         index: usize,
         album: Album,
@@ -356,7 +356,11 @@ impl LibraryView {
             )
     }
 
-    fn render_album_detail(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn render_album_detail(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let detail = self.album_detail.as_ref().expect("album detail exists");
         let album = detail.album.clone();
         let tracks = detail.tracks.clone();
@@ -370,6 +374,10 @@ impl LibraryView {
             .collect::<Vec<_>>()
             .join(" / ");
         let quality = quality_label(album.max_bit_depth, album.max_sample_rate_hz);
+        let artist_back = (self.destination == crate::surfaces::Destination::Artists)
+            .then(|| self.artist_route.artist().map(str::to_string))
+            .flatten();
+        let back_label = artist_back.clone().unwrap_or_else(|| "Albums".to_string());
 
         let mut table = div()
             .flex()
@@ -409,11 +417,15 @@ impl LibraryView {
                     .items_center()
                     .gap(px(8.))
                     .h(px(17.))
-                    .w(px(80.))
+                    .max_w(px(220.))
+                    .min_w_0()
                     .flex_none()
                     .cursor_pointer()
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.album_detail = None;
+                        if this.destination == crate::surfaces::Destination::Artists {
+                            this.artist_route.back();
+                        }
                         this.selected_album_track_id = None;
                         this.album_menu_open = false;
                         cx.notify();
@@ -426,11 +438,13 @@ impl LibraryView {
                     )
                     .child(
                         div()
+                            .min_w_0()
+                            .truncate()
                             .font_family(theme::FONT_DISPLAY)
                             .font_weight(FontWeight::BOLD)
                             .text_size(px(13.))
                             .text_color(theme::text_muted())
-                            .child("Albums"),
+                            .child(back_label),
                     ),
             )
             .child(

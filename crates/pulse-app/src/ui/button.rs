@@ -28,8 +28,10 @@ pub(crate) enum ButtonSize {
 pub(crate) struct Button {
     id: ElementId,
     label: SharedString,
+    icon: Option<SharedString>,
     variant: ButtonVariant,
     size: ButtonSize,
+    corner_radius: f32,
     disabled: bool,
     tooltip: Option<SharedString>,
     on_click: Option<ClickHandler>,
@@ -40,8 +42,10 @@ impl Button {
         Self {
             id: id.into(),
             label: label.into(),
+            icon: None,
             variant: ButtonVariant::Secondary,
             size: ButtonSize::Regular,
+            corner_radius: theme::RADIUS_SM,
             disabled: false,
             tooltip: None,
             on_click: None,
@@ -53,8 +57,18 @@ impl Button {
         self
     }
 
+    pub(crate) fn icon(mut self, icon: impl Into<SharedString>) -> Self {
+        self.icon = Some(icon.into());
+        self
+    }
+
     pub(crate) fn size(mut self, size: ButtonSize) -> Self {
         self.size = size;
+        self
+    }
+
+    pub(crate) fn corner_radius(mut self, corner_radius: f32) -> Self {
+        self.corner_radius = corner_radius;
         self
     }
 
@@ -82,11 +96,19 @@ impl RenderOnce for Button {
     fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
         let tooltip_id = (self.id.clone(), "tooltip");
         let compact = self.size == ButtonSize::Compact;
+        let content_color = if compact {
+            theme::text_primary()
+        } else if self.variant == ButtonVariant::Secondary {
+            theme::text_secondary()
+        } else {
+            theme::bg_inset()
+        };
         let mut button = div()
             .id(self.id)
             .flex()
             .items_center()
             .justify_center()
+            .gap(px(8.))
             .h(px(if compact { 24. } else { 34. }))
             .when(compact, |button| button.flex_none())
             .px(px(if compact {
@@ -96,7 +118,7 @@ impl RenderOnce for Button {
             } else {
                 14.
             }))
-            .rounded(px(theme::RADIUS_SM))
+            .rounded(px(self.corner_radius))
             .when(
                 compact || self.variant == ButtonVariant::Secondary,
                 |button| {
@@ -126,13 +148,7 @@ impl RenderOnce for Button {
                 FontWeight::BOLD
             })
             .text_size(px(if compact { 12. } else { 13. }))
-            .text_color(if compact {
-                theme::text_primary()
-            } else if self.variant == ButtonVariant::Secondary {
-                theme::text_secondary()
-            } else {
-                theme::bg_inset()
-            })
+            .text_color(content_color)
             .opacity(if self.disabled {
                 if self.variant == ButtonVariant::Danger {
                     0.6
@@ -142,6 +158,13 @@ impl RenderOnce for Button {
             } else {
                 1.0
             })
+            .children(self.icon.map(|icon| {
+                svg()
+                    .path(icon)
+                    .size(px(15.))
+                    .flex_none()
+                    .text_color(content_color)
+            }))
             .child(self.label);
         if !self.disabled
             && let Some(on_click) = self.on_click

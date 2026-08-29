@@ -3,18 +3,17 @@ use std::path::PathBuf;
 use rusqlite::{Connection, params, params_from_iter, types::Value};
 
 use super::super::{
-    Album, AlbumPage, AlbumQueryFilter, AlbumSortOrder, LibraryError, UNKNOWN_ALBUM, UNKNOWN_ARTIST,
+    Album, AlbumPage, AlbumQueryFilter, AlbumSortOrder, LibraryError, UNKNOWN_ALBUM,
 };
-use super::usize_to_i64;
+use super::{EFFECTIVE_ALBUM_ARTIST_SQL, usize_to_i64};
 
 pub fn list(conn: &Connection, sort_order: AlbumSortOrder) -> Result<Vec<Album>, LibraryError> {
     let order_by = album_order_by(sort_order);
     let sql = format!(
         "WITH normalized AS (
              SELECT id,
-                    COALESCE(NULLIF(trim(album_artist), ''),
-                             NULLIF(trim(artist), ''), ?1) AS album_owner,
-                    COALESCE(NULLIF(trim(album), ''), ?2) AS album_title,
+                    {EFFECTIVE_ALBUM_ARTIST_SQL} AS album_owner,
+                    COALESCE(NULLIF(trim(album), ''), ?1) AS album_title,
                     year, duration_ms, sample_rate_hz, bit_depth, cover_art_path, added_at_ms
              FROM tracks
          )
@@ -35,7 +34,7 @@ pub fn list(conn: &Connection, sort_order: AlbumSortOrder) -> Result<Vec<Album>,
     );
     let mut statement = conn.prepare(&sql)?;
     let albums = statement
-        .query_map(params![UNKNOWN_ARTIST, UNKNOWN_ALBUM], album_from_row)?
+        .query_map(params![UNKNOWN_ALBUM], album_from_row)?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(albums)
 }
@@ -44,39 +43,49 @@ pub fn page(
     conn: &Connection,
     sort_order: AlbumSortOrder,
     filter: &AlbumQueryFilter,
+    artist_filter: Option<&str>,
     limit: usize,
     offset: usize,
 ) -> Result<AlbumPage, LibraryError> {
     assert!(limit > 0, "album page size must be positive");
     let order_by = album_order_by(sort_order);
-    let normalized_cte = "WITH normalized AS (
+    let normalized_cte = format!(
+        "WITH normalized AS (
              SELECT id,
-                    COALESCE(NULLIF(trim(album_artist), ''),
-                             NULLIF(trim(artist), ''), ?) AS album_owner,
-                    COALESCE(NULLIF(trim(album), ''), ?) AS album_title,
+                    {EFFECTIVE_ALBUM_ARTIST_SQL} AS album_owner,
+                    COALESCE(NULLIF(trim(album), ''), ?1) AS album_title,
                     year, genre, duration_ms, sample_rate_hz, bit_depth,
                     cover_art_path, added_at_ms
              FROM tracks
-         )";
-    let (having, filter_parameter) = match filter {
-        AlbumQueryFilter::All => ("", None),
-        AlbumQueryFilter::HiRes => (
-            "HAVING MAX(bit_depth) > 16 OR MAX(sample_rate_hz) > 48000",
-            None,
-        ),
-        AlbumQueryFilter::AddedSince(since) => {
-            ("HAVING MAX(added_at_ms) >= ?", Some(Value::Integer(*since)))
+         )"
+    );
+    let mut having_clauses = Vec::new();
+    let mut filter_parameters = Vec::new();
+    match filter {
+        AlbumQueryFilter::All => {}
+        AlbumQueryFilter::HiRes => {
+            having_clauses.push("(MAX(bit_depth) > 16 OR MAX(sample_rate_hz) > 48000)");
         }
-        AlbumQueryFilter::Genre(genre) => (
-            "HAVING SUM(genre_has_member(genre, ?)) > 0",
-            Some(Value::Text(genre.clone())),
-        ),
+        AlbumQueryFilter::AddedSince(since) => {
+            having_clauses.push("MAX(added_at_ms) >= ?");
+            filter_parameters.push(Value::Integer(*since));
+        }
+        AlbumQueryFilter::Genre(genre) => {
+            having_clauses.push("SUM(genre_has_member(genre, ?)) > 0");
+            filter_parameters.push(Value::Text(genre.clone()));
+        }
+    }
+    if let Some(artist) = artist_filter {
+        having_clauses.push("album_owner = ?");
+        filter_parameters.push(Value::Text(artist.to_string()));
+    }
+    let having = if having_clauses.is_empty() {
+        String::new()
+    } else {
+        format!("HAVING {}", having_clauses.join(" AND "))
     };
-    let mut parameters = vec![
-        Value::Text(UNKNOWN_ARTIST.to_string()),
-        Value::Text(UNKNOWN_ALBUM.to_string()),
-    ];
-    parameters.extend(filter_parameter);
+    let mut parameters = vec![Value::Text(UNKNOWN_ALBUM.to_string())];
+    parameters.extend(filter_parameters);
 
     let count_sql = format!(
         "{normalized_cte}
@@ -125,7 +134,7 @@ pub fn page(
 /// Every sort ends with the exact (album_title, album_owner) pair — the GROUP
 /// BY key — so the order is total and LIMIT/OFFSET paging can never duplicate
 /// or drop a tied group between queries.
-fn album_order_by(sort_order: AlbumSortOrder) -> String {
+pub(super) fn album_order_by(sort_order: AlbumSortOrder) -> String {
     let display = match sort_order {
         AlbumSortOrder::Title => "album_title COLLATE NOCASE, album_owner COLLATE NOCASE",
         AlbumSortOrder::Artist => "album_owner COLLATE NOCASE, album_title COLLATE NOCASE",
@@ -198,24 +207,48 @@ mod tests {
         };
 
         let first = store
-            .album_page(AlbumSortOrder::DateAdded, &AlbumQueryFilter::All, 2, 0)
+            .album_page(
+                AlbumSortOrder::DateAdded,
+                &AlbumQueryFilter::All,
+                None,
+                2,
+                0,
+            )
             .unwrap();
         assert_eq!(first.total_count, 3);
         assert_eq!(titles(&first), ["Gamma", "Beta"]);
 
         let second = store
-            .album_page(AlbumSortOrder::DateAdded, &AlbumQueryFilter::All, 2, 2)
+            .album_page(
+                AlbumSortOrder::DateAdded,
+                &AlbumQueryFilter::All,
+                None,
+                2,
+                2,
+            )
             .unwrap();
         assert_eq!(titles(&second), ["Alpha"]);
 
         let beyond = store
-            .album_page(AlbumSortOrder::DateAdded, &AlbumQueryFilter::All, 2, 10)
+            .album_page(
+                AlbumSortOrder::DateAdded,
+                &AlbumQueryFilter::All,
+                None,
+                2,
+                10,
+            )
             .unwrap();
         assert_eq!(beyond.total_count, 3);
         assert!(beyond.albums.is_empty());
 
         let hi_res = store
-            .album_page(AlbumSortOrder::DateAdded, &AlbumQueryFilter::HiRes, 10, 0)
+            .album_page(
+                AlbumSortOrder::DateAdded,
+                &AlbumQueryFilter::HiRes,
+                None,
+                10,
+                0,
+            )
             .unwrap();
         assert_eq!(hi_res.total_count, 1);
         assert_eq!(titles(&hi_res), ["Alpha"]);
@@ -224,6 +257,7 @@ mod tests {
             .album_page(
                 AlbumSortOrder::DateAdded,
                 &AlbumQueryFilter::AddedSince(2_000),
+                None,
                 10,
                 0,
             )
@@ -235,6 +269,7 @@ mod tests {
             .album_page(
                 AlbumSortOrder::DateAdded,
                 &AlbumQueryFilter::Genre("jazz".to_string()),
+                None,
                 10,
                 0,
             )
@@ -261,7 +296,13 @@ mod tests {
         let mut seen = Vec::new();
         for offset in [0, 1, 2] {
             let page = store
-                .album_page(AlbumSortOrder::DateAdded, &AlbumQueryFilter::All, 1, offset)
+                .album_page(
+                    AlbumSortOrder::DateAdded,
+                    &AlbumQueryFilter::All,
+                    None,
+                    1,
+                    offset,
+                )
                 .unwrap();
             assert_eq!(page.total_count, 3);
             assert_eq!(page.albums.len(), 1);
@@ -273,6 +314,55 @@ mod tests {
             ["Tie A", "Tie B", "Tie C"],
             "paging tied albums must neither duplicate nor drop a group"
         );
+    }
+
+    #[test]
+    fn album_artist_filter_composes_with_every_album_filter() {
+        let temp = tempdir().unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let mut add = |file: &str,
+                       album: &str,
+                       album_artist: &str,
+                       genre: &str,
+                       bit_depth: u8,
+                       sample_rate_hz: u32,
+                       added_at_ms: i64| {
+            let mut metadata = test_metadata(
+                file,
+                "Track Artist feat. Guest",
+                Some(album),
+                Some(album_artist),
+            );
+            metadata.genre = Some(genre.to_string());
+            metadata.bit_depth = Some(bit_depth);
+            metadata.sample_rate_hz = Some(sample_rate_hz);
+            let file = test_file(&root, file, added_at_ms, 10);
+            let transaction = store.connection.transaction().unwrap();
+            upsert_track(&transaction, root.id, &file, &metadata, added_at_ms).unwrap();
+            transaction.commit().unwrap();
+        };
+        add("alpha.wav", "Alpha", "Artist A", "Jazz", 24, 96_000, 3_000);
+        add("beta.wav", "Beta", "Artist A", "Rock", 16, 44_100, 1_000);
+        add("gamma.wav", "Gamma", "Artist B", "Jazz", 24, 96_000, 3_000);
+
+        let titles = |filter: AlbumQueryFilter| {
+            store
+                .album_page(AlbumSortOrder::Title, &filter, Some("Artist A"), 10, 0)
+                .unwrap()
+                .albums
+                .into_iter()
+                .map(|album| album.title)
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(titles(AlbumQueryFilter::All), ["Alpha", "Beta"]);
+        assert_eq!(titles(AlbumQueryFilter::HiRes), ["Alpha"]);
+        assert_eq!(
+            titles(AlbumQueryFilter::Genre("jazz".to_string())),
+            ["Alpha"]
+        );
+        assert_eq!(titles(AlbumQueryFilter::AddedSince(2_000)), ["Alpha"]);
     }
 
     #[test]

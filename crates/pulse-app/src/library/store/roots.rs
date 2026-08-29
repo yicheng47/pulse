@@ -205,6 +205,7 @@ mod tests {
         );
         assert!(store.storage_root(root.id).unwrap().is_none());
         assert!(store.tracks_for_root(root.id).unwrap().is_empty());
+        assert!(store.artist_index().unwrap().is_empty());
         let count = |sql: &str| -> i64 {
             store
                 .connection

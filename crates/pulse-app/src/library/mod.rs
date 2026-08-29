@@ -12,8 +12,8 @@ use std::{
 
 pub use store::{BackfillProgress, LibraryStore};
 use store::{
-    CompletedScan, clear_track_cover, delete_track, finish_completed_scan, set_track_cover,
-    update_track_path, upsert_track,
+    CompletedScan, artist_name_key_for_track, clear_track_cover, delete_track, refresh_artist_keys,
+    set_track_cover, update_track_path, upsert_track,
 };
 use thiserror::Error;
 use walk::walk_music_files_until;
@@ -100,6 +100,27 @@ pub struct Album {
     pub max_bit_depth: Option<u8>,
     pub cover_art_path: Option<PathBuf>,
     pub latest_added_at_ms: i64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Artist {
+    pub id: i64,
+    pub name: String,
+    pub name_key: String,
+    pub album_count: u64,
+    pub track_count: u64,
+    pub total_duration_ms: u64,
+    pub earliest_added_ms: i64,
+    pub earliest_added_year: Option<u32>,
+    pub cover_art_path: Option<PathBuf>,
+    pub display_name: Option<String>,
+    pub hidden: Option<bool>,
+    pub mbid: Option<String>,
+    pub photo_path: Option<PathBuf>,
+    pub photo_source: Option<String>,
+    pub enriched_at_ms: Option<i64>,
+    pub created_at_ms: i64,
+    pub updated_at_ms: i64,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -462,6 +483,12 @@ where
                             artwork,
                         ) {
                             Ok(_) => {
+                                refresh_track_artist_keys(
+                                    &transaction,
+                                    None,
+                                    Some(current.id),
+                                    now_ms,
+                                )?;
                                 transaction.commit()?;
                                 changed = true;
                             }
@@ -506,6 +533,10 @@ where
                         .and_then(|track| track.cover_art_path.as_ref())
                         .cloned();
                     let transaction = store.connection.transaction()?;
+                    let previous_artist_key = match current {
+                        Some(current) => artist_name_key_for_track(&transaction, current.id)?,
+                        None => None,
+                    };
                     let track_id = upsert_track(&transaction, root.id, &file, &metadata, now_ms)?;
                     let artwork = match metadata.artwork {
                         Some(artwork) => Ok(Some(artwork)),
@@ -522,6 +553,12 @@ where
                     });
                     match artwork_result {
                         Ok(new_cover) => {
+                            refresh_track_artist_keys(
+                                &transaction,
+                                previous_artist_key.as_deref(),
+                                Some(track_id),
+                                now_ms,
+                            )?;
                             transaction.commit()?;
                             if current.is_some() {
                                 updated += 1;
@@ -543,6 +580,12 @@ where
                             }
                         }
                         Err(ArtworkError::Cache(message)) => {
+                            refresh_track_artist_keys(
+                                &transaction,
+                                previous_artist_key.as_deref(),
+                                Some(track_id),
+                                now_ms,
+                            )?;
                             transaction.commit()?;
                             if current.is_some() {
                                 updated += 1;
@@ -566,7 +609,11 @@ where
                     action = ScanProgressAction::Unsupported;
                     if let Some(current) = current {
                         let transaction = store.connection.transaction()?;
+                        let artist_key = artist_name_key_for_track(&transaction, current.id)?;
                         delete_track(&transaction, current.id)?;
+                        if let Some(artist_key) = artist_key {
+                            refresh_artist_keys(&transaction, &[artist_key], now_ms)?;
+                        }
                         transaction.commit()?;
                         removed += 1;
                         if let Some(path) = &current.cover_art_path
@@ -609,10 +656,16 @@ where
             .filter(|(path_key, _)| !seen.contains(*path_key))
             .map(|(_, track)| track)
             .collect::<Vec<_>>();
+        let refreshed_at_ms = system_time_ms(SystemTime::now())?;
         let transaction = store.connection.transaction()?;
+        let mut artist_keys = Vec::new();
         for track in &missing {
+            if let Some(artist_key) = artist_name_key_for_track(&transaction, track.id)? {
+                artist_keys.push(artist_key);
+            }
             delete_track(&transaction, track.id)?;
         }
+        refresh_artist_keys(&transaction, &artist_keys, refreshed_at_ms)?;
         transaction.commit()?;
         removed += missing.len();
 
@@ -634,9 +687,7 @@ where
     } else {
         ScanOutcome::CompletedWithErrors
     };
-    let transaction = store.connection.transaction()?;
-    finish_completed_scan(
-        &transaction,
+    store.finish_completed_scan(
         scan_id,
         root.id,
         &CompletedScan {
@@ -650,7 +701,6 @@ where
             outcome,
         },
     )?;
-    transaction.commit()?;
 
     let report = ScanReport {
         scan_id,
@@ -669,6 +719,24 @@ where
     };
     on_progress(finished_progress(&report));
     Ok(Some(report))
+}
+
+fn refresh_track_artist_keys(
+    transaction: &rusqlite::Transaction<'_>,
+    previous_name_key: Option<&str>,
+    track_id: Option<TrackId>,
+    refreshed_at_ms: i64,
+) -> Result<(), LibraryError> {
+    let mut name_keys = previous_name_key
+        .map(str::to_string)
+        .into_iter()
+        .collect::<Vec<_>>();
+    if let Some(track_id) = track_id
+        && let Some(name_key) = artist_name_key_for_track(transaction, track_id)?
+    {
+        name_keys.push(name_key);
+    }
+    refresh_artist_keys(transaction, &name_keys, refreshed_at_ms)
 }
 
 /// Cover cache paths are content-unique (`{id}-{fingerprint}.cover`): the

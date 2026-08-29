@@ -1072,6 +1072,7 @@ mod tests {
                 .album_page(
                     AlbumSortOrder::Title,
                     &AlbumQueryFilter::Genre(genre.to_string()),
+                    None,
                     50,
                     0,
                 )

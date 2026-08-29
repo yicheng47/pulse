@@ -1,13 +1,44 @@
+use std::time::SystemTime;
+
 use rusqlite::{Connection, OptionalExtension, params};
 
-use super::super::{LibraryError, metadata};
+use super::super::{LibraryError, metadata, system_time_ms};
+use super::{EFFECTIVE_ALBUM_ARTIST_SQL, artists};
 
-pub const SCHEMA_VERSION: i64 = 4;
+pub const SCHEMA_VERSION: i64 = 5;
+pub(super) const EFFECTIVE_ARTIST_INDEX_NAME: &str = "tracks_effective_album_artist_idx";
 
-/// Fresh-database schema. Foreign keys are plain `REFERENCES` — related-data
-/// deletion is application-owned (`remove_storage_root`, `delete_track`, and
-/// `delete_playlist` delete children explicitly, in dependency order); the
-/// historical `ON DELETE CASCADE` safety nets left in the v3→v4 rebuild.
+fn effective_artist_index_ddl() -> String {
+    format!(
+        "CREATE INDEX {EFFECTIVE_ARTIST_INDEX_NAME}
+         ON tracks({EFFECTIVE_ALBUM_ARTIST_SQL});"
+    )
+}
+
+pub(super) const ARTISTS_DDL: &str = r#"
+CREATE TABLE artists (
+    id                  INTEGER PRIMARY KEY,
+    name                TEXT NOT NULL,
+    name_key            TEXT NOT NULL UNIQUE,
+    album_count         INTEGER NOT NULL,
+    track_count         INTEGER NOT NULL,
+    total_duration_ms   INTEGER NOT NULL,
+    earliest_added_ms   INTEGER NOT NULL,
+    cover_art_path      TEXT,
+    display_name        TEXT,
+    hidden              INTEGER DEFAULT 0 CHECK (hidden IS NULL OR hidden IN (0, 1)),
+    mbid                TEXT,
+    photo_path          TEXT,
+    photo_source        TEXT,
+    enriched_at_ms      INTEGER,
+    created_at_ms       INTEGER NOT NULL,
+    updated_at_ms       INTEGER NOT NULL
+);
+"#;
+
+/// Fresh-database schema. Legacy tables retain their plain `REFERENCES`
+/// declarations until a future schema rebuild; new tables have none and every
+/// relationship is maintained by application-owned mutation transactions.
 const SCHEMA: &str = r#"
 BEGIN IMMEDIATE;
 
@@ -51,6 +82,10 @@ CREATE TABLE tracks (
 CREATE INDEX tracks_storage_root_id_idx ON tracks(storage_root_id);
 CREATE INDEX tracks_album_idx ON tracks(album, album_artist);
 
+-- EFFECTIVE_ARTIST_INDEX_DDL
+
+-- ARTISTS_DDL
+
 CREATE TABLE scan_history (
     id                  INTEGER PRIMARY KEY,
     storage_root_id     INTEGER NOT NULL REFERENCES storage_roots(id),
@@ -91,9 +126,18 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
 -- FTS5 is deliberately deferred. MVP search uses capped LIKE queries whose
 -- result types can be preserved when an FTS table is added later.
 
-PRAGMA user_version = 4;
+PRAGMA user_version = 5;
 COMMIT;
 "#;
+
+fn fresh_schema() -> String {
+    SCHEMA
+        .replace(
+            "-- EFFECTIVE_ARTIST_INDEX_DDL",
+            &effective_artist_index_ddl(),
+        )
+        .replace("-- ARTISTS_DDL", ARTISTS_DDL)
+}
 
 /// Progress of the v1→v2 year/genre backfill, which re-reads every track file
 /// and can block for a while on a large network library.
@@ -109,17 +153,23 @@ pub fn migrate_to_current(
 ) -> Result<(), LibraryError> {
     let version = connection.query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))?;
     match version {
-        0 => connection.execute_batch(SCHEMA)?,
+        0 => connection.execute_batch(&fresh_schema())?,
         1 => {
             migrate_v1_to_v2(connection, on_backfill_progress)?;
             migrate_v2_to_v3(connection)?;
             migrate_v3_to_v4(connection)?;
+            migrate_v4_to_v5(connection)?;
         }
         2 => {
             migrate_v2_to_v3(connection)?;
             migrate_v3_to_v4(connection)?;
+            migrate_v4_to_v5(connection)?;
         }
-        3 => migrate_v3_to_v4(connection)?,
+        3 => {
+            migrate_v3_to_v4(connection)?;
+            migrate_v4_to_v5(connection)?;
+        }
+        4 => migrate_v4_to_v5(connection)?,
         SCHEMA_VERSION => {}
         version => return Err(LibraryError::UnsupportedSchemaVersion(version)),
     }
@@ -217,15 +267,7 @@ fn migrate_v2_to_v3(connection: &mut Connection) -> Result<(), LibraryError> {
 /// name, copy rows (preserving ids — cover-cache paths and playlist entries
 /// reference track ids), drop the old table, rename, recreate indexes.
 fn migrate_v3_to_v4(connection: &mut Connection) -> Result<(), LibraryError> {
-    // `PRAGMA foreign_keys` is a no-op while a transaction is open, so
-    // enforcement is toggled off out here and restored on both exit paths (a
-    // failed rebuild rolls back when the transaction drops).
-    connection.execute_batch("PRAGMA foreign_keys = OFF;")?;
-    let rebuilt = rebuild_without_cascades(connection);
-    let restored = connection.execute_batch("PRAGMA foreign_keys = ON;");
-    rebuilt?;
-    restored?;
-    Ok(())
+    rebuild_without_cascades(connection)
 }
 
 fn rebuild_without_cascades(connection: &mut Connection) -> Result<(), LibraryError> {
@@ -331,12 +373,23 @@ fn rebuild_without_cascades(connection: &mut Connection) -> Result<(), LibraryEr
     Ok(())
 }
 
+fn migrate_v4_to_v5(connection: &mut Connection) -> Result<(), LibraryError> {
+    let migrated_at_ms = system_time_ms(SystemTime::now())?;
+    let transaction = connection.transaction()?;
+    transaction.execute_batch(ARTISTS_DDL)?;
+    transaction.execute_batch(&effective_artist_index_ddl())?;
+    artists::backfill(&transaction, migrated_at_ms)?;
+    transaction.execute_batch("PRAGMA user_version = 5;")?;
+    transaction.commit()?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use rusqlite::Connection;
     use tempfile::tempdir;
 
-    use super::{BackfillProgress, SCHEMA_VERSION};
+    use super::{ARTISTS_DDL, BackfillProgress, EFFECTIVE_ARTIST_INDEX_NAME, SCHEMA_VERSION};
     use crate::library::{LibraryError, LibraryStore, ScanOutcome, metadata};
 
     /// The schema exactly as v3 shipped it — the shape Jason's live library
@@ -477,10 +530,36 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
     }
 
     #[test]
-    fn fresh_databases_initialize_at_v4_with_plain_references() {
+    fn fresh_databases_initialize_at_v5_with_fk_free_artists() {
         let store = LibraryStore::open_in_memory().unwrap();
         assert_eq!(user_version(&store.connection), SCHEMA_VERSION);
         assert_no_cascades(&store.connection);
+        let artists_sql: String = store
+            .connection
+            .query_row(
+                "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'artists'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(!ARTISTS_DDL.contains("REFERENCES"));
+        assert!(!artists_sql.contains("REFERENCES"));
+        let effective_artist_index_sql: String = store
+            .connection
+            .query_row(
+                "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?1",
+                [EFFECTIVE_ARTIST_INDEX_NAME],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(effective_artist_index_sql.contains(super::EFFECTIVE_ALBUM_ARTIST_SQL));
+        assert_eq!(
+            store
+                .connection
+                .query_row("PRAGMA foreign_keys", [], |row| row.get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
     }
 
     #[test]
@@ -574,12 +653,12 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
         assert_eq!(missing.year, None);
         assert_eq!(missing.genre, None);
         assert_eq!(missing.modified_at_ns, -1);
-        assert_eq!(user_version(&store.connection), 4);
+        assert_eq!(user_version(&store.connection), 5);
         assert_no_cascades(&store.connection);
     }
 
     #[test]
-    fn migrates_v2_to_v4_and_creates_playlist_tables() {
+    fn migrates_v2_to_v5_and_creates_playlist_and_artist_tables() {
         let temp = tempdir().unwrap();
         let database_path = temp.path().join("library.sqlite");
         let connection = Connection::open(&database_path).unwrap();
@@ -590,12 +669,108 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
         let playlist = store.create_playlist("Migrated").unwrap();
 
         assert_eq!(store.playlist(playlist.id).unwrap(), Some(playlist));
-        assert_eq!(user_version(&store.connection), 4);
+        assert_eq!(user_version(&store.connection), 5);
         assert_no_cascades(&store.connection);
     }
 
     #[test]
-    fn migrates_v3_to_v4_rebuilding_tables_and_preserving_row_ids() {
+    fn migrates_v4_to_v5_once_and_preserves_artist_seams_on_reopen() {
+        let temp = tempdir().unwrap();
+        let database_path = temp.path().join("library.sqlite");
+        let mut connection = Connection::open(&database_path).unwrap();
+        connection
+            .set_db_config(
+                rusqlite::config::DbConfig::SQLITE_DBCONFIG_ENABLE_FKEY,
+                false,
+            )
+            .unwrap();
+        connection.execute_batch(V3_SCHEMA).unwrap();
+        connection
+            .execute_batch(
+                "INSERT INTO storage_roots
+                     (id, path, path_key, display_name, added_at_ms, is_reachable,
+                      is_case_sensitive)
+                 VALUES (1, '/music', '/music', 'Music', 1, 1, 1);
+                 INSERT INTO tracks
+                     (id, storage_root_id, path, path_key, title, artist, album,
+                      album_artist, duration_ms, file_size_bytes, modified_at_ns,
+                      added_at_ms, updated_at_ms)
+                 VALUES
+                     (10, 1, '/music/a.flac', '/music/a.flac', 'A',
+                      'Lead feat. Guest', 'Original', 'Lead', 1000, 1, 1, 100, 100),
+                     (11, 1, '/music/b.flac', '/music/b.flac', 'B',
+                      'Guest feat. Lead', 'Reissue', 'Lead', 2000, 1, 1, 200, 200),
+                     (12, 1, '/music/c.flac', '/music/c.flac', 'C',
+                      '王菲', '天空', '   ', 3000, 1, 1, 300, 300);",
+            )
+            .unwrap();
+        super::migrate_v3_to_v4(&mut connection).unwrap();
+        assert_eq!(user_version(&connection), 4);
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM sqlite_master
+                     WHERE type = 'table' AND name = 'artists'",
+                    [],
+                    |row| row.get::<_, i64>(0),
+                )
+                .unwrap(),
+            0
+        );
+        drop(connection);
+
+        let store = LibraryStore::open(&database_path).unwrap();
+        assert_eq!(user_version(&store.connection), 5);
+        let artists = store.artist_index().unwrap();
+        assert_eq!(artists.len(), 2);
+        let lead = artists.iter().find(|artist| artist.name == "Lead").unwrap();
+        assert_eq!((lead.album_count, lead.track_count), (2, 2));
+        assert_eq!(lead.total_duration_ms, 3_000);
+        assert_eq!(lead.earliest_added_ms, 100);
+        let faye = artists.iter().find(|artist| artist.name == "王菲").unwrap();
+        assert_eq!((faye.album_count, faye.track_count), (1, 1));
+        assert_eq!(faye.total_duration_ms, 3_000);
+        assert_eq!(faye.earliest_added_ms, 300);
+        let lead_id = lead.id;
+        let lead_created_at_ms = lead.created_at_ms;
+        let lead_updated_at_ms = lead.updated_at_ms;
+        store
+            .connection
+            .execute(
+                "UPDATE artists
+                 SET display_name = 'The Lead', hidden = 1, mbid = 'mbid-1',
+                     photo_path = '/photos/lead.jpg', photo_source = 'local',
+                     enriched_at_ms = 999
+                 WHERE name_key = 'Lead'",
+                [],
+            )
+            .unwrap();
+        drop(store);
+
+        let reopened = LibraryStore::open(&database_path).unwrap();
+        assert_eq!(user_version(&reopened.connection), 5);
+        let lead = reopened
+            .artist_index()
+            .unwrap()
+            .into_iter()
+            .find(|artist| artist.name_key == "Lead")
+            .unwrap();
+        assert_eq!(lead.id, lead_id);
+        assert_eq!(lead.created_at_ms, lead_created_at_ms);
+        assert_eq!(lead.updated_at_ms, lead_updated_at_ms);
+        assert_eq!(lead.display_name.as_deref(), Some("The Lead"));
+        assert_eq!(lead.hidden, Some(true));
+        assert_eq!(lead.mbid.as_deref(), Some("mbid-1"));
+        assert_eq!(
+            lead.photo_path.as_deref(),
+            Some(std::path::Path::new("/photos/lead.jpg"))
+        );
+        assert_eq!(lead.photo_source.as_deref(), Some("local"));
+        assert_eq!(lead.enriched_at_ms, Some(999));
+    }
+
+    #[test]
+    fn migrates_v3_to_v5_rebuilding_tables_and_preserving_row_ids() {
         let temp = tempdir().unwrap();
         let database_path = temp.path().join("library.sqlite");
         let connection = Connection::open(&database_path).unwrap();
@@ -626,24 +801,28 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
 
         let mut store = LibraryStore::open(&database_path).unwrap();
 
-        assert_eq!(user_version(&store.connection), 4);
+        assert_eq!(user_version(&store.connection), 5);
         let foreign_keys: i64 = store
             .connection
             .query_row("PRAGMA foreign_keys", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(foreign_keys, 1, "enforcement is restored after the rebuild");
+        assert_eq!(
+            foreign_keys, 0,
+            "application-owned relationships stay unenforced"
+        );
         assert_no_cascades(&store.connection);
         let index_count: i64 = store
             .connection
             .query_row(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name IN
                      ('tracks_storage_root_id_idx', 'tracks_album_idx',
+                      'tracks_effective_album_artist_idx',
                       'scan_history_root_started_idx', 'playlist_tracks_track_id_idx')",
                 [],
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(index_count, 4, "indexes are recreated after the rebuild");
+        assert_eq!(index_count, 5, "indexes are recreated after the rebuild");
 
         let tracks = store.tracks_for_root(1).unwrap();
         assert_eq!(
@@ -668,22 +847,6 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
         assert_eq!(history.len(), 1);
         assert_eq!(history[0].id, 7);
         assert_eq!(history[0].outcome, Some(ScanOutcome::Completed));
-
-        // The cascades are behaviorally gone: with enforcement on, a bare
-        // parent delete is rejected instead of silently deleting children.
-        assert!(
-            store
-                .connection
-                .execute("DELETE FROM playlists WHERE id = 3", [])
-                .is_err()
-        );
-        assert!(
-            store
-                .connection
-                .execute("DELETE FROM storage_roots WHERE id = 1", [])
-                .is_err()
-        );
-        assert_eq!(store.playlist_tracks(3).unwrap().len(), 2);
 
         // Application-owned deletion still clears children first.
         store.delete_playlist(3).unwrap();

@@ -301,6 +301,7 @@ mod tests {
     fn each_destination_maps_to_a_bundled_icon() {
         for destination in [
             Destination::Albums,
+            Destination::Artists,
             Destination::Tracks,
             Destination::Playlists,
             Destination::Storage,

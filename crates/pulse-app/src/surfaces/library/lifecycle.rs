@@ -43,6 +43,16 @@ impl LibraryView {
             self.album_detail = None;
             self.selected_album_track_id = None;
         }
+        if destination != self.destination && destination == Destination::Artists {
+            self.album_detail = None;
+            self.artist_detail = None;
+            self.artist_route = ArtistRoute::Index;
+            self.text_input.reset("");
+            self.artists_scroll = ScrollHandle::new();
+            self.artist_scrollbar.update(cx, |scrollbar, _| {
+                scrollbar.set_scroll_handle(self.artists_scroll.clone());
+            });
+        }
         self.destination = destination;
         self.track_menu = None;
         self.playlist_menu = None;
@@ -64,6 +74,7 @@ impl LibraryView {
         let album_page = store.album_page(
             self.album_sort,
             &self.album_filter.album_query_filter(current_time_ms()),
+            None,
             self.albums.len().max(LIST_PAGE_SIZE),
             0,
         )?;
@@ -76,6 +87,14 @@ impl LibraryView {
         )?;
         let genres = store.genre_album_counts()?;
         let artists = store.artists()?;
+        let artist_index = store.artist_index()?;
+        let artist_detail = self
+            .artist_route
+            .artist()
+            .and_then(|name| artist_index.iter().find(|artist| artist.name == name))
+            .cloned()
+            .map(|artist| Self::load_artist_detail(store, artist, self.album_sort))
+            .transpose()?;
         let playlists = store.playlists()?;
         let catalog_summary = store.catalog_summary()?;
         let mut roots = Vec::new();
@@ -94,6 +113,12 @@ impl LibraryView {
         self.tracks = track_page.tracks;
         self.genres = genres;
         self.artists = artists;
+        self.artist_index = artist_index;
+        self.artist_detail = artist_detail;
+        if self.artist_route.artist().is_some() && self.artist_detail.is_none() {
+            self.artist_route = ArtistRoute::Index;
+            self.album_detail = None;
+        }
         self.playlists = playlists;
         self.catalog_summary = catalog_summary;
         self.roots = roots;
@@ -106,8 +131,11 @@ impl LibraryView {
         if let Some(detail) = &self.album_detail {
             let key = (detail.album.artist.clone(), detail.album.title.clone());
             if let Some(album) = self
-                .albums
-                .iter()
+                .artist_detail
+                .as_ref()
+                .into_iter()
+                .flat_map(|artist| artist.albums.iter())
+                .chain(self.albums.iter())
                 .find(|album| (album.artist.as_str(), album.title.as_str()) == (&key.0, &key.1))
                 .cloned()
             {
@@ -117,6 +145,9 @@ impl LibraryView {
                 });
             } else {
                 self.album_detail = None;
+                if self.destination == Destination::Artists {
+                    self.artist_route.back();
+                }
             }
         }
         if self

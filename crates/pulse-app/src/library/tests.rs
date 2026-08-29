@@ -217,6 +217,56 @@ fn scan_is_incremental_removes_missing_tracks_and_preserves_offline_roots() {
 }
 
 #[test]
+fn scan_adds_updates_and_prunes_materialized_artists() {
+    let temp = tempdir().unwrap();
+    let music = temp.path().join("music");
+    let cache = temp.path().join("covers");
+    fs::create_dir(&music).unwrap();
+    let first_path = music.join("01-first.wav");
+    metadata::write_test_wav(&first_path, "First", "Artist", "First Album").unwrap();
+    let mut store = LibraryStore::open_in_memory().unwrap();
+    let root = store.add_storage_root(&music, "Music").unwrap();
+
+    scan_storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
+    let artists = store.artist_index().unwrap();
+    assert_eq!(artists.len(), 1);
+    assert_eq!(artists[0].name_key, "Artist");
+    assert_eq!((artists[0].album_count, artists[0].track_count), (1, 1));
+
+    let second_path = music.join("02-second.wav");
+    metadata::write_test_wav(&second_path, "Second", "Artist", "Second Album").unwrap();
+    scan_storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
+    let artists = store.artist_index().unwrap();
+    assert_eq!(artists.len(), 1);
+    assert_eq!((artists[0].album_count, artists[0].track_count), (2, 2));
+
+    let previous_modified = fs::metadata(&second_path).unwrap().modified().unwrap();
+    metadata::write_test_wav(&second_path, "Second", "Other Artist", "Other Album").unwrap();
+    fs::OpenOptions::new()
+        .write(true)
+        .open(&second_path)
+        .unwrap()
+        .set_times(fs::FileTimes::new().set_modified(previous_modified + Duration::from_secs(2)))
+        .unwrap();
+    scan_storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
+    let artists = store.artist_index().unwrap();
+    assert_eq!(artists.len(), 2);
+    assert!(artists.iter().any(|artist| {
+        artist.name_key == "Artist" && (artist.album_count, artist.track_count) == (1, 1)
+    }));
+    assert!(artists.iter().any(|artist| {
+        artist.name_key == "Other Artist" && (artist.album_count, artist.track_count) == (1, 1)
+    }));
+
+    fs::remove_file(&second_path).unwrap();
+    scan_storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
+    let artists = store.artist_index().unwrap();
+    assert_eq!(artists.len(), 1);
+    assert_eq!(artists[0].name_key, "Artist");
+    assert_eq!((artists[0].album_count, artists[0].track_count), (1, 1));
+}
+
+#[test]
 fn cancellation_keeps_partial_commits_without_recording_a_failed_scan() {
     let temp = tempdir().unwrap();
     let music = temp.path().join("music");
@@ -242,7 +292,59 @@ fn cancellation_keeps_partial_commits_without_recording_a_failed_scan() {
 
     assert!(report.is_none());
     assert_eq!(store.tracks_for_root(root.id).unwrap().len(), 1);
+    let artists = store.artist_index().unwrap();
+    assert_eq!(artists.len(), 1);
+    assert_eq!(artists[0].name_key, "Artist");
+    assert_eq!((artists[0].album_count, artists[0].track_count), (1, 1));
     assert!(store.recent_scans(root.id, 1).unwrap().is_empty());
+}
+
+#[test]
+fn failed_artist_refresh_rolls_back_the_current_scan_track() {
+    let temp = tempdir().unwrap();
+    let music = temp.path().join("music");
+    let cache = temp.path().join("covers");
+    fs::create_dir(&music).unwrap();
+    metadata::write_test_wav(
+        &music.join("01-first.wav"),
+        "First",
+        "First Artist",
+        "First Album",
+    )
+    .unwrap();
+    metadata::write_test_wav(
+        &music.join("02-second.wav"),
+        "Second",
+        "Second Artist",
+        "Second Album",
+    )
+    .unwrap();
+    let mut store = LibraryStore::open_in_memory().unwrap();
+    let root = store.add_storage_root(&music, "Music").unwrap();
+    store
+        .connection
+        .execute_batch(
+            "CREATE TRIGGER fail_second_artist
+             BEFORE INSERT ON artists
+             WHEN NEW.name_key = 'Second Artist'
+             BEGIN SELECT RAISE(ABORT, 'artist refresh failed'); END;",
+        )
+        .unwrap();
+
+    let error = scan_storage_root(&mut store, root.id, &cache, |_| {}).unwrap_err();
+
+    assert!(error.to_string().contains("artist refresh failed"));
+    let tracks = store.tracks_for_root(root.id).unwrap();
+    assert_eq!(tracks.len(), 1);
+    assert_eq!(tracks[0].artist.as_deref(), Some("First Artist"));
+    let artists = store.artist_index().unwrap();
+    assert_eq!(artists.len(), 1);
+    assert_eq!(artists[0].name_key, "First Artist");
+    assert_eq!((artists[0].album_count, artists[0].track_count), (1, 1));
+    assert_eq!(
+        store.recent_scans(root.id, 1).unwrap()[0].outcome,
+        Some(ScanOutcome::Failed)
+    );
 }
 
 #[test]

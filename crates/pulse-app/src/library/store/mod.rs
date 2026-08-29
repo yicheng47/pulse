@@ -13,6 +13,7 @@
 //     monolithic store had — so caller-side error handling is untouched.
 
 mod albums;
+mod artists;
 mod playlists;
 mod roots;
 mod scans;
@@ -28,21 +29,41 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use rusqlite::{Connection, functions::FunctionFlags};
+use rusqlite::{Connection, Transaction, config::DbConfig, functions::FunctionFlags};
 
 use super::{
-    Album, AlbumPage, AlbumQueryFilter, AlbumSortOrder, LibraryError, LibrarySearchResults,
+    Album, AlbumPage, AlbumQueryFilter, AlbumSortOrder, Artist, LibraryError, LibrarySearchResults,
     LibrarySummary, Playlist, PlaylistId, PlaylistSummary, PlaylistTrack, ScanHistoryEntry,
     StorageRoot, StorageRootId, Track, TrackId, TrackPage, TrackQueryFilter, TrackSortOrder,
     system_time_ms,
 };
 
-pub(super) use scans::{CompletedScan, finish_completed_scan};
+// SQLite expression indexes cannot match a bound fallback parameter, so the
+// shared identity expression keeps the shipped unknown-artist value literal.
+const EFFECTIVE_ALBUM_ARTIST_SQL: &str =
+    "COALESCE(NULLIF(trim(album_artist), ''), NULLIF(trim(artist), ''), 'Unknown Artist')";
+
+pub(super) use scans::CompletedScan;
 pub use schema::BackfillProgress;
 pub(super) use tracks::{
     ExistingTrack, clear_track_cover, delete_track, set_track_cover, update_track_path,
     upsert_track,
 };
+
+pub(super) fn artist_name_key_for_track(
+    conn: &Connection,
+    track_id: TrackId,
+) -> Result<Option<String>, LibraryError> {
+    artists::name_key_for_track(conn, track_id)
+}
+
+pub(super) fn refresh_artist_keys(
+    transaction: &Transaction<'_>,
+    name_keys: &[String],
+    refreshed_at_ms: i64,
+) -> Result<(), LibraryError> {
+    artists::refresh_keys(transaction, name_keys, refreshed_at_ms)
+}
 
 pub struct LibraryStore {
     pub(super) connection: Connection,
@@ -89,9 +110,9 @@ impl LibraryStore {
         on_backfill_progress: impl FnMut(BackfillProgress),
     ) -> Result<Self, LibraryError> {
         connection.busy_timeout(Duration::from_secs(5))?;
+        connection.set_db_config(DbConfig::SQLITE_DBCONFIG_ENABLE_FKEY, false)?;
         connection.execute_batch(
-            "PRAGMA foreign_keys = ON;
-             PRAGMA journal_mode = WAL;
+            "PRAGMA journal_mode = WAL;
              PRAGMA synchronous = NORMAL;",
         )?;
         // Exact-membership genre predicate for SQL queries, sharing
@@ -153,6 +174,7 @@ impl LibraryStore {
         &mut self,
         storage_root_id: StorageRootId,
     ) -> Result<Vec<PathBuf>, LibraryError> {
+        let refreshed_at_ms = system_time_ms(SystemTime::now())?;
         let transaction = self.connection.transaction()?;
         let cover_art_paths = tracks::cover_paths_for_root(&transaction, storage_root_id)?;
         // Children are deleted explicitly, in dependency order — related-data
@@ -165,6 +187,7 @@ impl LibraryStore {
         if deleted == 0 {
             return Err(LibraryError::StorageRootNotFound(storage_root_id));
         }
+        artists::refresh(&transaction, refreshed_at_ms)?;
         transaction.commit()?;
         Ok(cover_art_paths)
     }
@@ -186,10 +209,22 @@ impl LibraryStore {
         &self,
         sort_order: AlbumSortOrder,
         filter: &AlbumQueryFilter,
+        artist_filter: Option<&str>,
         limit: usize,
         offset: usize,
     ) -> Result<AlbumPage, LibraryError> {
-        albums::page(&self.connection, sort_order, filter, limit, offset)
+        albums::page(
+            &self.connection,
+            sort_order,
+            filter,
+            artist_filter,
+            limit,
+            offset,
+        )
+    }
+
+    pub fn artist_index(&self) -> Result<Vec<Artist>, LibraryError> {
+        artists::index(&self.connection)
     }
 
     pub fn all_tracks(&self, sort_order: TrackSortOrder) -> Result<Vec<Track>, LibraryError> {
@@ -241,10 +276,12 @@ impl LibraryStore {
     /// Callers own the files: audio and cover-cache deletion happens outside
     /// the store, mirroring `remove_storage_root`.
     pub fn delete_tracks(&mut self, track_ids: &[TrackId]) -> Result<(), LibraryError> {
+        let refreshed_at_ms = system_time_ms(SystemTime::now())?;
         let transaction = self.connection.transaction()?;
         for &track_id in track_ids {
             tracks::delete_track(&transaction, track_id)?;
         }
+        artists::refresh(&transaction, refreshed_at_ms)?;
         transaction.commit()?;
         Ok(())
     }
@@ -373,8 +410,13 @@ impl LibraryStore {
         )
     }
 
-    pub(super) fn cancel_scan(&self, scan_id: i64) -> Result<(), LibraryError> {
-        scans::cancel(&self.connection, scan_id)
+    pub(super) fn cancel_scan(&mut self, scan_id: i64) -> Result<(), LibraryError> {
+        let refreshed_at_ms = system_time_ms(SystemTime::now())?;
+        let transaction = self.connection.transaction()?;
+        scans::cancel(&transaction, scan_id)?;
+        artists::refresh(&transaction, refreshed_at_ms)?;
+        transaction.commit()?;
+        Ok(())
     }
 
     pub(super) fn mark_root_reachable(
@@ -399,6 +441,7 @@ impl LibraryStore {
             finished_at_ms,
             error_message,
         )?;
+        artists::refresh(&transaction, finished_at_ms)?;
         transaction.commit()?;
         Ok(())
     }
@@ -418,6 +461,20 @@ impl LibraryStore {
             finished_at_ms,
             error_message,
         )?;
+        artists::refresh(&transaction, finished_at_ms)?;
+        transaction.commit()?;
+        Ok(())
+    }
+
+    pub(super) fn finish_completed_scan(
+        &mut self,
+        scan_id: i64,
+        storage_root_id: StorageRootId,
+        completed: &CompletedScan,
+    ) -> Result<(), LibraryError> {
+        let transaction = self.connection.transaction()?;
+        scans::finish_completed_scan(&transaction, scan_id, storage_root_id, completed)?;
+        artists::refresh(&transaction, completed.finished_at_ms)?;
         transaction.commit()?;
         Ok(())
     }
@@ -461,6 +518,10 @@ pub(crate) mod testing {
             Some("image/png"),
         )
         .unwrap();
+        let name_key = super::artists::name_key_for_track(&transaction, track_id)
+            .unwrap()
+            .unwrap();
+        super::artists::refresh_keys(&transaction, &[name_key], 100).unwrap();
         transaction.commit().unwrap();
     }
 
@@ -522,6 +583,10 @@ pub(crate) mod testing {
     ) -> TrackId {
         let transaction = store.connection.transaction().unwrap();
         let id = upsert_track(&transaction, root.id, file, metadata, 100).unwrap();
+        let name_key = super::artists::name_key_for_track(&transaction, id)
+            .unwrap()
+            .unwrap();
+        super::artists::refresh_keys(&transaction, &[name_key], 100).unwrap();
         transaction.commit().unwrap();
         id
     }

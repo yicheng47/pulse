@@ -135,6 +135,28 @@ impl LibraryView {
         }
     }
 
+    pub(super) fn play_artist(&mut self, cx: &mut Context<Self>) {
+        let Some(detail) = &self.artist_detail else {
+            return;
+        };
+        if !detail.tracks.is_empty() {
+            self.play_tracks(detail.tracks.clone(), 0, cx);
+        }
+    }
+
+    pub(super) fn shuffle_artist(&mut self, cx: &mut Context<Self>) {
+        let Some(detail) = &self.artist_detail else {
+            return;
+        };
+        if detail.tracks.is_empty() {
+            return;
+        }
+        let tracks = detail.tracks.clone();
+        self.app_store.update(cx, |store, store_cx| {
+            store.send_command(PlaybackAction::PlayLibraryTracksShuffled(tracks), store_cx);
+        });
+    }
+
     pub(super) fn play_playlist(&mut self, cx: &mut Context<Self>) {
         let Some(detail) = &self.playlist_detail else {
             return;
