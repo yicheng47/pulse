@@ -379,9 +379,9 @@ impl Worker {
 
         match self.open_preloaded_source(&path) {
             Ok(source) => self.next_source = Some(source),
-            Err(error) => self.broadcast(PlaybackEvent::Error {
+            Err(error) => self.broadcast(PlaybackEvent::NextRejected {
                 attempt: self.attempt,
-                kind: (&error).into(),
+                path,
                 message: error.to_string(),
             }),
         }
@@ -1007,13 +1007,14 @@ impl Worker {
         let Some(transition) = transition else {
             return;
         };
-        match self.open_preloaded_source(&transition.incoming.source.path) {
+        let path = transition.incoming.source.path;
+        match self.open_preloaded_source(&path) {
             Ok(next) => self.next_source = Some(next),
             Err(error) => {
                 self.next_source = None;
-                self.broadcast(PlaybackEvent::Error {
+                self.broadcast(PlaybackEvent::NextRejected {
                     attempt: self.attempt,
-                    kind: (&error).into(),
+                    path,
                     message: error.to_string(),
                 });
             }
@@ -2284,7 +2285,7 @@ mod tests {
     }
 
     #[test]
-    fn unreadable_set_next_is_advisory_and_current_playback_continues() {
+    fn unreadable_set_next_is_rejected_and_current_playback_continues() {
         let (controller, log) = fake_controller();
         log.lock().unwrap().position_limit = 0;
         let events = controller.subscribe();
@@ -2310,11 +2311,11 @@ mod tests {
         assert_eq!(
             wait_for(&events, |event| matches!(
                 event,
-                PlaybackEvent::Error { .. }
+                PlaybackEvent::NextRejected { .. }
             )),
-            PlaybackEvent::Error {
+            PlaybackEvent::NextRejected {
                 attempt: 1,
-                kind: crate::PlaybackErrorKind::Track,
+                path: PathBuf::from("bad.flac"),
                 message: "decode: unreadable source".to_string(),
             }
         );
@@ -2636,18 +2637,18 @@ mod tests {
             .insert(PathBuf::from("b.flac"));
 
         commands.send(PlaybackCommand::Pause).unwrap();
-        let mut advisory_error = false;
+        let mut next_rejected = false;
         loop {
             match events.recv_timeout(Duration::from_secs(1)).unwrap() {
-                PlaybackEvent::Error {
+                PlaybackEvent::NextRejected {
                     attempt,
-                    kind,
+                    path,
                     message,
                 } => {
                     assert_eq!(attempt, 1);
-                    assert_eq!(kind, crate::PlaybackErrorKind::Track);
+                    assert_eq!(path, PathBuf::from("b.flac"));
                     assert_eq!(message, "decode: unreadable source");
-                    advisory_error = true;
+                    next_rejected = true;
                 }
                 PlaybackEvent::StateChanged(PlaybackState::Paused) => break,
                 PlaybackEvent::StateChanged(PlaybackState::Error) => {
@@ -2656,7 +2657,7 @@ mod tests {
                 _ => {}
             }
         }
-        assert!(advisory_error);
+        assert!(next_rejected);
 
         log.lock().unwrap().position_limit = 0;
         commands.send(PlaybackCommand::Resume).unwrap();

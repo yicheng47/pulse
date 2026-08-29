@@ -5,7 +5,9 @@ impl Playback {
     /// scan re-verifies file presence, and a removed root recycles track ids.
     pub(crate) fn clear_missing_marks(&mut self) {
         self.missing_track_ids.clear();
+        self.rejected_next_track_ids.clear();
         self.refresh_missing_track_ids_snapshot();
+        self.sync_next_source();
     }
 
     #[cfg(test)]
@@ -18,8 +20,10 @@ impl Playback {
     pub(crate) fn remove_missing_marks(&mut self, track_ids: &[TrackId]) {
         for track_id in track_ids {
             self.missing_track_ids.remove(track_id);
+            self.rejected_next_track_ids.remove(track_id);
         }
         self.refresh_missing_track_ids_snapshot();
+        self.sync_next_source();
     }
 
     pub(crate) fn dismiss_notice(&mut self) {
@@ -108,11 +112,13 @@ impl Playback {
     pub(crate) fn toggle_shuffle(&mut self) {
         self.queue.toggle_shuffle();
         self.refresh_queue_snapshot();
+        self.sync_next_source();
     }
 
     pub(crate) fn cycle_repeat(&mut self) {
         self.queue.cycle_repeat();
         self.refresh_queue_snapshot();
+        self.sync_next_source();
     }
 
     pub(crate) fn previous_track(&mut self) {
@@ -211,11 +217,13 @@ impl Playback {
     pub(crate) fn remove_queue_entry(&mut self, index: usize) {
         self.queue.remove_at(index);
         self.refresh_queue_snapshot();
+        self.sync_next_source();
     }
 
     pub(crate) fn clear_upcoming_queue(&mut self) {
         self.queue.clear_upcoming();
         self.refresh_queue_snapshot();
+        self.sync_next_source();
     }
 
     pub(crate) fn next_playable(&mut self, first: TrackRef) -> Option<TrackRef> {

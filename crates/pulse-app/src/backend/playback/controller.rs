@@ -3,6 +3,7 @@ use super::*;
 impl Playback {
     pub(crate) fn install_controller(&mut self, device_id: device::DeviceId, exclusive_mode: bool) {
         let controller = PlaybackController::spawn(device_id, exclusive_mode);
+        self.sent_next = None;
         self.event_rx = Some(controller.subscribe());
         let command_tx = controller.command_sender();
         if command_tx.send(self.volume_command()).is_err() {
@@ -54,9 +55,9 @@ impl Playback {
     }
 
     pub(crate) fn play_file(&mut self, path: PathBuf) {
-        if self.controller.is_none() {
+        if self.command_tx.is_none() {
             self.initialize_output();
-            if self.controller.is_none() {
+            if self.command_tx.is_none() {
                 self.error = Some("No output device is available.".to_string());
 
                 return;
@@ -128,15 +129,59 @@ impl Playback {
         self.source_path.clone()
     }
 
-    pub(crate) fn send_command(&mut self, command: PlaybackCommand) {
+    pub(crate) fn send_command(&mut self, command: PlaybackCommand) -> bool {
+        let reset_next = matches!(
+            &command,
+            PlaybackCommand::PlayFile { .. }
+                | PlaybackCommand::Stop
+                | PlaybackCommand::SetOutputDevice { .. }
+                | PlaybackCommand::SetExclusiveMode { .. }
+        );
+        let resync_next = matches!(&command, PlaybackCommand::PlayFile { .. })
+            || matches!(&command, PlaybackCommand::SetExclusiveMode { .. })
+                && self.playback_state != PlaybackState::Playing;
+        if reset_next {
+            self.sent_next = None;
+        }
         let Some(command_tx) = &self.command_tx else {
-            return;
+            return false;
         };
         let is_play = matches!(command, PlaybackCommand::PlayFile { .. });
         if command_tx.send(command).is_err() {
             self.error = Some("Playback engine disconnected.".to_string());
-        } else if is_play {
+            return false;
+        }
+        if is_play {
             self.dispatched_plays += 1;
+        }
+        if resync_next {
+            self.sync_next_source();
+        }
+        true
+    }
+
+    pub(crate) fn sync_next_source(&mut self) {
+        if !matches!(
+            self.playback_state,
+            PlaybackState::Loading | PlaybackState::Playing | PlaybackState::Paused
+        ) {
+            return;
+        }
+        let next = self.effective_next_track().map(|track| track.path.clone());
+        if next == self.sent_next {
+            return;
+        }
+        let command = match &next {
+            Some(path) => PlaybackCommand::SetNext { path: path.clone() },
+            None => PlaybackCommand::ClearNext,
+        };
+        let Some(command_tx) = &self.command_tx else {
+            return;
+        };
+        if command_tx.send(command).is_err() {
+            self.error = Some("Playback engine disconnected.".to_string());
+        } else {
+            self.sent_next = next;
         }
     }
 
@@ -173,6 +218,14 @@ impl Playback {
         match event {
             PlaybackEvent::StateChanged(state) => {
                 self.playback_state = state;
+                if matches!(
+                    state,
+                    PlaybackState::Idle | PlaybackState::Ended | PlaybackState::Error
+                ) {
+                    self.sent_next = None;
+                } else if state == PlaybackState::Playing {
+                    self.sync_next_source();
+                }
             }
             PlaybackEvent::NowPlaying { source, format } => {
                 match &mut self.current_play {
@@ -194,29 +247,42 @@ impl Playback {
                         });
                     }
                 }
-                if let Some(track) = self
-                    .queue
-                    .current()
-                    .filter(|track| track.path == source.path)
-                    .cloned()
-                {
-                    self.apply_track_context(&track);
-                    self.queue.mark_started();
-                    self.refresh_queue_snapshot();
-                    self.missing_track_ids.remove(&track.id);
-                    self.refresh_missing_track_ids_snapshot();
-                } else {
-                    self.title = track_title(&source.path);
-                    self.secondary = track_secondary(&source.path);
-                }
-                self.source_path = Some(source.path);
-                self.duration_ms = source.duration_ms;
-                self.format = Some(format);
-                self.position_ms = 0;
-                self.error = None;
+                self.apply_playing_source(source, format);
+                self.sync_next_source();
             }
-            // Phase 3 wires gapless queue advancement; the app does not send SetNext yet.
-            PlaybackEvent::Advanced { .. } => {}
+            PlaybackEvent::Advanced {
+                attempt,
+                source,
+                format,
+            } => {
+                if attempt != self.dispatched_plays {
+                    return None;
+                }
+                self.sent_next = None;
+                let expected_next = self.effective_next_track().map(|track| track.path.clone());
+                if expected_next.as_ref() == Some(&source.path) {
+                    let advanced = self.queue.advance_on_end();
+                    if advanced
+                        .as_ref()
+                        .is_some_and(|track| track.path != source.path)
+                    {
+                        self.queue.position_on_path(&source.path);
+                    }
+                } else {
+                    self.queue.position_on_path(&source.path);
+                }
+                self.refresh_queue_snapshot();
+                self.current_play = Some(PlayAttempt {
+                    target: RetryTarget {
+                        path: source.path.clone(),
+                        position_ms: 0,
+                    },
+                    confirmed: true,
+                });
+                self.playback_state = PlaybackState::Playing;
+                self.apply_playing_source(source, format);
+                self.sync_next_source();
+            }
             PlaybackEvent::Position {
                 position_ms,
                 duration_ms,
@@ -234,6 +300,7 @@ impl Playback {
                 exclusive_mode,
             } => {
                 self.complete_output_device_change(device_id, exclusive_mode);
+                self.sync_next_source();
             }
             PlaybackEvent::ExclusiveModeFallback { device_id } => {
                 self.playback_exclusive_mode = false;
@@ -273,11 +340,43 @@ impl Playback {
                 self.refresh_queue_snapshot();
                 return next;
             }
+            PlaybackEvent::CommandRejected {
+                command: "SetNext" | "ClearNext",
+                ..
+            } => {}
             PlaybackEvent::CommandRejected { command, state } => {
                 self.error = Some(format!(
                     "{command} is unavailable while playback is {}.",
                     playback_state_label(state)
                 ));
+            }
+            PlaybackEvent::NextRejected {
+                attempt,
+                path,
+                message: _,
+            } => {
+                if attempt != self.dispatched_plays {
+                    return None;
+                }
+                self.sent_next = Some(path.clone());
+                if let Some(track) = self.queue.track_by_path(&path).cloned() {
+                    let (newly_rejected, reason) = if path.is_file() {
+                        (
+                            self.rejected_next_track_ids.insert(track.id),
+                            SkipReason::Undecodable,
+                        )
+                    } else {
+                        let inserted = self.missing_track_ids.insert(track.id);
+                        self.refresh_missing_track_ids_snapshot();
+                        (inserted, SkipReason::Missing)
+                    };
+                    if newly_rejected {
+                        self.queue.note_skipped_ahead();
+                        self.refresh_queue_snapshot();
+                        self.note_skip(&track, reason);
+                    }
+                }
+                self.sync_next_source();
             }
             PlaybackEvent::Error {
                 attempt,
@@ -406,8 +505,40 @@ impl Playback {
     }
 
     pub(crate) fn shutdown(&mut self) {
+        self.sent_next = None;
         self.event_rx = None;
         self.command_tx = None;
         self.controller = None;
+    }
+
+    fn apply_playing_source(&mut self, source: PlayableSource, format: PcmFormat) {
+        if let Some(track) = self
+            .queue
+            .current()
+            .filter(|track| track.path == source.path)
+            .cloned()
+        {
+            self.apply_track_context(&track);
+            self.queue.mark_started();
+            self.refresh_queue_snapshot();
+            self.missing_track_ids.remove(&track.id);
+            self.rejected_next_track_ids.remove(&track.id);
+            self.refresh_missing_track_ids_snapshot();
+        } else {
+            self.title = track_title(&source.path);
+            self.secondary = track_secondary(&source.path);
+        }
+        self.source_path = Some(source.path);
+        self.duration_ms = source.duration_ms;
+        self.format = Some(format);
+        self.position_ms = 0;
+        self.error = None;
+    }
+
+    fn effective_next_track(&self) -> Option<&TrackRef> {
+        self.queue.peek_advance_on_end_skipping(|track| {
+            self.missing_track_ids.contains(&track.id)
+                || self.rejected_next_track_ids.contains(&track.id)
+        })
     }
 }

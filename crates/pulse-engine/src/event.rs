@@ -65,9 +65,15 @@ pub enum PlaybackEvent {
         command: &'static str,
         state: PlaybackState,
     },
+    /// A lookahead source could not be opened. Current playback and state are unchanged.
+    NextRejected {
+        /// The current `PlayFile` ordinal, matching [`PlaybackEvent::Advanced::attempt`].
+        attempt: u64,
+        path: std::path::PathBuf,
+        message: String,
+    },
     /// A runtime failure. It is fatal when paired with `StateChanged(Error)` and advisory when a
-    /// `SetNext` preload fails without changing state or teardown has already reached `Idle` or
-    /// `Ended`.
+    /// teardown has already reached `Idle` or `Ended`.
     Error {
         /// Ordinal of the `PlayFile` command this event belongs to (the nth `PlayFile` the worker
         /// processed; 0 before any). Commands and events are FIFO, so a consumer that counts its

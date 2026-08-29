@@ -202,6 +202,10 @@ impl QueueState {
         self.skipped
     }
 
+    pub(crate) fn note_skipped_ahead(&mut self) {
+        self.skipped += 1;
+    }
+
     /// Records the current entry as unplayable and moves to the next one.
     /// Returns `None` at the end of the queue; `nothing_played` then tells a
     /// poison queue (every attempted entry failed) from a partial failure.
@@ -243,6 +247,29 @@ impl QueueState {
             return self.current().cloned();
         }
         self.advance()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn peek_advance_on_end(&self) -> Option<&TrackRef> {
+        self.peek_advance_on_end_skipping(|_| false)
+    }
+
+    pub(crate) fn peek_advance_on_end_skipping(
+        &self,
+        mut should_skip: impl FnMut(&TrackRef) -> bool,
+    ) -> Option<&TrackRef> {
+        if self.repeat_mode == RepeatMode::One {
+            return self.current().filter(|track| !should_skip(track));
+        }
+        let current = self.index?;
+        let candidate_count = if self.repeat_mode == RepeatMode::All {
+            self.entries.len()
+        } else {
+            self.entries.len().saturating_sub(current + 1)
+        };
+        (1..=candidate_count)
+            .map(|offset| &self.entries[(current + offset) % self.entries.len()].track)
+            .find(|track| !should_skip(track))
     }
 
     fn next_index(&self) -> Option<usize> {
@@ -318,6 +345,28 @@ impl QueueState {
         }
         self.consecutive_failures = 0;
         Some(track)
+    }
+
+    pub(crate) fn position_on_path(&mut self, path: &std::path::Path) -> bool {
+        let index = match self.index {
+            Some(current) => (1..=self.entries.len())
+                .map(|offset| (current + offset) % self.entries.len())
+                .find(|index| self.entries[*index].track.path == path),
+            None => self
+                .entries
+                .iter()
+                .position(|entry| entry.track.path == path),
+        };
+        let Some(index) = index else { return false };
+        self.index = Some(index);
+        true
+    }
+
+    pub(crate) fn track_by_path(&self, path: &std::path::Path) -> Option<&TrackRef> {
+        self.entries
+            .iter()
+            .find(|entry| entry.track.path == path)
+            .map(|entry| &entry.track)
     }
 
     /// Removes the entry at `index`, renumbering the rest; the current track
@@ -521,6 +570,42 @@ mod tests {
     }
 
     #[test]
+    fn peek_advance_on_end_matches_advancing_a_clone_across_queue_modes() {
+        let tracks = [track(1, "first"), track(2, "second"), track(3, "third")];
+        for repeat_cycles in 0..3 {
+            for shuffle in [false, true] {
+                for position in 0..tracks.len() {
+                    let mut queue = QueueState::from_tracks(&tracks, 0);
+                    if shuffle {
+                        queue.set_shuffle_with_seed(true, 7);
+                    }
+                    for _ in 0..repeat_cycles {
+                        queue.cycle_repeat();
+                    }
+                    queue.index = Some(position);
+
+                    let peeked = queue.peek_advance_on_end().cloned();
+                    let advanced = queue.clone().advance_on_end();
+
+                    assert_eq!(
+                        peeked,
+                        advanced,
+                        "repeat={:?}, shuffle={shuffle}, position={position}",
+                        queue.repeat_mode()
+                    );
+                }
+            }
+        }
+
+        let mut single = QueueState::from_tracks(&[track(1, "only")], 0);
+        single.cycle_repeat();
+        assert_eq!(
+            single.peek_advance_on_end().cloned(),
+            single.clone().advance_on_end()
+        );
+    }
+
+    #[test]
     fn previous_restarts_after_three_seconds_otherwise_moves_back() {
         let tracks = [track(1, "first"), track(2, "second")];
         let mut queue = QueueState::from_tracks(&tracks, 1);
@@ -633,6 +718,17 @@ mod tests {
         assert!(queue.jump_to(1).is_none());
         assert_eq!(queue.current().unwrap().title, "only");
         assert_eq!(queue.remaining_count(), 0);
+    }
+
+    #[test]
+    fn position_on_path_prefers_the_next_duplicate() {
+        let duplicate = track(1, "duplicate");
+        let tracks = [duplicate.clone(), track(2, "middle"), duplicate];
+        let mut queue = QueueState::from_tracks(&tracks, 0);
+
+        assert!(queue.position_on_path(&tracks[0].path));
+
+        assert_eq!(queue.index, Some(2));
     }
 
     #[test]

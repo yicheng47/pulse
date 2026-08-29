@@ -17,8 +17,8 @@ use std::{
 };
 
 use pulse_engine::{
-    EngineError, PcmFormat, PlaybackCommand, PlaybackController, PlaybackErrorKind, PlaybackEvent,
-    PlaybackState, device,
+    EngineError, PcmFormat, PlayableSource, PlaybackCommand, PlaybackController, PlaybackErrorKind,
+    PlaybackEvent, PlaybackState, device,
 };
 
 use super::{
@@ -265,7 +265,10 @@ pub(crate) struct Playback {
     pub(crate) notice: Option<PlaybackNotice>,
     pub(crate) missing_track_ids: HashSet<TrackId>,
     missing_track_ids_snapshot: Arc<HashSet<TrackId>>,
+    rejected_next_track_ids: HashSet<TrackId>,
     dispatched_plays: u64,
+    /// Mirrors the engine's `next_source`, which the engine consumes at the transition.
+    sent_next: Option<PathBuf>,
     current_play: Option<PlayAttempt>,
     retry: Option<RetryTarget>,
     pending_seek_ms: Option<u64>,
@@ -307,7 +310,9 @@ impl Playback {
             notice: None,
             missing_track_ids: HashSet::new(),
             missing_track_ids_snapshot: Arc::new(HashSet::new()),
+            rejected_next_track_ids: HashSet::new(),
             dispatched_plays: 0,
+            sent_next: None,
             current_play: None,
             retry: None,
             pending_seek_ms: None,
@@ -352,7 +357,9 @@ impl Playback {
             notice: None,
             missing_track_ids: HashSet::new(),
             missing_track_ids_snapshot: Arc::new(HashSet::new()),
+            rejected_next_track_ids: HashSet::new(),
             dispatched_plays: 0,
+            sent_next: None,
             current_play: None,
             retry: None,
             pending_seek_ms: None,

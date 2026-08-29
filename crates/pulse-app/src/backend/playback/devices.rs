@@ -481,19 +481,17 @@ impl Playback {
             exclusive_mode,
         });
 
-        let Some(command_tx) = &self.command_tx else {
+        if self.command_tx.is_none() {
             self.install_controller(output_device.id, exclusive_mode);
             self.complete_output_device_change(output_device.id, exclusive_mode);
+            self.sync_next_source();
 
             return;
-        };
-        if command_tx
-            .send(PlaybackCommand::SetOutputDevice {
-                device_id: output_device.id,
-                exclusive_mode,
-            })
-            .is_err()
-        {
+        }
+        if !self.send_command(PlaybackCommand::SetOutputDevice {
+            device_id: output_device.id,
+            exclusive_mode,
+        }) {
             self.pending_device_change = None;
             self.device_message = Some(DeviceMessage {
                 text: "Playback engine disconnected while changing output devices.".to_string(),
