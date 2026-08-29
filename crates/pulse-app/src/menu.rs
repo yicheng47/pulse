@@ -4,6 +4,8 @@
 
 use gpui::{App, KeyBinding, Menu, MenuItem, SystemMenuType, actions};
 
+use crate::{settings::SettingsSection, surfaces::Shell};
+
 actions!(
     pulse,
     [
@@ -25,18 +27,85 @@ pub fn install(cx: &mut App) {
     cx.on_action(|_: &Hide, cx| cx.hide());
     cx.on_action(|_: &HideOthers, cx| cx.hide_other_apps());
     cx.on_action(|_: &ShowAll, cx| cx.unhide_other_apps());
+    // Global action listeners run while GPUI holds the active window's update lease.
+    cx.on_action(|_: &About, cx| {
+        let Some(window) = cx
+            .active_window()
+            .and_then(|window| window.downcast::<Shell>())
+        else {
+            return;
+        };
+        cx.defer(move |cx| {
+            if let Err(error) = window.update(cx, |shell, window, cx| {
+                window.blur();
+                shell.open_settings(SettingsSection::About, cx);
+            }) {
+                eprintln!("Pulse About failed: {error:#}");
+            }
+        });
+    });
+    cx.on_action(|_: &OpenSettings, cx| {
+        let Some(window) = cx
+            .active_window()
+            .and_then(|window| window.downcast::<Shell>())
+        else {
+            return;
+        };
+        cx.defer(move |cx| {
+            if let Err(error) = window.update(cx, |shell, window, cx| {
+                window.blur();
+                shell.open_settings(SettingsSection::General, cx);
+            }) {
+                eprintln!("Pulse settings failed: {error:#}");
+            }
+        });
+    });
+    cx.on_action(|_: &CheckForUpdates, cx| {
+        let Some(window) = cx
+            .active_window()
+            .and_then(|window| window.downcast::<Shell>())
+        else {
+            return;
+        };
+        cx.defer(move |cx| {
+            if let Err(error) = window.update(cx, |shell, _, cx| shell.check_for_updates(cx)) {
+                eprintln!("Pulse update check failed: {error:#}");
+            }
+        });
+    });
+    cx.on_action(|_: &FocusSearch, cx| {
+        let Some(window) = cx
+            .active_window()
+            .and_then(|window| window.downcast::<Shell>())
+        else {
+            return;
+        };
+        cx.defer(move |cx| {
+            if let Err(error) = window.update(cx, |shell, window, cx| {
+                if shell.can_focus_search() {
+                    shell.focus_search(window, cx);
+                }
+            }) {
+                eprintln!("Pulse focus search failed: {error:#}");
+            }
+        });
+    });
     cx.on_action(|_: &Minimize, cx| {
         if let Some(window) = cx.active_window() {
-            window
-                .update(cx, |_, window, _| window.minimize_window())
-                .ok();
+            cx.defer(move |cx| {
+                if let Err(error) = window.update(cx, |_, window, _| window.minimize_window()) {
+                    eprintln!("Pulse minimize failed: {error:#}");
+                }
+            });
         }
     });
     cx.on_action(|_: &CloseWindow, cx| {
         if let Some(window) = cx.active_window() {
-            window
-                .update(cx, |_, window, _| window.remove_window())
-                .ok();
+            cx.defer(move |cx| {
+                if let Err(error) = window.update(cx, |_, window, _| window.remove_window()) {
+                    eprintln!("Pulse close window failed: {error:#}");
+                }
+            });
         }
     });
 

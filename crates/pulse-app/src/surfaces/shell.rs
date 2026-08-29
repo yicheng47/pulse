@@ -7,7 +7,6 @@ use gpui::{
 use crate::{
     app_store::{UpdaterBridge, global_app_store},
     backend::PlaybackAction,
-    menu::{About, CheckForUpdates, FocusSearch, OpenSettings},
     settings::SettingsSection,
     surfaces::{Destination, DeviceManagementPage, LibraryView, PlaybackRow, SearchViewModel},
     text_input::TextInput,
@@ -138,29 +137,13 @@ impl Render for Shell {
                 cx.listener(|this, event: &MouseUpEvent, _, cx| {
                     this.row.update(cx, |row, cx| row.finish_drag(event, cx));
                 }),
-            )
-            .on_action(cx.listener(|this, _: &OpenSettings, window, cx| {
-                window.blur();
-                this.open_settings(SettingsSection::General, cx);
-            }))
-            .on_action(cx.listener(|this, _: &CheckForUpdates, window, cx| {
-                window.blur();
-                this.updater.read(cx).check_for_updates();
-            }))
-            .on_action(cx.listener(|this, _: &About, window, cx| {
-                window.blur();
-                this.open_settings(SettingsSection::About, cx);
-            }));
+            );
 
         if self.settings_section.is_some() {
             return root.child(self.render_settings_shell(cx));
         }
 
-        root.on_action(cx.listener(|this, _: &FocusSearch, window, cx| {
-            this.focus_search(window, cx);
-        }))
-        .child(self.render_sidebar(cx))
-        .child(
+        root.child(self.render_sidebar(cx)).child(
             div()
                 .relative()
                 .flex()

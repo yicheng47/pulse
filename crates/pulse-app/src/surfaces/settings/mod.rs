@@ -22,13 +22,17 @@ use update_logic::format_last_checked;
 const UPDATE_CHECK_POLL_INTERVAL: Duration = Duration::from_secs(30);
 
 impl Shell {
-    pub(super) fn open_settings(&mut self, section: SettingsSection, cx: &mut Context<Self>) {
+    pub(crate) fn open_settings(&mut self, section: SettingsSection, cx: &mut Context<Self>) {
         self.settings_section = Some(section);
         self.search_open = false;
         self.search_input.unmark_text();
         self.row.update(cx, |row, cx| row.enter_settings(cx));
         self.sync_update_check_polling(cx);
         cx.notify();
+    }
+
+    pub(crate) fn check_for_updates(&self, cx: &gpui::App) {
+        self.updater.read(cx).check_for_updates();
     }
 
     fn close_settings(&mut self, cx: &mut Context<Self>) {

@@ -20,7 +20,11 @@ const SEARCH_WIDTH: f32 = 420.0;
 const SEARCH_DEBOUNCE: Duration = Duration::from_millis(150);
 
 impl Shell {
-    pub(super) fn focus_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn can_focus_search(&self) -> bool {
+        self.settings_section.is_none()
+    }
+
+    pub(crate) fn focus_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.search_input.move_to_end();
         window.focus(&self.search_focus, cx);
         if !self.search_input.text().is_empty() {
