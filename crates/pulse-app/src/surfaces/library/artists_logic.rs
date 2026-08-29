@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::{library::Artist, surfaces::SIDEBAR_WIDTH};
+use crate::{backend::Artist, surfaces::SIDEBAR_WIDTH};
 
 pub(super) const ARTIST_BODY_HORIZONTAL_PADDING: f32 = 28.;
 pub(super) const ARTIST_GRID_GAP: f32 = 32.;

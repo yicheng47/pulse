@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::playback::ManagedDevice;
+use crate::backend::ManagedDevice;
 
 pub(super) fn device_class(device: &ManagedDevice) -> &'static str {
     match device.capabilities {

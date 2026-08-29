@@ -740,7 +740,7 @@ fn refresh_track_artist_keys(
 }
 
 /// Cover cache paths are content-unique (`{id}-{fingerprint}.cover`): the
-/// bytes behind a given path never change, so path-keyed image caches (gpui's)
+/// bytes behind a given path never change, so path-keyed image caches (GPUI's)
 /// can never show stale art, including after a removed root recycles track
 /// ids. Returns the cached path so callers can delete a superseded one.
 fn cache_artwork(

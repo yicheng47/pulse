@@ -1,7 +1,5 @@
 use std::time::SystemTime;
 
-use gpui::Context;
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct UpdateInfo {
     version: String,
@@ -19,9 +17,12 @@ impl UpdateInfo {
     }
 }
 
-#[cfg(any(test, all(target_os = "macos", feature = "updater")))]
 #[derive(Debug, Eq, PartialEq)]
-enum UpdateTransition {
+#[cfg_attr(
+    not(any(test, all(target_os = "macos", feature = "updater"))),
+    allow(dead_code)
+)]
+pub(crate) enum UpdateTransition {
     Found(String),
     NotFound,
     Aborted,
@@ -44,7 +45,6 @@ fn transition_for_abort(error_domain: &str) -> Option<UpdateTransition> {
     (error_domain != PULSE_UPDATE_ERROR_DOMAIN).then_some(UpdateTransition::Aborted)
 }
 
-#[cfg(any(test, all(target_os = "macos", feature = "updater")))]
 fn apply_available_transition(
     available: &mut Option<UpdateInfo>,
     transition: UpdateTransition,
@@ -82,9 +82,9 @@ pub(crate) struct Updater {
 }
 
 impl Updater {
-    pub(crate) fn new(cx: &mut Context<Self>) -> Self {
+    pub(crate) fn new(observer: impl Fn(UpdateTransition) + 'static) -> Self {
         Self {
-            native: native::NativeUpdater::new(cx.weak_entity(), cx.to_async()),
+            native: native::NativeUpdater::new(Box::new(observer)),
             available: dev_available(),
         }
     }
@@ -109,32 +109,25 @@ impl Updater {
         self.native.automatically_checks_for_updates()
     }
 
-    pub(crate) fn set_automatically_checks_for_updates(
-        &mut self,
-        enabled: bool,
-        cx: &mut Context<Self>,
-    ) {
+    pub(crate) fn set_automatically_checks_for_updates(&mut self, enabled: bool) {
         self.native.set_automatically_checks_for_updates(enabled);
-        cx.notify();
     }
 
     pub(crate) fn last_check_at(&self) -> Option<SystemTime> {
         self.native.last_check_at()
     }
 
-    #[cfg(all(target_os = "macos", feature = "updater"))]
-    fn apply_transition(&mut self, transition: UpdateTransition, cx: &mut Context<Self>) {
-        if apply_available_transition(&mut self.available, transition) {
-            cx.notify();
-        }
+    pub(crate) fn apply_transition(&mut self, transition: UpdateTransition) -> bool {
+        apply_available_transition(&mut self.available, transition)
     }
 }
+
+type TransitionObserver = Box<dyn Fn(UpdateTransition)>;
 
 #[cfg(all(target_os = "macos", feature = "updater"))]
 mod native {
     use std::time::{Duration, SystemTime};
 
-    use gpui::{AsyncApp, WeakEntity};
     use objc2::ffi::NSInteger;
     use objc2::rc::{Allocated, Retained};
     use objc2::runtime::{AnyObject, Bool, NSObject};
@@ -145,9 +138,10 @@ mod native {
     use objc2_foundation::{NSDate, NSDictionary, NSError, NSObjectProtocol, NSString};
 
     use super::{
-        PULSE_UPDATE_ERROR_DOMAIN, UpdateTransition, Updater, should_proceed, transition_for_abort,
+        PULSE_UPDATE_ERROR_DOMAIN, TransitionObserver, UpdateTransition, should_proceed,
+        transition_for_abort,
     };
-    use crate::preferences;
+    use crate::backend::preferences;
 
     const PULSE_UPDATE_ERROR_CODE: NSInteger = 1;
     const SPU_USER_UPDATE_CHOICE_SKIP: isize = 0;
@@ -210,8 +204,7 @@ mod native {
     }
 
     struct UpdaterDelegateIvars {
-        updater: WeakEntity<Updater>,
-        cx: AsyncApp,
+        observer: TransitionObserver,
     }
 
     define_class!(
@@ -275,29 +268,15 @@ mod native {
     );
 
     impl UpdaterDelegate {
-        fn new(
-            marker: MainThreadMarker,
-            updater: WeakEntity<Updater>,
-            cx: AsyncApp,
-        ) -> Retained<Self> {
-            let this = Self::alloc(marker).set_ivars(UpdaterDelegateIvars { updater, cx });
+        fn new(marker: MainThreadMarker, observer: TransitionObserver) -> Retained<Self> {
+            let this = Self::alloc(marker).set_ivars(UpdaterDelegateIvars { observer });
             unsafe { msg_send![super(this), init] }
         }
 
         fn apply_transition(&self, transition: UpdateTransition) {
             let _main_thread =
                 MainThreadMarker::new().expect("Sparkle updater delegate must run on main thread");
-            let updater = self.ivars().updater.clone();
-            self.ivars()
-                .cx
-                .spawn(async move |cx| {
-                    let _ = cx.update(|cx| {
-                        updater.update(cx, |updater, cx| {
-                            updater.apply_transition(transition, cx);
-                        })
-                    });
-                })
-                .detach();
+            (self.ivars().observer)(transition);
         }
     }
 
@@ -353,10 +332,10 @@ mod native {
     }
 
     impl NativeUpdater {
-        pub(super) fn new(updater: WeakEntity<Updater>, cx: AsyncApp) -> Self {
+        pub(super) fn new(observer: TransitionObserver) -> Self {
             let marker =
                 MainThreadMarker::new().expect("Pulse updater must start on the main thread");
-            let delegate = UpdaterDelegate::new(marker, updater, cx);
+            let delegate = UpdaterDelegate::new(marker, observer);
             let controller = SPUStandardUpdaterController::init_with_starting_updater(
                 SPUStandardUpdaterController::alloc(marker),
                 false,
@@ -420,14 +399,12 @@ mod native {
 mod native {
     use std::time::SystemTime;
 
-    use gpui::{AsyncApp, WeakEntity};
-
-    use super::Updater;
+    use super::TransitionObserver;
 
     pub(super) struct NativeUpdater;
 
     impl NativeUpdater {
-        pub(super) fn new(_updater: WeakEntity<Updater>, _cx: AsyncApp) -> Self {
+        pub(super) fn new(_observer: TransitionObserver) -> Self {
             Self
         }
 

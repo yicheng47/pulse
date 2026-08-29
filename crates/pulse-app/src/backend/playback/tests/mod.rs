@@ -1,5 +1,5 @@
 use super::*;
-use crate::app_settings;
+use crate::backend::settings as app_settings;
 
 mod devices;
 mod events;
@@ -14,7 +14,7 @@ fn output_device(id: device::DeviceId, uid: &str, name: &str) -> device::Device 
     }
 }
 
-fn library_track(id: crate::library::TrackId, path: PathBuf, title: &str) -> Track {
+fn library_track(id: crate::backend::library::TrackId, path: PathBuf, title: &str) -> Track {
     Track {
         id,
         storage_root_id: 1,
@@ -46,7 +46,8 @@ fn wav_tracks(directory: &Path, names: &[&str]) -> Vec<Track> {
         .enumerate()
         .map(|(index, name)| {
             let path = directory.join(format!("{name}.wav"));
-            crate::library::metadata::write_test_wav(&path, name, "Artist", "Album").unwrap();
+            crate::backend::library::metadata::write_test_wav(&path, name, "Artist", "Album")
+                .unwrap();
             library_track(index as i64 + 1, path, name)
         })
         .collect()

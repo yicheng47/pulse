@@ -1,4 +1,4 @@
-use crate::{library::AlbumSortOrder, surfaces::SIDEBAR_WIDTH};
+use crate::{backend::AlbumSortOrder, surfaces::SIDEBAR_WIDTH};
 
 pub(super) const ALBUM_BODY_HORIZONTAL_PADDING: f32 = 28.;
 pub(super) const ALBUM_GRID_GAP: f32 = 14.;

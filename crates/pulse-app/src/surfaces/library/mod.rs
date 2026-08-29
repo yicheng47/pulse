@@ -44,14 +44,13 @@ use pulse_engine::PlaybackState;
 
 use crate::{
     app_store::{AppStore, StoreRevisions, global_app_store},
-    library::{
+    backend::{
         Album, AlbumSortOrder, Artist, BackfillProgress, DeleteAlbumOutcome, LibraryError,
-        LibrarySearchResults, LibraryStore, LibrarySummary, PlaylistId, PlaylistSummary,
-        PlaylistTrack, ScanHistoryEntry, ScanOutcome, ScanProgress, StorageRoot, StorageRootId,
-        Track, TrackId, TrackSortOrder, delete_album_tracks, scan_storage_root_cancellable,
+        LibrarySearchResults, LibraryStore, LibrarySummary, PlaybackAction, PlaylistId,
+        PlaylistSummary, PlaylistTrack, ScanHistoryEntry, ScanOutcome, ScanProgress, StorageRoot,
+        StorageRootId, Track, TrackId, TrackSortOrder, cover_cache_directory, delete_album_tracks,
+        library_database_path, scan_storage_root_cancellable,
     },
-    playback::PlaybackAction,
-    preferences,
     surfaces::Destination,
     text_input::{self, TextInput},
     theme,
@@ -280,9 +279,9 @@ pub(crate) struct LibraryView {
 impl LibraryView {
     pub(crate) fn new(cx: &mut Context<Self>) -> Self {
         let database_path =
-            preferences::library_database_path().expect("failed to resolve library database path");
-        let cover_cache_directory = preferences::cover_cache_directory()
-            .expect("failed to resolve library cover cache path");
+            library_database_path().expect("failed to resolve library database path");
+        let cover_cache_directory =
+            cover_cache_directory().expect("failed to resolve library cover cache path");
         let app_store = global_app_store(cx);
         let store_revisions = app_store.read(cx).revisions;
         let playback = app_store.read(cx).playback_snapshot();

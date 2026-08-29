@@ -11,7 +11,7 @@ use super::{
     storage_logic::{format_relative_time, scan_outcome_label},
 };
 use crate::{
-    library::{ScanOutcome, StorageRootId},
+    backend::{ScanOutcome, StorageRootId},
     theme, ui,
 };
 

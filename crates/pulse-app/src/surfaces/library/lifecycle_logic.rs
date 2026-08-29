@@ -1,6 +1,6 @@
 use super::{ScanCompletion, logic::FilterChip};
 use crate::{
-    library::{DeleteAlbumOutcome, ScanOutcome},
+    backend::{DeleteAlbumOutcome, ScanOutcome},
     surfaces::Destination,
 };
 

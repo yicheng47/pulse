@@ -139,7 +139,7 @@ impl LibraryView {
 
     fn render_playlist_flyout(
         &self,
-        track_id: crate::library::TrackId,
+        track_id: crate::backend::TrackId,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let mut flyout = div()
@@ -270,7 +270,7 @@ impl LibraryView {
 
     fn play_context_track(
         &mut self,
-        track_id: crate::library::TrackId,
+        track_id: crate::backend::TrackId,
         surface: TrackSurface,
         cx: &mut Context<Self>,
     ) {

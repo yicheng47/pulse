@@ -198,7 +198,7 @@ mod tests {
     use rusqlite::Connection;
     use tempfile::tempdir;
 
-    use crate::library::{
+    use crate::backend::library::{
         LibraryStore, ScanOutcome,
         store::testing::{insert_track, test_file, test_metadata},
     };

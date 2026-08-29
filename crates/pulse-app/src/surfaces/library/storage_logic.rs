@@ -1,4 +1,4 @@
-use crate::library::ScanOutcome;
+use crate::backend::ScanOutcome;
 
 pub(super) fn scan_outcome_label(outcome: ScanOutcome) -> &'static str {
     match outcome {

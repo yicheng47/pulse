@@ -96,7 +96,7 @@ fn like_pattern(query: &str) -> String {
 mod tests {
     use tempfile::tempdir;
 
-    use crate::library::{
+    use crate::backend::library::{
         LibrarySearchResults, LibraryStore,
         store::testing::{insert_track, test_file, test_metadata},
     };

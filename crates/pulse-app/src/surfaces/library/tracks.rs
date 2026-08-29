@@ -11,7 +11,7 @@ use super::{
     },
     tracks_logic::{format_relative_time, track_sort_label},
 };
-use crate::{library::Track, theme, ui};
+use crate::{backend::Track, theme, ui};
 
 const TRACK_ROW_HEIGHT_PX: f32 = 58.;
 

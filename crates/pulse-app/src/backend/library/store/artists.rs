@@ -194,7 +194,7 @@ mod tests {
     use rusqlite::params;
     use tempfile::tempdir;
 
-    use crate::library::{
+    use crate::backend::library::{
         AlbumQueryFilter, AlbumSortOrder, LibraryStore, UNKNOWN_ALBUM,
         store::{
             schema::EFFECTIVE_ARTIST_INDEX_NAME,

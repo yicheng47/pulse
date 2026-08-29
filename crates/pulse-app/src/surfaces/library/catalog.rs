@@ -11,7 +11,7 @@ impl LibraryView {
         let albums = store
             .album_page(
                 album_sort,
-                &crate::library::AlbumQueryFilter::All,
+                &crate::backend::AlbumQueryFilter::All,
                 Some(&artist.name),
                 album_count.max(1),
                 0,

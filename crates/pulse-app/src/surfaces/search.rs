@@ -7,7 +7,7 @@ use gpui::{
 };
 
 use crate::{
-    library::{Album, PlaylistSummary, Track},
+    backend::{Album, PlaylistSummary, Track},
     surfaces::{
         Destination, Shell,
         library::logic::{self as view_model, SearchSelection},

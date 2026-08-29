@@ -5,7 +5,7 @@ use gpui::{
 
 use crate::{
     app_store::{AppStore, StoreRevisions, global_app_store},
-    playback::{ManagedDevice, PlaybackAction, format_stored_device_capabilities},
+    backend::{ManagedDevice, PlaybackAction, format_stored_device_capabilities},
     surfaces::devices_logic::{device_class, format_last_seen},
     theme,
     ui::{self, Scrollbar},

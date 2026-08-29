@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::app_settings::{
+use super::settings::{
     AppSettings, ExclusiveModePreferences, StoredDeviceCapabilities, StoredDevicePreferences,
     settings_path,
 };

@@ -7,8 +7,10 @@ use gpui::{
 use pulse_engine::device;
 
 use crate::{
-    playback::*,
-    queue::TrackRef,
+    backend::{
+        TrackRef, displayed_volume_level, format_device_capabilities, format_queue_meta,
+        format_queue_time, format_volume_percent,
+    },
     surfaces::{PlaybackRow, PlaybackSurface},
     theme, ui,
 };

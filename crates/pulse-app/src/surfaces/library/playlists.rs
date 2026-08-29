@@ -9,7 +9,7 @@ use super::{
     playlists_logic::{format_playlist_duration, format_updated},
 };
 use crate::{
-    library::{PlaylistId, PlaylistSummary, PlaylistTrack},
+    backend::{PlaylistId, PlaylistSummary, PlaylistTrack},
     theme, ui,
 };
 

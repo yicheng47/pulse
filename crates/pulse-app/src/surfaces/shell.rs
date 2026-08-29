@@ -5,14 +5,13 @@ use gpui::{
 };
 
 use crate::{
-    app_store::global_app_store,
+    app_store::{UpdaterBridge, global_app_store},
+    backend::PlaybackAction,
     menu::{About, CheckForUpdates, FocusSearch, OpenSettings},
-    playback::PlaybackAction,
     settings::SettingsSection,
     surfaces::{Destination, DeviceManagementPage, LibraryView, PlaybackRow, SearchViewModel},
     text_input::TextInput,
     theme,
-    updater::Updater,
 };
 
 pub(crate) const TOP_BAR_HEIGHT: f32 = 74.0;
@@ -31,7 +30,7 @@ pub struct Shell {
     pub(super) search_focus: FocusHandle,
     pub(super) settings_section: Option<SettingsSection>,
     pub(super) settings_output_toggle_press_closed: bool,
-    pub(super) updater: Entity<Updater>,
+    pub(super) updater: Entity<UpdaterBridge>,
     pub(super) update_check_poll_generation: u64,
     pub(super) titlebar_drag_armed: bool,
 }
@@ -41,7 +40,7 @@ impl Shell {
         let row = cx.new(PlaybackRow::new);
         let devices = cx.new(DeviceManagementPage::new);
         let library = cx.new(LibraryView::new);
-        let updater = cx.new(Updater::new);
+        let updater = cx.new(UpdaterBridge::new);
         cx.observe(&library, |_, _, cx| cx.notify()).detach();
         cx.observe(&updater, |_, _, cx| cx.notify()).detach();
         updater.read(cx).start();

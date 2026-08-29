@@ -1,4 +1,4 @@
-use crate::library::TrackSortOrder;
+use crate::backend::TrackSortOrder;
 
 pub(super) fn track_sort_label(sort: TrackSortOrder) -> &'static str {
     match sort {

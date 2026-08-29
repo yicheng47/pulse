@@ -6,7 +6,7 @@
 
 `pulse-app` is the macOS product shell around `pulse-engine`. It owns the GPUI window, user interaction, local library, persisted app settings, update UI, device-management presentation, and the adapter that translates UI actions into playback-controller commands.
 
-The app is organized by responsibility rather than by widget type. Rendering belongs in `surfaces/`, reusable visual primitives belong in `ui/`, observable cross-surface state belongs in `app_store.rs`, persistence types belong in `app_settings.rs`, playback adaptation belongs in `playback/`, and the SQLite-backed music catalog belongs in `library/`.
+The app is organized by responsibility rather than by widget type. Rendering belongs in `surfaces/`, reusable visual primitives belong in `ui/`, observable cross-surface state belongs in `app_store.rs`, persistence types belong in `backend/settings.rs`, playback adaptation belongs in `backend/playback/`, and the SQLite-backed music catalog belongs in `backend/library/`.
 
 `pulse-engine` remains UI-agnostic. No GPUI entity, window, view, or surface type crosses into the engine crate.
 
@@ -15,29 +15,31 @@ The app is organized by responsibility rather than by widget type. Rendering bel
 ```text
 crates/pulse-app/src/
   main.rs                    application startup and the first window
-  app_store.rs               global observable app state and revision routing
-  app_settings.rs            version-tolerant JSON settings model and persistence
-  preferences.rs             data paths and one-time flat-file migration
-  queue.rs                   app-side queue order, shuffle, repeat, and history
+  app_store.rs               sole GPUI bridge for observable backend state
+  backend/
+    mod.rs                   backend exports and the no-GPUI boundary gate
+    settings.rs              version-tolerant JSON settings model and persistence
+    preferences.rs           data paths and one-time flat-file migration
+    queue.rs                 app-side queue order, shuffle, repeat, and history
+    updater.rs               update state, transitions, and Sparkle delegate
+    playback/
+      mod.rs                 playback adapter state and public app-side types
+      controller.rs          controller creation, event drain, and event handling
+      devices.rs             live and managed devices, capabilities, and defaults
+      queue_control.rs       queue actions and track transitions
+      logic.rs               formatting and numeric helpers
+    library/
+      mod.rs                 scan API and catalog domain types
+      store/                 SQLite schema and catalog queries
+      metadata.rs            local audio metadata extraction
+      path.rs                path normalization
+      walk.rs                filesystem discovery
+      tests.rs               scan and deletion integration tests
   settings.rs                settings page view models and section selection
-  updater.rs                 update checks and updater state
   text_input.rs              shared editable text and selection state
   menu.rs                    macOS menu actions and installation
   theme.rs                   visual tokens
   assets.rs                  bundled asset loading
-  playback/
-    mod.rs                   playback adapter state and public app-side types
-    controller.rs            controller creation, event drain, and event handling
-    devices.rs               live and managed devices, capabilities, and defaults
-    queue_control.rs         queue actions and track transitions
-    logic.rs                 GPUI-free formatting and numeric helpers
-  library/
-    mod.rs                   scan API and catalog domain types
-    store/                   SQLite schema and catalog queries
-    metadata.rs              local audio metadata extraction
-    path.rs                  path normalization
-    walk.rs                  filesystem discovery
-    tests.rs                 scan and deletion integration tests
   surfaces/
     shell.rs                 window chrome, titlebar drag, and body routing
     sidebar.rs               navigation groups, footer, and update hint
@@ -96,7 +98,7 @@ Arrows mark ownership the application enforces, not database constraints.
 
 ### 3.2 StorageRoot — *a scanned folder*
 
-A user-added directory (usually a NAS mount). Identity is `path_key`, the normalized path (`library/path.rs`), unique across roots; `path` keeps the display form. `is_case_sensitive` is probed at add time and drives how track paths under it are keyed; `is_reachable` and `last_scan_at_ms` record the last scan's view of the mount. Removing a root deletes, in one transaction and in this order, the playlist entries that pointed at its tracks, its scan history, its tracks, and the root row, then refreshes `artists` (§3.5).
+A user-added directory (usually a NAS mount). Identity is `path_key`, the normalized path (`backend/library/path.rs`), unique across roots; `path` keeps the display form. `is_case_sensitive` is probed at add time and drives how track paths under it are keyed; `is_reachable` and `last_scan_at_ms` record the last scan's view of the mount. Removing a root deletes, in one transaction and in this order, the playlist entries that pointed at its tracks, its scan history, its tracks, and the root row, then refreshes `artists` (§3.5).
 
 ### 3.3 Track — *one audio file*
 
@@ -104,7 +106,7 @@ The only scanned entity. Identity is `(storage_root_id, path_key)`; a rescan mat
 
 ### 3.4 Album — *derived, not stored*
 
-An album is the group of tracks sharing `(effective album artist, album title)`, where the effective album artist is the shared SQL fragment `COALESCE(NULLIF(trim(album_artist), ''), NULLIF(trim(artist), ''), 'Unknown Artist')` defined once in `library/store/mod.rs` (`EFFECTIVE_ALBUM_ARTIST_SQL`). The Albums page, Album Detail, the genre filter, and the Artists refresh all group with that one expression; a "feat." credit on `artist` therefore never splits an album whose `album_artist` is set. Album-level facts (year, duration, quality ceiling, cover, added-at) are aggregates computed in the page query. There is no album id: routes carry `(artist, title)`.
+An album is the group of tracks sharing `(effective album artist, album title)`, where the effective album artist is the shared SQL fragment `COALESCE(NULLIF(trim(album_artist), ''), NULLIF(trim(artist), ''), 'Unknown Artist')` defined once in `backend/library/store/mod.rs` (`EFFECTIVE_ALBUM_ARTIST_SQL`). The Albums page, Album Detail, the genre filter, and the Artists refresh all group with that one expression; a "feat." credit on `artist` therefore never splits an album whose `album_artist` is set. Album-level facts (year, duration, quality ceiling, cover, added-at) are aggregates computed in the page query. There is no album id: routes carry `(artist, title)`.
 
 ### 3.5 Artist — *stored, refreshed by the app*
 
@@ -120,7 +122,7 @@ Per root, per run: counts of added/updated/removed/unsupported/errored files, wh
 
 ### 3.8 Runtime objects
 
-`QueueState` (`queue.rs`) is the app-side play order — entries, index, shuffle/repeat, history, skip and failure accounting — owned by `Playback` inside the store and exposed through `PlaybackSnapshot` behind an `Arc`. `ManagedDevice` rows (§5) merge the live Core Audio device list with the stored device preferences; the Devices page and the output popover render the same rows. Neither is written to the catalog.
+`QueueState` (`backend/queue.rs`) is the app-side play order — entries, index, shuffle/repeat, history, skip and failure accounting — owned by `Playback` inside the store and exposed through `PlaybackSnapshot` behind an `Arc`. `ManagedDevice` rows (§5) merge the live Core Audio device list with the stored device preferences; the Devices page and the output popover render the same rows. Neither is written to the catalog.
 
 ## 4. Startup And Ownership
 
@@ -154,7 +156,7 @@ Current app settings live in `settings.json` under Pulse's platform data directo
 
 Saving writes pretty JSON to a newly created temporary file, synchronizes it, renames it over `settings.json`, and synchronizes the parent directory on Unix. Loading applies serde defaults for missing fields and normalizes the device UID and volume range. Invalid JSON is moved to a unique `.corrupt` sibling and replaced with defaults.
 
-When `settings.json` does not exist, `preferences.rs` reads the legacy flat files for output device, exclusive mode, volume, and mute from Pulse's platform configuration directory. It writes the complete JSON file before removing the successfully migrated legacy files. Corrupt legacy values are archived individually and replaced with that field's default so the other fields can still migrate.
+When `settings.json` does not exist, `backend/preferences.rs` reads the legacy flat files for output device, exclusive mode, volume, and mute from Pulse's platform configuration directory. It writes the complete JSON file before removing the successfully migrated legacy files. Corrupt legacy values are archived individually and replaced with that field's default so the other fields can still migrate.
 
 Once `settings.json` exists it is authoritative and legacy app-setting files are left untouched. The updater's legacy `check-updates.disabled` preference is handled separately by the updater migration because update settings are not fields of `AppSettings`.
 
@@ -176,4 +178,6 @@ Do not create a page-local replacement for a component already provided by `ui/`
 
 ## 9. Boundary Summary
 
-`surfaces/` renders product areas and converts interaction into app actions. `ui/` supplies reusable visual grammar. `app_store.rs` owns observable cross-surface playback state and notifications. `app_settings.rs` owns the persisted settings shape. `playback/` adapts the engine to app semantics. `library/` owns the local catalog and scan pipeline. `pulse-engine` owns audio playback and contains no GPUI code.
+`backend/` never imports `gpui`; `app_store.rs` is the only bridge between backend state and GPUI surfaces.
+
+`surfaces/` renders product areas and converts interaction into app actions. `ui/` supplies reusable visual grammar. `app_store.rs` owns observable cross-surface playback state and notifications. `backend/settings.rs` owns the persisted settings shape. `backend/playback/` adapts the engine to app semantics. `backend/library/` owns the local catalog and scan pipeline. `pulse-engine` owns audio playback and contains no GPUI code.

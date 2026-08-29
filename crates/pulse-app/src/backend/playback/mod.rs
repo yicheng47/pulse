@@ -21,10 +21,10 @@ use pulse_engine::{
     PlaybackState, device,
 };
 
-use crate::{
-    app_settings::{AppSettings, ExclusiveModePreferences, StoredDeviceCapabilities},
+use super::{
     library::{Track, TrackId},
     queue::{PreviousAction, QueueState, TrackRef},
+    settings::{AppSettings, ExclusiveModePreferences, StoredDeviceCapabilities},
 };
 
 const MIN_AUDIBLE_GAIN: f32 = 0.001;

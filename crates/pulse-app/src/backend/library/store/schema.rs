@@ -390,7 +390,7 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{ARTISTS_DDL, BackfillProgress, EFFECTIVE_ARTIST_INDEX_NAME, SCHEMA_VERSION};
-    use crate::library::{LibraryError, LibraryStore, ScanOutcome, metadata};
+    use crate::backend::library::{LibraryError, LibraryStore, ScanOutcome, metadata};
 
     /// The schema exactly as v3 shipped it — the shape Jason's live library
     /// database has on disk — frozen here so migration tests exercise the

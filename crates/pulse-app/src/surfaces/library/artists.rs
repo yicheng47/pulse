@@ -10,7 +10,7 @@ use super::{
         artist_grid_columns, filter_artist_index, format_artist_count,
     },
 };
-use crate::{library::Artist, text_input, theme};
+use crate::{backend::Artist, text_input, theme};
 
 const ARTIST_AVATAR_SIZE: f32 = 180.;
 

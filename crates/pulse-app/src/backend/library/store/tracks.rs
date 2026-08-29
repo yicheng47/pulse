@@ -544,7 +544,7 @@ mod tests {
     use rusqlite::params;
     use tempfile::tempdir;
 
-    use crate::library::{
+    use crate::backend::library::{
         AlbumQueryFilter, AlbumSortOrder, LibraryStore, LibrarySummary, TrackQueryFilter,
         TrackSortOrder,
         store::testing::{insert_track, test_file, test_metadata},

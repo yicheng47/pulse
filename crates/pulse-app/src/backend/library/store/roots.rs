@@ -134,7 +134,7 @@ fn storage_root_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<StorageRoo
 mod tests {
     use tempfile::tempdir;
 
-    use crate::library::{
+    use crate::backend::library::{
         LibraryStore,
         metadata::{AudioMetadata, EmbeddedArtwork},
         store::{

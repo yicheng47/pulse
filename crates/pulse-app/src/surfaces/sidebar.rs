@@ -2,7 +2,7 @@ use gpui::{Context, FontWeight, IntoElement, SharedString, div, prelude::*, px, 
 
 use crate::{
     app_store::global_app_store,
-    playback::PlaybackAction,
+    backend::PlaybackAction,
     settings::SettingsSection,
     surfaces::{
         Destination, NAV_GROUPS, SIDEBAR_TOP_PADDING, SIDEBAR_WIDTH, Shell, TOP_BAR_HEIGHT,

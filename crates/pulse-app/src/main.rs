@@ -1,20 +1,16 @@
-mod app_settings;
 mod app_store;
 mod assets;
-pub mod library;
+pub mod backend;
 mod menu;
-mod playback;
-mod preferences;
-mod queue;
 mod settings;
 mod surfaces;
 mod text_input;
 mod theme;
 mod ui;
-mod updater;
 
 use app_store::{AppStore, GlobalAppStore};
 use assets::Assets;
+use backend::{AppSettings, app_data_directory, load_or_migrate_app_settings, settings_path};
 use gpui::{
     App, AppContext, Bounds, TitlebarOptions, WindowBounds, WindowOptions, point, px, size,
 };
@@ -48,11 +44,11 @@ fn main() {
             menu::install(cx);
 
             let app_data_directory =
-                preferences::app_data_directory().expect("failed to resolve app data directory");
-            let settings_path = app_settings::settings_path(&app_data_directory);
-            let settings = preferences::load_or_migrate_app_settings().unwrap_or_else(|error| {
+                app_data_directory().expect("failed to resolve app data directory");
+            let settings_path = settings_path(&app_data_directory);
+            let settings = load_or_migrate_app_settings().unwrap_or_else(|error| {
                 eprintln!("Could not load app settings: {error}");
-                app_settings::AppSettings::default()
+                AppSettings::default()
             });
             let app_store = cx.new(|cx| AppStore::new(settings_path, settings, cx));
             cx.set_global(GlobalAppStore(app_store.clone()));

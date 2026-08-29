@@ -1,11 +1,15 @@
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    path::PathBuf,
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
 use gpui::{App, Context, Entity, Global};
 use pulse_engine::device;
 
-use crate::{
-    app_settings::AppSettings,
-    playback::{ManagedDeviceGroups, Playback, PlaybackAction, PlaybackSnapshot},
+use crate::backend::{
+    AppSettings, ManagedDeviceGroups, Playback, PlaybackAction, PlaybackSnapshot, UpdateInfo,
+    Updater,
 };
 
 const EVENT_POLL_INTERVAL: Duration = Duration::from_millis(16);
@@ -289,6 +293,66 @@ impl AppStore {
         if self.revisions.apply(changes) {
             cx.notify();
         }
+    }
+}
+
+pub(crate) struct UpdaterBridge {
+    updater: Updater,
+}
+
+impl UpdaterBridge {
+    pub(crate) fn new(cx: &mut Context<Self>) -> Self {
+        let updater = cx.weak_entity();
+        let async_cx = cx.to_async();
+        Self {
+            updater: Updater::new(move |transition| {
+                let updater = updater.clone();
+                async_cx
+                    .spawn(async move |cx| {
+                        let _ = cx.update(|cx| {
+                            updater.update(cx, |bridge, cx| {
+                                if bridge.updater.apply_transition(transition) {
+                                    cx.notify();
+                                }
+                            })
+                        });
+                    })
+                    .detach();
+            }),
+        }
+    }
+
+    pub(crate) fn is_available(&self) -> bool {
+        self.updater.is_available()
+    }
+
+    pub(crate) fn start(&self) {
+        self.updater.start();
+    }
+
+    pub(crate) fn check_for_updates(&self) {
+        self.updater.check_for_updates();
+    }
+
+    pub(crate) fn available(&self) -> Option<&UpdateInfo> {
+        self.updater.available()
+    }
+
+    pub(crate) fn automatically_checks_for_updates(&self) -> bool {
+        self.updater.automatically_checks_for_updates()
+    }
+
+    pub(crate) fn set_automatically_checks_for_updates(
+        &mut self,
+        enabled: bool,
+        cx: &mut Context<Self>,
+    ) {
+        self.updater.set_automatically_checks_for_updates(enabled);
+        cx.notify();
+    }
+
+    pub(crate) fn last_check_at(&self) -> Option<SystemTime> {
+        self.updater.last_check_at()
     }
 }
 

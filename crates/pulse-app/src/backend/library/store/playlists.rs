@@ -327,7 +327,7 @@ pub fn playlist_summary_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Pl
 mod tests {
     use tempfile::tempdir;
 
-    use crate::library::{
+    use crate::backend::library::{
         LibraryError, LibraryStore,
         store::{
             testing::{insert_track, test_file, test_metadata},

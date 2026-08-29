@@ -16,7 +16,7 @@ use super::{
     },
 };
 use crate::{
-    library::{Album, Track},
+    backend::{Album, Track},
     theme, ui,
 };
 
