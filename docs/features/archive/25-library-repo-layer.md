@@ -1,6 +1,6 @@
 # Backend Layer and Library Repo Layer
 
-> Feature 25 · P2 · GitHub issue [#68](https://github.com/yicheng47/pulse-src/issues/68). Make the UI / domain split in `pulse-app` structural and enforced (a `backend/` module that can never import `gpui`), then regulate every SQL statement behind a Runner-style repo layer and lift the library's use cases into an ops layer. Behavior-preserving; no schema change; still one crate.
+> Feature 25 · P2 · GitHub issue [#68](https://github.com/yicheng47/pulse-src/issues/68). Make the UI / domain split in `pulse-app` structural and enforced (a `backend/` module that can never import `gpui`), then regulate every SQL statement behind a Runner-style repo layer and lift the library's use cases into an ops layer. Behavior-preserving; no schema change; still one crate. **Merged** 2026-08-29 in four phases — `965965b` (backend boundary), `aa211ec` (repo layer), `49a6f00` (model + ops), `c1975cd` (facade retirement + arch doc); the issue was closed when tracking moved to local docs.
 
 ## Motivation
 

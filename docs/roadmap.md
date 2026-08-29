@@ -21,11 +21,12 @@ Make the domain layer structural before more features land on it.
 
 | Item | Priority | Status | Notes |
 |---|---|---|---|
-| [Feature 25 — backend layer + library repo layer](features/25-library-repo-layer.md) | P2 | in progress | Phases 1 (`backend/` boundary + gpui gate), 2 (repo layer), and 3 (model + ops; rusqlite confined to `repo/`) merged; phase 4 (facade retirement + arch doc) next. |
+| [Feature 25 — backend layer + library repo layer](features/archive/25-library-repo-layer.md) | P2 | done | Four phases merged: `965965b` (backend boundary + gpui gate), `aa211ec` (repo layer), `49a6f00` (model + ops), `c1975cd` (facade retirement, SQL boundary gate, arch doc §4). |
 | [Bug — app menu items disabled without focus](bugs/app-menu-items-disabled.md) | P2 | planned | Global `cx.on_action` handlers, Runner's pattern. Small; run right after phase 1. |
 | [Bug — macOS 12 deployment target](bugs/macos-deployment-target.md) | P2 | planned | Release hygiene; validate or raise before the next release. |
 | [Bug — effective-artist SQL copies](bugs/archive/effective-artist-sql-copies.md) | P3 | done | Fixed by 25 phase 2 (`aa211ec`). |
 | [Bug — album card image clipping](bugs/album-card-image-clipping.md) | P3 | planned | Same fix as the artist avatar: radius on the `img`. |
+| [Bug — track-artist SQL copies](bugs/track-artist-sql-copies.md) | P3 | planned | Hoist the three `tracks.rs` copies into one `repo/mod.rs` fragment and extend the boundary gate; found in 25 phase 4 review. |
 
 ## M2 — Playback correctness → v0.1.9
 

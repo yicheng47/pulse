@@ -9,6 +9,7 @@ One note per open bug, written with the `bug` skill's template (description, exp
 - [`macos-deployment-target.md`](macos-deployment-target.md) - P2. Validate or raise the declared macOS 12 deployment target.
 - [`app-menu-items-disabled.md`](app-menu-items-disabled.md) - P2. About / Settings… / Check for Updates… are disabled unless something in the window has focus; fix is global `cx.on_action` handlers.
 - [`album-card-image-clipping.md`](album-card-image-clipping.md) - P3. Album card corners: put the radius on the image layer, as the artist avatar fix did.
+- [`track-artist-sql-copies.md`](track-artist-sql-copies.md) - P3. The track-artist identity expression is written three times in `repo/tracks.rs`; hoist it beside `EFFECTIVE_ALBUM_ARTIST_SQL` and gate it.
 
 ## Fixed
 
