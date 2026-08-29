@@ -1,3 +1,4 @@
+mod app_settings;
 mod assets;
 mod device_management;
 pub mod library;

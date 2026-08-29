@@ -18,6 +18,7 @@ lofty.workspace = true
 pulse-engine.workspace = true
 rusqlite.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
 unicode-normalization.workspace = true
 unicode-segmentation.workspace = true

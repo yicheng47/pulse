@@ -18,8 +18,8 @@ use pulse_engine::{
 };
 
 use crate::{
+    app_settings,
     library::{Track, TrackId},
-    preferences,
     queue::{PreviousAction, QueueState, RepeatMode, TrackRef},
     theme, ui,
 };
@@ -87,7 +87,7 @@ enum PlaybackSurface {
 pub(crate) struct ManagedDevice {
     pub uid: String,
     pub name: String,
-    pub capabilities: Option<preferences::StoredDeviceCapabilities>,
+    pub capabilities: Option<app_settings::StoredDeviceCapabilities>,
     pub last_seen_unix_seconds: Option<u64>,
     pub connected: bool,
     pub active: bool,
@@ -159,7 +159,7 @@ pub struct PlaybackRow {
     device_capability_message: Option<DeviceMessage>,
     pending_device_change: Option<PendingDeviceChange>,
     device_message: Option<DeviceMessage>,
-    exclusive_mode_preferences: preferences::ExclusiveModePreferences,
+    exclusive_mode_preferences: app_settings::ExclusiveModePreferences,
     device_sightings_writable: bool,
     default_exclusive_mode: bool,
     exclusive_mode: bool,
@@ -203,11 +203,11 @@ impl PlaybackRow {
         let mut row = Self::initial();
         row.volume_popover_focus = Some(cx.focus_handle());
         row.queue_popover_focus = Some(cx.focus_handle());
-        row.volume_level = preferences::load_volume_level().unwrap_or_else(|error| {
+        row.volume_level = app_settings::load_volume_level().unwrap_or_else(|error| {
             eprintln!("Could not load the volume level preference: {error}");
             1.0
         });
-        row.volume_muted = preferences::load_volume_muted().unwrap_or_else(|error| {
+        row.volume_muted = app_settings::load_volume_muted().unwrap_or_else(|error| {
             eprintln!("Could not load the volume mute preference: {error}");
             false
         });
@@ -254,7 +254,7 @@ impl PlaybackRow {
             device_capability_message: None,
             pending_device_change: None,
             device_message: None,
-            exclusive_mode_preferences: preferences::ExclusiveModePreferences::default(),
+            exclusive_mode_preferences: app_settings::ExclusiveModePreferences::default(),
             device_sightings_writable: false,
             default_exclusive_mode: true,
             exclusive_mode: true,
@@ -312,7 +312,7 @@ impl PlaybackRow {
                 return;
             }
         };
-        let preferred_uid = match preferences::load_output_device_uid() {
+        let preferred_uid = match app_settings::load_output_device_uid() {
             Ok(uid) => uid,
             Err(error) => {
                 self.device_message = Some(DeviceMessage {
@@ -330,7 +330,7 @@ impl PlaybackRow {
             resolve_output_device(&devices, &system_default, preferred_uid.as_deref());
 
         self.active_device = Some(active_device.clone());
-        match preferences::load_exclusive_mode_preferences(&active_device.uid) {
+        match app_settings::load_exclusive_mode_preferences(&active_device.uid) {
             Ok(preferences) => {
                 self.exclusive_mode_preferences = preferences;
                 self.device_sightings_writable = true;
@@ -340,7 +340,7 @@ impl PlaybackRow {
                     text: format!("Could not load exclusive-mode preferences: {error}"),
                     is_error: true,
                 });
-                self.exclusive_mode_preferences = preferences::ExclusiveModePreferences::default();
+                self.exclusive_mode_preferences = app_settings::ExclusiveModePreferences::default();
                 self.device_sightings_writable = false;
             }
         }
@@ -376,7 +376,7 @@ impl PlaybackRow {
 
     fn toggle_volume_mute(&mut self, cx: &mut Context<Self>) {
         let muted = !self.volume_muted;
-        if let Err(error) = preferences::save_volume_muted(muted) {
+        if let Err(error) = app_settings::save_volume_muted(muted) {
             self.error = Some(format!(
                 "Could not save the volume mute preference: {error}"
             ));
@@ -400,9 +400,7 @@ impl PlaybackRow {
     }
 
     fn persist_volume(&mut self, cx: &mut Context<Self>) {
-        let result = preferences::save_volume_level(self.volume_level)
-            .and_then(|()| preferences::save_volume_muted(self.volume_muted));
-        if let Err(error) = result {
+        if let Err(error) = app_settings::save_volume(self.volume_level, self.volume_muted) {
             self.error = Some(format!("Could not save the volume preference: {error}"));
             cx.notify();
         }
@@ -470,7 +468,7 @@ impl PlaybackRow {
                 seen_at,
             );
         }
-        if let Err(error) = preferences::save_exclusive_mode_preferences(&updated) {
+        if let Err(error) = app_settings::save_exclusive_mode_preferences(&updated) {
             self.device_message = Some(DeviceMessage {
                 text: format!("Could not save output device details: {error}"),
                 is_error: true,
@@ -585,7 +583,7 @@ impl PlaybackRow {
             .effective_mode(&device_uid, default);
         let mut updated_preferences = self.exclusive_mode_preferences.clone();
         updated_preferences.set_override(&device_uid, enabled);
-        if let Err(error) = preferences::save_exclusive_mode_preferences(&updated_preferences) {
+        if let Err(error) = app_settings::save_exclusive_mode_preferences(&updated_preferences) {
             self.device_message = Some(DeviceMessage {
                 text: format!("Could not save the exclusive-mode preference: {error}"),
                 is_error: true,
@@ -618,7 +616,7 @@ impl PlaybackRow {
     ) {
         let mut updated_preferences = self.exclusive_mode_preferences.clone();
         updated_preferences.clear_override(&device_uid);
-        if let Err(error) = preferences::save_exclusive_mode_preferences(&updated_preferences) {
+        if let Err(error) = app_settings::save_exclusive_mode_preferences(&updated_preferences) {
             self.device_message = Some(DeviceMessage {
                 text: format!("Could not save the exclusive-mode preference: {error}"),
                 is_error: true,
@@ -658,7 +656,7 @@ impl PlaybackRow {
         if self.devices.iter().any(|device| device.uid == device_uid) {
             return false;
         }
-        match preferences::forget_device(&mut self.exclusive_mode_preferences, device_uid) {
+        match app_settings::forget_device(&mut self.exclusive_mode_preferences, device_uid) {
             Ok(true) => {
                 if self.saved_output_device_uid.as_deref() == Some(device_uid) {
                     self.saved_output_device_uid = None;
@@ -684,7 +682,8 @@ impl PlaybackRow {
         device_uid: &str,
         cx: &mut Context<Self>,
     ) {
-        match self.update_saved_output_device_uid(device_uid, preferences::save_output_device_uid) {
+        match self.update_saved_output_device_uid(device_uid, app_settings::save_output_device_uid)
+        {
             Ok(true) => {
                 self.device_message = None;
                 cx.notify();
@@ -1363,7 +1362,7 @@ impl PlaybackRow {
             self.apply_completed_output_device_change(pending, playback_exclusive_mode);
 
         if persist {
-            match preferences::save_output_device_uid(&output_device.uid) {
+            match app_settings::save_output_device_uid(&output_device.uid) {
                 Ok(()) => self.saved_output_device_uid = Some(output_device.uid.clone()),
                 Err(error) => {
                     self.device_message = Some(DeviceMessage {
@@ -3042,8 +3041,8 @@ fn resolve_output_device(
 
 fn stored_device_capabilities(
     capabilities: device::OutputDeviceCapabilities,
-) -> preferences::StoredDeviceCapabilities {
-    preferences::StoredDeviceCapabilities {
+) -> app_settings::StoredDeviceCapabilities {
+    app_settings::StoredDeviceCapabilities {
         max_bits_per_channel: capabilities.max_bits_per_channel,
         max_sample_rate: capabilities.max_sample_rate.round() as u32,
     }
@@ -3053,7 +3052,7 @@ fn merge_managed_devices(
     connected_devices: &[device::Device],
     active_device_uid: Option<&str>,
     saved_output_device_uid: Option<&str>,
-    preferences: &preferences::ExclusiveModePreferences,
+    preferences: &app_settings::ExclusiveModePreferences,
 ) -> ManagedDeviceGroups {
     let mut merged = BTreeMap::new();
     for (uid, stored) in preferences.devices() {
@@ -3134,7 +3133,7 @@ fn format_device_capabilities(capabilities: device::OutputDeviceCapabilities) ->
 }
 
 pub(crate) fn format_stored_device_capabilities(
-    capabilities: preferences::StoredDeviceCapabilities,
+    capabilities: app_settings::StoredDeviceCapabilities,
 ) -> String {
     format_capability_ceiling(
         capabilities.max_bits_per_channel,
@@ -3452,11 +3451,11 @@ mod tests {
 
     #[test]
     fn managed_devices_merge_connected_and_stored_rows_without_duplicates() {
-        let mut preferences = preferences::ExclusiveModePreferences::default();
+        let mut preferences = app_settings::ExclusiveModePreferences::default();
         preferences.record_sighting(
             "matrix",
             "mini-i Series",
-            Some(preferences::StoredDeviceCapabilities {
+            Some(app_settings::StoredDeviceCapabilities {
                 max_bits_per_channel: Some(24),
                 max_sample_rate: 192_000,
             }),
@@ -3465,7 +3464,7 @@ mod tests {
         preferences.record_sighting(
             "airpods",
             "AirPods Pro",
-            Some(preferences::StoredDeviceCapabilities {
+            Some(app_settings::StoredDeviceCapabilities {
                 max_bits_per_channel: None,
                 max_sample_rate: 48_000,
             }),
@@ -3493,11 +3492,11 @@ mod tests {
 
     #[test]
     fn managed_device_group_moves_keep_the_stored_override() {
-        let mut preferences = preferences::ExclusiveModePreferences::default();
+        let mut preferences = app_settings::ExclusiveModePreferences::default();
         preferences.record_sighting(
             "matrix",
             "mini-i Series",
-            Some(preferences::StoredDeviceCapabilities {
+            Some(app_settings::StoredDeviceCapabilities {
                 max_bits_per_channel: Some(24),
                 max_sample_rate: 192_000,
             }),
@@ -3522,7 +3521,7 @@ mod tests {
 
     #[test]
     fn managed_device_groups_sort_active_first_then_alphabetically() {
-        let mut preferences = preferences::ExclusiveModePreferences::default();
+        let mut preferences = app_settings::ExclusiveModePreferences::default();
         for (uid, name) in [
             ("delta", "Delta"),
             ("charlie", "charlie"),
@@ -3560,7 +3559,7 @@ mod tests {
 
     #[test]
     fn only_not_connected_devices_can_be_forgotten() {
-        let mut preferences = preferences::ExclusiveModePreferences::default();
+        let mut preferences = app_settings::ExclusiveModePreferences::default();
         preferences.record_sighting("matrix", "mini-i Series", None, 100);
         preferences.record_sighting("airpods", "AirPods Pro", None, 100);
 

@@ -4,6 +4,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::app_settings::{
+    AppSettings, ExclusiveModePreferences, StoredDeviceCapabilities, StoredDevicePreferences,
+    settings_path,
+};
+
 const APP_DIRECTORY_NAME: &str = if cfg!(debug_assertions) {
     "pulse-dev"
 } else {
@@ -13,150 +18,6 @@ const APP_DIRECTORY_NAME: &str = if cfg!(debug_assertions) {
 const EXCLUSIVE_MODES_VERSION: &str = "version=2";
 const LEGACY_EXCLUSIVE_MODES_VERSION: &str = "version=1";
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct StoredDeviceCapabilities {
-    pub max_bits_per_channel: Option<u32>,
-    pub max_sample_rate: u32,
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct StoredDevicePreferences {
-    pub name: Option<String>,
-    pub capabilities: Option<StoredDeviceCapabilities>,
-    pub last_seen_unix_seconds: Option<u64>,
-    exclusive_mode: Option<bool>,
-}
-
-impl StoredDevicePreferences {
-    pub fn exclusive_mode_override(&self) -> Option<bool> {
-        self.exclusive_mode
-    }
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct ExclusiveModePreferences {
-    devices: BTreeMap<String, StoredDevicePreferences>,
-}
-
-impl ExclusiveModePreferences {
-    pub fn effective_mode(&self, device_uid: &str, default: bool) -> bool {
-        self.devices
-            .get(device_uid)
-            .and_then(StoredDevicePreferences::exclusive_mode_override)
-            .unwrap_or(default)
-    }
-
-    pub fn is_overridden(&self, device_uid: &str) -> bool {
-        self.devices
-            .get(device_uid)
-            .is_some_and(|device| device.exclusive_mode.is_some())
-    }
-
-    pub fn set_override(&mut self, device_uid: &str, enabled: bool) {
-        self.devices
-            .entry(device_uid.to_string())
-            .or_default()
-            .exclusive_mode = Some(enabled);
-    }
-
-    pub fn clear_override(&mut self, device_uid: &str) {
-        if let Some(device) = self.devices.get_mut(device_uid) {
-            device.exclusive_mode = None;
-        }
-    }
-
-    pub fn record_sighting(
-        &mut self,
-        device_uid: &str,
-        name: &str,
-        capabilities: Option<StoredDeviceCapabilities>,
-        seen_at_unix_seconds: u64,
-    ) {
-        let device = self.devices.entry(device_uid.to_string()).or_default();
-        device.name = Some(name.to_string());
-        if capabilities.is_some() {
-            device.capabilities = capabilities;
-        }
-        device.last_seen_unix_seconds = Some(seen_at_unix_seconds);
-    }
-
-    pub fn devices(&self) -> impl Iterator<Item = (&str, &StoredDevicePreferences)> {
-        self.devices
-            .iter()
-            .map(|(uid, preferences)| (uid.as_str(), preferences))
-    }
-
-    pub fn stored_capabilities(&self, device_uid: &str) -> Option<StoredDeviceCapabilities> {
-        self.devices
-            .get(device_uid)
-            .and_then(|device| device.capabilities)
-    }
-
-    pub fn forget(&mut self, device_uid: &str) -> bool {
-        self.devices.remove(device_uid).is_some()
-    }
-}
-
-pub fn load_output_device_uid() -> io::Result<Option<String>> {
-    load_output_device_uid_from(&output_device_uid_path()?)
-}
-
-pub fn save_output_device_uid(uid: &str) -> io::Result<()> {
-    let path = output_device_uid_path()?;
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    fs::write(path, uid)
-}
-
-pub fn load_exclusive_mode_preferences(
-    active_device_uid: &str,
-) -> io::Result<ExclusiveModePreferences> {
-    load_exclusive_mode_preferences_from(
-        &exclusive_modes_path()?,
-        &exclusive_mode_disabled_path()?,
-        library_database_path()?.exists(),
-        active_device_uid,
-    )
-}
-
-pub fn save_exclusive_mode_preferences(preferences: &ExclusiveModePreferences) -> io::Result<()> {
-    save_exclusive_mode_preferences_to(&exclusive_modes_path()?, preferences)
-}
-
-pub fn forget_device(
-    preferences: &mut ExclusiveModePreferences,
-    device_uid: &str,
-) -> io::Result<bool> {
-    forget_device_from(
-        &exclusive_modes_path()?,
-        &output_device_uid_path()?,
-        preferences,
-        device_uid,
-    )
-}
-
-pub fn load_volume_level() -> io::Result<f32> {
-    load_volume_level_from(&volume_level_path()?)
-}
-
-pub fn save_volume_level(level: f32) -> io::Result<()> {
-    save_volume_level_to(&volume_level_path()?, level)
-}
-
-pub fn load_volume_muted() -> io::Result<bool> {
-    load_volume_muted_from(&volume_muted_path()?)
-}
-
-pub fn save_volume_muted(muted: bool) -> io::Result<()> {
-    save_volume_muted_to(&volume_muted_path()?, muted)
-}
-
-#[cfg(all(target_os = "macos", feature = "updater"))]
-pub fn take_legacy_update_check_preference() -> io::Result<Option<bool>> {
-    take_legacy_update_check_preference_from(&check_updates_disabled_path()?)
-}
-
 pub fn library_database_path() -> io::Result<PathBuf> {
     Ok(app_data_directory()?.join("library.sqlite"))
 }
@@ -165,78 +26,191 @@ pub fn cover_cache_directory() -> io::Result<PathBuf> {
     Ok(app_data_directory()?.join("covers"))
 }
 
-fn app_data_directory() -> io::Result<PathBuf> {
+pub fn app_data_directory() -> io::Result<PathBuf> {
     dirs::data_dir()
         .map(|path| path.join(APP_DIRECTORY_NAME))
         .ok_or_else(|| io::Error::other("could not determine the app data directory"))
 }
 
-fn output_device_uid_path() -> io::Result<PathBuf> {
+pub(crate) fn legacy_config_directory() -> io::Result<PathBuf> {
     dirs::config_dir()
-        .map(|path| path.join(APP_DIRECTORY_NAME).join("app-output-device.uid"))
+        .map(|path| path.join(APP_DIRECTORY_NAME))
         .ok_or_else(|| io::Error::other("could not determine the app configuration directory"))
 }
 
-fn exclusive_mode_disabled_path() -> io::Result<PathBuf> {
-    dirs::config_dir()
-        .map(|path| {
-            path.join(APP_DIRECTORY_NAME)
-                .join("exclusive-mode.disabled")
-        })
-        .ok_or_else(|| io::Error::other("could not determine the app configuration directory"))
+#[cfg(all(target_os = "macos", feature = "updater"))]
+pub fn take_legacy_update_check_preference() -> io::Result<Option<bool>> {
+    take_legacy_update_check_preference_from(&check_updates_disabled_path()?)
 }
 
-fn exclusive_modes_path() -> io::Result<PathBuf> {
-    dirs::config_dir()
-        .map(|path| path.join(APP_DIRECTORY_NAME).join("exclusive-modes.tsv"))
-        .ok_or_else(|| io::Error::other("could not determine the app configuration directory"))
+pub(crate) fn load_or_migrate_app_settings() -> io::Result<AppSettings> {
+    load_or_migrate_app_settings_from(&app_data_directory()?, &legacy_config_directory()?)
 }
 
-#[cfg(any(all(target_os = "macos", feature = "updater"), test))]
-fn check_updates_disabled_path() -> io::Result<PathBuf> {
-    dirs::config_dir()
-        .map(|path| path.join(APP_DIRECTORY_NAME).join("check-updates.disabled"))
-        .ok_or_else(|| io::Error::other("could not determine the app configuration directory"))
-}
-
-fn volume_level_path() -> io::Result<PathBuf> {
-    dirs::config_dir()
-        .map(|path| path.join(APP_DIRECTORY_NAME).join("volume.level"))
-        .ok_or_else(|| io::Error::other("could not determine the app configuration directory"))
-}
-
-fn volume_muted_path() -> io::Result<PathBuf> {
-    dirs::config_dir()
-        .map(|path| path.join(APP_DIRECTORY_NAME).join("volume.muted"))
-        .ok_or_else(|| io::Error::other("could not determine the app configuration directory"))
-}
-
-fn load_exclusive_mode_preferences_from(
-    path: &Path,
-    legacy_disabled_path: &Path,
-    legacy_install_exists: bool,
-    active_device_uid: &str,
-) -> io::Result<ExclusiveModePreferences> {
-    match fs::read_to_string(path) {
-        Ok(contents) => return parse_exclusive_mode_preferences(&contents),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-        Err(error) => return Err(error),
+pub(crate) fn load_or_migrate_app_settings_from(
+    app_data_dir: &Path,
+    legacy_config_dir: &Path,
+) -> io::Result<AppSettings> {
+    let path = settings_path(app_data_dir);
+    let legacy_paths = LegacyPreferencePaths::new(legacy_config_dir);
+    if path_exists(&path)? {
+        let settings = AppSettings::load(&path)?;
+        if !path_exists(&path)? {
+            settings.save(&path)?;
+        }
+        return Ok(settings);
     }
 
-    let legacy_disabled = match fs::metadata(legacy_disabled_path) {
-        Ok(_) => true,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => false,
-        Err(error) => return Err(error),
+    let settings = migrate_legacy_preferences(app_data_dir, &legacy_paths)?;
+    settings.save(&path)?;
+    remove_legacy_preferences(&legacy_paths)?;
+    Ok(settings)
+}
+
+struct LegacyPreferencePaths {
+    output_device_uid: PathBuf,
+    exclusive_mode_disabled: PathBuf,
+    exclusive_modes: PathBuf,
+    volume_level: PathBuf,
+    volume_muted: PathBuf,
+}
+
+impl LegacyPreferencePaths {
+    fn new(directory: &Path) -> Self {
+        Self {
+            output_device_uid: directory.join("app-output-device.uid"),
+            exclusive_mode_disabled: directory.join("exclusive-mode.disabled"),
+            exclusive_modes: directory.join("exclusive-modes.tsv"),
+            volume_level: directory.join("volume.level"),
+            volume_muted: directory.join("volume.muted"),
+        }
+    }
+
+    fn all(&self) -> [&Path; 5] {
+        [
+            &self.output_device_uid,
+            &self.exclusive_mode_disabled,
+            &self.exclusive_modes,
+            &self.volume_level,
+            &self.volume_muted,
+        ]
+    }
+}
+
+enum LegacyText {
+    Missing,
+    Contents(String),
+    Corrupt,
+}
+
+fn migrate_legacy_preferences(
+    app_data_dir: &Path,
+    paths: &LegacyPreferencePaths,
+) -> io::Result<AppSettings> {
+    let saved_output_device_uid = match read_legacy_text(&paths.output_device_uid)? {
+        LegacyText::Contents(contents) => parse_output_device_uid(&contents),
+        LegacyText::Missing | LegacyText::Corrupt => None,
     };
-    let mut preferences = ExclusiveModePreferences::default();
-    if legacy_disabled || legacy_install_exists {
-        preferences.set_override(active_device_uid, !legacy_disabled);
+    let (exclusive_mode_preferences, had_exclusive_modes) =
+        match read_legacy_text(&paths.exclusive_modes)? {
+            LegacyText::Contents(contents) => match parse_exclusive_mode_preferences(&contents) {
+                Ok(preferences) => (preferences, true),
+                Err(error) => {
+                    archive_corrupt_legacy_file(&paths.exclusive_modes, &error)?;
+                    (ExclusiveModePreferences::default(), true)
+                }
+            },
+            LegacyText::Corrupt => (ExclusiveModePreferences::default(), true),
+            LegacyText::Missing => (ExclusiveModePreferences::default(), false),
+        };
+    let legacy_exclusive_mode_disabled = if had_exclusive_modes {
+        None
+    } else {
+        let disabled = path_exists(&paths.exclusive_mode_disabled)?;
+        let legacy_install_exists = app_data_dir.join("library.sqlite").exists();
+        (disabled || legacy_install_exists).then_some(disabled)
+    };
+    let volume_level = match read_legacy_text(&paths.volume_level)? {
+        LegacyText::Contents(contents) => match parse_volume_level(&contents) {
+            Ok(level) => level,
+            Err(error) => {
+                archive_corrupt_legacy_file(&paths.volume_level, &error)?;
+                1.0
+            }
+        },
+        LegacyText::Missing | LegacyText::Corrupt => 1.0,
+    };
+    let volume_muted = path_exists(&paths.volume_muted)?;
+
+    Ok(AppSettings {
+        saved_output_device_uid,
+        exclusive_mode_preferences,
+        legacy_exclusive_mode_disabled,
+        volume_level,
+        volume_muted,
+    })
+}
+
+fn remove_legacy_preferences(paths: &LegacyPreferencePaths) -> io::Result<()> {
+    for path in paths.all() {
+        match fs::remove_file(path) {
+            Ok(()) => {}
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error),
+        }
     }
-    save_exclusive_mode_preferences_to(path, &preferences)?;
-    if legacy_disabled {
-        fs::remove_file(legacy_disabled_path)?;
+    Ok(())
+}
+
+fn read_legacy_text(path: &Path) -> io::Result<LegacyText> {
+    match fs::read_to_string(path) {
+        Ok(contents) => Ok(LegacyText::Contents(contents)),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(LegacyText::Missing),
+        Err(error) if error.kind() == io::ErrorKind::InvalidData => {
+            archive_corrupt_legacy_file(path, &error)?;
+            Ok(LegacyText::Corrupt)
+        }
+        Err(error) => Err(error),
     }
-    Ok(preferences)
+}
+
+fn archive_corrupt_legacy_file(path: &Path, error: &dyn std::fmt::Display) -> io::Result<PathBuf> {
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| io::Error::other("legacy preference path has no file name"))?;
+    for index in 0..100 {
+        let suffix = if index == 0 {
+            String::new()
+        } else {
+            format!("-{index}")
+        };
+        let archived_path = path.with_file_name(format!("{file_name}.corrupt{suffix}"));
+        match fs::symlink_metadata(&archived_path) {
+            Ok(_) => continue,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error),
+        }
+        fs::rename(path, &archived_path)?;
+        eprintln!(
+            "Could not migrate {}: {error}. Moved it to {} and used the default value.",
+            path.display(),
+            archived_path.display()
+        );
+        return Ok(archived_path);
+    }
+    Err(io::Error::new(
+        io::ErrorKind::AlreadyExists,
+        "could not allocate a corrupt legacy preference backup path",
+    ))
+}
+
+fn path_exists(path: &Path) -> io::Result<bool> {
+    match fs::metadata(path) {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error),
+    }
 }
 
 fn parse_exclusive_mode_preferences(contents: &str) -> io::Result<ExclusiveModePreferences> {
@@ -324,46 +298,6 @@ fn parse_legacy_exclusive_mode_preferences<'a>(
     Ok(preferences)
 }
 
-fn save_exclusive_mode_preferences_to(
-    path: &Path,
-    preferences: &ExclusiveModePreferences,
-) -> io::Result<()> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    let mut contents = String::from(EXCLUSIVE_MODES_VERSION);
-    contents.push('\n');
-    for (uid, device) in &preferences.devices {
-        contents.push_str(match device.exclusive_mode {
-            Some(true) => "exclusive",
-            Some(false) => "shared",
-            None => "auto",
-        });
-        contents.push('\t');
-        contents.push_str(&escape_field(uid));
-        contents.push('\t');
-        contents.push_str(&escape_field(device.name.as_deref().unwrap_or_default()));
-        contents.push('\t');
-        match device.capabilities {
-            Some(capabilities) => {
-                match capabilities.max_bits_per_channel {
-                    Some(bits) => contents.push_str(&bits.to_string()),
-                    None => contents.push_str("float"),
-                }
-                contents.push('\t');
-                contents.push_str(&capabilities.max_sample_rate.to_string());
-            }
-            None => contents.push_str("unknown\t"),
-        }
-        contents.push('\t');
-        if let Some(last_seen) = device.last_seen_unix_seconds {
-            contents.push_str(&last_seen.to_string());
-        }
-        contents.push('\n');
-    }
-    fs::write(path, contents)
-}
-
 fn parse_exclusive_mode(mode: &str) -> io::Result<Option<bool>> {
     match mode {
         "auto" => Ok(None),
@@ -407,14 +341,6 @@ fn parse_stored_capabilities(
     }))
 }
 
-fn escape_field(value: &str) -> String {
-    value
-        .replace('\\', "\\\\")
-        .replace('\t', "\\t")
-        .replace('\n', "\\n")
-        .replace('\r', "\\r")
-}
-
 fn unescape_field(value: &str) -> io::Result<String> {
     let mut unescaped = String::with_capacity(value.len());
     let mut characters = value.chars();
@@ -439,55 +365,12 @@ fn unescape_field(value: &str) -> io::Result<String> {
     Ok(unescaped)
 }
 
-fn load_output_device_uid_from(path: &Path) -> io::Result<Option<String>> {
-    match fs::read_to_string(path) {
-        Ok(contents) => Ok(parse_output_device_uid(&contents)),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
-        Err(error) => Err(error),
-    }
+fn parse_output_device_uid(contents: &str) -> Option<String> {
+    let uid = contents.trim();
+    (!uid.is_empty()).then(|| uid.to_string())
 }
 
-fn clear_output_device_uid_from(path: &Path) -> io::Result<()> {
-    match fs::remove_file(path) {
-        Ok(()) => Ok(()),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
-        Err(error) => Err(error),
-    }
-}
-
-fn forget_device_from(
-    preferences_path: &Path,
-    output_device_uid_path: &Path,
-    preferences: &mut ExclusiveModePreferences,
-    device_uid: &str,
-) -> io::Result<bool> {
-    let mut updated = preferences.clone();
-    if !updated.forget(device_uid) {
-        return Ok(false);
-    }
-    if load_output_device_uid_from(output_device_uid_path)?.as_deref() == Some(device_uid) {
-        clear_output_device_uid_from(output_device_uid_path)?;
-    }
-    save_exclusive_mode_preferences_to(preferences_path, &updated)?;
-    *preferences = updated;
-    Ok(true)
-}
-
-#[cfg(any(all(target_os = "macos", feature = "updater"), test))]
-fn take_legacy_update_check_preference_from(path: &Path) -> io::Result<Option<bool>> {
-    match fs::remove_file(path) {
-        Ok(()) => Ok(Some(false)),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
-        Err(error) => Err(error),
-    }
-}
-
-fn load_volume_level_from(path: &Path) -> io::Result<f32> {
-    let contents = match fs::read_to_string(path) {
-        Ok(contents) => contents,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(1.0),
-        Err(error) => return Err(error),
-    };
+fn parse_volume_level(contents: &str) -> io::Result<f32> {
     let level = contents
         .trim()
         .parse::<f32>()
@@ -501,38 +384,18 @@ fn load_volume_level_from(path: &Path) -> io::Result<f32> {
     Ok(level)
 }
 
-fn save_volume_level_to(path: &Path, level: f32) -> io::Result<()> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    fs::write(path, level.to_string())
+#[cfg(all(target_os = "macos", feature = "updater"))]
+fn check_updates_disabled_path() -> io::Result<PathBuf> {
+    Ok(legacy_config_directory()?.join("check-updates.disabled"))
 }
 
-fn load_volume_muted_from(path: &Path) -> io::Result<bool> {
-    match fs::metadata(path) {
-        Ok(_) => Ok(true),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
-        Err(error) => Err(error),
-    }
-}
-
-fn save_volume_muted_to(path: &Path, muted: bool) -> io::Result<()> {
-    if muted {
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-        return fs::write(path, []);
-    }
+#[cfg(any(all(target_os = "macos", feature = "updater"), test))]
+fn take_legacy_update_check_preference_from(path: &Path) -> io::Result<Option<bool>> {
     match fs::remove_file(path) {
-        Ok(()) => Ok(()),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        Ok(()) => Ok(Some(false)),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(error) => Err(error),
     }
-}
-
-fn parse_output_device_uid(contents: &str) -> Option<String> {
-    let uid = contents.trim();
-    (!uid.is_empty()).then(|| uid.to_string())
 }
 
 #[cfg(test)]
@@ -549,197 +412,166 @@ mod tests {
     }
 
     #[test]
-    fn app_preference_does_not_share_the_cli_file() {
-        assert_eq!(
-            output_device_uid_path()
-                .unwrap()
-                .file_name()
-                .and_then(|name| name.to_str()),
-            Some("app-output-device.uid")
-        );
-        assert_eq!(
-            exclusive_mode_disabled_path()
-                .unwrap()
-                .file_name()
-                .and_then(|name| name.to_str()),
-            Some("exclusive-mode.disabled")
-        );
-        assert_eq!(
-            exclusive_modes_path()
-                .unwrap()
-                .file_name()
-                .and_then(|name| name.to_str()),
-            Some("exclusive-modes.tsv")
-        );
-        assert_eq!(
-            check_updates_disabled_path()
-                .unwrap()
-                .file_name()
-                .and_then(|name| name.to_str()),
-            Some("check-updates.disabled")
-        );
-        assert_eq!(
-            volume_level_path()
-                .unwrap()
-                .file_name()
-                .and_then(|name| name.to_str()),
-            Some("volume.level")
-        );
-        assert_eq!(
-            volume_muted_path()
-                .unwrap()
-                .file_name()
-                .and_then(|name| name.to_str()),
-            Some("volume.muted")
-        );
-    }
-
-    #[test]
-    fn exclusive_mode_preferences_round_trip_two_device_overrides() {
-        let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("exclusive-modes.tsv");
-        let mut preferences = ExclusiveModePreferences::default();
-        preferences.set_override("matrix", false);
-        preferences.set_override("airpods", true);
-
-        save_exclusive_mode_preferences_to(&path, &preferences).unwrap();
-        let loaded = load_exclusive_mode_preferences_from(
-            &path,
-            &directory.path().join("exclusive-mode.disabled"),
-            false,
-            "matrix",
+    fn migrates_every_flat_preference_after_writing_json() {
+        let root = tempfile::tempdir().unwrap();
+        let app_data = root.path().join("data");
+        let legacy = root.path().join("config");
+        fs::create_dir_all(&legacy).unwrap();
+        fs::write(legacy.join("app-output-device.uid"), " matrix ").unwrap();
+        fs::write(
+            legacy.join("exclusive-modes.tsv"),
+            "version=2\nshared\tmatrix\\\\uid\tMatrix\\tmini-i\\nSeries\t24\t192000\t1777777777\nauto\tairpods\tAirPods\tfloat\t48000\t1666666666\n",
         )
         .unwrap();
+        fs::write(legacy.join("exclusive-mode.disabled"), []).unwrap();
+        fs::write(legacy.join("volume.level"), "0.42").unwrap();
+        fs::write(legacy.join("volume.muted"), []).unwrap();
+        fs::write(legacy.join("check-updates.disabled"), []).unwrap();
 
-        assert!(!loaded.effective_mode("matrix", true));
-        assert!(loaded.effective_mode("airpods", false));
-        assert!(loaded.is_overridden("matrix"));
-        assert!(loaded.is_overridden("airpods"));
-        assert!(loaded.effective_mode("unset-dac", true));
-        assert!(!loaded.effective_mode("unset-bluetooth", false));
-    }
+        let migrated = load_or_migrate_app_settings_from(&app_data, &legacy).unwrap();
 
-    #[test]
-    fn explicit_mode_equal_to_the_default_remains_pinned() {
-        let mut preferences = ExclusiveModePreferences::default();
-        preferences.set_override("matrix", true);
-
-        assert!(preferences.is_overridden("matrix"));
-        assert!(preferences.effective_mode("matrix", false));
-    }
-
-    #[test]
-    fn offline_override_edit_persists_and_applies_when_the_device_reconnects() {
-        let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("exclusive-modes.tsv");
-        let mut preferences = ExclusiveModePreferences::default();
-        preferences.record_sighting(
-            "matrix",
-            "mini-i Series",
-            Some(StoredDeviceCapabilities {
-                max_bits_per_channel: Some(24),
-                max_sample_rate: 192_000,
-            }),
-            100,
+        assert_eq!(migrated.saved_output_device_uid.as_deref(), Some("matrix"));
+        assert_eq!(migrated.volume_level, 0.42);
+        assert!(migrated.volume_muted);
+        assert!(
+            !migrated
+                .exclusive_mode_preferences
+                .effective_mode("matrix\\uid", true)
         );
-        preferences.set_override("matrix", false);
-
-        save_exclusive_mode_preferences_to(&path, &preferences).unwrap();
-        let loaded = parse_exclusive_mode_preferences(&fs::read_to_string(path).unwrap()).unwrap();
-
-        assert!(loaded.is_overridden("matrix"));
-        assert!(!loaded.effective_mode("matrix", true));
-    }
-
-    #[test]
-    fn clearing_an_override_returns_the_device_to_its_default() {
-        let mut preferences = ExclusiveModePreferences::default();
-        preferences.set_override("matrix", false);
-
-        preferences.clear_override("matrix");
-
-        assert!(!preferences.is_overridden("matrix"));
-        assert!(preferences.effective_mode("matrix", true));
-    }
-
-    #[test]
-    fn migrates_the_legacy_disabled_marker_to_the_active_device() {
-        let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("exclusive-modes.tsv");
-        let legacy_path = directory.path().join("exclusive-mode.disabled");
-        fs::write(&legacy_path, []).unwrap();
-
-        let preferences =
-            load_exclusive_mode_preferences_from(&path, &legacy_path, true, "airpods").unwrap();
-
-        assert_eq!(
-            preferences
-                .devices
-                .get("airpods")
-                .and_then(StoredDevicePreferences::exclusive_mode_override),
-            Some(false)
-        );
-        assert!(!legacy_path.exists());
-    }
-
-    #[test]
-    fn migrates_the_legacy_enabled_default_to_the_active_device() {
-        let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("exclusive-modes.tsv");
-        let legacy_path = directory.path().join("exclusive-mode.disabled");
-
-        let preferences =
-            load_exclusive_mode_preferences_from(&path, &legacy_path, true, "matrix").unwrap();
-
-        assert_eq!(
-            preferences
-                .devices
-                .get("matrix")
-                .and_then(StoredDevicePreferences::exclusive_mode_override),
-            Some(true)
-        );
-    }
-
-    #[test]
-    fn fresh_preferences_leave_devices_unset_for_capability_defaults() {
-        let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("exclusive-modes.tsv");
-        let legacy_path = directory.path().join("exclusive-mode.disabled");
-
-        let preferences =
-            load_exclusive_mode_preferences_from(&path, &legacy_path, false, "airpods").unwrap();
-
-        assert!(!preferences.is_overridden("airpods"));
-        assert!(!preferences.effective_mode("airpods", false));
-        assert_eq!(fs::read_to_string(path).unwrap(), "version=2\n");
-    }
-
-    #[test]
-    fn stored_device_details_round_trip_with_escaped_names_and_auto_mode() {
-        let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("exclusive-modes.tsv");
-        let mut preferences = ExclusiveModePreferences::default();
-        preferences.record_sighting(
-            "matrix\\uid",
-            "Matrix\tmini-i\nSeries",
-            Some(StoredDeviceCapabilities {
-                max_bits_per_channel: Some(24),
-                max_sample_rate: 192_000,
-            }),
-            1_777_777_777,
-        );
-
-        save_exclusive_mode_preferences_to(&path, &preferences).unwrap();
-        let loaded = parse_exclusive_mode_preferences(&fs::read_to_string(path).unwrap()).unwrap();
-
-        assert_eq!(loaded, preferences);
-        let stored = loaded.devices.get("matrix\\uid").unwrap();
+        let stored = migrated
+            .exclusive_mode_preferences
+            .devices
+            .get("matrix\\uid")
+            .unwrap();
         assert_eq!(stored.name.as_deref(), Some("Matrix\tmini-i\nSeries"));
-        assert_eq!(stored.exclusive_mode_override(), None);
+        assert_eq!(
+            stored.capabilities,
+            Some(StoredDeviceCapabilities {
+                max_bits_per_channel: Some(24),
+                max_sample_rate: 192_000,
+            })
+        );
+        assert_eq!(stored.last_seen_unix_seconds, Some(1_777_777_777));
+        assert_eq!(
+            AppSettings::load(&settings_path(&app_data)).unwrap(),
+            migrated
+        );
+        for path in LegacyPreferencePaths::new(&legacy).all() {
+            assert!(!path.exists(), "{} still exists", path.display());
+        }
+        assert!(legacy.join("check-updates.disabled").exists());
     }
 
     #[test]
-    fn parses_version_one_overrides_for_in_place_migration() {
+    fn fresh_directory_writes_default_settings() {
+        let root = tempfile::tempdir().unwrap();
+        let app_data = root.path().join("data");
+        let legacy = root.path().join("config");
+
+        let loaded = load_or_migrate_app_settings_from(&app_data, &legacy).unwrap();
+
+        assert_eq!(loaded, AppSettings::default());
+        assert_eq!(
+            AppSettings::load(&settings_path(&app_data)).unwrap(),
+            AppSettings::default()
+        );
+        assert!(settings_path(&app_data).exists());
+    }
+
+    #[test]
+    fn existing_settings_ignore_and_preserve_legacy_files() {
+        let root = tempfile::tempdir().unwrap();
+        let app_data = root.path().join("data");
+        let legacy = root.path().join("config");
+        fs::create_dir_all(&legacy).unwrap();
+        fs::write(legacy.join("volume.level"), "0.9").unwrap();
+        let current = AppSettings {
+            volume_level: 0.2,
+            ..AppSettings::default()
+        };
+        current.save(&settings_path(&app_data)).unwrap();
+
+        let loaded = load_or_migrate_app_settings_from(&app_data, &legacy).unwrap();
+
+        assert_eq!(loaded.volume_level, 0.2);
+        assert_eq!(
+            fs::read_to_string(legacy.join("volume.level")).unwrap(),
+            "0.9"
+        );
+    }
+
+    #[test]
+    fn corrupt_settings_are_archived_and_replaced_without_using_legacy_values() {
+        let root = tempfile::tempdir().unwrap();
+        let app_data = root.path().join("data");
+        let legacy = root.path().join("config");
+        fs::create_dir_all(&app_data).unwrap();
+        fs::create_dir_all(&legacy).unwrap();
+        fs::write(settings_path(&app_data), "{broken").unwrap();
+        fs::write(legacy.join("volume.level"), "0.3").unwrap();
+
+        let loaded = load_or_migrate_app_settings_from(&app_data, &legacy).unwrap();
+
+        assert_eq!(loaded, AppSettings::default());
+        assert_eq!(
+            fs::read_to_string(app_data.join("settings.corrupt.json")).unwrap(),
+            "{broken"
+        );
+        assert_eq!(
+            AppSettings::load(&settings_path(&app_data)).unwrap(),
+            AppSettings::default()
+        );
+        assert_eq!(
+            fs::read_to_string(legacy.join("volume.level")).unwrap(),
+            "0.3"
+        );
+    }
+
+    #[test]
+    fn malformed_volume_is_archived_without_blocking_other_fields() {
+        let root = tempfile::tempdir().unwrap();
+        let app_data = root.path().join("data");
+        let legacy = root.path().join("config");
+        fs::create_dir_all(&legacy).unwrap();
+        fs::write(legacy.join("app-output-device.uid"), "matrix").unwrap();
+        fs::write(legacy.join("volume.level"), "loud").unwrap();
+
+        let migrated = load_or_migrate_app_settings_from(&app_data, &legacy).unwrap();
+
+        assert_eq!(migrated.saved_output_device_uid.as_deref(), Some("matrix"));
+        assert_eq!(migrated.volume_level, 1.0);
+        assert!(settings_path(&app_data).exists());
+        assert_eq!(
+            fs::read_to_string(legacy.join("volume.level.corrupt")).unwrap(),
+            "loud"
+        );
+    }
+
+    #[test]
+    fn malformed_device_table_is_archived_without_blocking_other_fields() {
+        let root = tempfile::tempdir().unwrap();
+        let app_data = root.path().join("data");
+        let legacy = root.path().join("config");
+        fs::create_dir_all(&legacy).unwrap();
+        fs::write(legacy.join("app-output-device.uid"), "matrix").unwrap();
+        fs::write(legacy.join("exclusive-modes.tsv"), "").unwrap();
+        fs::write(legacy.join("volume.level"), "0.42").unwrap();
+
+        let migrated = load_or_migrate_app_settings_from(&app_data, &legacy).unwrap();
+
+        assert_eq!(migrated.saved_output_device_uid.as_deref(), Some("matrix"));
+        assert!(migrated.exclusive_mode_preferences.devices.is_empty());
+        assert_eq!(migrated.legacy_exclusive_mode_disabled, None);
+        assert_eq!(migrated.volume_level, 0.42);
+        assert!(settings_path(&app_data).exists());
+        assert_eq!(
+            fs::read_to_string(legacy.join("exclusive-modes.tsv.corrupt")).unwrap(),
+            ""
+        );
+    }
+
+    #[test]
+    fn parses_version_one_overrides_for_migration() {
         let preferences =
             parse_exclusive_mode_preferences("version=1\nexclusive\tmatrix\nshared\tairpods\n")
                 .unwrap();
@@ -750,7 +582,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_malformed_version_two_entries() {
+    fn rejects_malformed_device_tables_without_deleting_them() {
         for contents in [
             "version=2\nauto\tmatrix\n",
             "version=2\nauto\tmatrix\\q\tMatrix\tunknown\t\t100\n",
@@ -766,69 +598,30 @@ mod tests {
     }
 
     #[test]
-    fn forgetting_a_saved_device_removes_its_row_and_saved_output_marker() {
-        let directory = tempfile::tempdir().unwrap();
-        let preferences_path = directory.path().join("exclusive-modes.tsv");
-        let output_path = directory.path().join("app-output-device.uid");
-        let mut preferences = ExclusiveModePreferences::default();
-        preferences.record_sighting(
-            "matrix",
-            "mini-i Series",
-            Some(StoredDeviceCapabilities {
-                max_bits_per_channel: Some(24),
-                max_sample_rate: 192_000,
-            }),
-            100,
-        );
-        preferences.set_override("matrix", false);
-        save_exclusive_mode_preferences_to(&preferences_path, &preferences).unwrap();
-        fs::write(&output_path, "matrix").unwrap();
+    fn legacy_disabled_marker_is_preserved_until_an_active_device_is_known() {
+        let root = tempfile::tempdir().unwrap();
+        let app_data = root.path().join("data");
+        let legacy = root.path().join("config");
+        fs::create_dir_all(&legacy).unwrap();
+        fs::write(legacy.join("exclusive-mode.disabled"), []).unwrap();
 
-        assert!(
-            forget_device_from(&preferences_path, &output_path, &mut preferences, "matrix",)
-                .unwrap()
-        );
+        let settings = load_or_migrate_app_settings_from(&app_data, &legacy).unwrap();
 
-        assert!(!preferences.devices.contains_key("matrix"));
-        assert!(!output_path.exists());
-        assert!(
-            !parse_exclusive_mode_preferences(&fs::read_to_string(preferences_path).unwrap())
-                .unwrap()
-                .devices
-                .contains_key("matrix")
-        );
+        assert_eq!(settings.legacy_exclusive_mode_disabled, Some(true));
+        assert!(!legacy.join("exclusive-mode.disabled").exists());
     }
 
     #[test]
-    fn a_forgotten_device_reconnects_with_fresh_probe_defaults() {
-        let mut preferences = ExclusiveModePreferences::default();
-        preferences.record_sighting(
-            "matrix",
-            "Old name",
-            Some(StoredDeviceCapabilities {
-                max_bits_per_channel: None,
-                max_sample_rate: 48_000,
-            }),
-            100,
-        );
-        preferences.set_override("matrix", false);
+    fn legacy_install_default_is_preserved_until_an_active_device_is_known() {
+        let root = tempfile::tempdir().unwrap();
+        let app_data = root.path().join("data");
+        let legacy = root.path().join("config");
+        fs::create_dir_all(&app_data).unwrap();
+        fs::write(app_data.join("library.sqlite"), []).unwrap();
 
-        assert!(preferences.forget("matrix"));
-        preferences.record_sighting(
-            "matrix",
-            "mini-i Series",
-            Some(StoredDeviceCapabilities {
-                max_bits_per_channel: Some(24),
-                max_sample_rate: 192_000,
-            }),
-            200,
-        );
+        let settings = load_or_migrate_app_settings_from(&app_data, &legacy).unwrap();
 
-        assert!(!preferences.is_overridden("matrix"));
-        assert!(preferences.effective_mode("matrix", true));
-        let stored = preferences.devices.get("matrix").unwrap();
-        assert_eq!(stored.name.as_deref(), Some("mini-i Series"));
-        assert_eq!(stored.last_seen_unix_seconds, Some(200));
+        assert_eq!(settings.legacy_exclusive_mode_disabled, Some(false));
     }
 
     #[test]
@@ -853,40 +646,6 @@ mod tests {
     }
 
     #[test]
-    fn volume_level_round_trips_and_defaults_to_unity_without_a_file() {
-        let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("volume.level");
-
-        assert_eq!(load_volume_level_from(&path).unwrap(), 1.0);
-        save_volume_level_to(&path, 0.42).unwrap();
-        assert_eq!(load_volume_level_from(&path).unwrap(), 0.42);
-    }
-
-    #[test]
-    fn volume_mute_round_trips_and_defaults_off_without_a_file() {
-        let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("volume.muted");
-
-        assert!(!load_volume_muted_from(&path).unwrap());
-        save_volume_muted_to(&path, true).unwrap();
-        assert!(load_volume_muted_from(&path).unwrap());
-        save_volume_muted_to(&path, false).unwrap();
-        assert!(!load_volume_muted_from(&path).unwrap());
-    }
-
-    #[cfg(debug_assertions)]
-    #[test]
-    fn debug_app_preference_uses_the_dev_profile() {
-        assert!(
-            output_device_uid_path()
-                .unwrap()
-                .parent()
-                .unwrap()
-                .ends_with("pulse-dev")
-        );
-    }
-
-    #[test]
     fn library_files_share_the_app_data_directory() {
         assert_eq!(
             library_database_path()
@@ -906,7 +665,15 @@ mod tests {
 
     #[cfg(debug_assertions)]
     #[test]
-    fn debug_library_uses_the_dev_profile() {
-        assert!(app_data_directory().unwrap().ends_with("pulse-dev"));
+    fn debug_build_uses_the_dev_profile_for_settings_and_library() {
+        let app_data = app_data_directory().unwrap();
+        assert!(app_data.ends_with("pulse-dev"));
+        assert_eq!(
+            settings_path(&app_data)
+                .file_name()
+                .and_then(|name| name.to_str()),
+            Some("settings.json")
+        );
+        assert!(legacy_config_directory().unwrap().ends_with("pulse-dev"));
     }
 }
