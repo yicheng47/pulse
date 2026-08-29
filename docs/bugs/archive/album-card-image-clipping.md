@@ -1,6 +1,6 @@
 # Round Album card images at the image layer in GPUI
 
-> Bug · P3 · filed 2026-08-29 as GitHub issue #67 (closed when tracking moved to docs, 2026-08-29)
+> Bug · P3 · filed 2026-08-29 as GitHub issue #67 (closed when tracking moved to docs, 2026-08-29). **Fixed** 2026-08-29, commit `84cf129` — `render_cover` takes the radius and applies it to the `img`; the Album Detail hero owns its ring at `RADIUS_MD`.
 
 ## Problem
 

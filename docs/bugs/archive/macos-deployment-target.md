@@ -1,6 +1,6 @@
 # Validate or raise the declared macOS 12 deployment target
 
-> Bug · P2 · filed 2026-08-13 as GitHub issue #36 (closed when tracking moved to docs, 2026-08-29)
+> Bug · P2 · filed 2026-08-13 as GitHub issue #36 (closed when tracking moved to docs, 2026-08-29). **Resolved** 2026-08-29, commit `84cf129` — the floor was raised to macOS 13.0 rather than validated on 12: Pulse ships arm64-only, every Apple Silicon Mac can run 13+, and Monterey left security support in September 2024. Validation on the floor itself is still open (see `docs/macos-release.md`).
 
 ## Description
 Pulse declares `LSMinimumSystemVersion` 12.0 and builds with `MACOSX_DEPLOYMENT_TARGET=12.0`, but the app has only been launched on the current macOS version. GPUI Metal behavior and runtime Objective-C selectors are not fully guarded by compile-time availability checks, so the advertised floor may permit installation on a system where Pulse cannot launch or complete its core flow.

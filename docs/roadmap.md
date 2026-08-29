@@ -17,18 +17,18 @@ The active-development tracker for Pulse. Since 2026-08-29 this file — not Git
 
 ## M1 — Backend foundations → v0.1.8 (in progress)
 
-Make the domain layer structural before more features land on it.
+Make the domain layer structural before more features land on it. All rows done 2026-08-29; awaiting Jason's smoke test, then the v0.1.8 release.
 
 | Item | Priority | Status | Notes |
 |---|---|---|---|
 | [Feature 25 — backend layer + library repo layer](features/archive/25-library-repo-layer.md) | P2 | done | Four phases merged: `965965b` (backend boundary + gpui gate), `aa211ec` (repo layer), `49a6f00` (model + ops), `c1975cd` (facade retirement, SQL boundary gate, arch doc §4). |
 | [Feature 27 — flatten the backend layout](features/archive/27-flatten-backend-layout.md) | P2 | done | `9b8205a`: `backend/{model.rs, repo/, ops/, scan/}`, moves only. |
 | [Bug — app menu items disabled without focus](bugs/archive/app-menu-items-disabled.md) | P2 | done | `f51accf`: global handlers + `cx.defer`; also fixed Cmd-M / Cmd-W and Edit ▸ Search. |
-| [Bug — macOS 12 deployment target](bugs/macos-deployment-target.md) | P2 | planned | Release hygiene; validate or raise before the next release. |
+| [Bug — macOS 12 deployment target](bugs/archive/macos-deployment-target.md) | P2 | done | `84cf129`: floor raised to 13.0 (arm64-only build; Monterey EOL). |
 | [Bug — playback row transport feedback](bugs/archive/playback-row-transport-feedback.md) | P2 | done | `3d85c64`: kit-level hover/active, prev/next from the queue, play button stable across resume and next/previous. |
 | [Bug — effective-artist SQL copies](bugs/archive/effective-artist-sql-copies.md) | P3 | done | Fixed by 25 phase 2 (`aa211ec`). |
-| [Bug — album card image clipping](bugs/album-card-image-clipping.md) | P3 | planned | Same fix as the artist avatar: radius on the `img`. |
-| [Bug — track-artist SQL copies](bugs/track-artist-sql-copies.md) | P3 | planned | Hoist the three `tracks.rs` copies into one `repo/mod.rs` fragment and extend the boundary gate; found in 25 phase 4 review. |
+| [Bug — album card image clipping](bugs/archive/album-card-image-clipping.md) | P3 | done | `84cf129`: radius on the cover `img`; Album Detail hero included. |
+| [Bug — track-artist SQL copies](bugs/archive/track-artist-sql-copies.md) | P3 | done | `84cf129`: `EFFECTIVE_TRACK_ARTIST_SQL`, gated. |
 
 ## M2 — Playback, metadata, session, integrations → v0.2.0
 

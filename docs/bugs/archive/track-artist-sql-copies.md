@@ -1,6 +1,6 @@
 # Centralize the track-artist identity SQL in the tracks repo
 
-> Bug · P3 · filed 2026-08-29 from the feature 25 phase 4 review. Local note only — no GitHub issue.
+> Bug · P3 · filed 2026-08-29 from the feature 25 phase 4 review. **Fixed** 2026-08-29, commit `84cf129` — `EFFECTIVE_TRACK_ARTIST_SQL` in `backend/repo/mod.rs`, pinned to one definition by the boundary gate.
 
 ## Description
 

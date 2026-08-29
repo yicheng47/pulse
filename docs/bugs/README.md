@@ -6,12 +6,12 @@ One note per open bug, written with the `bug` skill's template (description, exp
 
 - [`builtin-speakers-exclusive-volume.md`](builtin-speakers-exclusive-volume.md) - P2. Exclusive mode on the built-in speakers disables the macOS volume control and freezes the hardware level.
 - [`seek-lands-early.md`](seek-lands-early.md) - P2. Seek lands earlier than the requested position (coarse seek, no decode-forward).
-- [`macos-deployment-target.md`](macos-deployment-target.md) - P2. Validate or raise the declared macOS 12 deployment target.
-- [`album-card-image-clipping.md`](album-card-image-clipping.md) - P3. Album card corners: put the radius on the image layer, as the artist avatar fix did.
-- [`track-artist-sql-copies.md`](track-artist-sql-copies.md) - P3. The track-artist identity expression is written three times in `repo/tracks.rs`; hoist it beside `EFFECTIVE_ALBUM_ARTIST_SQL` and gate it.
 
 ## Fixed
 
+- [`archive/macos-deployment-target.md`](archive/macos-deployment-target.md) - P2. Floor raised to macOS 13.0 instead of validating 12; `84cf129`.
+- [`archive/album-card-image-clipping.md`](archive/album-card-image-clipping.md) - P3. Radius on the cover `img`; `84cf129`.
+- [`archive/track-artist-sql-copies.md`](archive/track-artist-sql-copies.md) - P3. One `EFFECTIVE_TRACK_ARTIST_SQL`, gated; `84cf129`.
 - [`archive/app-menu-items-disabled.md`](archive/app-menu-items-disabled.md) - P2. App menu items and Edit ▸ Search enabled without focus; Cmd-M / Cmd-W fixed alongside; `f51accf`.
 - [`archive/playback-row-transport-feedback.md`](archive/playback-row-transport-feedback.md) - P2. Transport hover/pressed feedback, prev/next availability from the queue, stable play button; `3d85c64`.
 - [`archive/effective-artist-sql-copies.md`](archive/effective-artist-sql-copies.md) - P3. One shared identity fragment; feature 25 phase 2, `aa211ec`.

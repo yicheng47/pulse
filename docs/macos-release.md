@@ -2,7 +2,7 @@
 
 Pulse ships as an arm64-only, non-sandboxed Developer ID application. The bundle identifier is `com.wycstudios.pulse`; changing it would change the app's signature and TCC identity. Pulse has no entitlements file, App ID, or provisioning profile because audio output and non-sandboxed file access need no additional entitlement.
 
-The bundle declares `LSMinimumSystemVersion` 12.0 and builds against the same deployment target. That figure is conservative rather than measured — gpui builds against a 10.15.7 target upstream, so 12.0 leaves headroom — but Pulse has only ever been launched on the current OS. Because `objc2` sends messages at runtime, no compile-time availability check would catch an API newer than the floor. GitHub issue [#36](https://github.com/yicheng47/pulse-src/issues/36) tracks validating the signed app on macOS 12 or raising the declared floor.
+The bundle declares `LSMinimumSystemVersion` 13.0 and builds against the same deployment target (`MINIMUM_SYSTEM_VERSION` in `script/bundle-mac`, raised from 12.0 on 2026-08-29). The floor is a policy, not a measurement: Pulse ships arm64-only, every Apple Silicon Mac can run macOS 13 or newer, and macOS 12 left security support in September 2024. Pulse has only ever been launched on the current OS, and because `objc2` sends messages at runtime no compile-time availability check would catch an API newer than the floor — raise it again rather than guess if an old-OS report ever appears. Release consequence: Sparkle's `generate_appcast` derives `sparkle:minimumSystemVersion` from `LSMinimumSystemVersion`, so an already-installed Pulse on macOS 12 is silently no longer offered updates from v0.1.8 on; it does not error.
 
 ## Local bundle
 
