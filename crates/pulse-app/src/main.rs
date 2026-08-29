@@ -1,5 +1,4 @@
 mod assets;
-mod components;
 mod device_management;
 pub mod library;
 mod library_ui;
@@ -11,6 +10,7 @@ mod settings;
 mod shell;
 mod text_input;
 mod theme;
+mod ui;
 mod updater;
 
 use assets::Assets;

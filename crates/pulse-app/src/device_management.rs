@@ -1,26 +1,15 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use gpui::{
-    AnyElement, Context, Entity, FontWeight, IntoElement, MouseButton, MouseDownEvent,
-    MouseMoveEvent, Pixels, Render, ScrollHandle, Size, StatefulInteractiveElement, Window, div,
-    point, prelude::*, px, svg,
+    AnyElement, Context, Entity, FontWeight, IntoElement, Pixels, Render, ScrollHandle, Size,
+    StatefulInteractiveElement, Window, div, prelude::*, px, svg,
 };
 
 use crate::{
-    components,
     playback_row::{ManagedDevice, PlaybackRow, format_stored_device_capabilities},
     theme,
+    ui::{self, Scrollbar},
 };
-
-const SCROLLBAR_INSET_PX: f32 = 4.;
-const SCROLLBAR_MIN_THUMB_PX: f32 = 36.;
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct ScrollbarMetrics {
-    thumb_height: Pixels,
-    thumb_top: Pixels,
-    travel: Pixels,
-}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct LayoutSignature {
@@ -33,7 +22,7 @@ pub(crate) struct DeviceManagementPage {
     row: Entity<PlaybackRow>,
     forget_device_uid: Option<String>,
     scroll: ScrollHandle,
-    scroll_drag_offset: Option<Pixels>,
+    scrollbar: Entity<Scrollbar>,
     last_window_size: Option<Size<Pixels>>,
     last_layout_signature: Option<LayoutSignature>,
     scrollbar_measure_pending: bool,
@@ -42,11 +31,16 @@ pub(crate) struct DeviceManagementPage {
 impl DeviceManagementPage {
     pub(crate) fn new(row: Entity<PlaybackRow>, cx: &mut Context<Self>) -> Self {
         cx.observe(&row, |_, _, cx| cx.notify()).detach();
+        let scroll = ScrollHandle::new();
+        let scrollbar = cx.new(|_| {
+            Scrollbar::new("device-management-scrollbar", scroll.clone())
+                .thumb_id("device-management-scrollbar-thumb")
+        });
         Self {
             row,
             forget_device_uid: None,
-            scroll: ScrollHandle::new(),
-            scroll_drag_offset: None,
+            scroll,
+            scrollbar,
             last_window_size: None,
             last_layout_signature: None,
             scrollbar_measure_pending: true,
@@ -109,10 +103,10 @@ impl DeviceManagementPage {
 
         let mut actions = div().flex().items_center().gap(px(8.)).flex_none();
         if device.active {
-            actions = actions.child(status_pill("Active", true));
+            actions = actions.child(ui::pill("Active", true));
         }
         if device.saved_default {
-            actions = actions.child(status_pill("Default", false));
+            actions = actions.child(ui::pill("Default", false));
         } else if device.can_set_as_default() {
             let row = self.row.clone();
             let uid = device.uid.clone();
@@ -214,9 +208,9 @@ impl DeviceManagementPage {
                     .child(actions),
             )
             .child(div().w_full().h(px(1.)).bg(theme::border()))
-            .child(components::exclusive_mode_control(
+            .child(ui::exclusive_mode_control(
                 device.automatic,
-                components::exclusive_mode_reset_link(("device-mode-reset", index))
+                ui::exclusive_mode_reset_link(("device-mode-reset", index))
                     .on_click(move |_, _, cx| {
                         reset_row.update(cx, |row, cx| {
                             row.reset_device_exclusive_mode_to_auto(
@@ -227,7 +221,7 @@ impl DeviceManagementPage {
                         });
                     })
                     .into_any_element(),
-                components::toggle(("device-mode-toggle", index), device.exclusive_mode)
+                ui::Toggle::new(("device-mode-toggle", index), device.exclusive_mode)
                     .on_click(move |_, _, cx| {
                         toggle_row.update(cx, |row, cx| {
                             row.toggle_device_exclusive_mode(
@@ -242,224 +236,47 @@ impl DeviceManagementPage {
             .into_any_element()
     }
 
-    fn render_scrollbar(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let viewport_bounds = self.scroll.bounds();
-        let viewport_height = viewport_bounds.size.height;
-        let max_scroll = self.scroll.max_offset().y.max(px(0.));
-        let metrics = scrollbar_metrics(viewport_height, max_scroll, self.scroll.offset().y)?;
-        let viewport_top = viewport_bounds.top();
-
-        Some(
-            div()
-                .id("device-management-scrollbar")
-                .absolute()
-                .top(px(SCROLLBAR_INSET_PX))
-                .right(px(2.))
-                .bottom(px(SCROLLBAR_INSET_PX))
-                .w(px(4.))
-                .rounded(px(2.))
-                .bg(theme::bg_muted())
-                .cursor_pointer()
-                .on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                        let target_top = (event.position.y
-                            - viewport_top
-                            - px(SCROLLBAR_INSET_PX)
-                            - metrics.thumb_height / 2.)
-                            .clamp(px(0.), metrics.travel);
-                        let progress = target_top / metrics.travel;
-                        this.scroll
-                            .set_offset(point(px(0.), -(max_scroll * progress)));
-                        this.scroll_drag_offset = Some(metrics.thumb_height / 2.);
-                        cx.stop_propagation();
-                        cx.notify();
-                    }),
-                )
-                .child(
-                    div()
-                        .id("device-management-scrollbar-thumb")
-                        .absolute()
-                        .top(metrics.thumb_top)
-                        .left_0()
-                        .w_full()
-                        .h(metrics.thumb_height)
-                        .rounded(px(2.))
-                        .bg(if self.scroll_drag_offset.is_some() {
-                            theme::text_secondary()
-                        } else {
-                            theme::text_muted()
-                        })
-                        .hover(|thumb| thumb.bg(theme::text_secondary()))
-                        .on_mouse_down(
-                            MouseButton::Left,
-                            cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                                this.scroll_drag_offset = Some(
-                                    event.position.y
-                                        - viewport_top
-                                        - px(SCROLLBAR_INSET_PX)
-                                        - metrics.thumb_top,
-                                );
-                                cx.stop_propagation();
-                                cx.notify();
-                            }),
-                        ),
-                )
-                .into_any_element(),
-        )
-    }
-
-    fn update_scrollbar_drag(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) {
-        let Some(drag_offset) = self.scroll_drag_offset else {
-            return;
-        };
-        if !event.dragging() {
-            self.scroll_drag_offset = None;
-            return;
-        }
-        let viewport_bounds = self.scroll.bounds();
-        let viewport_height = viewport_bounds.size.height;
-        let max_scroll = self.scroll.max_offset().y.max(px(0.));
-        let Some(metrics) = scrollbar_metrics(viewport_height, max_scroll, self.scroll.offset().y)
-        else {
-            self.scroll_drag_offset = None;
-            return;
-        };
-        let target_top =
-            (event.position.y - viewport_bounds.top() - px(SCROLLBAR_INSET_PX) - drag_offset)
-                .clamp(px(0.), metrics.travel);
-        let progress = target_top / metrics.travel;
-        self.scroll
-            .set_offset(point(px(0.), -(max_scroll * progress)));
-        cx.notify();
-    }
-
-    fn finish_scrollbar_drag(&mut self, cx: &mut Context<Self>) {
-        if self.scroll_drag_offset.take().is_some() {
-            cx.notify();
-        }
-    }
-
     fn render_forget_modal(&self, device: &ManagedDevice, cx: &mut Context<Self>) -> AnyElement {
         let uid = device.uid.clone();
         let row = self.row.clone();
-        div()
-            .absolute()
-            .left_0()
-            .top_0()
-            .size_full()
+        let body = div()
             .flex()
-            .items_center()
-            .justify_center()
-            .bg(theme::scrim())
+            .flex_col()
+            .gap(px(9.))
+            .p(px(22.))
             .child(
                 div()
-                    .flex()
-                    .flex_col()
-                    .w(px(500.))
-                    .overflow_hidden()
-                    .rounded(px(theme::RADIUS_LG))
-                    .border_1()
-                    .border_color(theme::border_strong())
-                    .bg(theme::bg_surface())
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .justify_between()
-                            .h(px(58.))
-                            .flex_none()
-                            .px(px(22.))
-                            .border_b_1()
-                            .border_color(theme::border())
-                            .child(
-                                div()
-                                    .font_family(theme::FONT_DISPLAY)
-                                    .font_weight(FontWeight::BOLD)
-                                    .text_size(px(20.))
-                                    .text_color(theme::text_primary())
-                                    .child("Forget Device"),
-                            )
-                            .child(
-                                div()
-                                    .id("close-forget-device")
-                                    .flex()
-                                    .items_center()
-                                    .justify_center()
-                                    .size(px(28.))
-                                    .rounded(px(theme::RADIUS_SM))
-                                    .cursor_pointer()
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                        this.forget_device_uid = None;
-                                        cx.notify();
-                                    }))
-                                    .child(
-                                        svg()
-                                            .path("icons/x.svg")
-                                            .size(px(16.))
-                                            .text_color(theme::text_muted()),
-                                    ),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .gap(px(9.))
-                            .p(px(22.))
-                            .child(
-                                div()
-                                    .font_family(theme::FONT_DISPLAY)
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .text_size(px(17.))
-                                    .text_color(theme::text_primary())
-                                    .child(format!("Forget “{}”?", device.name)),
-                            )
-                            .child(
-                                div()
-                                    .font_family(theme::FONT_SANS)
-                                    .text_size(px(12.))
-                                    .line_height(px(18.))
-                                    .text_color(theme::text_secondary())
-                                    .child(
-                                        "This removes the saved device details and exclusive-mode setting. If it reconnects, Pulse will probe it again and return it to Auto.",
-                                    ),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .justify_end()
-                            .gap(px(9.))
-                            .h(px(62.))
-                            .flex_none()
-                            .px(px(22.))
-                            .border_t_1()
-                            .border_color(theme::border())
-                            .child(
-                                components::secondary_button("cancel-forget-device", "Cancel")
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                        this.forget_device_uid = None;
-                                        cx.notify();
-                                    })),
-                            )
-                            .child(
-                                components::danger_button(
-                                    "confirm-forget-device",
-                                    "Forget Device",
-                                )
-                                .on_click(cx.listener(move |this, _, _, cx| {
-                                    if row.update(cx, |row, cx| {
-                                        row.forget_managed_device(&uid, cx)
-                                    }) {
-                                        this.forget_device_uid = None;
-                                        cx.notify();
-                                    }
-                                })),
-                            ),
-                    ),
+                    .font_family(theme::FONT_DISPLAY)
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_size(px(17.))
+                    .text_color(theme::text_primary())
+                    .child(format!("Forget “{}”?", device.name)),
             )
+            .child(
+                div()
+                    .font_family(theme::FONT_SANS)
+                    .text_size(px(12.))
+                    .line_height(px(18.))
+                    .text_color(theme::text_secondary())
+                    .child(
+                        "This removes the saved device details and exclusive-mode setting. If it reconnects, Pulse will probe it again and return it to Auto.",
+                    ),
+            );
+        ui::ConfirmDialog::new("forget-device-dialog", "Forget Device", body)
+            .cancel_id("cancel-forget-device")
+            .confirm_id("confirm-forget-device")
+            .close_id("close-forget-device")
+            .confirm_label("Forget Device")
+            .on_cancel(cx.listener(|this, _, _, cx| {
+                this.forget_device_uid = None;
+                cx.notify();
+            }))
+            .on_confirm(cx.listener(move |this, _, _, cx| {
+                if row.update(cx, |row, cx| row.forget_managed_device(&uid, cx)) {
+                    this.forget_device_uid = None;
+                    cx.notify();
+                }
+            }))
             .into_any_element()
     }
 }
@@ -559,7 +376,6 @@ impl Render for DeviceManagementPage {
             ));
         }
 
-        let scrollbar = self.render_scrollbar(cx);
         let scroll = div()
             .id("device-management-page-scroll")
             .flex_1()
@@ -585,19 +401,8 @@ impl Render for DeviceManagementPage {
             .flex_1()
             .min_h_0()
             .w_full()
-            .on_mouse_move(cx.listener(|this, event, _, cx| {
-                this.update_scrollbar_drag(event, cx);
-            }))
-            .on_mouse_up(
-                MouseButton::Left,
-                cx.listener(|this, _, _, cx| this.finish_scrollbar_drag(cx)),
-            )
-            .on_mouse_up_out(
-                MouseButton::Left,
-                cx.listener(|this, _, _, cx| this.finish_scrollbar_drag(cx)),
-            )
             .child(scroll)
-            .when_some(scrollbar, |page, scrollbar| page.child(scrollbar))
+            .child(self.scrollbar.clone())
             .when_some(modal_device, |page, device| {
                 page.child(self.render_forget_modal(&device, cx))
             })
@@ -610,42 +415,6 @@ fn device_class(device: &ManagedDevice) -> &'static str {
         Some(_) => "Bluetooth",
         None => "Unknown",
     }
-}
-
-fn status_pill(label: &'static str, active: bool) -> impl IntoElement {
-    div()
-        .flex()
-        .items_center()
-        .gap(px(6.))
-        .px(px(9.))
-        .py(px(5.))
-        .rounded(px(theme::RADIUS_SM))
-        .border_1()
-        .border_color(if active {
-            theme::accent()
-        } else {
-            theme::border_strong()
-        })
-        .bg(if active {
-            theme::accent_soft()
-        } else {
-            theme::bg_elevated()
-        })
-        .when(active, |pill| {
-            pill.child(div().size(px(6.)).rounded_full().bg(theme::accent()))
-        })
-        .child(
-            div()
-                .font_family(theme::FONT_MONO)
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_size(px(11.))
-                .text_color(if active {
-                    theme::accent()
-                } else {
-                    theme::text_secondary()
-                })
-                .child(label),
-        )
 }
 
 fn device_action_button(
@@ -665,33 +434,6 @@ fn device_action_button(
         .text_size(px(11.))
         .text_color(theme::text_secondary())
         .child(label)
-}
-
-fn scrollbar_metrics(
-    viewport_height: Pixels,
-    max_scroll: Pixels,
-    offset: Pixels,
-) -> Option<ScrollbarMetrics> {
-    if viewport_height <= px(0.) || max_scroll <= px(0.) {
-        return None;
-    }
-    let rail_height = viewport_height - px(SCROLLBAR_INSET_PX * 2.);
-    if rail_height <= px(SCROLLBAR_MIN_THUMB_PX) {
-        return None;
-    }
-    let content_height = viewport_height + max_scroll;
-    let thumb_height = (rail_height * (viewport_height / content_height))
-        .clamp(px(SCROLLBAR_MIN_THUMB_PX), rail_height);
-    let travel = rail_height - thumb_height;
-    if travel <= px(0.) {
-        return None;
-    }
-    let progress = (-offset / max_scroll).clamp(0., 1.);
-    Some(ScrollbarMetrics {
-        thumb_height,
-        thumb_top: travel * progress,
-        travel,
-    })
 }
 
 fn format_last_seen(last_seen_unix_seconds: Option<u64>) -> String {
@@ -751,20 +493,5 @@ mod tests {
             format_last_seen_at(Some(1_000), 1_000 + 3 * 86_400),
             "Last seen 3 days ago"
         );
-    }
-
-    #[test]
-    fn scrollbar_metrics_follow_the_scroll_range() {
-        assert_eq!(scrollbar_metrics(px(500.), px(0.), px(0.)), None);
-        assert_eq!(scrollbar_metrics(px(40.), px(1_000.), px(0.)), None);
-
-        let top = scrollbar_metrics(px(500.), px(1_000.), px(0.)).unwrap();
-        assert_eq!(top.thumb_top, px(0.));
-
-        let bottom = scrollbar_metrics(px(500.), px(1_000.), px(-1_000.)).unwrap();
-        assert_eq!(bottom.thumb_top, bottom.travel);
-
-        let deep = scrollbar_metrics(px(500.), px(100_000.), px(0.)).unwrap();
-        assert_eq!(deep.thumb_height, px(SCROLLBAR_MIN_THUMB_PX));
     }
 }

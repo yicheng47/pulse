@@ -256,7 +256,7 @@ impl LibraryView {
                         text.child(crate::text_input::render_text(&self.text_input, true))
                     }),
             )
-            .when(empty, |input| input.child(crate::components::input_caret()))
+            .when(empty, |input| input.child(crate::ui::input_caret()))
             .child(
                 canvas(
                     |_, _, _| {},

@@ -3,7 +3,7 @@ use std::ops::Range;
 use gpui::{AnyElement, ClipboardItem, Context, KeyDownEvent, UTF16Selection, div, prelude::*};
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{components, theme};
+use crate::{theme, ui};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 struct Selection {
@@ -424,7 +424,7 @@ pub(crate) fn render_text(input: &TextInput, show_caret: bool) -> AnyElement {
     let mut content = div().flex().items_center().min_w_0().whitespace_nowrap();
     for (start, grapheme) in input.text.grapheme_indices(true) {
         if show_caret && caret == start {
-            content = content.child(components::input_caret());
+            content = content.child(ui::input_caret());
         }
         let end = start + grapheme.len();
         content = content.child(
@@ -442,7 +442,7 @@ pub(crate) fn render_text(input: &TextInput, show_caret: bool) -> AnyElement {
         );
     }
     if show_caret && caret == input.text.len() {
-        content = content.child(components::input_caret());
+        content = content.child(ui::input_caret());
     }
     content.into_any_element()
 }

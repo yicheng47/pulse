@@ -10,9 +10,8 @@ use super::{
     },
 };
 use crate::{
-    components,
     library::{PlaylistId, PlaylistSummary, PlaylistTrack},
-    theme,
+    theme, ui,
 };
 
 impl LibraryView {
@@ -180,8 +179,8 @@ impl LibraryView {
             .border_color(theme::border())
             .when(selected, |row| {
                 row.bg(theme::bg_selected())
-                    .child(components::playing_row_glow())
-                    .child(components::playing_row_bar())
+                    .child(ui::playing_row_glow())
+                    .child(ui::playing_row_bar())
             })
             .cursor_pointer()
             .on_click(cx.listener(move |this, _, _, cx| {
@@ -498,8 +497,8 @@ impl LibraryView {
             .border_color(theme::border())
             .when(selected || playing, |row| row.bg(theme::bg_selected()))
             .when(playing, |row| {
-                row.child(components::playing_row_glow())
-                    .child(components::playing_row_bar())
+                row.child(ui::playing_row_glow())
+                    .child(ui::playing_row_bar())
             })
             .cursor_pointer()
             .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
@@ -581,7 +580,7 @@ impl LibraryView {
                     .text_color(theme::text_secondary())
                     .child(format_duration(track.duration_ms)),
             )
-            .child(crate::components::quality_badge(quality))
+            .child(crate::ui::Badge::new(quality))
     }
 
     pub(super) fn render_playlist_name_modal(
@@ -638,7 +637,8 @@ impl LibraryView {
                         .border_color(theme::border())
                         .child(super::storage::render_cancel_modal_button(cx))
                         .child(
-                            crate::components::primary_button("confirm-playlist-name", confirm)
+                            ui::Button::new("confirm-playlist-name", confirm)
+                                .variant(ui::ButtonVariant::Primary)
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     this.confirm_playlist_name(cx);
                                 })),
@@ -655,114 +655,54 @@ impl LibraryView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let entry_word = if entry_count == 1 { "entry" } else { "entries" };
-        super::storage::render_modal_scrim(
-            div()
-                .flex()
-                .flex_col()
-                .w(px(500.))
-                .overflow_hidden()
-                .rounded(px(theme::RADIUS_LG))
-                .border_1()
-                .border_color(theme::border_strong())
-                .bg(theme::bg_surface())
-                .child(super::storage::render_modal_header("Delete Playlist", cx))
-                .child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap(px(9.))
-                        .p(px(22.))
-                        .child(
-                            div()
-                                .font_family(theme::FONT_DISPLAY)
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .text_size(px(17.))
-                                .text_color(theme::text_primary())
-                                .child(format!("Delete “{name}”?")),
-                        )
-                        .child(
-                            div()
-                                .font_family(theme::FONT_SANS)
-                                .text_size(px(12.))
-                                .text_color(theme::text_secondary())
-                                .child(format!(
-                                    "This removes {entry_count} track {entry_word} from the playlist. Your music files stay in the library."
-                                )),
-                        ),
-                )
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .justify_end()
-                        .gap(px(9.))
-                        .h(px(62.))
-                        .flex_none()
-                        .px(px(22.))
-                        .border_t_1()
-                        .border_color(theme::border())
-                        .child(super::storage::render_cancel_modal_button(cx))
-                        .child(
-                            crate::components::danger_button(
-                                format!("confirm-delete-playlist-{playlist_id}"),
-                                "Delete Playlist",
-                            )
-                            .on_click(cx.listener(|this, _, _, cx| {
-                                this.confirm_delete_playlist(cx);
-                            })),
-                        ),
-                ),
-        )
+        let body = div()
+            .flex()
+            .flex_col()
+            .gap(px(9.))
+            .p(px(22.))
+            .child(
+                div()
+                    .font_family(theme::FONT_DISPLAY)
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_size(px(17.))
+                    .text_color(theme::text_primary())
+                    .child(format!("Delete “{name}”?")),
+            )
+            .child(
+                div()
+                    .font_family(theme::FONT_SANS)
+                    .text_size(px(12.))
+                    .text_color(theme::text_secondary())
+                    .child(format!(
+                        "This removes {entry_count} track {entry_word} from the playlist. Your music files stay in the library."
+                    )),
+            );
+        ui::ConfirmDialog::new("delete-playlist-dialog", "Delete Playlist", body)
+            .cancel_id("cancel-delete-playlist")
+            .confirm_id(format!("confirm-delete-playlist-{playlist_id}"))
+            .close_id("close-delete-playlist")
+            .confirm_label("Delete Playlist")
+            .on_cancel(cx.listener(|this, _, _, cx| {
+                this.modal = None;
+                cx.notify();
+            }))
+            .on_confirm(cx.listener(|this, _, _, cx| {
+                this.confirm_delete_playlist(cx);
+            }))
+            .into_any_element()
     }
 }
 
 fn render_playlist_empty(cx: &mut Context<LibraryView>) -> impl IntoElement {
-    div()
-        .flex()
-        .flex_col()
-        .flex_1()
-        .items_center()
-        .justify_center()
-        .px(px(28.))
-        .child(
-            div()
-                .flex()
-                .items_center()
-                .justify_center()
-                .size(px(54.))
-                .rounded_full()
-                .bg(theme::bg_muted())
-                .child(
-                    svg()
-                        .path("icons/list-music.svg")
-                        .size(px(25.))
-                        .text_color(theme::text_muted()),
-                ),
-        )
-        .child(
-            div()
-                .mt(px(15.))
-                .font_family(theme::FONT_DISPLAY)
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_size(px(18.))
-                .text_color(theme::text_primary())
-                .child("No playlists yet"),
-        )
-        .child(
-            div()
-                .mt(px(5.))
-                .max_w(px(250.))
-                .text_center()
-                .font_family(theme::FONT_SANS)
-                .text_size(px(12.))
-                .text_color(theme::text_muted())
-                .child("Build a collection from tracks in your library."),
-        )
-        .child(
-            div()
-                .mt(px(18.))
-                .child(render_new_playlist_button("new-playlist-empty", cx)),
-        )
+    ui::EmptyStateCard::new(
+        svg()
+            .path("icons/list-music.svg")
+            .size(px(25.))
+            .text_color(theme::text_muted()),
+        "No playlists yet",
+        "Build a collection from tracks in your library.",
+        render_new_playlist_button("new-playlist-empty", cx),
+    )
 }
 
 fn render_new_playlist_button(id: &'static str, cx: &mut Context<LibraryView>) -> impl IntoElement {

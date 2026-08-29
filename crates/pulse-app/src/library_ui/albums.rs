@@ -13,10 +13,9 @@ use super::{
     },
 };
 use crate::{
-    components,
     library::{Album, AlbumSortOrder, Track},
     shell::SIDEBAR_WIDTH,
-    theme,
+    theme, ui,
 };
 
 const ALBUM_BODY_HORIZONTAL_PADDING: f32 = 28.;
@@ -526,9 +525,10 @@ impl LibraryView {
                                     .items_center()
                                     .gap(px(8.))
                                     .when_some(quality.clone(), |row, quality| {
-                                        row.child(render_quality_badge(format!(
-                                            "{formats} {quality}"
-                                        )))
+                                        row.child(
+                                            ui::Badge::new(format!("{formats} {quality}"))
+                                                .size(ui::BadgeSize::Large),
+                                        )
                                     })
                                     .when(
                                         is_hi_res(album.max_bit_depth, album.max_sample_rate_hz),
@@ -661,8 +661,8 @@ impl LibraryView {
             .border_color(theme::border())
             .when(selected || playing, |row| row.bg(theme::bg_selected()))
             .when(playing, |row| {
-                row.child(components::playing_row_glow())
-                    .child(components::playing_row_bar())
+                row.child(ui::playing_row_glow())
+                    .child(ui::playing_row_bar())
             })
             .cursor_pointer()
             .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
@@ -747,7 +747,7 @@ impl LibraryView {
                     .text_color(theme::text_secondary())
                     .child(format_duration(track.duration_ms)),
             )
-            .child(crate::components::quality_badge(quality))
+            .child(crate::ui::Badge::new(quality))
     }
 
     fn render_album_menu(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -812,149 +812,99 @@ impl LibraryView {
         } else {
             "files"
         };
-        super::storage::render_modal_scrim(
-            div()
-                .flex()
-                .flex_col()
-                .w(px(520.))
-                .overflow_hidden()
-                .rounded(px(theme::RADIUS_LG))
-                .border_1()
-                .border_color(theme::border_strong())
-                .bg(theme::bg_surface())
-                .child(if self.album_delete_in_flight {
-                    // Non-dismissible while the worker owns the store: no
-                    // close control until the job reports back.
-                    div()
-                        .flex()
-                        .items_center()
-                        .h(px(58.))
-                        .flex_none()
-                        .px(px(22.))
-                        .border_b_1()
-                        .border_color(theme::border())
-                        .child(
-                            div()
-                                .font_family(theme::FONT_DISPLAY)
-                                .font_weight(FontWeight::BOLD)
-                                .text_size(px(20.))
-                                .text_color(theme::text_primary())
-                                .child("Delete Album"),
-                        )
-                        .into_any_element()
-                } else {
-                    super::storage::render_modal_header("Delete Album", cx).into_any_element()
-                })
-                .child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap(px(14.))
-                        .p(px(22.))
-                        .child(
-                            div()
-                                .flex()
-                                .items_center()
-                                .gap(px(12.))
-                                .child(render_cover(album.cover_art_path.as_deref(), 44., 44., 18.))
-                                .child(
-                                    div()
-                                        .flex()
-                                        .flex_col()
-                                        .gap(px(2.))
-                                        .flex_1()
-                                        .min_w_0()
-                                        .child(
-                                            div()
-                                                .truncate()
-                                                .font_family(theme::FONT_DISPLAY)
-                                                .font_weight(FontWeight::BOLD)
-                                                .text_size(px(15.))
-                                                .text_color(theme::text_primary())
-                                                .child(album.title.clone()),
-                                        )
-                                        .child(
-                                            div()
-                                                .truncate()
-                                                .font_family(theme::FONT_SANS)
-                                                .text_size(px(12.))
-                                                .text_color(theme::text_secondary())
-                                                .child(format!(
-                                                    "{} · {} tracks · {} min",
-                                                    album.artist,
-                                                    album.track_count,
-                                                    album.total_duration_ms.div_ceil(60_000)
-                                                )),
-                                        ),
-                                ),
-                        )
-                        .child(
-                            div()
-                                .flex()
-                                .items_start()
-                                .gap(px(10.))
-                                .w_full()
-                                .px(px(12.))
-                                .py(px(10.))
-                                .rounded(px(theme::RADIUS_MD))
-                                .border_1()
-                                .border_color(theme::danger())
-                                .bg(theme::danger_soft())
-                                .child(
-                                    svg()
-                                        .path("icons/triangle-alert.svg")
-                                        .size(px(15.))
-                                        .flex_none()
-                                        .mt(px(1.))
-                                        .text_color(theme::danger()),
-                                )
-                                .child(
-                                    div()
-                                        .flex_1()
-                                        .font_family(theme::FONT_SANS)
-                                        .text_size(px(12.))
-                                        .line_height(px(18.))
-                                        .text_color(theme::text_secondary())
-                                        .child(format!(
-                                            "Deletes the album’s {} audio {file_word} from disk \
-                                             and removes its tracks from the library and any \
-                                             playlists. This cannot be undone.",
-                                            album.track_count
-                                        )),
-                                ),
-                        ),
-                )
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .justify_end()
-                        .gap(px(9.))
-                        .h(px(62.))
-                        .flex_none()
-                        .px(px(22.))
-                        .border_t_1()
-                        .border_color(theme::border())
-                        .child(if self.album_delete_in_flight {
-                            crate::components::secondary_button("cancel-delete-album", "Cancel")
-                                .opacity(0.5)
-                                .into_any_element()
-                        } else {
-                            super::storage::render_cancel_modal_button(cx).into_any_element()
-                        })
-                        .child(if self.album_delete_in_flight {
-                            crate::components::danger_button("confirm-delete-album", "Deleting…")
-                                .opacity(0.6)
-                                .into_any_element()
-                        } else {
-                            crate::components::danger_button("confirm-delete-album", "Delete Album")
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.confirm_delete_album(cx);
-                                }))
-                                .into_any_element()
-                        }),
-                ),
-        )
+        let body = div()
+            .flex()
+            .flex_col()
+            .gap(px(14.))
+            .p(px(22.))
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(12.))
+                    .child(render_cover(album.cover_art_path.as_deref(), 44., 44., 18.))
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap(px(2.))
+                            .flex_1()
+                            .min_w_0()
+                            .child(
+                                div()
+                                    .truncate()
+                                    .font_family(theme::FONT_DISPLAY)
+                                    .font_weight(FontWeight::BOLD)
+                                    .text_size(px(15.))
+                                    .text_color(theme::text_primary())
+                                    .child(album.title.clone()),
+                            )
+                            .child(
+                                div()
+                                    .truncate()
+                                    .font_family(theme::FONT_SANS)
+                                    .text_size(px(12.))
+                                    .text_color(theme::text_secondary())
+                                    .child(format!(
+                                        "{} · {} tracks · {} min",
+                                        album.artist,
+                                        album.track_count,
+                                        album.total_duration_ms.div_ceil(60_000)
+                                    )),
+                            ),
+                    ),
+            )
+            .child(
+                div()
+                    .flex()
+                    .items_start()
+                    .gap(px(10.))
+                    .w_full()
+                    .px(px(12.))
+                    .py(px(10.))
+                    .rounded(px(theme::RADIUS_MD))
+                    .border_1()
+                    .border_color(theme::danger())
+                    .bg(theme::danger_soft())
+                    .child(
+                        svg()
+                            .path("icons/triangle-alert.svg")
+                            .size(px(15.))
+                            .flex_none()
+                            .mt(px(1.))
+                            .text_color(theme::danger()),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .font_family(theme::FONT_SANS)
+                            .text_size(px(12.))
+                            .line_height(px(18.))
+                            .text_color(theme::text_secondary())
+                            .child(format!(
+                                "Deletes the album’s {} audio {file_word} from disk \
+                                 and removes its tracks from the library and any \
+                                 playlists. This cannot be undone.",
+                                album.track_count
+                            )),
+                    ),
+            );
+        ui::ConfirmDialog::new("delete-album-dialog", "Delete Album", body)
+            .width(px(520.))
+            .busy(self.album_delete_in_flight)
+            .busy_label("Deleting…")
+            .cancel_id("cancel-delete-album")
+            .confirm_id("confirm-delete-album")
+            .close_id("close-delete-album")
+            .confirm_label("Delete Album")
+            .on_cancel(cx.listener(|this, _, _, cx| {
+                this.modal = None;
+                cx.notify();
+            }))
+            .on_confirm(cx.listener(|this, _, _, cx| {
+                this.confirm_delete_album(cx);
+            }))
+            .into_any_element()
     }
 }
 
@@ -1028,23 +978,6 @@ fn render_no_filter_matches(message: &'static str) -> impl IntoElement {
         .text_size(px(13.))
         .text_color(theme::text_muted())
         .child(message)
-}
-
-fn render_quality_badge(label: String) -> impl IntoElement {
-    div()
-        .flex()
-        .items_center()
-        .h(px(21.))
-        .px(px(7.))
-        .rounded(px(theme::RADIUS_SM))
-        .border_1()
-        .border_color(theme::quality_border())
-        .bg(theme::quality_soft())
-        .font_family(theme::FONT_MONO)
-        .font_weight(FontWeight::BOLD)
-        .text_size(px(10.))
-        .text_color(theme::quality())
-        .child(label)
 }
 
 fn render_hi_res_badge() -> impl IntoElement {

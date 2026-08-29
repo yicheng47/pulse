@@ -38,6 +38,7 @@ use crate::{
     shell::Destination,
     text_input::{self, TextInput},
     theme,
+    ui::{Button, Scrollbar},
 };
 
 use view_model::FilterChip;
@@ -302,7 +303,7 @@ pub(crate) struct LibraryView {
     albums_scroll: ScrollHandle,
     album_detail_scroll: ScrollHandle,
     tracks_scroll: ScrollHandle,
-    track_scroll_drag_offset: Option<Pixels>,
+    track_scrollbar: Entity<Scrollbar>,
     playlists_scroll: ScrollHandle,
     playlist_detail_scroll: ScrollHandle,
     scan: Option<ActiveScan>,
@@ -327,6 +328,11 @@ impl LibraryView {
         // asynchronously; without this the lists would render them stale.
         cx.observe(&row, |_, _, cx| cx.notify()).detach();
         let (worker_tx, worker_rx) = mpsc::channel();
+        let tracks_scroll = ScrollHandle::new();
+        let track_scrollbar = cx.new(|_| {
+            Scrollbar::new("tracks-scrollbar", tracks_scroll.clone())
+                .thumb_id("tracks-scrollbar-thumb")
+        });
         let mut view = Self {
             destination: Destination::Albums,
             row,
@@ -366,8 +372,8 @@ impl LibraryView {
             album_total: 0,
             albums_scroll: ScrollHandle::new(),
             album_detail_scroll: ScrollHandle::new(),
-            tracks_scroll: ScrollHandle::new(),
-            track_scroll_drag_offset: None,
+            tracks_scroll,
+            track_scrollbar,
             playlists_scroll: ScrollHandle::new(),
             playlist_detail_scroll: ScrollHandle::new(),
             scan: None,
@@ -634,7 +640,7 @@ impl LibraryView {
             TrackSortOrder::ReleaseYear => TrackSortOrder::Duration,
             TrackSortOrder::Duration => TrackSortOrder::Title,
         };
-        self.reset_tracks();
+        self.reset_tracks(cx);
         self.reload_or_show_error();
         cx.notify();
     }
@@ -644,7 +650,7 @@ impl LibraryView {
             return;
         }
         self.track_filter = filter;
-        self.reset_tracks();
+        self.reset_tracks(cx);
         self.reload_or_show_error();
         cx.notify();
     }
@@ -675,7 +681,7 @@ impl LibraryView {
             return;
         }
         self.artist_filter = artist;
-        self.reset_tracks();
+        self.reset_tracks(cx);
         self.reload_or_show_error();
         cx.notify();
     }
@@ -723,12 +729,14 @@ impl LibraryView {
         }
     }
 
-    fn reset_tracks(&mut self) {
+    fn reset_tracks(&mut self, cx: &mut Context<Self>) {
         self.tracks.clear();
         self.track_total = 0;
         self.track_load_stalled = false;
         self.tracks_scroll = ScrollHandle::new();
-        self.track_scroll_drag_offset = None;
+        self.track_scrollbar.update(cx, |scrollbar, _| {
+            scrollbar.set_scroll_handle(self.tracks_scroll.clone());
+        });
     }
 
     fn open_album(&mut self, album: Album, cx: &mut Context<Self>) {
@@ -1670,14 +1678,18 @@ impl LibraryView {
                     .text_color(theme::danger())
                     .child(message),
             )
-            .child(div().mt(px(6.)).child(
-                crate::components::secondary_button("library-open-retry", "Retry").on_click(
-                    cx.listener(|this, _, _, cx| {
-                        this.begin_open_store();
-                        cx.notify();
-                    }),
-                ),
-            ))
+            .child(
+                div()
+                    .mt(px(6.))
+                    .child(
+                        Button::new("library-open-retry", "Retry").on_click(cx.listener(
+                            |this, _, _, cx| {
+                                this.begin_open_store();
+                                cx.notify();
+                            },
+                        )),
+                    ),
+            )
             .into_any_element()
     }
 
@@ -1794,17 +1806,6 @@ impl Render for LibraryView {
             .flex_1()
             .min_h_0()
             .w_full()
-            .on_mouse_move(cx.listener(|this, event, _, cx| {
-                this.update_track_scrollbar_drag(event, cx);
-            }))
-            .on_mouse_up(
-                gpui::MouseButton::Left,
-                cx.listener(|this, _, _, cx| this.finish_track_scrollbar_drag(cx)),
-            )
-            .on_mouse_up_out(
-                gpui::MouseButton::Left,
-                cx.listener(|this, _, _, cx| this.finish_track_scrollbar_drag(cx)),
-            )
             .child(content)
             .when(self.track_menu.is_some(), |view| {
                 view.child(self.render_track_context_menu(cx))

@@ -8,7 +8,7 @@ use std::{
 };
 
 use gpui::{
-    AnyElement, Bounds, Context, ExternalPaths, FocusHandle, FontWeight, IntoElement, KeyDownEvent,
+    AnyElement, Bounds, Context, ExternalPaths, FocusHandle, FontWeight, IntoElement,
     ListSizingBehavior, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ObjectFit,
     Pixels, Render, Window, canvas, div, img, prelude::*, px, relative, svg, uniform_list,
 };
@@ -18,11 +18,10 @@ use pulse_engine::{
 };
 
 use crate::{
-    components,
     library::{Track, TrackId},
     preferences,
     queue::{PreviousAction, QueueState, RepeatMode, TrackRef},
-    theme,
+    theme, ui,
 };
 
 const EVENT_POLL_INTERVAL: Duration = Duration::from_millis(16);
@@ -2197,35 +2196,23 @@ impl PlaybackRow {
         let volume_bounds = Rc::clone(&self.volume_bounds);
         let volume_fill = displayed_volume_level(self.volume_level, self.volume_muted);
         let volume_dragging = self.volume_dragging;
-        let popover = div()
-            .id("volume-popover")
-            .absolute()
+        let entity = cx.entity();
+        let mut popover = ui::PopoverMenu::new("volume-popover", px(56.))
             .left(px(-19.5))
             .bottom(px(54.))
-            .flex()
-            .flex_col()
             .items_center()
-            .gap(px(11.))
-            .w(px(56.))
-            .p(px(14.))
-            .rounded(px(theme::RADIUS_LG))
-            .border_1()
-            .border_color(theme::border())
-            .bg(theme::bg_surface())
-            .occlude()
             .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _, cx| {
                 this.update_drag(event, cx);
             }))
-            .on_mouse_up(
-                MouseButton::Left,
-                cx.listener(|this, event: &MouseUpEvent, _, cx| {
-                    this.finish_drag(event, cx);
-                }),
-            )
-            .on_mouse_down_out(cx.listener(|this, _, _, cx| {
-                this.volume_popover_open = false;
-                cx.notify();
+            .on_mouse_up(cx.listener(|this, event: &MouseUpEvent, _, cx| {
+                this.finish_drag(event, cx);
             }))
+            .on_dismiss(move |_, cx| {
+                entity.update(cx, |this, cx| {
+                    this.volume_popover_open = false;
+                    cx.notify();
+                });
+            })
             .child(
                 div()
                     .w_full()
@@ -2316,19 +2303,10 @@ impl PlaybackRow {
                             .text_color(theme::text_secondary()),
                     ),
             );
-
-        match &self.volume_popover_focus {
-            Some(focus) => popover
-                .track_focus(focus)
-                .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
-                    if event.keystroke.key == "escape" {
-                        this.volume_popover_open = false;
-                        cx.notify();
-                    }
-                }))
-                .into_any_element(),
-            None => popover.into_any_element(),
+        if let Some(focus) = &self.volume_popover_focus {
+            popover = popover.focus_handle(focus.clone());
         }
+        popover.into_any_element()
     }
 
     fn render_output_popover(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -2358,30 +2336,20 @@ impl PlaybackRow {
             );
         }
 
-        let mut popover = div()
-            .id("output-device-popover")
-            .absolute()
-            .when(
-                self.surface == PlaybackSurface::SettingsOutputPicker,
-                |popover| popover.right_0().top(px(30.)),
-            )
-            .when(self.surface == PlaybackSurface::Transport, |popover| {
-                popover.right(px(-52.)).bottom(px(54.))
-            })
-            .flex()
-            .flex_col()
-            .gap(px(11.))
-            .w(px(360.))
-            .p(px(14.))
-            .rounded(px(theme::RADIUS_LG))
-            .border_1()
-            .border_color(theme::border())
-            .bg(theme::bg_surface())
-            .occlude()
-            .on_mouse_down_out(cx.listener(|this, _, _, cx| {
-                this.output_popover_open = false;
-                cx.notify();
-            }))
+        let entity = cx.entity();
+        let mut popover =
+            ui::PopoverMenu::new("output-device-popover", px(360.)).on_dismiss(move |_, cx| {
+                entity.update(cx, |this, cx| {
+                    this.output_popover_open = false;
+                    cx.notify();
+                });
+            });
+        popover = if self.surface == PlaybackSurface::SettingsOutputPicker {
+            popover.right(px(0.)).top(px(30.))
+        } else {
+            popover.right(px(-52.)).bottom(px(54.))
+        };
+        popover = popover
             .child(
                 div()
                     .flex()
@@ -2486,14 +2454,14 @@ impl PlaybackRow {
                     )
                     .when(self.active_device.is_some(), |card| {
                         card.child(div().w_full().h(px(1.)).my(px(10.)).bg(theme::border()))
-                            .child(components::exclusive_mode_control(
+                            .child(ui::exclusive_mode_control(
                                 self.exclusive_mode_is_automatic(),
-                                components::exclusive_mode_reset_link("exclusive-mode-reset-auto")
+                                ui::exclusive_mode_reset_link("exclusive-mode-reset-auto")
                                     .on_click(cx.listener(|this, _, _, cx| {
                                         this.reset_exclusive_mode_to_auto(cx);
                                     }))
                                     .into_any_element(),
-                                components::toggle("exclusive-mode-toggle", self.exclusive_mode)
+                                ui::Toggle::new("exclusive-mode-toggle", self.exclusive_mode)
                                     .on_click(cx.listener(|this, _, _, cx| {
                                         this.toggle_exclusive_mode(cx);
                                     }))
@@ -2672,26 +2640,17 @@ impl PlaybackRow {
                 );
         }
 
-        let mut popover = div()
-            .id("queue-popover")
-            .absolute()
-            .right_0()
+        let entity = cx.entity();
+        let mut popover = ui::PopoverMenu::new("queue-popover", px(376.))
+            .right(px(0.))
             .bottom(px(71.))
-            .flex()
-            .flex_col()
-            .gap(px(11.))
-            .w(px(376.))
-            .max_h(px(541.))
-            .p(px(14.))
-            .rounded(px(theme::RADIUS_LG))
-            .border_1()
-            .border_color(theme::border())
-            .bg(theme::bg_surface())
-            .occlude()
-            .on_mouse_down_out(cx.listener(|this, _, _, cx| {
-                this.queue_popover_open = false;
-                cx.notify();
-            }))
+            .max_height(px(541.))
+            .on_dismiss(move |_, cx| {
+                entity.update(cx, |this, cx| {
+                    this.queue_popover_open = false;
+                    cx.notify();
+                });
+            })
             .child(header);
 
         if let Some((title, secondary)) = self.now_playing_lines() {
@@ -2710,8 +2669,8 @@ impl PlaybackRow {
                     .border_1()
                     .border_color(theme::border())
                     .bg(theme::bg_inset())
-                    .child(components::playing_row_glow())
-                    .child(components::playing_row_bar())
+                    .child(ui::playing_row_glow())
+                    .child(ui::playing_row_bar())
                     .child(
                         svg()
                             .path("icons/audio-lines.svg")
@@ -2801,18 +2760,10 @@ impl PlaybackRow {
             );
         }
 
-        match &self.queue_popover_focus {
-            Some(focus) => popover
-                .track_focus(focus)
-                .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
-                    if event.keystroke.key == "escape" {
-                        this.queue_popover_open = false;
-                        cx.notify();
-                    }
-                }))
-                .into_any_element(),
-            None => popover.into_any_element(),
+        if let Some(focus) = &self.queue_popover_focus {
+            popover = popover.focus_handle(focus.clone());
         }
+        popover.into_any_element()
     }
 
     /// Title and `artist · album` for the popover's NOW PLAYING block, absent
@@ -3036,18 +2987,14 @@ impl PlaybackRow {
             .when(recovery, |banner| {
                 banner
                     .child(
-                        crate::components::compact_secondary_button(
-                            "playback-notice-retry",
-                            "Try again",
-                        )
-                        .on_click(cx.listener(|this, _, _, cx| this.retry_playback(cx))),
+                        ui::Button::new("playback-notice-retry", "Try again")
+                            .size(ui::ButtonSize::Compact)
+                            .on_click(cx.listener(|this, _, _, cx| this.retry_playback(cx))),
                     )
                     .child(
-                        crate::components::compact_secondary_button(
-                            "playback-notice-outputs",
-                            "Choose output",
-                        )
-                        .on_click(cx.listener(|this, _, _, cx| this.toggle_output_popover(cx))),
+                        ui::Button::new("playback-notice-outputs", "Choose output")
+                            .size(ui::ButtonSize::Compact)
+                            .on_click(cx.listener(|this, _, _, cx| this.toggle_output_popover(cx))),
                     )
             })
             .child(

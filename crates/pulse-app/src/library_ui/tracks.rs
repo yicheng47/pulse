@@ -1,6 +1,6 @@
 use gpui::{
     AnyElement, ClickEvent, Context, FontWeight, IntoElement, MouseButton, MouseDownEvent,
-    MouseMoveEvent, Pixels, StatefulInteractiveElement, Window, div, point, prelude::*, px, svg,
+    StatefulInteractiveElement, Window, div, prelude::*, px, svg,
 };
 
 use super::{
@@ -11,21 +11,11 @@ use super::{
     },
 };
 use crate::{
-    components,
     library::{Track, TrackSortOrder},
-    theme,
+    theme, ui,
 };
 
 const TRACK_ROW_HEIGHT_PX: f32 = 58.;
-const TRACK_SCROLLBAR_INSET_PX: f32 = 4.;
-const TRACK_SCROLLBAR_MIN_THUMB_PX: f32 = 36.;
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct TrackScrollbarMetrics {
-    thumb_height: Pixels,
-    thumb_top: Pixels,
-    travel: Pixels,
-}
 
 impl LibraryView {
     pub(super) fn render_tracks(
@@ -57,7 +47,10 @@ impl LibraryView {
         for (index, track) in visible.iter().cloned().enumerate() {
             rows = rows.child(self.render_track_row(index, track, now_ms, cx));
         }
-        let scrollbar = self.render_track_scrollbar(cx);
+        self.track_scrollbar.update(cx, |scrollbar, _| {
+            scrollbar
+                .set_estimated_content_height(px(self.tracks.len() as f32 * TRACK_ROW_HEIGHT_PX));
+        });
 
         div()
             .flex()
@@ -152,120 +145,10 @@ impl LibraryView {
                                         rows.into_any_element()
                                     }),
                             )
-                            .when_some(scrollbar, |region, scrollbar| region.child(scrollbar)),
+                            .child(self.track_scrollbar.clone()),
                     ),
             )
             .into_any_element()
-    }
-
-    fn track_max_scroll(&self, viewport_height: Pixels) -> Pixels {
-        let measured = self.tracks_scroll.max_offset().y;
-        let estimated = px(self.tracks.len() as f32 * TRACK_ROW_HEIGHT_PX) - viewport_height;
-        measured.max(estimated).max(px(0.))
-    }
-
-    fn render_track_scrollbar(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let viewport_bounds = self.tracks_scroll.bounds();
-        let viewport_height = viewport_bounds.size.height;
-        let max_scroll = self.track_max_scroll(viewport_height);
-        let metrics =
-            track_scrollbar_metrics(viewport_height, max_scroll, self.tracks_scroll.offset().y)?;
-        let viewport_top = viewport_bounds.top();
-
-        Some(
-            div()
-                .id("tracks-scrollbar")
-                .absolute()
-                .top(px(TRACK_SCROLLBAR_INSET_PX))
-                .right(px(2.))
-                .bottom(px(TRACK_SCROLLBAR_INSET_PX))
-                .w(px(4.))
-                .rounded(px(2.))
-                .bg(theme::bg_muted())
-                .cursor_pointer()
-                .on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                        let target_top = (event.position.y
-                            - viewport_top
-                            - px(TRACK_SCROLLBAR_INSET_PX)
-                            - metrics.thumb_height / 2.)
-                            .clamp(px(0.), metrics.travel);
-                        let progress = target_top / metrics.travel;
-                        this.tracks_scroll
-                            .set_offset(point(px(0.), -(max_scroll * progress)));
-                        this.track_scroll_drag_offset = Some(metrics.thumb_height / 2.);
-                        cx.stop_propagation();
-                        cx.notify();
-                    }),
-                )
-                .child(
-                    div()
-                        .id("tracks-scrollbar-thumb")
-                        .absolute()
-                        .top(metrics.thumb_top)
-                        .left_0()
-                        .w_full()
-                        .h(metrics.thumb_height)
-                        .rounded(px(2.))
-                        .bg(if self.track_scroll_drag_offset.is_some() {
-                            theme::text_secondary()
-                        } else {
-                            theme::text_muted()
-                        })
-                        .hover(|thumb| thumb.bg(theme::text_secondary()))
-                        .on_mouse_down(
-                            MouseButton::Left,
-                            cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                                this.track_scroll_drag_offset = Some(
-                                    event.position.y
-                                        - viewport_top
-                                        - px(TRACK_SCROLLBAR_INSET_PX)
-                                        - metrics.thumb_top,
-                                );
-                                cx.stop_propagation();
-                                cx.notify();
-                            }),
-                        ),
-                )
-                .into_any_element(),
-        )
-    }
-
-    pub(super) fn update_track_scrollbar_drag(
-        &mut self,
-        event: &MouseMoveEvent,
-        cx: &mut Context<Self>,
-    ) {
-        let Some(drag_offset) = self.track_scroll_drag_offset else {
-            return;
-        };
-        if !event.dragging() {
-            self.track_scroll_drag_offset = None;
-            return;
-        }
-        let viewport_bounds = self.tracks_scroll.bounds();
-        let viewport_height = viewport_bounds.size.height;
-        let max_scroll = self.track_max_scroll(viewport_height);
-        let Some(metrics) =
-            track_scrollbar_metrics(viewport_height, max_scroll, self.tracks_scroll.offset().y)
-        else {
-            self.track_scroll_drag_offset = None;
-            return;
-        };
-        let target_top =
-            (event.position.y - viewport_bounds.top() - px(TRACK_SCROLLBAR_INSET_PX) - drag_offset)
-                .clamp(px(0.), metrics.travel);
-        let progress = target_top / metrics.travel;
-        self.tracks_scroll
-            .set_offset(point(px(0.), -(max_scroll * progress)));
-        cx.notify();
-    }
-
-    pub(super) fn finish_track_scrollbar_drag(&mut self, cx: &mut Context<Self>) {
-        if self.track_scroll_drag_offset.take().is_some() {
-            cx.notify();
-        }
     }
 
     fn render_track_filters(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -568,8 +451,8 @@ impl LibraryView {
             .border_color(theme::border())
             .when(selected || playing, |row| row.bg(theme::bg_selected()))
             .when(playing, |row| {
-                row.child(components::playing_row_glow())
-                    .child(components::playing_row_bar())
+                row.child(ui::playing_row_glow())
+                    .child(ui::playing_row_bar())
             })
             .cursor_pointer()
             .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
@@ -750,56 +633,5 @@ fn format_relative_time(timestamp_ms: i64, now_ms: i64) -> String {
         format!("{} hr", minutes / 60)
     } else {
         format!("{} days", minutes / (24 * 60))
-    }
-}
-
-fn track_scrollbar_metrics(
-    viewport_height: Pixels,
-    max_scroll: Pixels,
-    offset: Pixels,
-) -> Option<TrackScrollbarMetrics> {
-    if viewport_height <= px(0.) || max_scroll <= px(0.) {
-        return None;
-    }
-    let rail_height = viewport_height - px(TRACK_SCROLLBAR_INSET_PX * 2.);
-    if rail_height <= px(TRACK_SCROLLBAR_MIN_THUMB_PX) {
-        return None;
-    }
-    let content_height = viewport_height + max_scroll;
-    let thumb_height = (rail_height * (viewport_height / content_height))
-        .clamp(px(TRACK_SCROLLBAR_MIN_THUMB_PX), rail_height);
-    let travel = rail_height - thumb_height;
-    if travel <= px(0.) {
-        return None;
-    }
-    let progress = (-offset / max_scroll).clamp(0., 1.);
-    Some(TrackScrollbarMetrics {
-        thumb_height,
-        thumb_top: travel * progress,
-        travel,
-    })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn track_scrollbar_metrics_follow_the_scroll_range() {
-        assert_eq!(track_scrollbar_metrics(px(500.), px(0.), px(0.)), None);
-        assert_eq!(track_scrollbar_metrics(px(40.), px(1_000.), px(0.)), None);
-        assert_eq!(
-            track_scrollbar_metrics(px(500.), px(f32::EPSILON), px(0.)),
-            None
-        );
-
-        let top = track_scrollbar_metrics(px(500.), px(1_000.), px(0.)).unwrap();
-        assert_eq!(top.thumb_top, px(0.));
-
-        let bottom = track_scrollbar_metrics(px(500.), px(1_000.), px(-1_000.)).unwrap();
-        assert_eq!(bottom.thumb_top, bottom.travel);
-
-        let deep = track_scrollbar_metrics(px(500.), px(100_000.), px(0.)).unwrap();
-        assert_eq!(deep.thumb_height, px(TRACK_SCROLLBAR_MIN_THUMB_PX));
     }
 }

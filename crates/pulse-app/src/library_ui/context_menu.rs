@@ -1,9 +1,9 @@
-use gpui::{AnyElement, Context, FontWeight, IntoElement, KeyDownEvent, div, prelude::*, px, svg};
+use gpui::{AnyElement, Context, FontWeight, IntoElement, div, point, prelude::*, px, svg};
 
 use super::{LibraryView, TrackSurface};
 use crate::{
     shell::{SIDEBAR_WIDTH, TOP_BAR_HEIGHT},
-    theme,
+    theme, ui,
 };
 
 impl LibraryView {
@@ -114,25 +114,23 @@ impl LibraryView {
                 );
         }
 
-        let mut wrapper = div()
-            .absolute()
-            .left(menu.anchor.x - px(SIDEBAR_WIDTH))
-            .top(menu.anchor.y - px(TOP_BAR_HEIGHT))
-            .flex()
-            .items_start()
-            .w(px(if flyout_open { 412. } else { 210. }))
-            .track_focus(&self.input_focus)
-            .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
-                if event.keystroke.key == "escape" {
-                    this.track_menu = None;
-                    cx.notify();
-                }
-            }))
-            .on_mouse_down_out(cx.listener(|this, _, _, cx| {
+        let entity = cx.entity();
+        let mut wrapper = ui::ContextMenu::new(
+            "track-context-menu",
+            point(
+                menu.anchor.x - px(SIDEBAR_WIDTH),
+                menu.anchor.y - px(TOP_BAR_HEIGHT),
+            ),
+        )
+        .width(px(if flyout_open { 412. } else { 210. }))
+        .focus_handle(self.input_focus.clone())
+        .on_dismiss(move |_, cx| {
+            entity.update(cx, |this, cx| {
                 this.track_menu = None;
                 cx.notify();
-            }))
-            .child(items);
+            });
+        })
+        .child(items);
         if flyout_open {
             wrapper = wrapper.child(self.render_playlist_flyout(track_id, cx));
         }
@@ -225,10 +223,7 @@ impl LibraryView {
             .clone();
         let rename_id = menu.playlist_id;
         let delete_id = menu.playlist_id;
-        div()
-            .absolute()
-            .left(menu.anchor.x - px(SIDEBAR_WIDTH))
-            .top(menu.anchor.y - px(TOP_BAR_HEIGHT))
+        let panel = div()
             .flex()
             .flex_col()
             .w(px(160.))
@@ -237,17 +232,6 @@ impl LibraryView {
             .border_1()
             .border_color(theme::border_strong())
             .bg(theme::bg_surface())
-            .track_focus(&self.input_focus)
-            .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
-                if event.keystroke.key == "escape" {
-                    this.playlist_menu = None;
-                    cx.notify();
-                }
-            }))
-            .on_mouse_down_out(cx.listener(|this, _, _, cx| {
-                this.playlist_menu = None;
-                cx.notify();
-            }))
             .child(
                 context_text_item("rename-playlist", "Rename", true)
                     .cursor_pointer()
@@ -263,8 +247,25 @@ impl LibraryView {
                         this.request_delete_playlist(delete_id, cx);
                     }))
                     .text_color(theme::danger()),
-            )
-            .into_any_element()
+            );
+        let entity = cx.entity();
+        ui::ContextMenu::new(
+            "playlist-context-menu",
+            point(
+                menu.anchor.x - px(SIDEBAR_WIDTH),
+                menu.anchor.y - px(TOP_BAR_HEIGHT),
+            ),
+        )
+        .width(px(160.))
+        .focus_handle(self.input_focus.clone())
+        .on_dismiss(move |_, cx| {
+            entity.update(cx, |this, cx| {
+                this.playlist_menu = None;
+                cx.notify();
+            });
+        })
+        .child(panel)
+        .into_any_element()
     }
 
     fn play_context_track(

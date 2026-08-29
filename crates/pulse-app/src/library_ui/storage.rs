@@ -10,9 +10,8 @@ use super::{
     view_model::{RootRowState, ScanProgressView, format_bytes, format_label, root_row_state},
 };
 use crate::{
-    components,
     library::{ScanOutcome, StorageRootId},
-    theme,
+    theme, ui,
 };
 
 impl LibraryView {
@@ -381,8 +380,8 @@ impl LibraryView {
             .border_color(theme::border())
             .when(selected, |row| {
                 row.bg(theme::bg_selected())
-                    .child(components::playing_row_glow())
-                    .child(components::playing_row_bar())
+                    .child(ui::playing_row_glow())
+                    .child(ui::playing_row_bar())
             })
             .cursor_pointer()
             .on_click(cx.listener(move |this, _, _, cx| {
@@ -1240,10 +1239,11 @@ impl LibraryView {
                         .border_color(theme::border())
                         .child(render_cancel_modal_button(cx))
                         .child(
-                            crate::components::danger_button(
+                            ui::Button::new(
                                 format!("confirm-remove-storage-{root_id}"),
                                 "Remove",
                             )
+                            .variant(ui::ButtonVariant::Danger)
                             .on_click(cx.listener(|this, _, _, cx| {
                                 this.confirm_remove_storage(cx);
                             })),
@@ -1448,27 +1448,14 @@ pub(super) fn render_modal_header(
                 .child(title),
         )
         .child(
-            div()
-                .id(format!(
-                    "close-{}",
-                    title.to_ascii_lowercase().replace(' ', "-")
-                ))
-                .flex()
-                .items_center()
-                .justify_center()
-                .size(px(28.))
-                .rounded(px(theme::RADIUS_SM))
-                .cursor_pointer()
-                .on_click(cx.listener(|this, _, _, cx| {
-                    this.modal = None;
-                    cx.notify();
-                }))
-                .child(
-                    svg()
-                        .path("icons/x.svg")
-                        .size(px(16.))
-                        .text_color(theme::text_muted()),
-                ),
+            ui::IconButton::new(
+                format!("close-{}", title.to_ascii_lowercase().replace(' ', "-")),
+                "icons/x.svg",
+            )
+            .on_click(cx.listener(|this, _, _, cx| {
+                this.modal = None;
+                cx.notify();
+            })),
         )
 }
 
@@ -1504,24 +1491,12 @@ fn render_add_storage_header(cx: &mut Context<LibraryView>) -> impl IntoElement 
                 ),
         )
         .child(
-            div()
-                .id("close-add-storage")
-                .flex()
-                .items_center()
-                .justify_center()
-                .size(px(28.))
-                .rounded(px(theme::RADIUS_SM))
-                .cursor_pointer()
-                .on_click(cx.listener(|this, _, _, cx| {
+            ui::IconButton::new("close-add-storage", "icons/x.svg").on_click(cx.listener(
+                |this, _, _, cx| {
                     this.modal = None;
                     cx.notify();
-                }))
-                .child(
-                    svg()
-                        .path("icons/x.svg")
-                        .size(px(16.))
-                        .text_color(theme::text_muted()),
-                ),
+                },
+            )),
         )
 }
 
@@ -1536,12 +1511,10 @@ pub(super) fn render_field_label(label: &'static str) -> impl IntoElement {
 }
 
 pub(super) fn render_cancel_modal_button(cx: &mut Context<LibraryView>) -> impl IntoElement {
-    crate::components::secondary_button("cancel-storage-modal", "Cancel").on_click(cx.listener(
-        |this, _, _, cx| {
-            this.modal = None;
-            cx.notify();
-        },
-    ))
+    ui::Button::new("cancel-storage-modal", "Cancel").on_click(cx.listener(|this, _, _, cx| {
+        this.modal = None;
+        cx.notify();
+    }))
 }
 
 fn scan_outcome_label(outcome: ScanOutcome) -> &'static str {

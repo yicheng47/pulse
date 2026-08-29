@@ -14,7 +14,6 @@ use gpui::{
 };
 
 use crate::{
-    components,
     device_management::DeviceManagementPage,
     library::{Album, PlaylistSummary, Track},
     library_ui::{
@@ -25,7 +24,7 @@ use crate::{
     playback_row::PlaybackRow,
     settings::{AboutLink, SettingsSection, SettingsViewModel},
     text_input::{self, TextInput},
-    theme,
+    theme, ui,
     updater::Updater,
 };
 
@@ -35,28 +34,6 @@ pub(crate) const TOP_BAR_HEIGHT: f32 = 74.0;
 const SEARCH_WIDTH: f32 = 420.0;
 const SEARCH_DEBOUNCE: Duration = Duration::from_millis(150);
 const UPDATE_CHECK_POLL_INTERVAL: Duration = Duration::from_secs(30);
-
-struct UpdateHintTooltip {
-    content: SharedString,
-}
-
-impl Render for UpdateHintTooltip {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        div()
-            .max_w(px(320.))
-            .px(px(8.))
-            .py(px(4.))
-            .rounded(px(theme::RADIUS_SM))
-            .border_1()
-            .border_color(theme::border_strong())
-            .bg(theme::bg_elevated())
-            .font_family(theme::FONT_SANS)
-            .font_weight(FontWeight::NORMAL)
-            .text_size(px(11.))
-            .text_color(theme::text_secondary())
-            .child(self.content.clone())
-    }
-}
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Destination {
@@ -550,8 +527,7 @@ impl Shell {
         let update_hint = update_version.map(|version| {
             let click_updater = updater.clone();
             let tooltip = SharedString::from(format!("Pulse {version} is ready to install"));
-            let tooltip_content = tooltip.clone();
-            div()
+            let trigger = div()
                 .id("sidebar-update")
                 .flex()
                 .items_center()
@@ -561,12 +537,6 @@ impl Shell {
                 .rounded(px(theme::RADIUS_MD))
                 .cursor_pointer()
                 .hover(|style| style.bg(theme::accent_soft()))
-                .tooltip(move |_, cx| {
-                    cx.new(|_| UpdateHintTooltip {
-                        content: tooltip_content.clone(),
-                    })
-                    .into()
-                })
                 .on_click(move |_, _, cx| {
                     click_updater.read(cx).check_for_updates();
                 })
@@ -576,7 +546,8 @@ impl Shell {
                         .size(px(16.))
                         .flex_none()
                         .text_color(theme::accent()),
-                )
+                );
+            ui::Tooltip::new("sidebar-update-tooltip", tooltip, trigger)
         });
 
         div()
@@ -891,11 +862,10 @@ impl Shell {
 
         settings_group(
             "PLAYBACK",
-            settings_card().child(settings_row(
+            ui::SettingsCard::new().child(ui::SettingsRow::new(
                 "Default output device",
                 "Where Pulse sends audio.",
                 output_picker,
-                false,
             )),
         )
         .max_w(px(820.))
@@ -961,7 +931,7 @@ impl Shell {
                     .text_color(theme::text_primary())
                     .child("Check for Updates"),
             );
-        let hero = settings_card()
+        let hero = ui::SettingsCard::new()
             .child(
                 div()
                     .flex()
@@ -1003,7 +973,7 @@ impl Shell {
                     .child(action),
             )
             .child(div().w_full().h(px(1.)).flex_none().bg(theme::border()))
-            .child(settings_row(
+            .child(ui::SettingsRow::new(
                 "Last checked",
                 last_checked.description,
                 div()
@@ -1013,7 +983,6 @@ impl Shell {
                     .text_size(px(11.))
                     .text_color(theme::text_secondary())
                     .child(last_checked.value),
-                false,
             ));
 
         div()
@@ -1025,25 +994,22 @@ impl Shell {
             .child(settings_group("VERSION", hero))
             .child(settings_group(
                 "PREFERENCES",
-                settings_card().child(settings_row(
+                ui::SettingsCard::new().child(ui::SettingsRow::new(
                     "Check for updates on launch",
                     "Let Sparkle check GitHub for a newer signed release when its schedule is due.",
-                    components::toggle("update-check-on-launch-toggle", automatically_checks)
-                        .opacity(if updater_available { 1.0 } else { 0.45 })
-                        .when(updater_available, |toggle| {
-                            toggle.on_click(cx.listener(|this, _, _, cx| {
-                                this.toggle_check_updates_on_launch(cx);
-                            }))
-                        })
-                        .when(!updater_available, |toggle| toggle.cursor_default()),
-                    false,
+                    ui::Toggle::new("update-check-on-launch-toggle", automatically_checks)
+                        .disabled(!updater_available)
+                        .disabled_opacity(0.45)
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.toggle_check_updates_on_launch(cx);
+                        })),
                 )),
             ))
             .into_any_element()
     }
 
     fn render_about_settings(&self, cx: &mut Context<Self>) -> AnyElement {
-        let application = settings_card().child(
+        let application = ui::SettingsCard::new().child(
             div()
                 .flex()
                 .items_center()
@@ -1082,10 +1048,10 @@ impl Shell {
                 ),
         );
 
-        let mut links = settings_card();
+        let mut links = ui::SettingsCard::new();
         for (index, link) in AboutLink::ALL.into_iter().enumerate() {
             links = links.child(
-                settings_row(
+                ui::SettingsRow::new(
                     link.label(),
                     link.description(),
                     svg()
@@ -1093,10 +1059,9 @@ impl Shell {
                         .size(px(15.))
                         .flex_none()
                         .text_color(theme::text_muted()),
-                    index + 1 < AboutLink::ALL.len(),
                 )
+                .divider(index + 1 < AboutLink::ALL.len())
                 .id(("about-link", index))
-                .cursor_pointer()
                 .on_click(cx.listener(move |_, _, _, cx| cx.open_url(link.url()))),
             );
         }
@@ -1165,7 +1130,7 @@ impl Shell {
                             .flex_1()
                             .min_w_0()
                             .when(query.is_empty() && focused, |text| {
-                                text.child(crate::components::input_caret())
+                                text.child(ui::input_caret())
                             })
                             .when(query.is_empty(), |text| {
                                 text.child(
@@ -1329,8 +1294,8 @@ impl Shell {
             .relative()
             .when(selected, |row| {
                 row.bg(theme::bg_selected())
-                    .child(crate::components::playing_row_glow())
-                    .child(crate::components::playing_row_bar())
+                    .child(ui::playing_row_glow())
+                    .child(ui::playing_row_bar())
             })
             .cursor_pointer()
             .on_click(cx.listener(move |this, _, window, cx| {
@@ -1359,8 +1324,8 @@ impl Shell {
             .relative()
             .when(selected, |row| {
                 row.bg(theme::bg_selected())
-                    .child(crate::components::playing_row_glow())
-                    .child(crate::components::playing_row_bar())
+                    .child(ui::playing_row_glow())
+                    .child(ui::playing_row_bar())
             })
             .cursor_pointer()
             .on_click(cx.listener(move |this, _, window, cx| {
@@ -1375,9 +1340,7 @@ impl Shell {
                 ),
             ))
             .child(div().flex_1())
-            .when_some(quality, |row, quality| {
-                row.child(crate::components::quality_badge(quality))
-            })
+            .when_some(quality, |row, quality| row.child(ui::Badge::new(quality)))
     }
 
     fn render_search_playlist(
@@ -1398,8 +1361,8 @@ impl Shell {
             .relative()
             .when(selected, |row| {
                 row.bg(theme::bg_selected())
-                    .child(crate::components::playing_row_glow())
-                    .child(crate::components::playing_row_bar())
+                    .child(ui::playing_row_glow())
+                    .child(ui::playing_row_bar())
             })
             .cursor_pointer()
             .on_click(cx.listener(move |this, _, window, cx| {
@@ -1576,59 +1539,6 @@ fn settings_group(label: &'static str, card: impl IntoElement) -> gpui::Div {
                 .child(label),
         )
         .child(card)
-}
-
-fn settings_card() -> gpui::Div {
-    div()
-        .flex()
-        .flex_col()
-        .w_full()
-        .px(px(16.))
-        .rounded(px(theme::RADIUS_LG))
-        .border_1()
-        .border_color(theme::border())
-        .bg(theme::bg_surface())
-}
-
-fn settings_row(
-    title: impl Into<SharedString>,
-    description: impl Into<SharedString>,
-    trailing: impl IntoElement,
-    divider: bool,
-) -> gpui::Div {
-    div()
-        .flex()
-        .items_center()
-        .gap(px(16.))
-        .w_full()
-        .py(px(13.))
-        .when(divider, |row| {
-            row.border_b_1().border_color(theme::border())
-        })
-        .child(
-            div()
-                .flex()
-                .flex_col()
-                .flex_1()
-                .min_w_0()
-                .gap(px(4.))
-                .child(
-                    div()
-                        .font_family(theme::FONT_SANS)
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .text_size(px(14.))
-                        .text_color(theme::text_primary())
-                        .child(title.into()),
-                )
-                .child(
-                    div()
-                        .font_family(theme::FONT_SANS)
-                        .text_size(px(12.))
-                        .text_color(theme::text_muted())
-                        .child(description.into()),
-                ),
-        )
-        .child(trailing)
 }
 
 struct LastCheckedCopy {
