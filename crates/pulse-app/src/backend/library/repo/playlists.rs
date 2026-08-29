@@ -6,12 +6,48 @@ use super::super::{
     LibraryError, Playlist, PlaylistId, PlaylistSummary, PlaylistTrack, StorageRootId, TrackId,
     system_time_ms,
 };
-use super::{tracks, usize_to_i64};
+use super::{qualified_select_list, select_list, tracks, usize_to_i64};
+
+const COLUMNS: &[&str] = &["id", "name", "created_at_ms", "updated_at_ms"];
+const PLAYLIST_TRACK_COLUMNS: &[&str] = &["playlist_id", "track_id", "position"];
+
+struct PlaylistRow {
+    id: PlaylistId,
+    name: String,
+    created_at_ms: i64,
+    updated_at_ms: i64,
+}
+
+struct PlaylistTrackRow {
+    _playlist_id: PlaylistId,
+    track_id: TrackId,
+    position: i64,
+}
+
+struct PlaylistSummaryRow {
+    playlist: Playlist,
+    track_count: i64,
+    total_duration_ms: i64,
+    cover_art_path: Option<String>,
+}
+
+impl From<PlaylistRow> for Playlist {
+    fn from(row: PlaylistRow) -> Self {
+        Self {
+            id: row.id,
+            name: row.name,
+            created_at_ms: row.created_at_ms,
+            updated_at_ms: row.updated_at_ms,
+        }
+    }
+}
 
 /// Shared head of the playlist-summary aggregation; `list` and search append
 /// their own WHERE/ORDER clauses so both read the same counts and cover.
-pub const PLAYLIST_SUMMARY_SELECT: &str = "SELECT p.id, p.name, p.created_at_ms, p.updated_at_ms,
-            COUNT(pt.track_id), COALESCE(SUM(t.duration_ms), 0),
+pub fn playlist_summary_select() -> String {
+    let columns = qualified_select_list("p", COLUMNS);
+    format!(
+        "SELECT {columns}, COUNT(pt.track_id), COALESCE(SUM(t.duration_ms), 0),
             (
                 SELECT t2.cover_art_path
                 FROM playlist_tracks pt2
@@ -22,7 +58,9 @@ pub const PLAYLIST_SUMMARY_SELECT: &str = "SELECT p.id, p.name, p.created_at_ms,
             )
      FROM playlists p
      LEFT JOIN playlist_tracks pt ON pt.playlist_id = p.id
-     LEFT JOIN tracks t ON t.id = pt.track_id";
+     LEFT JOIN tracks t ON t.id = pt.track_id"
+    )
+}
 
 pub fn create(conn: &Connection, name: &str) -> Result<Playlist, LibraryError> {
     let now_ms = system_time_ms(SystemTime::now())?;
@@ -37,15 +75,15 @@ pub fn create(conn: &Connection, name: &str) -> Result<Playlist, LibraryError> {
 }
 
 pub fn get(conn: &Connection, playlist_id: PlaylistId) -> Result<Option<Playlist>, LibraryError> {
-    conn.query_row(
-        "SELECT id, name, created_at_ms, updated_at_ms
+    let columns = select_list(COLUMNS);
+    let sql = format!(
+        "SELECT {columns}
          FROM playlists
-         WHERE id = ?1",
-        [playlist_id],
-        playlist_from_row,
-    )
-    .optional()
-    .map_err(Into::into)
+         WHERE id = ?1"
+    );
+    conn.query_row(&sql, [playlist_id], playlist_from_row)
+        .optional()
+        .map_err(Into::into)
 }
 
 pub fn rename(
@@ -73,6 +111,16 @@ pub fn delete(transaction: &Transaction<'_>, playlist_id: PlaylistId) -> Result<
     if deleted == 0 {
         return Err(LibraryError::PlaylistNotFound(playlist_id));
     }
+    Ok(())
+}
+
+pub fn delete_transactional(
+    conn: &mut Connection,
+    playlist_id: PlaylistId,
+) -> Result<(), LibraryError> {
+    let transaction = conn.transaction()?;
+    delete(&transaction, playlist_id)?;
+    transaction.commit()?;
     Ok(())
 }
 
@@ -104,6 +152,17 @@ pub fn append_tracks(
     Ok(())
 }
 
+pub fn append_tracks_transactional(
+    conn: &mut Connection,
+    playlist_id: PlaylistId,
+    track_ids: &[TrackId],
+) -> Result<(), LibraryError> {
+    let transaction = conn.transaction()?;
+    append_tracks(&transaction, playlist_id, track_ids)?;
+    transaction.commit()?;
+    Ok(())
+}
+
 pub fn remove_entry(
     transaction: &Transaction<'_>,
     playlist_id: PlaylistId,
@@ -123,6 +182,17 @@ pub fn remove_entry(
     entries.remove(index);
     replace_playlist_entries(transaction, playlist_id, &entries)?;
     touch_playlist(transaction, playlist_id)?;
+    Ok(())
+}
+
+pub fn remove_entry_transactional(
+    conn: &mut Connection,
+    playlist_id: PlaylistId,
+    position: usize,
+) -> Result<(), LibraryError> {
+    let transaction = conn.transaction()?;
+    remove_entry(&transaction, playlist_id, position)?;
+    transaction.commit()?;
     Ok(())
 }
 
@@ -159,9 +229,22 @@ pub fn move_entry(
     Ok(())
 }
 
+pub fn move_entry_transactional(
+    conn: &mut Connection,
+    playlist_id: PlaylistId,
+    from_position: usize,
+    to_position: usize,
+) -> Result<(), LibraryError> {
+    let transaction = conn.transaction()?;
+    move_entry(&transaction, playlist_id, from_position, to_position)?;
+    transaction.commit()?;
+    Ok(())
+}
+
 pub fn list(conn: &Connection) -> Result<Vec<PlaylistSummary>, LibraryError> {
+    let summary_select = playlist_summary_select();
     let sql = format!(
-        "{PLAYLIST_SUMMARY_SELECT}
+        "{summary_select}
          GROUP BY p.id
          ORDER BY p.updated_at_ms DESC, p.id DESC"
     );
@@ -179,8 +262,9 @@ pub fn tracks(
     if get(conn, playlist_id)?.is_none() {
         return Err(LibraryError::PlaylistNotFound(playlist_id));
     }
+    let playlist_track_columns = qualified_select_list("pt", PLAYLIST_TRACK_COLUMNS);
     let sql = format!(
-        "SELECT pt.position, {}
+        "SELECT {playlist_track_columns}, {}
          FROM playlist_tracks pt
          JOIN tracks t ON t.id = pt.track_id
          WHERE pt.playlist_id = ?1
@@ -190,16 +274,20 @@ pub fn tracks(
     let mut statement = conn.prepare(&sql)?;
     let entries = statement
         .query_map([playlist_id], |row| {
-            let position = row.get::<_, i64>(0)?;
+            let playlist_track = PlaylistTrackRow {
+                _playlist_id: row.get(0)?,
+                track_id: row.get(1)?,
+                position: row.get(2)?,
+            };
             Ok(PlaylistTrack {
-                position: usize::try_from(position).map_err(|error| {
+                position: usize::try_from(playlist_track.position).map_err(|error| {
                     rusqlite::Error::FromSqlConversionFailure(
                         0,
                         rusqlite::types::Type::Integer,
                         Box::new(error),
                     )
                 })?,
-                track: tracks::track_from_row_at(row, 1)?,
+                track: tracks::track_from_row_at(row, 3)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -250,22 +338,28 @@ fn playlist_entry_ids(
     transaction: &Transaction<'_>,
     playlist_id: PlaylistId,
 ) -> Result<Vec<(usize, TrackId)>, LibraryError> {
-    let mut statement = transaction.prepare(
-        "SELECT position, track_id
+    let columns = select_list(PLAYLIST_TRACK_COLUMNS);
+    let sql = format!(
+        "SELECT {columns}
          FROM playlist_tracks
          WHERE playlist_id = ?1
-         ORDER BY position",
-    )?;
+         ORDER BY position"
+    );
+    let mut statement = transaction.prepare(&sql)?;
     let rows = statement.query_map([playlist_id], |row| {
-        let position = row.get::<_, i64>(0)?;
-        let position = usize::try_from(position).map_err(|error| {
+        let playlist_track = PlaylistTrackRow {
+            _playlist_id: row.get(0)?,
+            track_id: row.get(1)?,
+            position: row.get(2)?,
+        };
+        let position = usize::try_from(playlist_track.position).map_err(|error| {
             rusqlite::Error::FromSqlConversionFailure(
                 0,
                 rusqlite::types::Type::Integer,
                 Box::new(error),
             )
         })?;
-        Ok((position, row.get(1)?))
+        Ok((position, playlist_track.track_id))
     })?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
@@ -306,20 +400,27 @@ fn touch_playlist(
 }
 
 fn playlist_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Playlist> {
-    Ok(Playlist {
+    Ok(PlaylistRow {
         id: row.get(0)?,
         name: row.get(1)?,
         created_at_ms: row.get(2)?,
         updated_at_ms: row.get(3)?,
-    })
+    }
+    .into())
 }
 
 pub fn playlist_summary_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<PlaylistSummary> {
-    Ok(PlaylistSummary {
+    let row = PlaylistSummaryRow {
         playlist: playlist_from_row(row)?,
-        track_count: row.get::<_, i64>(4)? as u64,
-        total_duration_ms: row.get::<_, i64>(5)? as u64,
-        cover_art_path: row.get::<_, Option<String>>(6)?.map(PathBuf::from),
+        track_count: row.get(4)?,
+        total_duration_ms: row.get(5)?,
+        cover_art_path: row.get(6)?,
+    };
+    Ok(PlaylistSummary {
+        playlist: row.playlist,
+        track_count: row.track_count as u64,
+        total_duration_ms: row.total_duration_ms as u64,
+        cover_art_path: row.cover_art_path.map(PathBuf::from),
     })
 }
 
@@ -329,7 +430,7 @@ mod tests {
 
     use crate::backend::library::{
         LibraryError, LibraryStore,
-        store::{
+        repo::{
             testing::{insert_track, test_file, test_metadata},
             tracks::{delete_track, set_track_cover},
         },

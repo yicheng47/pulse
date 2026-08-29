@@ -9,23 +9,115 @@ use super::super::{
     LibraryError, LibrarySummary, StorageRootId, Track, TrackId, TrackPage, TrackQueryFilter,
     TrackSortOrder, UNKNOWN_ALBUM, UNKNOWN_ARTIST, metadata::AudioMetadata, walk::DiscoveredFile,
 };
-use super::usize_to_i64;
+use super::{
+    EFFECTIVE_ALBUM_ARTIST_SQL, album_title_sql, qualified_select_list, select_list, usize_to_i64,
+};
 
 /// Column list matching `track_from_row_at`'s positional mapping — every
 /// track SELECT is built from this one definition so the statements and the
 /// mapper cannot drift apart silently.
-pub const TRACK_COLUMNS: &str = "id, storage_root_id, path, title, artist, album, album_artist,
-     year, genre, track_number, disc_number, duration_ms, sample_rate_hz,
-     bit_depth, channels, file_size_bytes, modified_at_ns, cover_art_path,
-     cover_art_mime_type, added_at_ms, updated_at_ms";
+pub const COLUMNS: &[&str] = &[
+    "id",
+    "storage_root_id",
+    "path",
+    "title",
+    "artist",
+    "album",
+    "album_artist",
+    "year",
+    "genre",
+    "track_number",
+    "disc_number",
+    "duration_ms",
+    "sample_rate_hz",
+    "bit_depth",
+    "channels",
+    "file_size_bytes",
+    "modified_at_ns",
+    "cover_art_path",
+    "cover_art_mime_type",
+    "added_at_ms",
+    "updated_at_ms",
+];
+
+struct TrackRow {
+    id: TrackId,
+    storage_root_id: StorageRootId,
+    path: String,
+    title: Option<String>,
+    artist: Option<String>,
+    album: Option<String>,
+    album_artist: Option<String>,
+    year: Option<i64>,
+    genre: Option<String>,
+    track_number: Option<i64>,
+    disc_number: Option<i64>,
+    duration_ms: Option<i64>,
+    sample_rate_hz: Option<i64>,
+    bit_depth: Option<i64>,
+    channels: Option<i64>,
+    file_size_bytes: i64,
+    modified_at_ns: i64,
+    cover_art_path: Option<String>,
+    cover_art_mime_type: Option<String>,
+    added_at_ms: i64,
+    updated_at_ms: i64,
+}
+
+impl From<TrackRow> for Track {
+    fn from(row: TrackRow) -> Self {
+        let TrackRow {
+            id,
+            storage_root_id,
+            path,
+            title,
+            artist,
+            album,
+            album_artist,
+            year,
+            genre,
+            track_number,
+            disc_number,
+            duration_ms,
+            sample_rate_hz,
+            bit_depth,
+            channels,
+            file_size_bytes,
+            modified_at_ns,
+            cover_art_path,
+            cover_art_mime_type,
+            added_at_ms,
+            updated_at_ms,
+        } = row;
+        Self {
+            id,
+            storage_root_id,
+            path: PathBuf::from(path),
+            title,
+            artist,
+            album,
+            album_artist,
+            year: year.map(|value| value as u32),
+            genre,
+            track_number: track_number.map(|value| value as u32),
+            disc_number: disc_number.map(|value| value as u32),
+            duration_ms,
+            sample_rate_hz: sample_rate_hz.map(|value| value as u32),
+            bit_depth: bit_depth.map(|value| value as u8),
+            channels: channels.map(|value| value as u8),
+            file_size_bytes: file_size_bytes as u64,
+            modified_at_ns,
+            cover_art_path: cover_art_path.map(PathBuf::from),
+            cover_art_mime_type,
+            added_at_ms,
+            updated_at_ms,
+        }
+    }
+}
 
 /// `alias.col, ...` — the same list qualified for one side of a JOIN.
 pub fn qualified_track_columns(alias: &str) -> String {
-    TRACK_COLUMNS
-        .split(',')
-        .map(|column| format!("{alias}.{}", column.trim()))
-        .collect::<Vec<_>>()
-        .join(", ")
+    qualified_select_list(alias, COLUMNS)
 }
 
 #[derive(Debug)]
@@ -41,8 +133,9 @@ pub fn for_root(
     conn: &Connection,
     storage_root_id: StorageRootId,
 ) -> Result<Vec<Track>, LibraryError> {
+    let columns = select_list(COLUMNS);
     let sql = format!(
-        "SELECT {TRACK_COLUMNS}
+        "SELECT {columns}
          FROM tracks
          WHERE storage_root_id = ?1
          ORDER BY path_key"
@@ -55,8 +148,9 @@ pub fn for_root(
 }
 
 pub fn all(conn: &Connection, sort_order: TrackSortOrder) -> Result<Vec<Track>, LibraryError> {
+    let columns = select_list(COLUMNS);
     let sql = format!(
-        "SELECT {TRACK_COLUMNS}
+        "SELECT {columns}
          FROM tracks
          ORDER BY {}",
         track_order_by(sort_order)
@@ -89,8 +183,9 @@ pub fn page(
     // Appending callers need an empty tail; snapping back would duplicate the last page.
     let offset = offset.min(total_count);
 
+    let columns = select_list(COLUMNS);
     let sql = format!(
-        "SELECT {TRACK_COLUMNS}
+        "SELECT {columns}
          FROM tracks{where_clause}
          ORDER BY {}
          LIMIT ? OFFSET ?",
@@ -116,8 +211,9 @@ pub fn matching(
     artist_filter: Option<&str>,
 ) -> Result<Vec<Track>, LibraryError> {
     let (where_clause, parameters) = track_filter_clause(filter, artist_filter);
+    let columns = select_list(COLUMNS);
     let sql = format!(
-        "SELECT {TRACK_COLUMNS}
+        "SELECT {columns}
          FROM tracks{where_clause}
          ORDER BY {}",
         track_order_by(sort_order)
@@ -130,15 +226,7 @@ pub fn matching(
 }
 
 pub fn for_album(conn: &Connection, artist: &str, title: &str) -> Result<Vec<Track>, LibraryError> {
-    let sql = format!(
-        "SELECT {TRACK_COLUMNS}
-         FROM tracks
-         WHERE COALESCE(NULLIF(trim(album_artist), ''),
-                        NULLIF(trim(artist), ''), ?1) = ?3
-           AND COALESCE(NULLIF(trim(album), ''), ?2) = ?4
-         ORDER BY COALESCE(disc_number, 1),
-                  track_number IS NULL, track_number, path_key"
-    );
+    let sql = for_album_sql();
     let mut statement = conn.prepare(&sql)?;
     let tracks = statement
         .query_map(
@@ -147,6 +235,37 @@ pub fn for_album(conn: &Connection, artist: &str, title: &str) -> Result<Vec<Tra
         )?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(tracks)
+}
+
+pub fn preflight_write(conn: &mut Connection) -> Result<(), LibraryError> {
+    let transaction = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+    transaction.rollback()?;
+    Ok(())
+}
+
+pub fn delete_tracks(conn: &mut Connection, track_ids: &[TrackId]) -> Result<(), LibraryError> {
+    let refreshed_at_ms = super::super::system_time_ms(std::time::SystemTime::now())?;
+    let transaction = conn.transaction()?;
+    for &track_id in track_ids {
+        delete_track(&transaction, track_id)?;
+    }
+    super::artists::refresh(&transaction, refreshed_at_ms)?;
+    transaction.commit()?;
+    Ok(())
+}
+
+fn for_album_sql() -> String {
+    let columns = select_list(COLUMNS);
+    let album_title = album_title_sql("?2");
+    let sql = format!(
+        "SELECT {columns}
+         FROM tracks
+         WHERE {EFFECTIVE_ALBUM_ARTIST_SQL} = ?3
+           AND {album_title} = ?4
+         ORDER BY COALESCE(disc_number, 1),
+                  track_number IS NULL, track_number, path_key"
+    );
+    sql
 }
 
 pub fn artists(conn: &Connection) -> Result<Vec<(String, u64)>, LibraryError> {
@@ -172,16 +291,17 @@ pub fn genres(conn: &Connection) -> Result<Vec<String>, LibraryError> {
 }
 
 pub fn genre_album_counts(conn: &Connection) -> Result<Vec<(String, u64)>, LibraryError> {
-    let mut statement = conn.prepare(
-        "SELECT COALESCE(NULLIF(trim(album_artist), ''),
-                        NULLIF(trim(artist), ''), ?1) AS album_owner,
-                COALESCE(NULLIF(trim(album), ''), ?2) AS album_title,
+    let album_title = album_title_sql("?2");
+    let sql = format!(
+        "SELECT {EFFECTIVE_ALBUM_ARTIST_SQL} AS album_owner,
+                {album_title} AS album_title,
                 trim(genre) AS genre_tag
          FROM tracks
          WHERE genre IS NOT NULL AND trim(genre) <> ''
          GROUP BY album_owner, album_title, genre_tag COLLATE NOCASE
-         ORDER BY MIN(id)",
-    )?;
+         ORDER BY MIN(id)"
+    );
+    let mut statement = conn.prepare(&sql)?;
     let stored: Vec<(String, String, String)> = statement
         .query_map(params![UNKNOWN_ARTIST, UNKNOWN_ALBUM], |row| {
             Ok((row.get(0)?, row.get(1)?, row.get(2)?))
@@ -208,15 +328,15 @@ pub fn root_summary(
     conn: &Connection,
     storage_root_id: StorageRootId,
 ) -> Result<LibrarySummary, LibraryError> {
-    let summary = conn.query_row(
+    let album_title = album_title_sql("?2");
+    let sql = format!(
         "SELECT
              (
                  SELECT COUNT(*)
                  FROM (
                      SELECT
-                         COALESCE(NULLIF(trim(album), ''), ?2) AS album_title,
-                         COALESCE(NULLIF(trim(album_artist), ''),
-                                  NULLIF(trim(artist), ''), ?3) AS album_owner
+                         {album_title} AS album_title,
+                         {EFFECTIVE_ALBUM_ARTIST_SQL} AS album_owner
                      FROM tracks
                      WHERE storage_root_id = ?1
                      GROUP BY album_title, album_owner
@@ -225,33 +345,35 @@ pub fn root_summary(
              COUNT(*),
              COALESCE(SUM(file_size_bytes), 0)
          FROM tracks
-         WHERE storage_root_id = ?1",
-        params![storage_root_id, UNKNOWN_ALBUM, UNKNOWN_ARTIST],
+         WHERE storage_root_id = ?1"
+    );
+    let summary = conn.query_row(
+        &sql,
+        params![storage_root_id, UNKNOWN_ALBUM],
         summary_from_row,
     )?;
     Ok(summary)
 }
 
 pub fn catalog_summary(conn: &Connection) -> Result<LibrarySummary, LibraryError> {
-    let summary = conn.query_row(
+    let album_title = album_title_sql("?1");
+    let sql = format!(
         "SELECT
              (
                  SELECT COUNT(*)
                  FROM (
                      SELECT
-                         COALESCE(NULLIF(trim(album), ''), ?1) AS album_title,
-                         COALESCE(NULLIF(trim(album_artist), ''),
-                                  NULLIF(trim(artist), ''), ?2) AS album_owner
+                         {album_title} AS album_title,
+                         {EFFECTIVE_ALBUM_ARTIST_SQL} AS album_owner
                      FROM tracks
                      GROUP BY album_title, album_owner
                  )
              ),
              COUNT(*),
              COALESCE(SUM(file_size_bytes), 0)
-         FROM tracks",
-        params![UNKNOWN_ALBUM, UNKNOWN_ARTIST],
-        summary_from_row,
-    )?;
+         FROM tracks"
+    );
+    let summary = conn.query_row(&sql, params![UNKNOWN_ALBUM], summary_from_row)?;
     Ok(summary)
 }
 
@@ -427,60 +549,50 @@ pub fn track_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Track> {
 }
 
 pub fn track_from_row_at(row: &rusqlite::Row<'_>, offset: usize) -> rusqlite::Result<Track> {
-    let file_size_bytes = row.get::<_, i64>(offset + 15)?;
-    Ok(Track {
+    Ok(TrackRow {
         id: row.get(offset)?,
         storage_root_id: row.get(offset + 1)?,
-        path: PathBuf::from(row.get::<_, String>(offset + 2)?),
+        path: row.get(offset + 2)?,
         title: row.get(offset + 3)?,
         artist: row.get(offset + 4)?,
         album: row.get(offset + 5)?,
         album_artist: row.get(offset + 6)?,
-        year: row
-            .get::<_, Option<i64>>(offset + 7)?
-            .map(|value| value as u32),
+        year: row.get(offset + 7)?,
         genre: row.get(offset + 8)?,
-        track_number: row
-            .get::<_, Option<i64>>(offset + 9)?
-            .map(|value| value as u32),
-        disc_number: row
-            .get::<_, Option<i64>>(offset + 10)?
-            .map(|value| value as u32),
+        track_number: row.get(offset + 9)?,
+        disc_number: row.get(offset + 10)?,
         duration_ms: row.get(offset + 11)?,
-        sample_rate_hz: row
-            .get::<_, Option<i64>>(offset + 12)?
-            .map(|value| value as u32),
-        bit_depth: row
-            .get::<_, Option<i64>>(offset + 13)?
-            .map(|value| value as u8),
-        channels: row
-            .get::<_, Option<i64>>(offset + 14)?
-            .map(|value| value as u8),
-        file_size_bytes: file_size_bytes as u64,
+        sample_rate_hz: row.get(offset + 12)?,
+        bit_depth: row.get(offset + 13)?,
+        channels: row.get(offset + 14)?,
+        file_size_bytes: row.get(offset + 15)?,
         modified_at_ns: row.get(offset + 16)?,
-        cover_art_path: row
-            .get::<_, Option<String>>(offset + 17)?
-            .map(PathBuf::from),
+        cover_art_path: row.get(offset + 17)?,
         cover_art_mime_type: row.get(offset + 18)?,
         added_at_ms: row.get(offset + 19)?,
         updated_at_ms: row.get(offset + 20)?,
-    })
+    }
+    .into())
 }
 
-fn track_order_by(sort_order: TrackSortOrder) -> &'static str {
+fn track_order_by(sort_order: TrackSortOrder) -> String {
     match sort_order {
-        TrackSortOrder::Title => "COALESCE(NULLIF(trim(title), ''), path) COLLATE NOCASE, path_key",
+        TrackSortOrder::Title => {
+            "COALESCE(NULLIF(trim(title), ''), path) COLLATE NOCASE, path_key".to_string()
+        }
         TrackSortOrder::Artist => {
             "COALESCE(NULLIF(trim(artist), ''), 'Unknown Artist') COLLATE NOCASE,
              COALESCE(NULLIF(trim(title), ''), path) COLLATE NOCASE, path_key"
+                .to_string()
         }
-        TrackSortOrder::Album => {
-            "COALESCE(NULLIF(trim(album), ''), 'Unknown Album') COLLATE NOCASE,
-             COALESCE(disc_number, 1), COALESCE(track_number, 2147483647), path_key"
-        }
-        TrackSortOrder::DateAdded => "added_at_ms DESC, path_key",
-        TrackSortOrder::ReleaseYear => "year IS NULL, year DESC, path_key",
-        TrackSortOrder::Duration => "duration_ms IS NULL, duration_ms DESC, path_key",
+        TrackSortOrder::Album => format!(
+            "{} COLLATE NOCASE,
+             COALESCE(disc_number, 1), COALESCE(track_number, 2147483647), path_key",
+            album_title_sql("'Unknown Album'")
+        ),
+        TrackSortOrder::DateAdded => "added_at_ms DESC, path_key".to_string(),
+        TrackSortOrder::ReleaseYear => "year IS NULL, year DESC, path_key".to_string(),
+        TrackSortOrder::Duration => "duration_ms IS NULL, duration_ms DESC, path_key".to_string(),
     }
 }
 
@@ -503,24 +615,26 @@ fn track_filter_clause(
     filter: &TrackQueryFilter,
     artist_filter: Option<&str>,
 ) -> (String, Vec<Value>) {
-    let mut clauses = Vec::new();
+    let mut clauses = Vec::<String>::new();
     let mut parameters = Vec::new();
     match filter {
         TrackQueryFilter::All => {}
         TrackQueryFilter::HiRes => {
-            clauses.push("(bit_depth > 16 OR sample_rate_hz > 48000)");
+            clauses.push("(bit_depth > 16 OR sample_rate_hz > 48000)".to_string());
         }
         TrackQueryFilter::AddedSince(timestamp_ms) => {
-            clauses.push("added_at_ms >= ?");
+            clauses.push("added_at_ms >= ?".to_string());
             parameters.push(Value::Integer(*timestamp_ms));
         }
         TrackQueryFilter::Genre(genre) => {
-            clauses.push(GENRE_MEMBER_CLAUSE);
+            clauses.push(GENRE_MEMBER_CLAUSE.to_string());
             parameters.push(Value::Text(genre.clone()));
         }
     }
     if let Some(artist) = artist_filter {
-        clauses.push("COALESCE(NULLIF(trim(artist), ''), 'Unknown Artist') = ? COLLATE NOCASE");
+        clauses.push(
+            "COALESCE(NULLIF(trim(artist), ''), 'Unknown Artist') = ? COLLATE NOCASE".to_string(),
+        );
         parameters.push(Value::Text(artist.to_string()));
     }
     let where_clause = if clauses.is_empty() {
@@ -547,8 +661,80 @@ mod tests {
     use crate::backend::library::{
         AlbumQueryFilter, AlbumSortOrder, LibraryStore, LibrarySummary, TrackQueryFilter,
         TrackSortOrder,
-        store::testing::{insert_track, test_file, test_metadata},
+        repo::{
+            schema::EFFECTIVE_ARTIST_INDEX_NAME,
+            testing::{insert_track, test_file, test_metadata},
+        },
     };
+
+    #[test]
+    fn tracks_for_album_uses_the_effective_artist_index() {
+        let store = LibraryStore::open_in_memory().unwrap();
+        let explain = format!("EXPLAIN QUERY PLAN {}", super::for_album_sql());
+        let mut statement = store.connection.prepare(&explain).unwrap();
+        let plan = statement
+            .query_map(
+                params!["Unknown Artist", "Unknown Album", "Artist", "Album"],
+                |row| row.get::<_, String>(3),
+            )
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+
+        assert!(
+            plan.iter().any(|detail| {
+                detail.contains("SEARCH") && detail.contains(EFFECTIVE_ARTIST_INDEX_NAME)
+            }),
+            "album detail must seek the effective-artist expression index: {plan:?}"
+        );
+    }
+
+    #[test]
+    fn track_artist_facets_and_filters_keep_track_artist_identity() {
+        let temp = tempdir().unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        insert_track(
+            &mut store,
+            &root,
+            &test_file(&root, "guest.wav", 1, 10),
+            &test_metadata(
+                "Guest",
+                "Featured Singer",
+                Some("Album"),
+                Some("Album Owner"),
+            ),
+        );
+
+        assert_eq!(
+            store.artists().unwrap(),
+            [("Featured Singer".to_string(), 1)]
+        );
+        assert_eq!(
+            store
+                .track_page(
+                    TrackSortOrder::Title,
+                    &TrackQueryFilter::All,
+                    Some("Featured Singer"),
+                    10,
+                    0,
+                )
+                .unwrap()
+                .tracks
+                .len(),
+            1
+        );
+        assert!(
+            store
+                .matching_tracks(
+                    TrackSortOrder::Title,
+                    &TrackQueryFilter::All,
+                    Some("Album Owner"),
+                )
+                .unwrap()
+                .is_empty()
+        );
+    }
 
     #[test]
     fn inserts_and_incrementally_updates_a_track_in_place() {

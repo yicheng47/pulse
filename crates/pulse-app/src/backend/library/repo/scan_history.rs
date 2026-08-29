@@ -1,7 +1,39 @@
 use rusqlite::{Connection, Transaction, params};
 
 use super::super::{LibraryError, ScanHistoryEntry, ScanOutcome, StorageRootId};
-use super::{roots, usize_to_i64};
+use super::{artists, select_list, storage_roots, usize_to_i64};
+
+const COLUMNS: &[&str] = &[
+    "id",
+    "storage_root_id",
+    "scan_session_id",
+    "started_at_ms",
+    "finished_at_ms",
+    "added_count",
+    "updated_count",
+    "removed_count",
+    "unsupported_count",
+    "error_count",
+    "removals_suppressed",
+    "outcome",
+    "error_message",
+];
+
+struct ScanHistoryRow {
+    id: i64,
+    storage_root_id: StorageRootId,
+    _scan_session_id: String,
+    started_at_ms: i64,
+    finished_at_ms: Option<i64>,
+    added_count: i64,
+    updated_count: i64,
+    removed_count: i64,
+    unsupported_count: i64,
+    error_count: i64,
+    removals_suppressed: bool,
+    outcome: Option<String>,
+    error_message: Option<String>,
+}
 
 pub struct CompletedScan {
     pub finished_at_ms: i64,
@@ -39,6 +71,15 @@ pub fn cancel(conn: &Connection, scan_id: i64) -> Result<(), LibraryError> {
     Ok(())
 }
 
+pub fn cancel_and_refresh(conn: &mut Connection, scan_id: i64) -> Result<(), LibraryError> {
+    let refreshed_at_ms = super::super::system_time_ms(std::time::SystemTime::now())?;
+    let transaction = conn.transaction()?;
+    cancel(&transaction, scan_id)?;
+    artists::refresh(&transaction, refreshed_at_ms)?;
+    transaction.commit()?;
+    Ok(())
+}
+
 pub fn finish_offline(
     transaction: &Transaction<'_>,
     scan_id: i64,
@@ -46,7 +87,7 @@ pub fn finish_offline(
     finished_at_ms: i64,
     error_message: &str,
 ) -> Result<(), LibraryError> {
-    roots::record_scan_outcome(transaction, storage_root_id, finished_at_ms, Some(false))?;
+    storage_roots::record_scan_outcome(transaction, storage_root_id, finished_at_ms, Some(false))?;
     transaction.execute(
         "UPDATE scan_history
          SET finished_at_ms = ?2, error_count = 1, outcome = 'offline',
@@ -57,6 +98,26 @@ pub fn finish_offline(
     Ok(())
 }
 
+pub fn finish_offline_and_refresh(
+    conn: &mut Connection,
+    scan_id: i64,
+    storage_root_id: StorageRootId,
+    finished_at_ms: i64,
+    error_message: &str,
+) -> Result<(), LibraryError> {
+    let transaction = conn.transaction()?;
+    finish_offline(
+        &transaction,
+        scan_id,
+        storage_root_id,
+        finished_at_ms,
+        error_message,
+    )?;
+    artists::refresh(&transaction, finished_at_ms)?;
+    transaction.commit()?;
+    Ok(())
+}
+
 pub fn finish_failed(
     transaction: &Transaction<'_>,
     scan_id: i64,
@@ -64,7 +125,7 @@ pub fn finish_failed(
     finished_at_ms: i64,
     error_message: &str,
 ) -> Result<(), LibraryError> {
-    roots::record_scan_outcome(transaction, storage_root_id, finished_at_ms, None)?;
+    storage_roots::record_scan_outcome(transaction, storage_root_id, finished_at_ms, None)?;
     transaction.execute(
         "UPDATE scan_history
          SET finished_at_ms = ?2, error_count = 1, outcome = 'failed',
@@ -75,13 +136,33 @@ pub fn finish_failed(
     Ok(())
 }
 
+pub fn finish_failed_and_refresh(
+    conn: &mut Connection,
+    scan_id: i64,
+    storage_root_id: StorageRootId,
+    finished_at_ms: i64,
+    error_message: &str,
+) -> Result<(), LibraryError> {
+    let transaction = conn.transaction()?;
+    finish_failed(
+        &transaction,
+        scan_id,
+        storage_root_id,
+        finished_at_ms,
+        error_message,
+    )?;
+    artists::refresh(&transaction, finished_at_ms)?;
+    transaction.commit()?;
+    Ok(())
+}
+
 pub fn finish_completed_scan(
     transaction: &Transaction<'_>,
     scan_id: i64,
     storage_root_id: StorageRootId,
     completed: &CompletedScan,
 ) -> Result<(), LibraryError> {
-    roots::record_scan_outcome(
+    storage_roots::record_scan_outcome(
         transaction,
         storage_root_id,
         completed.finished_at_ms,
@@ -108,6 +189,19 @@ pub fn finish_completed_scan(
     Ok(())
 }
 
+pub fn finish_completed_scan_and_refresh(
+    conn: &mut Connection,
+    scan_id: i64,
+    storage_root_id: StorageRootId,
+    completed: &CompletedScan,
+) -> Result<(), LibraryError> {
+    let transaction = conn.transaction()?;
+    finish_completed_scan(&transaction, scan_id, storage_root_id, completed)?;
+    artists::refresh(&transaction, completed.finished_at_ms)?;
+    transaction.commit()?;
+    Ok(())
+}
+
 pub fn recent(
     conn: &Connection,
     storage_root_id: StorageRootId,
@@ -115,15 +209,15 @@ pub fn recent(
 ) -> Result<Vec<ScanHistoryEntry>, LibraryError> {
     let limit =
         i64::try_from(limit).map_err(|_| LibraryError::IntegerOutOfRange("scan history limit"))?;
-    let mut statement = conn.prepare(
-        "SELECT id, storage_root_id, started_at_ms, finished_at_ms,
-                added_count, updated_count, removed_count, unsupported_count,
-                error_count, removals_suppressed, outcome, error_message
+    let columns = select_list(COLUMNS);
+    let sql = format!(
+        "SELECT {columns}
          FROM scan_history
          WHERE storage_root_id = ?1
          ORDER BY started_at_ms DESC, id DESC
-         LIMIT ?2",
-    )?;
+         LIMIT ?2"
+    );
+    let mut statement = conn.prepare(&sql)?;
     let scans = statement
         .query_map(params![storage_root_id, limit], scan_history_from_row)?
         .collect::<Result<Vec<_>, _>>()?;
@@ -163,12 +257,27 @@ pub fn delete_for_root(
 }
 
 fn scan_history_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ScanHistoryEntry> {
+    let row = ScanHistoryRow {
+        id: row.get(0)?,
+        storage_root_id: row.get(1)?,
+        _scan_session_id: row.get(2)?,
+        started_at_ms: row.get(3)?,
+        finished_at_ms: row.get(4)?,
+        added_count: row.get(5)?,
+        updated_count: row.get(6)?,
+        removed_count: row.get(7)?,
+        unsupported_count: row.get(8)?,
+        error_count: row.get(9)?,
+        removals_suppressed: row.get(10)?,
+        outcome: row.get(11)?,
+        error_message: row.get(12)?,
+    };
     let outcome = row
-        .get::<_, Option<String>>(10)?
+        .outcome
         .map(|outcome| {
             ScanOutcome::from_db_str(&outcome).ok_or_else(|| {
                 rusqlite::Error::FromSqlConversionFailure(
-                    10,
+                    11,
                     rusqlite::types::Type::Text,
                     format!("unknown scan outcome {outcome}").into(),
                 )
@@ -176,18 +285,18 @@ fn scan_history_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ScanHistor
         })
         .transpose()?;
     Ok(ScanHistoryEntry {
-        id: row.get(0)?,
-        storage_root_id: row.get(1)?,
-        started_at_ms: row.get(2)?,
-        finished_at_ms: row.get(3)?,
-        added_count: row.get::<_, i64>(4)? as u64,
-        updated_count: row.get::<_, i64>(5)? as u64,
-        removed_count: row.get::<_, i64>(6)? as u64,
-        unsupported_count: row.get::<_, i64>(7)? as u64,
-        error_count: row.get::<_, i64>(8)? as u64,
-        removals_suppressed: row.get(9)?,
+        id: row.id,
+        storage_root_id: row.storage_root_id,
+        started_at_ms: row.started_at_ms,
+        finished_at_ms: row.finished_at_ms,
+        added_count: row.added_count as u64,
+        updated_count: row.updated_count as u64,
+        removed_count: row.removed_count as u64,
+        unsupported_count: row.unsupported_count as u64,
+        error_count: row.error_count as u64,
+        removals_suppressed: row.removals_suppressed,
         outcome,
-        error_message: row.get(11)?,
+        error_message: row.error_message,
     })
 }
 
@@ -200,7 +309,7 @@ mod tests {
 
     use crate::backend::library::{
         LibraryStore, ScanOutcome,
-        store::testing::{insert_track, test_file, test_metadata},
+        repo::testing::{insert_track, test_file, test_metadata},
     };
 
     #[test]

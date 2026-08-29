@@ -5,15 +5,44 @@ use rusqlite::{Connection, params, params_from_iter, types::Value};
 use super::super::{
     Album, AlbumPage, AlbumQueryFilter, AlbumSortOrder, LibraryError, UNKNOWN_ALBUM,
 };
-use super::{EFFECTIVE_ALBUM_ARTIST_SQL, usize_to_i64};
+use super::{EFFECTIVE_ALBUM_ARTIST_SQL, album_title_sql, usize_to_i64};
+
+struct AlbumRow {
+    title: String,
+    artist: String,
+    year: Option<i64>,
+    track_count: i64,
+    total_duration_ms: i64,
+    max_sample_rate_hz: Option<i64>,
+    max_bit_depth: Option<i64>,
+    cover_art_path: Option<String>,
+    latest_added_at_ms: i64,
+}
+
+impl From<AlbumRow> for Album {
+    fn from(row: AlbumRow) -> Self {
+        Self {
+            title: row.title,
+            artist: row.artist,
+            year: row.year.map(|value| value as u32),
+            track_count: row.track_count as u64,
+            total_duration_ms: row.total_duration_ms as u64,
+            max_sample_rate_hz: row.max_sample_rate_hz.map(|value| value as u32),
+            max_bit_depth: row.max_bit_depth.map(|value| value as u8),
+            cover_art_path: row.cover_art_path.map(PathBuf::from),
+            latest_added_at_ms: row.latest_added_at_ms,
+        }
+    }
+}
 
 pub fn list(conn: &Connection, sort_order: AlbumSortOrder) -> Result<Vec<Album>, LibraryError> {
     let order_by = album_order_by(sort_order);
+    let album_title = album_title_sql("?1");
     let sql = format!(
         "WITH normalized AS (
              SELECT id,
                     {EFFECTIVE_ALBUM_ARTIST_SQL} AS album_owner,
-                    COALESCE(NULLIF(trim(album), ''), ?1) AS album_title,
+                    {album_title} AS album_title,
                     year, duration_ms, sample_rate_hz, bit_depth, cover_art_path, added_at_ms
              FROM tracks
          )
@@ -49,11 +78,12 @@ pub fn page(
 ) -> Result<AlbumPage, LibraryError> {
     assert!(limit > 0, "album page size must be positive");
     let order_by = album_order_by(sort_order);
+    let album_title = album_title_sql("?1");
     let normalized_cte = format!(
         "WITH normalized AS (
              SELECT id,
                     {EFFECTIVE_ALBUM_ARTIST_SQL} AS album_owner,
-                    COALESCE(NULLIF(trim(album), ''), ?1) AS album_title,
+                    {album_title} AS album_title,
                     year, genre, duration_ms, sample_rate_hz, bit_depth,
                     cover_art_path, added_at_ms
              FROM tracks
@@ -148,17 +178,18 @@ pub(super) fn album_order_by(sort_order: AlbumSortOrder) -> String {
 }
 
 pub fn album_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Album> {
-    Ok(Album {
+    Ok(AlbumRow {
         title: row.get(0)?,
         artist: row.get(1)?,
-        year: row.get::<_, Option<i64>>(2)?.map(|value| value as u32),
-        track_count: row.get::<_, i64>(3)? as u64,
-        total_duration_ms: row.get::<_, i64>(4)? as u64,
-        max_sample_rate_hz: row.get::<_, Option<i64>>(5)?.map(|value| value as u32),
-        max_bit_depth: row.get::<_, Option<i64>>(6)?.map(|value| value as u8),
-        cover_art_path: row.get::<_, Option<String>>(7)?.map(PathBuf::from),
+        year: row.get(2)?,
+        track_count: row.get(3)?,
+        total_duration_ms: row.get(4)?,
+        max_sample_rate_hz: row.get(5)?,
+        max_bit_depth: row.get(6)?,
+        cover_art_path: row.get(7)?,
         latest_added_at_ms: row.get(8)?,
-    })
+    }
+    .into())
 }
 
 #[cfg(test)]
@@ -168,7 +199,7 @@ mod tests {
 
     use crate::backend::library::{
         AlbumPage, AlbumQueryFilter, AlbumSortOrder, LibraryStore, UNKNOWN_ALBUM, UNKNOWN_ARTIST,
-        store::{
+        repo::{
             testing::{insert_track, test_file, test_metadata},
             tracks::{set_track_cover, upsert_track},
         },

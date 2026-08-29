@@ -1,7 +1,7 @@
 use rusqlite::{Connection, params};
 
 use super::super::{LibraryError, LibrarySearchResults, UNKNOWN_ALBUM, UNKNOWN_ARTIST};
-use super::{albums, playlists, tracks};
+use super::{EFFECTIVE_ALBUM_ARTIST_SQL, album_title_sql, albums, playlists, tracks};
 
 pub fn search(conn: &Connection, query: &str) -> Result<LibrarySearchResults, LibraryError> {
     let query = query.trim();
@@ -9,13 +9,13 @@ pub fn search(conn: &Connection, query: &str) -> Result<LibrarySearchResults, Li
         return Ok(LibrarySearchResults::default());
     }
     let pattern = like_pattern(query);
+    let album_title = album_title_sql("?2");
 
-    let mut albums_statement = conn.prepare(
+    let albums_sql = format!(
         "WITH normalized AS (
              SELECT id, title, artist, album, album_artist,
-                    COALESCE(NULLIF(trim(album_artist), ''),
-                             NULLIF(trim(artist), ''), ?1) AS album_owner,
-                    COALESCE(NULLIF(trim(album), ''), ?2) AS album_title,
+                    {EFFECTIVE_ALBUM_ARTIST_SQL} AS album_owner,
+                    {album_title} AS album_title,
                     year, duration_ms, sample_rate_hz, bit_depth, cover_art_path, added_at_ms
              FROM tracks
          ), matching_albums AS (
@@ -39,8 +39,9 @@ pub fn search(conn: &Connection, query: &str) -> Result<LibrarySearchResults, Li
            ON m.album_owner = n.album_owner AND m.album_title = n.album_title
          GROUP BY n.album_owner, n.album_title
          ORDER BY n.album_title COLLATE NOCASE, n.album_owner COLLATE NOCASE
-         LIMIT 3",
-    )?;
+         LIMIT 3"
+    );
+    let mut albums_statement = conn.prepare(&albums_sql)?;
     let albums = albums_statement
         .query_map(
             params![UNKNOWN_ARTIST, UNKNOWN_ALBUM, pattern],
@@ -57,7 +58,7 @@ pub fn search(conn: &Connection, query: &str) -> Result<LibrarySearchResults, Li
             OR COALESCE(album_artist, '') LIKE ?1 ESCAPE '\\'
          ORDER BY COALESCE(NULLIF(trim(title), ''), path) COLLATE NOCASE, path_key
          LIMIT 5",
-        tracks::TRACK_COLUMNS
+        super::select_list(tracks::COLUMNS)
     );
     let mut tracks_statement = conn.prepare(&tracks_sql)?;
     let matching_tracks = tracks_statement
@@ -70,7 +71,7 @@ pub fn search(conn: &Connection, query: &str) -> Result<LibrarySearchResults, Li
          GROUP BY p.id
          ORDER BY p.name COLLATE NOCASE, p.id
          LIMIT 3",
-        playlists::PLAYLIST_SUMMARY_SELECT
+        playlists::playlist_summary_select()
     );
     let mut playlists_statement = conn.prepare(&playlists_sql)?;
     let matching_playlists = playlists_statement
@@ -98,7 +99,7 @@ mod tests {
 
     use crate::backend::library::{
         LibrarySearchResults, LibraryStore,
-        store::testing::{insert_track, test_file, test_metadata},
+        repo::testing::{insert_track, test_file, test_metadata},
     };
 
     #[test]

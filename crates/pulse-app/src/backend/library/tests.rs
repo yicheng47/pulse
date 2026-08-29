@@ -24,7 +24,7 @@ fn test_art(marker: u8) -> Vec<u8> {
 
 #[test]
 fn delete_track_files_tolerates_missing_files_and_keeps_undeletable_tracks() {
-    use super::store::testing::{insert_track, test_file, test_metadata};
+    use super::repo::testing::{insert_track, test_file, test_metadata};
 
     let temp = tempdir().unwrap();
     let mut store = LibraryStore::open_in_memory().unwrap();
@@ -54,7 +54,7 @@ fn delete_track_files_tolerates_missing_files_and_keeps_undeletable_tracks() {
 
 #[test]
 fn delete_album_tracks_keeps_rows_when_the_root_went_offline() {
-    use super::store::testing::{insert_track, test_file, test_metadata};
+    use super::repo::testing::{insert_track, test_file, test_metadata};
 
     let temp = tempdir().unwrap();
     let music = temp.path().join("music");
@@ -88,7 +88,7 @@ fn delete_album_tracks_keeps_rows_when_the_root_went_offline() {
 
 #[test]
 fn delete_album_tracks_reports_db_failure_after_files_are_gone() {
-    use super::store::testing::{break_playlist_entries, insert_track, test_file, test_metadata};
+    use super::repo::testing::{break_playlist_entries, insert_track, test_file, test_metadata};
 
     let temp = tempdir().unwrap();
     let mut store = LibraryStore::open_in_memory().unwrap();
@@ -113,7 +113,7 @@ fn delete_album_tracks_reports_db_failure_after_files_are_gone() {
 
 #[test]
 fn delete_album_tracks_removes_files_rows_and_covers() {
-    use super::store::testing::{insert_track, set_cover, test_file, test_metadata};
+    use super::repo::testing::{insert_track, set_cover, test_file, test_metadata};
 
     let temp = tempdir().unwrap();
     let mut store = LibraryStore::open_in_memory().unwrap();

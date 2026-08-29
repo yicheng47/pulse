@@ -6,6 +6,43 @@ use rusqlite::{Connection, OptionalExtension, params};
 use super::super::{
     LibraryError, StorageRoot, StorageRootId, path::normalize_storage_root, system_time_ms,
 };
+use super::{artists, playlists, scan_history, select_list, tracks};
+
+const COLUMNS: &[&str] = &[
+    "id",
+    "path",
+    "path_key",
+    "display_name",
+    "added_at_ms",
+    "last_scan_at_ms",
+    "is_reachable",
+    "is_case_sensitive",
+];
+
+struct StorageRootRow {
+    id: StorageRootId,
+    path: String,
+    _path_key: String,
+    display_name: String,
+    added_at_ms: i64,
+    last_scan_at_ms: Option<i64>,
+    is_reachable: bool,
+    is_case_sensitive: bool,
+}
+
+impl From<StorageRootRow> for StorageRoot {
+    fn from(row: StorageRootRow) -> Self {
+        Self {
+            id: row.id,
+            path: PathBuf::from(row.path),
+            display_name: row.display_name,
+            added_at_ms: row.added_at_ms,
+            last_scan_at_ms: row.last_scan_at_ms,
+            is_reachable: row.is_reachable,
+            is_case_sensitive: row.is_case_sensitive,
+        }
+    }
+}
 
 pub fn add(
     conn: &Connection,
@@ -36,25 +73,25 @@ pub fn get(
     conn: &Connection,
     storage_root_id: StorageRootId,
 ) -> Result<Option<StorageRoot>, LibraryError> {
-    conn.query_row(
-        "SELECT id, path, display_name, added_at_ms, last_scan_at_ms,
-                is_reachable, is_case_sensitive
+    let columns = select_list(COLUMNS);
+    let sql = format!(
+        "SELECT {columns}
          FROM storage_roots
-         WHERE id = ?1",
-        [storage_root_id],
-        storage_root_from_row,
-    )
-    .optional()
-    .map_err(Into::into)
+         WHERE id = ?1"
+    );
+    conn.query_row(&sql, [storage_root_id], storage_root_from_row)
+        .optional()
+        .map_err(Into::into)
 }
 
 pub fn list(conn: &Connection) -> Result<Vec<StorageRoot>, LibraryError> {
-    let mut statement = conn.prepare(
-        "SELECT id, path, display_name, added_at_ms, last_scan_at_ms,
-                is_reachable, is_case_sensitive
+    let columns = select_list(COLUMNS);
+    let sql = format!(
+        "SELECT {columns}
          FROM storage_roots
-         ORDER BY added_at_ms, id",
-    )?;
+         ORDER BY added_at_ms, id"
+    );
+    let mut statement = conn.prepare(&sql)?;
     let roots = statement
         .query_map([], storage_root_from_row)?
         .collect::<Result<Vec<_>, _>>()?;
@@ -74,6 +111,25 @@ pub fn rename(
         return Err(LibraryError::StorageRootNotFound(storage_root_id));
     }
     get(conn, storage_root_id)?.ok_or(LibraryError::StorageRootNotFound(storage_root_id))
+}
+
+pub fn remove(
+    conn: &mut Connection,
+    storage_root_id: StorageRootId,
+) -> Result<Vec<PathBuf>, LibraryError> {
+    let refreshed_at_ms = system_time_ms(SystemTime::now())?;
+    let transaction = conn.transaction()?;
+    let cover_art_paths = tracks::cover_paths_for_root(&transaction, storage_root_id)?;
+    playlists::delete_entries_for_root(&transaction, storage_root_id)?;
+    scan_history::delete_for_root(&transaction, storage_root_id)?;
+    tracks::delete_for_root(&transaction, storage_root_id)?;
+    let deleted = delete(&transaction, storage_root_id)?;
+    if deleted == 0 {
+        return Err(LibraryError::StorageRootNotFound(storage_root_id));
+    }
+    artists::refresh(&transaction, refreshed_at_ms)?;
+    transaction.commit()?;
+    Ok(cover_art_paths)
 }
 
 /// Deletes the root row alone; callers clear the root's children first.
@@ -119,15 +175,17 @@ pub fn record_scan_outcome(
 }
 
 fn storage_root_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<StorageRoot> {
-    Ok(StorageRoot {
+    Ok(StorageRootRow {
         id: row.get(0)?,
-        path: PathBuf::from(row.get::<_, String>(1)?),
-        display_name: row.get(2)?,
-        added_at_ms: row.get(3)?,
-        last_scan_at_ms: row.get(4)?,
-        is_reachable: row.get(5)?,
-        is_case_sensitive: row.get(6)?,
-    })
+        path: row.get(1)?,
+        _path_key: row.get(2)?,
+        display_name: row.get(3)?,
+        added_at_ms: row.get(4)?,
+        last_scan_at_ms: row.get(5)?,
+        is_reachable: row.get(6)?,
+        is_case_sensitive: row.get(7)?,
+    }
+    .into())
 }
 
 #[cfg(test)]
@@ -137,7 +195,7 @@ mod tests {
     use crate::backend::library::{
         LibraryStore,
         metadata::{AudioMetadata, EmbeddedArtwork},
-        store::{
+        repo::{
             testing::{insert_track, test_file, test_metadata},
             tracks::set_track_cover,
         },

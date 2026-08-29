@@ -1,24 +1,21 @@
-// Repo-style persistence layer: one submodule per entity family (roots,
-// tracks, albums, playlists, scans, search) owning that family's SQL and row
-// mappers, over the shared connection lifecycle here.
+// Persistence layer: one submodule per table family, with derived album and
+// search query modules over tracks, over the shared connection lifecycle here.
 //
 // Conventions:
-//   - Module functions take `&Connection` (or a `&Transaction` via `Deref`),
-//     never the store — `LibraryStore` methods own connection acquisition and
-//     transaction boundaries, so multi-entity operations compose entity
-//     functions inside one transaction (see `remove_storage_root`).
-//   - `LibraryStore` keeps the public API the rest of the app calls; the
-//     split is an internal reorganization, not a redesign.
+//   - Module functions take a connection or transaction, never the store;
+//     transactional repo functions compose table functions in dependency order.
+//   - `LibraryStore` keeps the public API the rest of the app calls as thin
+//     delegation; the split is an internal reorganization, not a redesign.
 //   - Functions return `Result<_, LibraryError>` — the same contract the
 //     monolithic store had — so caller-side error handling is untouched.
 
 mod albums;
 mod artists;
 mod playlists;
-mod roots;
-mod scans;
+mod scan_history;
 mod schema;
 mod search;
+mod storage_roots;
 mod tracks;
 
 use std::{
@@ -43,7 +40,25 @@ use super::{
 const EFFECTIVE_ALBUM_ARTIST_SQL: &str =
     "COALESCE(NULLIF(trim(album_artist), ''), NULLIF(trim(artist), ''), 'Unknown Artist')";
 
-pub(super) use scans::CompletedScan;
+const ALBUM_TITLE_SQL: &str = "COALESCE(NULLIF(trim(album), ''), {fallback})";
+
+fn album_title_sql(fallback: &str) -> String {
+    ALBUM_TITLE_SQL.replace("{fallback}", fallback)
+}
+
+fn select_list(columns: &[&str]) -> String {
+    columns.join(", ")
+}
+
+fn qualified_select_list(alias: &str, columns: &[&str]) -> String {
+    columns
+        .iter()
+        .map(|column| format!("{alias}.{column}"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+pub(super) use scan_history::CompletedScan;
 pub use schema::BackfillProgress;
 pub(super) use tracks::{
     ExistingTrack, clear_track_cover, delete_track, set_track_cover, update_track_path,
@@ -135,7 +150,7 @@ impl LibraryStore {
         schema::migrate_to_current(&mut connection, on_backfill_progress)?;
 
         let recovered_at_ms = system_time_ms(SystemTime::now())?;
-        scans::recover_interrupted(&connection, recovered_at_ms, &scan_session_id)?;
+        scan_history::recover_interrupted(&connection, recovered_at_ms, &scan_session_id)?;
 
         Ok(Self {
             connection,
@@ -148,18 +163,18 @@ impl LibraryStore {
         path: impl AsRef<Path>,
         display_name: impl AsRef<str>,
     ) -> Result<StorageRoot, LibraryError> {
-        roots::add(&self.connection, path.as_ref(), display_name.as_ref())
+        storage_roots::add(&self.connection, path.as_ref(), display_name.as_ref())
     }
 
     pub fn storage_root(
         &self,
         storage_root_id: StorageRootId,
     ) -> Result<Option<StorageRoot>, LibraryError> {
-        roots::get(&self.connection, storage_root_id)
+        storage_roots::get(&self.connection, storage_root_id)
     }
 
     pub fn storage_roots(&self) -> Result<Vec<StorageRoot>, LibraryError> {
-        roots::list(&self.connection)
+        storage_roots::list(&self.connection)
     }
 
     pub fn rename_storage_root(
@@ -167,29 +182,14 @@ impl LibraryStore {
         storage_root_id: StorageRootId,
         display_name: impl AsRef<str>,
     ) -> Result<StorageRoot, LibraryError> {
-        roots::rename(&self.connection, storage_root_id, display_name.as_ref())
+        storage_roots::rename(&self.connection, storage_root_id, display_name.as_ref())
     }
 
     pub fn remove_storage_root(
         &mut self,
         storage_root_id: StorageRootId,
     ) -> Result<Vec<PathBuf>, LibraryError> {
-        let refreshed_at_ms = system_time_ms(SystemTime::now())?;
-        let transaction = self.connection.transaction()?;
-        let cover_art_paths = tracks::cover_paths_for_root(&transaction, storage_root_id)?;
-        // Children are deleted explicitly, in dependency order — related-data
-        // removal is application-owned (standing preference, 2026-08-07), and
-        // since schema v4 there are no cascades behind these deletes at all.
-        playlists::delete_entries_for_root(&transaction, storage_root_id)?;
-        scans::delete_for_root(&transaction, storage_root_id)?;
-        tracks::delete_for_root(&transaction, storage_root_id)?;
-        let deleted = roots::delete(&transaction, storage_root_id)?;
-        if deleted == 0 {
-            return Err(LibraryError::StorageRootNotFound(storage_root_id));
-        }
-        artists::refresh(&transaction, refreshed_at_ms)?;
-        transaction.commit()?;
-        Ok(cover_art_paths)
+        storage_roots::remove(&mut self.connection, storage_root_id)
     }
 
     pub fn tracks_for_root(
@@ -265,25 +265,14 @@ impl LibraryStore {
     /// Acquire and immediately release a write lock, proving the database
     /// accepts writes before a caller starts irreversible filesystem work.
     pub fn preflight_write(&mut self) -> Result<(), LibraryError> {
-        let transaction = self
-            .connection
-            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-        transaction.rollback()?;
-        Ok(())
+        tracks::preflight_write(&mut self.connection)
     }
 
     /// Delete a set of tracks and their playlist entries in one transaction.
     /// Callers own the files: audio and cover-cache deletion happens outside
     /// the store, mirroring `remove_storage_root`.
     pub fn delete_tracks(&mut self, track_ids: &[TrackId]) -> Result<(), LibraryError> {
-        let refreshed_at_ms = system_time_ms(SystemTime::now())?;
-        let transaction = self.connection.transaction()?;
-        for &track_id in track_ids {
-            tracks::delete_track(&transaction, track_id)?;
-        }
-        artists::refresh(&transaction, refreshed_at_ms)?;
-        transaction.commit()?;
-        Ok(())
+        tracks::delete_tracks(&mut self.connection, track_ids)
     }
 
     /// Distinct normalized artists with track counts, for the artist-filter
@@ -321,7 +310,7 @@ impl LibraryStore {
         storage_root_id: StorageRootId,
         limit: usize,
     ) -> Result<Vec<ScanHistoryEntry>, LibraryError> {
-        scans::recent(&self.connection, storage_root_id, limit)
+        scan_history::recent(&self.connection, storage_root_id, limit)
     }
 
     pub fn create_playlist(&mut self, name: &str) -> Result<Playlist, LibraryError> {
@@ -341,10 +330,7 @@ impl LibraryStore {
     }
 
     pub fn delete_playlist(&mut self, playlist_id: PlaylistId) -> Result<(), LibraryError> {
-        let transaction = self.connection.transaction()?;
-        playlists::delete(&transaction, playlist_id)?;
-        transaction.commit()?;
-        Ok(())
+        playlists::delete_transactional(&mut self.connection, playlist_id)
     }
 
     pub fn append_playlist_tracks(
@@ -352,10 +338,7 @@ impl LibraryStore {
         playlist_id: PlaylistId,
         track_ids: &[TrackId],
     ) -> Result<(), LibraryError> {
-        let transaction = self.connection.transaction()?;
-        playlists::append_tracks(&transaction, playlist_id, track_ids)?;
-        transaction.commit()?;
-        Ok(())
+        playlists::append_tracks_transactional(&mut self.connection, playlist_id, track_ids)
     }
 
     pub fn remove_playlist_entry(
@@ -363,10 +346,7 @@ impl LibraryStore {
         playlist_id: PlaylistId,
         position: usize,
     ) -> Result<(), LibraryError> {
-        let transaction = self.connection.transaction()?;
-        playlists::remove_entry(&transaction, playlist_id, position)?;
-        transaction.commit()?;
-        Ok(())
+        playlists::remove_entry_transactional(&mut self.connection, playlist_id, position)
     }
 
     /// Moves the entry at a stored position to a zero-based index in the ordered entries.
@@ -376,10 +356,12 @@ impl LibraryStore {
         from_position: usize,
         to_position: usize,
     ) -> Result<(), LibraryError> {
-        let transaction = self.connection.transaction()?;
-        playlists::move_entry(&transaction, playlist_id, from_position, to_position)?;
-        transaction.commit()?;
-        Ok(())
+        playlists::move_entry_transactional(
+            &mut self.connection,
+            playlist_id,
+            from_position,
+            to_position,
+        )
     }
 
     pub fn playlists(&self) -> Result<Vec<PlaylistSummary>, LibraryError> {
@@ -402,7 +384,7 @@ impl LibraryStore {
         storage_root_id: StorageRootId,
         started_at_ms: i64,
     ) -> Result<i64, LibraryError> {
-        scans::begin(
+        scan_history::begin(
             &self.connection,
             &self.scan_session_id,
             storage_root_id,
@@ -411,19 +393,14 @@ impl LibraryStore {
     }
 
     pub(super) fn cancel_scan(&mut self, scan_id: i64) -> Result<(), LibraryError> {
-        let refreshed_at_ms = system_time_ms(SystemTime::now())?;
-        let transaction = self.connection.transaction()?;
-        scans::cancel(&transaction, scan_id)?;
-        artists::refresh(&transaction, refreshed_at_ms)?;
-        transaction.commit()?;
-        Ok(())
+        scan_history::cancel_and_refresh(&mut self.connection, scan_id)
     }
 
     pub(super) fn mark_root_reachable(
         &self,
         storage_root_id: StorageRootId,
     ) -> Result<(), LibraryError> {
-        roots::mark_reachable(&self.connection, storage_root_id)
+        storage_roots::mark_reachable(&self.connection, storage_root_id)
     }
 
     pub(super) fn finish_offline_scan(
@@ -433,17 +410,13 @@ impl LibraryStore {
         finished_at_ms: i64,
         error_message: &str,
     ) -> Result<(), LibraryError> {
-        let transaction = self.connection.transaction()?;
-        scans::finish_offline(
-            &transaction,
+        scan_history::finish_offline_and_refresh(
+            &mut self.connection,
             scan_id,
             storage_root_id,
             finished_at_ms,
             error_message,
-        )?;
-        artists::refresh(&transaction, finished_at_ms)?;
-        transaction.commit()?;
-        Ok(())
+        )
     }
 
     pub(super) fn finish_failed_scan(
@@ -453,17 +426,13 @@ impl LibraryStore {
         finished_at_ms: i64,
         error_message: &str,
     ) -> Result<(), LibraryError> {
-        let transaction = self.connection.transaction()?;
-        scans::finish_failed(
-            &transaction,
+        scan_history::finish_failed_and_refresh(
+            &mut self.connection,
             scan_id,
             storage_root_id,
             finished_at_ms,
             error_message,
-        )?;
-        artists::refresh(&transaction, finished_at_ms)?;
-        transaction.commit()?;
-        Ok(())
+        )
     }
 
     pub(super) fn finish_completed_scan(
@@ -472,11 +441,12 @@ impl LibraryStore {
         storage_root_id: StorageRootId,
         completed: &CompletedScan,
     ) -> Result<(), LibraryError> {
-        let transaction = self.connection.transaction()?;
-        scans::finish_completed_scan(&transaction, scan_id, storage_root_id, completed)?;
-        artists::refresh(&transaction, completed.finished_at_ms)?;
-        transaction.commit()?;
-        Ok(())
+        scan_history::finish_completed_scan_and_refresh(
+            &mut self.connection,
+            scan_id,
+            storage_root_id,
+            completed,
+        )
     }
 
     pub(super) fn existing_tracks(

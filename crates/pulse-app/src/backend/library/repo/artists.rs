@@ -3,10 +3,73 @@ use std::{collections::BTreeSet, path::PathBuf};
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
 use super::super::{AlbumSortOrder, Artist, LibraryError, TrackId, UNKNOWN_ALBUM};
-use super::{EFFECTIVE_ALBUM_ARTIST_SQL, albums};
+use super::{EFFECTIVE_ALBUM_ARTIST_SQL, album_title_sql, albums, select_list};
+
+const COLUMNS: &[&str] = &[
+    "id",
+    "name",
+    "name_key",
+    "album_count",
+    "track_count",
+    "total_duration_ms",
+    "earliest_added_ms",
+    "cover_art_path",
+    "display_name",
+    "hidden",
+    "mbid",
+    "photo_path",
+    "photo_source",
+    "enriched_at_ms",
+    "created_at_ms",
+    "updated_at_ms",
+];
+
+struct ArtistRow {
+    id: i64,
+    name: String,
+    name_key: String,
+    album_count: i64,
+    track_count: i64,
+    total_duration_ms: i64,
+    earliest_added_ms: i64,
+    cover_art_path: Option<String>,
+    display_name: Option<String>,
+    hidden: Option<bool>,
+    mbid: Option<String>,
+    photo_path: Option<String>,
+    photo_source: Option<String>,
+    enriched_at_ms: Option<i64>,
+    created_at_ms: i64,
+    updated_at_ms: i64,
+}
+
+impl ArtistRow {
+    fn into_artist(self, earliest_added_year: Option<i64>) -> Artist {
+        Artist {
+            id: self.id,
+            name: self.name,
+            name_key: self.name_key,
+            album_count: self.album_count as u64,
+            track_count: self.track_count as u64,
+            total_duration_ms: self.total_duration_ms as u64,
+            earliest_added_ms: self.earliest_added_ms,
+            earliest_added_year: earliest_added_year.map(|year| year as u32),
+            cover_art_path: self.cover_art_path.map(PathBuf::from),
+            display_name: self.display_name,
+            hidden: self.hidden,
+            mbid: self.mbid,
+            photo_path: self.photo_path.map(PathBuf::from),
+            photo_source: self.photo_source,
+            enriched_at_ms: self.enriched_at_ms,
+            created_at_ms: self.created_at_ms,
+            updated_at_ms: self.updated_at_ms,
+        }
+    }
+}
 
 fn derived_artist_upsert_sql(scoped: bool) -> String {
     let album_order = albums::album_order_by(AlbumSortOrder::DateAdded);
+    let album_title = album_title_sql("?1");
     let artist_filter = if scoped {
         format!("WHERE {EFFECTIVE_ALBUM_ARTIST_SQL} = ?3")
     } else {
@@ -15,7 +78,7 @@ fn derived_artist_upsert_sql(scoped: bool) -> String {
     format!(
         "WITH normalized AS (
              SELECT id, {EFFECTIVE_ALBUM_ARTIST_SQL} AS album_owner,
-                    COALESCE(NULLIF(trim(album), ''), ?1) AS album_title,
+                    {album_title} AS album_title,
                     year, duration_ms, sample_rate_hz, bit_depth, cover_art_path, added_at_ms
              FROM tracks
              {artist_filter}
@@ -151,38 +214,37 @@ pub(super) fn name_key_for_track(
 }
 
 pub fn index(conn: &Connection) -> Result<Vec<Artist>, LibraryError> {
-    let mut statement = conn.prepare(
-        "SELECT id, name, name_key, album_count, track_count, total_duration_ms,
-                earliest_added_ms,
+    let columns = select_list(COLUMNS);
+    let sql = format!(
+        "SELECT {columns},
                 CAST(strftime(
                     '%Y', earliest_added_ms / 1000, 'unixepoch', 'localtime'
-                ) AS INTEGER) AS earliest_added_year,
-                cover_art_path, display_name, hidden, mbid, photo_path, photo_source,
-                enriched_at_ms, created_at_ms, updated_at_ms
+                ) AS INTEGER) AS earliest_added_year
          FROM artists
-         ORDER BY name COLLATE NOCASE, name",
-    )?;
+         ORDER BY name COLLATE NOCASE, name"
+    );
+    let mut statement = conn.prepare(&sql)?;
     let artists = statement
         .query_map([], |row| {
-            Ok(Artist {
+            let artist = ArtistRow {
                 id: row.get(0)?,
                 name: row.get(1)?,
                 name_key: row.get(2)?,
-                album_count: row.get::<_, i64>(3)? as u64,
-                track_count: row.get::<_, i64>(4)? as u64,
-                total_duration_ms: row.get::<_, i64>(5)? as u64,
+                album_count: row.get(3)?,
+                track_count: row.get(4)?,
+                total_duration_ms: row.get(5)?,
                 earliest_added_ms: row.get(6)?,
-                earliest_added_year: row.get::<_, Option<i64>>(7)?.map(|year| year as u32),
-                cover_art_path: row.get::<_, Option<String>>(8)?.map(PathBuf::from),
-                display_name: row.get(9)?,
-                hidden: row.get(10)?,
-                mbid: row.get(11)?,
-                photo_path: row.get::<_, Option<String>>(12)?.map(PathBuf::from),
-                photo_source: row.get(13)?,
-                enriched_at_ms: row.get(14)?,
-                created_at_ms: row.get(15)?,
-                updated_at_ms: row.get(16)?,
-            })
+                cover_art_path: row.get(7)?,
+                display_name: row.get(8)?,
+                hidden: row.get(9)?,
+                mbid: row.get(10)?,
+                photo_path: row.get(11)?,
+                photo_source: row.get(12)?,
+                enriched_at_ms: row.get(13)?,
+                created_at_ms: row.get(14)?,
+                updated_at_ms: row.get(15)?,
+            };
+            Ok(artist.into_artist(row.get(16)?))
         })?
         .collect::<Result<Vec<_>, _>>()?;
 
@@ -196,7 +258,7 @@ mod tests {
 
     use crate::backend::library::{
         AlbumQueryFilter, AlbumSortOrder, LibraryStore, UNKNOWN_ALBUM,
-        store::{
+        repo::{
             schema::EFFECTIVE_ARTIST_INDEX_NAME,
             testing::{insert_track, set_cover, test_file, test_metadata},
         },

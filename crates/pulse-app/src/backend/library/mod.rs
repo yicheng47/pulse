@@ -1,6 +1,6 @@
 pub(crate) mod metadata;
 mod path;
-mod store;
+mod repo;
 mod walk;
 
 use std::{
@@ -10,8 +10,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub use store::{BackfillProgress, LibraryStore};
-use store::{
+pub use repo::{BackfillProgress, LibraryStore};
+use repo::{
     CompletedScan, artist_name_key_for_track, clear_track_cover, delete_track, refresh_artist_keys,
     set_track_cover, update_track_path, upsert_track,
 };
