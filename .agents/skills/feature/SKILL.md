@@ -13,8 +13,8 @@ Pulse feature specs should live in `docs/features/` once feature planning starts
 2. Check existing docs in `docs/product/`, `docs/arch/`, and `docs/features/`.
 3. Assign the next available number in `docs/features/`.
 4. Create `docs/features/{number}-{slug}.md`.
-5. If creating a GitHub issue, use labels `feature` and exactly one of `P0`, `P1`, `P2`, `P3`.
-6. Add or update `docs/features/README.md` if the folder exists.
+5. State the priority (`P0`–`P3`) in the spec's header line. Do not create a GitHub issue — tracking moved to local docs on 2026-08-29.
+6. Add the spec to `docs/features/README.md` (Active) and a row to the right milestone in `docs/roadmap.md`. When it ships, move the spec to `docs/features/archive/` and the row to Shipped.
 
 ## Spec Template
 

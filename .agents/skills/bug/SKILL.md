@@ -5,17 +5,17 @@ description: Use when reporting, triaging, listing, or closing Pulse bug reports
 
 # Bug Reporting
 
-Manage Pulse bugs with enough technical context to make them actionable.
+Manage Pulse bugs with enough technical context to make them actionable. Bugs live as notes in `docs/bugs/` and are scheduled in `docs/roadmap.md`.
 
 ## Workflow
 
 1. Clarify what failed, what was expected, and how to reproduce it.
 2. Inspect the relevant code before filing or summarizing the bug.
 3. Assign a priority using the rubric below.
-4. If creating a GitHub issue, use labels `bug` and exactly one of `P0`, `P1`, `P2`, `P3`. Engineering issues go in the private source repo (`gh` defaults to it). Customer reports arrive on the public `yicheng47/pulse` repo: reply and close there with `--repo yicheng47/pulse`, and file the engineering issue in the source repo with a link back.
+4. File it as a note: `docs/bugs/{slug}.md` using the template below with the priority in the header line, add a line to `docs/bugs/README.md`, and add a row to the right milestone in `docs/roadmap.md`. Do not create GitHub issues in this repo (tracking moved to local docs on 2026-08-29). Customer reports arrive on the public `yicheng47/pulse` repo: reply and close there with `--repo yicheng47/pulse`, and carry the engineering work into a note here with a link back. When a bug is fixed, move its note to `docs/bugs/archive/` with a line naming the commit.
 5. Include relevant file paths, environment details, and verification status.
 
-## Issue Template
+## Note Template
 
 ```markdown
 ## Description
