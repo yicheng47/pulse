@@ -29,12 +29,13 @@ crates/pulse-app/src/
       queue_control.rs       queue actions and track transitions
       logic.rs               formatting and numeric helpers
     library/
-      mod.rs                 scan API and catalog domain types
-      store/                 SQLite schema and catalog queries
+      mod.rs                 module root; re-exports the domain model and LibraryStore
+      model.rs               catalog domain types (Track, Album, Artist, Playlist, ...)
+      ops/                   use cases (scan, delete, catalog, playlists, storage); the only door for surfaces
+      repo/                  SQLite schema, migrations, queries, and the transaction boundary; rusqlite lives only here
       metadata.rs            local audio metadata extraction
       path.rs                path normalization
       walk.rs                filesystem discovery
-      tests.rs               scan and deletion integration tests
   settings.rs                settings page view models and section selection
   text_input.rs              shared editable text and selection state
   menu.rs                    macOS menu actions and installation
@@ -148,7 +149,7 @@ Every store command and every event-drain cycle finishes by taking a new interna
 
 Active-device comparison includes the transient Core Audio device ID as well as the stable UID and display name. Managed-device sightings and persisted preferences use UID and name because a Core Audio ID can change, while the live active row remains ID-aware because the same UID can be rebound to a different current device instance.
 
-The library catalog remains a separate `LibraryStore` owned by the library surface. Library loading and mutation are explicit surface tasks; playback, device, settings, and queue observation use `GlobalAppStore` revisions.
+The library catalog remains a separate `LibraryStore` owned by the library surface, opened through `backend::library::ops::open` and driven only through `ops` functions. Library loading and mutation are explicit surface tasks; playback, device, settings, and queue observation use `GlobalAppStore` revisions.
 
 ## 6. Settings And Migration
 
