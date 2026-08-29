@@ -6,7 +6,6 @@ Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phase
 
 ## Active
 
-- [`24-app-architecture-parity.md`](24-app-architecture-parity.md) - P1, issue #64. Bring `pulse-app` to Runner's GPUI conventions before more pages land: a `ui/` component kit (one scrollbar, one confirm dialog), one `settings.json` replacing the flat preference files, an `AppStore` Global that ends the `Entity<PlaybackRow>` coupling, and surfaces with `*_logic.rs` beside them. Behavior-preserving, four independently shippable phases.
 - [`21-launch-state-restore.md`](21-launch-state-restore.md) - P2, issue #57. Relaunch lands where you left off: queue, current track paused at position, shuffle/repeat, and the open library route restored; never auto-plays; NAS-offline paths degrade softly.
 - [`20-now-playing-page.md`](20-now-playing-page.md) - P2, issue #56. Click the playback row's track cluster to open an immersive now-playing view: full-size album art, track identity, quality badge; playback row stays as the transport. Lyrics land here later.
 - [`19-mcp-server.md`](19-mcp-server.md) - P2, issue #55. `pulse mcp` stdio server on the app binary, Quill-style: library reads always on; playlist CRUD and rescan behind a Settings write gate; WAL for cross-process safety.
@@ -17,6 +16,7 @@ Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phase
 
 ## Implemented
 
+- [`24-app-architecture-parity.md`](archive/24-app-architecture-parity.md) - P1, issue #64. `pulse-app` brought to Runner's GPUI conventions in four merged phases: the `ui/` component kit, one `settings.json` with a one-shot migration, the `AppStore` Global that ended the `Entity<PlaybackRow>` coupling, and `surfaces/` with `*_logic.rs` beside them; documented in `docs/arch/pulse-app.md`.
 - [`23-updater-parity.md`](archive/23-updater-parity.md) - P2, issue #60. Sparkle updater at parity with Runner: delegate-driven update state, silent background checks (no launch alert), an accent hint beside the sidebar's Settings row when a release is ready, and Update available / Last checked in Settings ▸ Update; `PULSE_DEV_UPDATE_AVAILABLE` exercises it from `cargo run`.
 - [`22-device-management-page.md`](archive/22-device-management-page.md) - P1, issue #58. The sidebar's OUTPUT → Devices destination became the device manager: every known device (connected or not) with class, capability ceiling, the Auto-aware exclusive control editable offline, Set as default, and Forget for stale devices. Refines 08's no-mirror non-goal.
 - [`18-polite-shared-mode.md`](archive/18-polite-shared-mode.md) - P1, issue #51. Shared mode stops switching the device's nominal rate (a system-wide side effect that left AirPods-class devices unable to play even CD-rate tracks) and lets AUHAL resample; native-rate switching became exclusive-mode behavior.
