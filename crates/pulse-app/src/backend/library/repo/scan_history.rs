@@ -1,7 +1,7 @@
-use rusqlite::{Connection, Transaction, params};
+use rusqlite::params;
 
 use super::super::{LibraryError, ScanHistoryEntry, ScanOutcome, StorageRootId};
-use super::{artists, select_list, storage_roots, usize_to_i64};
+use super::{LibraryStore, LibraryTransaction, artists, select_list, storage_roots, usize_to_i64};
 
 const COLUMNS: &[&str] = &[
     "id",
@@ -47,23 +47,23 @@ pub struct CompletedScan {
 }
 
 pub fn begin(
-    conn: &Connection,
-    scan_session_id: &str,
+    store: &mut LibraryStore,
     storage_root_id: StorageRootId,
     started_at_ms: i64,
 ) -> Result<i64, LibraryError> {
+    let conn = &store.connection;
     conn.query_row(
         "INSERT INTO scan_history (storage_root_id, scan_session_id, started_at_ms)
          VALUES (?1, ?2, ?3)
          RETURNING id",
-        params![storage_root_id, scan_session_id, started_at_ms],
+        params![storage_root_id, store.scan_session_id, started_at_ms],
         |row| row.get(0),
     )
     .map_err(Into::into)
 }
 
-pub fn cancel(conn: &Connection, scan_id: i64) -> Result<(), LibraryError> {
-    conn.execute(
+pub fn cancel(transaction: &LibraryTransaction<'_>, scan_id: i64) -> Result<(), LibraryError> {
+    transaction.inner.execute(
         "DELETE FROM scan_history
          WHERE id = ?1 AND finished_at_ms IS NULL AND outcome IS NULL",
         [scan_id],
@@ -71,9 +71,9 @@ pub fn cancel(conn: &Connection, scan_id: i64) -> Result<(), LibraryError> {
     Ok(())
 }
 
-pub fn cancel_and_refresh(conn: &mut Connection, scan_id: i64) -> Result<(), LibraryError> {
+pub fn cancel_and_refresh(store: &mut LibraryStore, scan_id: i64) -> Result<(), LibraryError> {
     let refreshed_at_ms = super::super::system_time_ms(std::time::SystemTime::now())?;
-    let transaction = conn.transaction()?;
+    let transaction = store.transaction()?;
     cancel(&transaction, scan_id)?;
     artists::refresh(&transaction, refreshed_at_ms)?;
     transaction.commit()?;
@@ -81,14 +81,14 @@ pub fn cancel_and_refresh(conn: &mut Connection, scan_id: i64) -> Result<(), Lib
 }
 
 pub fn finish_offline(
-    transaction: &Transaction<'_>,
+    transaction: &LibraryTransaction<'_>,
     scan_id: i64,
     storage_root_id: StorageRootId,
     finished_at_ms: i64,
     error_message: &str,
 ) -> Result<(), LibraryError> {
     storage_roots::record_scan_outcome(transaction, storage_root_id, finished_at_ms, Some(false))?;
-    transaction.execute(
+    transaction.inner.execute(
         "UPDATE scan_history
          SET finished_at_ms = ?2, error_count = 1, outcome = 'offline',
              error_message = ?3
@@ -99,13 +99,13 @@ pub fn finish_offline(
 }
 
 pub fn finish_offline_and_refresh(
-    conn: &mut Connection,
+    store: &mut LibraryStore,
     scan_id: i64,
     storage_root_id: StorageRootId,
     finished_at_ms: i64,
     error_message: &str,
 ) -> Result<(), LibraryError> {
-    let transaction = conn.transaction()?;
+    let transaction = store.transaction()?;
     finish_offline(
         &transaction,
         scan_id,
@@ -119,14 +119,14 @@ pub fn finish_offline_and_refresh(
 }
 
 pub fn finish_failed(
-    transaction: &Transaction<'_>,
+    transaction: &LibraryTransaction<'_>,
     scan_id: i64,
     storage_root_id: StorageRootId,
     finished_at_ms: i64,
     error_message: &str,
 ) -> Result<(), LibraryError> {
     storage_roots::record_scan_outcome(transaction, storage_root_id, finished_at_ms, None)?;
-    transaction.execute(
+    transaction.inner.execute(
         "UPDATE scan_history
          SET finished_at_ms = ?2, error_count = 1, outcome = 'failed',
              error_message = ?3
@@ -137,13 +137,13 @@ pub fn finish_failed(
 }
 
 pub fn finish_failed_and_refresh(
-    conn: &mut Connection,
+    store: &mut LibraryStore,
     scan_id: i64,
     storage_root_id: StorageRootId,
     finished_at_ms: i64,
     error_message: &str,
 ) -> Result<(), LibraryError> {
-    let transaction = conn.transaction()?;
+    let transaction = store.transaction()?;
     finish_failed(
         &transaction,
         scan_id,
@@ -157,7 +157,7 @@ pub fn finish_failed_and_refresh(
 }
 
 pub fn finish_completed_scan(
-    transaction: &Transaction<'_>,
+    transaction: &LibraryTransaction<'_>,
     scan_id: i64,
     storage_root_id: StorageRootId,
     completed: &CompletedScan,
@@ -168,7 +168,7 @@ pub fn finish_completed_scan(
         completed.finished_at_ms,
         Some(true),
     )?;
-    transaction.execute(
+    transaction.inner.execute(
         "UPDATE scan_history
          SET finished_at_ms = ?2, added_count = ?3, updated_count = ?4,
              removed_count = ?5, unsupported_count = ?6, error_count = ?7,
@@ -190,12 +190,12 @@ pub fn finish_completed_scan(
 }
 
 pub fn finish_completed_scan_and_refresh(
-    conn: &mut Connection,
+    store: &mut LibraryStore,
     scan_id: i64,
     storage_root_id: StorageRootId,
     completed: &CompletedScan,
 ) -> Result<(), LibraryError> {
-    let transaction = conn.transaction()?;
+    let transaction = store.transaction()?;
     finish_completed_scan(&transaction, scan_id, storage_root_id, completed)?;
     artists::refresh(&transaction, completed.finished_at_ms)?;
     transaction.commit()?;
@@ -203,10 +203,11 @@ pub fn finish_completed_scan_and_refresh(
 }
 
 pub fn recent(
-    conn: &Connection,
+    store: &LibraryStore,
     storage_root_id: StorageRootId,
     limit: usize,
 ) -> Result<Vec<ScanHistoryEntry>, LibraryError> {
+    let conn = &store.connection;
     let limit =
         i64::try_from(limit).map_err(|_| LibraryError::IntegerOutOfRange("scan history limit"))?;
     let columns = select_list(COLUMNS);
@@ -227,10 +228,10 @@ pub fn recent(
 /// Closes scans another session left unfinished — the app crashed or was
 /// killed mid-scan — so they surface as failed instead of forever-running.
 pub fn recover_interrupted(
-    conn: &Connection,
+    store: &mut LibraryStore,
     recovered_at_ms: i64,
-    scan_session_id: &str,
 ) -> Result<(), LibraryError> {
+    let conn = &store.connection;
     conn.execute(
         "UPDATE scan_history
          SET finished_at_ms = ?1,
@@ -240,16 +241,16 @@ pub fn recover_interrupted(
          WHERE finished_at_ms IS NULL
            AND outcome IS NULL
            AND scan_session_id <> ?2",
-        params![recovered_at_ms, scan_session_id],
+        params![recovered_at_ms, store.scan_session_id],
     )?;
     Ok(())
 }
 
 pub fn delete_for_root(
-    conn: &Connection,
+    transaction: &LibraryTransaction<'_>,
     storage_root_id: StorageRootId,
 ) -> Result<(), LibraryError> {
-    conn.execute(
+    transaction.inner.execute(
         "DELETE FROM scan_history WHERE storage_root_id = ?1",
         [storage_root_id],
     )?;
@@ -316,24 +317,40 @@ mod tests {
     fn marks_an_offline_root_without_removing_its_tracks() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         insert_track(
             &mut store,
             &root,
             &test_file(&root, "track.wav", 1, 10),
             &test_metadata("Track", "Artist", Some("Album"), None),
         );
-        let scan_id = store.begin_scan(root.id, 100).unwrap();
+        let scan_id =
+            crate::backend::library::repo::scan_history::begin(&mut store, root.id, 100).unwrap();
 
-        store
-            .finish_offline_scan(scan_id, root.id, 200, "not mounted")
+        crate::backend::library::repo::scan_history::finish_offline_and_refresh(
+            &mut store,
+            scan_id,
+            root.id,
+            200,
+            "not mounted",
+        )
+        .unwrap();
+
+        assert_eq!(
+            crate::backend::library::repo::tracks::for_root(&store, root.id)
+                .unwrap()
+                .len(),
+            1
+        );
+        let stored_root = crate::backend::library::repo::storage_roots::get(&store, root.id)
+            .unwrap()
             .unwrap();
-
-        assert_eq!(store.tracks_for_root(root.id).unwrap().len(), 1);
-        let stored_root = store.storage_root(root.id).unwrap().unwrap();
         assert!(!stored_root.is_reachable);
         assert_eq!(stored_root.last_scan_at_ms, Some(200));
-        let history = store.recent_scans(root.id, 1).unwrap();
+        let history =
+            crate::backend::library::repo::scan_history::recent(&store, root.id, 1).unwrap();
         assert_eq!(history[0].outcome, Some(ScanOutcome::Offline));
         assert_eq!(history[0].error_count, 1);
     }
@@ -350,9 +367,9 @@ mod tests {
             |_| {},
         )
         .unwrap();
-        let root = first.add_storage_root(&music, "Music").unwrap();
+        let root = super::storage_roots::add(&mut first, &music, "Music").unwrap();
         let root_id = root.id;
-        let scan_id = first.begin_scan(root.id, 100).unwrap();
+        let scan_id = super::begin(&mut first, root.id, 100).unwrap();
         drop(first);
 
         let same_session = LibraryStore::from_connection(
@@ -362,7 +379,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            same_session.recent_scans(root_id, 1).unwrap()[0].outcome,
+            super::recent(&same_session, root_id, 1).unwrap()[0].outcome,
             None
         );
         drop(same_session);
@@ -373,8 +390,8 @@ mod tests {
             |_| {},
         )
         .unwrap();
-        assert_eq!(reopened.storage_roots().unwrap(), vec![root]);
-        let history = reopened.recent_scans(root_id, 1).unwrap();
+        assert_eq!(super::storage_roots::list(&reopened).unwrap(), vec![root]);
+        let history = super::recent(&reopened, root_id, 1).unwrap();
         assert_eq!(history[0].id, scan_id);
         assert_eq!(history[0].outcome, Some(ScanOutcome::Failed));
         assert!(history[0].finished_at_ms.is_some());

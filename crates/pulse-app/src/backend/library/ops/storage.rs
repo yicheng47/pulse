@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use super::super::{
     LibraryError, LibraryStore, LibrarySummary, ScanHistoryEntry, StorageRoot, StorageRootId,
+    repo::{scan_history, storage_roots, tracks},
 };
 
 pub fn add(
@@ -9,7 +10,7 @@ pub fn add(
     path: impl AsRef<Path>,
     display_name: impl AsRef<str>,
 ) -> Result<StorageRoot, LibraryError> {
-    store.add_storage_root(path, display_name)
+    storage_roots::add(store, path.as_ref(), display_name.as_ref())
 }
 
 pub fn rename(
@@ -17,32 +18,32 @@ pub fn rename(
     storage_root_id: StorageRootId,
     display_name: impl AsRef<str>,
 ) -> Result<StorageRoot, LibraryError> {
-    store.rename_storage_root(storage_root_id, display_name)
+    storage_roots::rename(store, storage_root_id, display_name.as_ref())
 }
 
 pub fn remove(
     store: &mut LibraryStore,
     storage_root_id: StorageRootId,
 ) -> Result<Vec<PathBuf>, LibraryError> {
-    store.remove_storage_root(storage_root_id)
+    storage_roots::remove(store, storage_root_id)
 }
 
 pub fn list(store: &LibraryStore) -> Result<Vec<StorageRoot>, LibraryError> {
-    store.storage_roots()
+    storage_roots::list(store)
 }
 
 pub fn get(
     store: &LibraryStore,
     storage_root_id: StorageRootId,
 ) -> Result<Option<StorageRoot>, LibraryError> {
-    store.storage_root(storage_root_id)
+    storage_roots::get(store, storage_root_id)
 }
 
 pub fn summary(
     store: &LibraryStore,
     storage_root_id: StorageRootId,
 ) -> Result<LibrarySummary, LibraryError> {
-    store.root_summary(storage_root_id)
+    tracks::root_summary(store, storage_root_id)
 }
 
 pub fn recent_scans(
@@ -50,7 +51,7 @@ pub fn recent_scans(
     storage_root_id: StorageRootId,
     limit: usize,
 ) -> Result<Vec<ScanHistoryEntry>, LibraryError> {
-    store.recent_scans(storage_root_id, limit)
+    scan_history::recent(store, storage_root_id, limit)
 }
 
 #[cfg(test)]

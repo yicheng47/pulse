@@ -3,7 +3,7 @@ use std::time::SystemTime;
 use rusqlite::{Connection, OptionalExtension, params};
 
 use super::super::{LibraryError, metadata, system_time_ms};
-use super::{EFFECTIVE_ALBUM_ARTIST_SQL, artists};
+use super::{EFFECTIVE_ALBUM_ARTIST_SQL, LibraryTransaction, artists};
 
 pub const SCHEMA_VERSION: i64 = 5;
 pub(super) const EFFECTIVE_ARTIST_INDEX_NAME: &str = "tracks_effective_album_artist_idx";
@@ -375,11 +375,17 @@ fn rebuild_without_cascades(connection: &mut Connection) -> Result<(), LibraryEr
 
 fn migrate_v4_to_v5(connection: &mut Connection) -> Result<(), LibraryError> {
     let migrated_at_ms = system_time_ms(SystemTime::now())?;
-    let transaction = connection.transaction()?;
-    transaction.execute_batch(ARTISTS_DDL)?;
-    transaction.execute_batch(&effective_artist_index_ddl())?;
+    let transaction = LibraryTransaction {
+        inner: connection.transaction()?,
+    };
+    transaction.inner.execute_batch(ARTISTS_DDL)?;
+    transaction
+        .inner
+        .execute_batch(&effective_artist_index_ddl())?;
     artists::backfill(&transaction, migrated_at_ms)?;
-    transaction.execute_batch("PRAGMA user_version = 5;")?;
+    transaction
+        .inner
+        .execute_batch("PRAGMA user_version = 5;")?;
     transaction.commit()?;
     Ok(())
 }
@@ -638,7 +644,7 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
                 total: 2
             })
         );
-        let tracks = store.tracks_for_root(1).unwrap();
+        let tracks = crate::backend::library::repo::tracks::for_root(&store, 1).unwrap();
         let track = tracks
             .iter()
             .find(|track| track.path == track_path)
@@ -666,9 +672,13 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
         drop(connection);
 
         let mut store = LibraryStore::open(&database_path).unwrap();
-        let playlist = store.create_playlist("Migrated").unwrap();
+        let playlist =
+            crate::backend::library::repo::playlists::create(&mut store, "Migrated").unwrap();
 
-        assert_eq!(store.playlist(playlist.id).unwrap(), Some(playlist));
+        assert_eq!(
+            crate::backend::library::repo::playlists::get(&store, playlist.id).unwrap(),
+            Some(playlist)
+        );
         assert_eq!(user_version(&store.connection), 5);
         assert_no_cascades(&store.connection);
     }
@@ -721,7 +731,7 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
 
         let store = LibraryStore::open(&database_path).unwrap();
         assert_eq!(user_version(&store.connection), 5);
-        let artists = store.artist_index().unwrap();
+        let artists = crate::backend::library::repo::artists::index(&store).unwrap();
         assert_eq!(artists.len(), 2);
         let lead = artists.iter().find(|artist| artist.name == "Lead").unwrap();
         assert_eq!((lead.album_count, lead.track_count), (2, 2));
@@ -749,8 +759,7 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
 
         let reopened = LibraryStore::open(&database_path).unwrap();
         assert_eq!(user_version(&reopened.connection), 5);
-        let lead = reopened
-            .artist_index()
+        let lead = super::artists::index(&reopened)
             .unwrap()
             .into_iter()
             .find(|artist| artist.name_key == "Lead")
@@ -824,7 +833,7 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
             .unwrap();
         assert_eq!(index_count, 5, "indexes are recreated after the rebuild");
 
-        let tracks = store.tracks_for_root(1).unwrap();
+        let tracks = crate::backend::library::repo::tracks::for_root(&store, 1).unwrap();
         assert_eq!(
             tracks.iter().map(|track| track.id).collect::<Vec<_>>(),
             [10, 42],
@@ -835,23 +844,22 @@ CREATE INDEX playlist_tracks_track_id_idx ON playlist_tracks(track_id);
             Some(std::path::Path::new("/covers/42-abc.cover"))
         );
         assert_eq!(
-            store
-                .playlist_tracks(3)
+            crate::backend::library::repo::playlists::tracks(&store, 3)
                 .unwrap()
                 .iter()
                 .map(|entry| (entry.position, entry.track.id))
                 .collect::<Vec<_>>(),
             [(0, 42), (1, 10)]
         );
-        let history = store.recent_scans(1, 5).unwrap();
+        let history = crate::backend::library::repo::scan_history::recent(&store, 1, 5).unwrap();
         assert_eq!(history.len(), 1);
         assert_eq!(history[0].id, 7);
         assert_eq!(history[0].outcome, Some(ScanOutcome::Completed));
 
         // Application-owned deletion still clears children first.
-        store.delete_playlist(3).unwrap();
+        crate::backend::library::repo::playlists::delete_transactional(&mut store, 3).unwrap();
         assert_eq!(
-            store.remove_storage_root(1).unwrap(),
+            crate::backend::library::repo::storage_roots::remove(&mut store, 1).unwrap(),
             vec![std::path::PathBuf::from("/covers/42-abc.cover")]
         );
     }

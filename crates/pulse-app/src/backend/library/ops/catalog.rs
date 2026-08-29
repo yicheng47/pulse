@@ -2,6 +2,7 @@ use super::super::{
     AlbumPage, AlbumQueryFilter, AlbumSortOrder, Artist, ArtistDetail, LibraryError,
     LibrarySearchResults, LibraryStore, LibrarySummary, Track, TrackPage, TrackQueryFilter,
     TrackSortOrder,
+    repo::{albums, artists, search as search_repo, tracks},
 };
 
 pub fn album_page(
@@ -12,7 +13,7 @@ pub fn album_page(
     limit: usize,
     offset: usize,
 ) -> Result<AlbumPage, LibraryError> {
-    store.album_page(sort_order, filter, artist_filter, limit, offset)
+    albums::page(store, sort_order, filter, artist_filter, limit, offset)
 }
 
 pub fn track_page(
@@ -23,7 +24,7 @@ pub fn track_page(
     limit: usize,
     offset: usize,
 ) -> Result<TrackPage, LibraryError> {
-    store.track_page(sort_order, filter, artist_filter, limit, offset)
+    tracks::page(store, sort_order, filter, artist_filter, limit, offset)
 }
 
 pub fn matching_tracks(
@@ -32,7 +33,7 @@ pub fn matching_tracks(
     filter: &TrackQueryFilter,
     artist_filter: Option<&str>,
 ) -> Result<Vec<Track>, LibraryError> {
-    store.matching_tracks(sort_order, filter, artist_filter)
+    tracks::matching(store, sort_order, filter, artist_filter)
 }
 
 pub fn album_tracks(
@@ -40,11 +41,11 @@ pub fn album_tracks(
     artist: &str,
     title: &str,
 ) -> Result<Vec<Track>, LibraryError> {
-    store.tracks_for_album(artist, title)
+    tracks::for_album(store, artist, title)
 }
 
 pub fn artist_index(store: &LibraryStore) -> Result<Vec<Artist>, LibraryError> {
-    store.artist_index()
+    artists::index(store)
 }
 
 pub fn artist_detail(
@@ -75,19 +76,19 @@ pub fn artist_detail(
 }
 
 pub fn artist_filter_counts(store: &LibraryStore) -> Result<Vec<(String, u64)>, LibraryError> {
-    store.artists()
+    tracks::artists(store)
 }
 
 pub fn genre_album_counts(store: &LibraryStore) -> Result<Vec<(String, u64)>, LibraryError> {
-    store.genre_album_counts()
+    tracks::genre_album_counts(store)
 }
 
 pub fn summary(store: &LibraryStore) -> Result<LibrarySummary, LibraryError> {
-    store.catalog_summary()
+    tracks::catalog_summary(store)
 }
 
 pub fn search(store: &LibraryStore, query: &str) -> Result<LibrarySearchResults, LibraryError> {
-    store.search(query)
+    search_repo::search(store, query)
 }
 
 #[cfg(test)]
@@ -103,7 +104,9 @@ mod tests {
     fn catalog_use_cases_return_filtered_pages_details_and_search_results() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
 
         let standard = test_metadata("Standard", "Artist A", Some("Standard Album"), None);
         insert_track(

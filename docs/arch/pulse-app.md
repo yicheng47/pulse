@@ -64,7 +64,7 @@ Each product area keeps its rendering and interaction code in one surface module
 Domain objects split into three layers by where they live and who writes them:
 
 - **Catalog** — `library.sqlite`, written by the scanner and by explicit user actions. StorageRoot, Track, Artist, Playlist, PlaylistTrack, ScanHistory. Album is *derived* from tracks and has no table.
-- **Preferences** — `settings.json` (`AppSettings`, §6), written by the store on change. Saved output device, per-device exclusive-mode preferences and sightings, volume. Never joined to the catalog.
+- **Preferences** — `settings.json` (`AppSettings`, §7), written by the store on change. Saved output device, per-device exclusive-mode preferences and sightings, volume. Never joined to the catalog.
 - **Runtime** — in memory in `AppStore`, gone at quit. `PlaybackSnapshot`, the queue (`QueueState`), the device table, notices. Refers to catalog rows by `TrackId` and to devices by UID; nothing here is persisted (feature 21 will persist a subset back into `settings.json`).
 
 The key rule, from `AGENTS.md`: **relationships are managed in the application layer.** The schema declares no enforced foreign keys (`PRAGMA foreign_keys` is off; the `REFERENCES` clauses on the legacy tables are declarative only and disappear at the next rebuild). Related-id columns are plain integers, side tables join on natural keys, and insert/delete ordering and orphan cleanup are store code with tests.
@@ -123,9 +123,21 @@ Per root, per run: counts of added/updated/removed/unsupported/errored files, wh
 
 ### 3.8 Runtime objects
 
-`QueueState` (`backend/queue.rs`) is the app-side play order — entries, index, shuffle/repeat, history, skip and failure accounting — owned by `Playback` inside the store and exposed through `PlaybackSnapshot` behind an `Arc`. `ManagedDevice` rows (§5) merge the live Core Audio device list with the stored device preferences; the Devices page and the output popover render the same rows. Neither is written to the catalog.
+`QueueState` (`backend/queue.rs`) is the app-side play order — entries, index, shuffle/repeat, history, skip and failure accounting — owned by `Playback` inside the store and exposed through `PlaybackSnapshot` behind an `Arc`. `ManagedDevice` rows (§6) merge the live Core Audio device list with the stored device preferences; the Devices page and the output popover render the same rows. Neither is written to the catalog.
 
-## 4. Startup And Ownership
+## 4. Library Layers
+
+The catalog backend has three layers. `backend/library/model.rs` owns the domain types returned across the boundary: tracks, derived albums and artists, playlists, storage roots, scan history, filters, sort orders, reports, and mutation outcomes. These types contain no database handles.
+
+`backend/library/repo/` owns persistence. Row-backed table families have one module with their row mapping and shared `COLUMNS` list; `albums.rs` and `search.rs` are query modules over those tables, while `playlists.rs` owns both playlists and their ordered entries. `repo/mod.rs` defines `EFFECTIVE_ALBUM_ARTIST_SQL`, `ALBUM_TITLE_SQL`, `select_list`, and `qualified_select_list` once for the query modules that share them. `LibraryStore` owns the SQLite connection and exposes only opening plus the transaction boundary. `LibraryTransaction` wraps a SQLite transaction; its inner handle is private to `repo/`, so `ops/` can choose and commit a transaction boundary without acquiring a raw connection.
+
+`backend/library/ops/` owns use cases and is the only catalog door for surfaces and the future `pulse mcp` process. Ops compose named table-repo functions, filesystem work, metadata extraction, and domain outcomes. Surfaces never see SQL or `rusqlite`, and no SQL string is built outside `repo/`. Relationships are application-owned with no enforced foreign keys: repo operations delete dependent rows, refresh derived artists, and preserve ordering explicitly; `PRAGMA foreign_keys` remains off, including for the legacy schema clauses that are only declarative.
+
+Scanning a root flows from the library surface to `ops::scan`, which reads the root through `repo::storage_roots`, walks and extracts metadata, applies each database unit through a `LibraryTransaction` and the tracks/artists repo modules, then records the scan outcome through `repo::scan_history`. Deleting an album flows to `ops::delete`, which reads its tracks and roots through repo modules, preflights the write, removes verifiably reachable files, deletes the corresponding track and playlist-entry rows in one repo transaction, refreshes affected artists, and returns `DeleteAlbumOutcome` for the surface to reconcile playback and view state.
+
+The boundary tests in `backend/mod.rs` enforce that the database driver and SQL literals remain under `backend/library/repo/`, and that the effective album-artist fragment has exactly one source definition.
+
+## 5. Startup And Ownership
 
 `main.rs` loads or migrates `AppSettings`, creates one `Entity<AppStore>`, installs it as `GlobalAppStore`, registers playback shutdown for application quit, and opens the initial `Shell` window.
 
@@ -135,7 +147,7 @@ Per root, per run: counts of added/updated/removed/unsupported/errored files, wh
 
 Application quit calls `AppStore::shutdown`, which forwards shutdown to the playback adapter and its controller before the process exits.
 
-## 5. Store And Observe Contract
+## 6. Store And Observe Contract
 
 Surfaces access the shared entity through `global_app_store` and observe it through GPUI. A surface does not own a second playback adapter or poll the engine independently.
 
@@ -151,7 +163,7 @@ Active-device comparison includes the transient Core Audio device ID as well as 
 
 The library catalog remains a separate `LibraryStore` owned by the library surface, opened through `backend::library::ops::open` and driven only through `ops` functions. Library loading and mutation are explicit surface tasks; playback, device, settings, and queue observation use `GlobalAppStore` revisions.
 
-## 6. Settings And Migration
+## 7. Settings And Migration
 
 Current app settings live in `settings.json` under Pulse's platform data directory: `pulse` for release builds and `pulse-dev` for debug builds. `AppSettings` stores the saved output-device UID, per-device exclusive-mode preferences and sightings, volume level, and mute state.
 
@@ -161,7 +173,7 @@ When `settings.json` does not exist, `backend/preferences.rs` reads the legacy f
 
 Once `settings.json` exists it is authoritative and legacy app-setting files are left untouched. The updater's legacy `check-updates.disabled` preference is handled separately by the updater migration because update settings are not fields of `AppSettings`.
 
-## 7. Surface Rules
+## 8. Surface Rules
 
 `Shell` owns only window-level concerns: custom titlebar rendering and drag behavior, sidebar composition, route selection, search and settings overlays, and placement of the persistent playback row. Product behavior stays in the corresponding surface module.
 
@@ -169,7 +181,7 @@ Rendering surfaces may depend on GPUI, `AppStore`, library APIs, playback action
 
 Search owns both the popover and its `EntityInputHandler` implementation because IME state is part of the search interaction. Settings owns the General, Update, and About pages. Library owns Albums, Tracks, Playlists, Storage, genre filtering, context menus, and page-local lifecycle and action code.
 
-## 8. UI Kit Rules
+## 9. UI Kit Rules
 
 Reusable controls live under `ui/` and expose builder-style APIs. Callers construct a control with `new`, add optional state or behavior through methods such as `variant`, `size`, `selected`, `disabled`, or event handlers, and then compose it into a surface.
 
@@ -177,8 +189,10 @@ The kit owns shared buttons, icon buttons, badges, toggles, tooltips, menus, ove
 
 Do not create a page-local replacement for a component already provided by `ui/`. A visual primitive used by more than one surface moves into the kit; product-specific layout and behavior stay with the surface that owns them.
 
-## 9. Boundary Summary
+## 10. Boundary Summary
 
 `backend/` never imports `gpui`; `app_store.rs` is the only bridge between backend state and GPUI surfaces.
+
+`backend/library/model.rs` owns catalog domain types, `backend/library/repo/` owns every SQL statement and the opaque store/transaction handles, and `backend/library/ops/` owns the use cases that surfaces call.
 
 `surfaces/` renders product areas and converts interaction into app actions. `ui/` supplies reusable visual grammar. `app_store.rs` owns observable cross-surface playback state and notifications. `backend/settings.rs` owns the persisted settings shape. `backend/playback/` adapts the engine to app semantics. `backend/library/` owns the local catalog and scan pipeline. `pulse-engine` owns audio playback and contains no GPUI code.

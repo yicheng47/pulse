@@ -31,7 +31,8 @@ fn scan_is_incremental_removes_missing_tracks_and_preserves_offline_roots() {
     let track_path = music.join("Café.wav");
     metadata::write_test_wav(&track_path, "First", "Artist", "Album").unwrap();
     let mut store = LibraryStore::open_in_memory().unwrap();
-    let root = store.add_storage_root(&music, "Music").unwrap();
+    let root =
+        crate::backend::library::repo::storage_roots::add(&mut store, &music, "Music").unwrap();
 
     let mut progress = Vec::new();
     let first = storage_root(&mut store, root.id, &cache, |event| progress.push(event)).unwrap();
@@ -68,14 +69,21 @@ fn scan_is_incremental_removes_missing_tracks_and_preserves_offline_roots() {
         (0, 1, 0, 0)
     );
     assert_eq!(
-        store.tracks_for_root(root.id).unwrap()[0].title.as_deref(),
+        crate::backend::library::repo::tracks::for_root(&store, root.id).unwrap()[0]
+            .title
+            .as_deref(),
         Some("Updated")
     );
 
     fs::remove_file(&track_path).unwrap();
     let fourth = storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
     assert_eq!((fourth.added, fourth.updated, fourth.removed), (0, 0, 1));
-    assert_eq!(store.root_summary(root.id).unwrap().track_count, 0);
+    assert_eq!(
+        crate::backend::library::repo::tracks::root_summary(&store, root.id)
+            .unwrap()
+            .track_count,
+        0
+    );
 
     metadata::write_test_wav(&track_path, "Returned", "Artist", "Album").unwrap();
     storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
@@ -84,10 +92,20 @@ fn scan_is_incremental_removes_missing_tracks_and_preserves_offline_roots() {
     let offline = storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
 
     assert_eq!(offline.outcome, ScanOutcome::Offline);
-    assert_eq!(store.tracks_for_root(root.id).unwrap().len(), 1);
-    assert!(!store.storage_root(root.id).unwrap().unwrap().is_reachable);
     assert_eq!(
-        store.recent_scans(root.id, 1).unwrap()[0].outcome,
+        crate::backend::library::repo::tracks::for_root(&store, root.id)
+            .unwrap()
+            .len(),
+        1
+    );
+    assert!(
+        !crate::backend::library::repo::storage_roots::get(&store, root.id)
+            .unwrap()
+            .unwrap()
+            .is_reachable
+    );
+    assert_eq!(
+        crate::backend::library::repo::scan_history::recent(&store, root.id, 1).unwrap()[0].outcome,
         Some(ScanOutcome::Offline)
     );
 }
@@ -101,10 +119,11 @@ fn scan_adds_updates_and_prunes_materialized_artists() {
     let first_path = music.join("01-first.wav");
     metadata::write_test_wav(&first_path, "First", "Artist", "First Album").unwrap();
     let mut store = LibraryStore::open_in_memory().unwrap();
-    let root = store.add_storage_root(&music, "Music").unwrap();
+    let root =
+        crate::backend::library::repo::storage_roots::add(&mut store, &music, "Music").unwrap();
 
     storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
-    let artists = store.artist_index().unwrap();
+    let artists = crate::backend::library::repo::artists::index(&store).unwrap();
     assert_eq!(artists.len(), 1);
     assert_eq!(artists[0].name_key, "Artist");
     assert_eq!((artists[0].album_count, artists[0].track_count), (1, 1));
@@ -112,7 +131,7 @@ fn scan_adds_updates_and_prunes_materialized_artists() {
     let second_path = music.join("02-second.wav");
     metadata::write_test_wav(&second_path, "Second", "Artist", "Second Album").unwrap();
     storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
-    let artists = store.artist_index().unwrap();
+    let artists = crate::backend::library::repo::artists::index(&store).unwrap();
     assert_eq!(artists.len(), 1);
     assert_eq!((artists[0].album_count, artists[0].track_count), (2, 2));
 
@@ -125,7 +144,7 @@ fn scan_adds_updates_and_prunes_materialized_artists() {
         .set_times(fs::FileTimes::new().set_modified(previous_modified + Duration::from_secs(2)))
         .unwrap();
     storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
-    let artists = store.artist_index().unwrap();
+    let artists = crate::backend::library::repo::artists::index(&store).unwrap();
     assert_eq!(artists.len(), 2);
     assert!(artists.iter().any(|artist| {
         artist.name_key == "Artist" && (artist.album_count, artist.track_count) == (1, 1)
@@ -136,7 +155,7 @@ fn scan_adds_updates_and_prunes_materialized_artists() {
 
     fs::remove_file(&second_path).unwrap();
     storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
-    let artists = store.artist_index().unwrap();
+    let artists = crate::backend::library::repo::artists::index(&store).unwrap();
     assert_eq!(artists.len(), 1);
     assert_eq!(artists[0].name_key, "Artist");
     assert_eq!((artists[0].album_count, artists[0].track_count), (1, 1));
@@ -150,7 +169,8 @@ fn cancellation_keeps_partial_commits_without_recording_a_failed_scan() {
     metadata::write_test_wav(&music.join("first.wav"), "First", "Artist", "Album").unwrap();
     metadata::write_test_wav(&music.join("second.wav"), "Second", "Artist", "Album").unwrap();
     let mut store = LibraryStore::open_in_memory().unwrap();
-    let root = store.add_storage_root(&music, "Music").unwrap();
+    let root =
+        crate::backend::library::repo::storage_roots::add(&mut store, &music, "Music").unwrap();
     let cancelled = Cell::new(false);
 
     let report = storage_root_cancellable(
@@ -167,12 +187,21 @@ fn cancellation_keeps_partial_commits_without_recording_a_failed_scan() {
     .unwrap();
 
     assert!(report.is_none());
-    assert_eq!(store.tracks_for_root(root.id).unwrap().len(), 1);
-    let artists = store.artist_index().unwrap();
+    assert_eq!(
+        crate::backend::library::repo::tracks::for_root(&store, root.id)
+            .unwrap()
+            .len(),
+        1
+    );
+    let artists = crate::backend::library::repo::artists::index(&store).unwrap();
     assert_eq!(artists.len(), 1);
     assert_eq!(artists[0].name_key, "Artist");
     assert_eq!((artists[0].album_count, artists[0].track_count), (1, 1));
-    assert!(store.recent_scans(root.id, 1).unwrap().is_empty());
+    assert!(
+        crate::backend::library::repo::scan_history::recent(&store, root.id, 1)
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[test]
@@ -196,21 +225,22 @@ fn failed_artist_refresh_rolls_back_the_current_scan_track() {
     )
     .unwrap();
     let mut store = LibraryStore::open_in_memory().unwrap();
-    let root = store.add_storage_root(&music, "Music").unwrap();
+    let root =
+        crate::backend::library::repo::storage_roots::add(&mut store, &music, "Music").unwrap();
     crate::backend::library::repo::testing::fail_second_artist_refresh(&mut store);
 
     let error = storage_root(&mut store, root.id, &cache, |_| {}).unwrap_err();
 
     assert!(error.to_string().contains("artist refresh failed"));
-    let tracks = store.tracks_for_root(root.id).unwrap();
+    let tracks = crate::backend::library::repo::tracks::for_root(&store, root.id).unwrap();
     assert_eq!(tracks.len(), 1);
     assert_eq!(tracks[0].artist.as_deref(), Some("First Artist"));
-    let artists = store.artist_index().unwrap();
+    let artists = crate::backend::library::repo::artists::index(&store).unwrap();
     assert_eq!(artists.len(), 1);
     assert_eq!(artists[0].name_key, "First Artist");
     assert_eq!((artists[0].album_count, artists[0].track_count), (1, 1));
     assert_eq!(
-        store.recent_scans(root.id, 1).unwrap()[0].outcome,
+        crate::backend::library::repo::scan_history::recent(&store, root.id, 1).unwrap()[0].outcome,
         Some(ScanOutcome::Failed)
     );
 }
@@ -226,7 +256,8 @@ fn a_file_vanishing_after_the_walk_is_a_per_file_error() {
     metadata::write_test_wav(&valid, "Valid", "Artist", "Album").unwrap();
     let vanished = fs::canonicalize(vanished).unwrap();
     let mut store = LibraryStore::open_in_memory().unwrap();
-    let root = store.add_storage_root(&music, "Music").unwrap();
+    let root =
+        crate::backend::library::repo::storage_roots::add(&mut store, &music, "Music").unwrap();
     let mut removed = false;
 
     let report = storage_root(&mut store, root.id, temp.path().join("covers"), |event| {
@@ -246,7 +277,12 @@ fn a_file_vanishing_after_the_walk_is_a_per_file_error() {
     assert_eq!(report.added, 1);
     assert_eq!(report.errors.len(), 1);
     assert_eq!(report.errors[0].path, vanished);
-    assert_eq!(store.tracks_for_root(root.id).unwrap().len(), 1);
+    assert_eq!(
+        crate::backend::library::repo::tracks::for_root(&store, root.id)
+            .unwrap()
+            .len(),
+        1
+    );
 }
 
 #[test]
@@ -258,7 +294,8 @@ fn unsupported_pcm_container_codec_is_counted_without_failing_the_scan() {
     metadata::write_test_wav_with_format(&music.join("float.wav"), "Float", "Artist", "Album", 3)
         .unwrap();
     let mut store = LibraryStore::open_in_memory().unwrap();
-    let root = store.add_storage_root(&music, "Music").unwrap();
+    let root =
+        crate::backend::library::repo::storage_roots::add(&mut store, &music, "Music").unwrap();
     let mut actions = Vec::new();
 
     let report = storage_root(
@@ -278,8 +315,13 @@ fn unsupported_pcm_container_codec_is_counted_without_failing_the_scan() {
     assert_eq!(report.unsupported, 1);
     assert!(report.errors.is_empty());
     assert!(actions.contains(&ScanProgressAction::Unsupported));
-    assert_eq!(store.tracks_for_root(root.id).unwrap().len(), 1);
-    let history = store.recent_scans(root.id, 1).unwrap();
+    assert_eq!(
+        crate::backend::library::repo::tracks::for_root(&store, root.id)
+            .unwrap()
+            .len(),
+        1
+    );
+    let history = crate::backend::library::repo::scan_history::recent(&store, root.id, 1).unwrap();
     assert_eq!(history[0].unsupported_count, 1);
     assert_eq!(history[0].error_count, 0);
 }
@@ -292,11 +334,14 @@ fn walk_errors_surface_that_missing_track_removals_were_suppressed() {
     let track_path = music.join("track.wav");
     metadata::write_test_wav(&track_path, "Track", "Artist", "Album").unwrap();
     let mut store = LibraryStore::open_in_memory().unwrap();
-    let root = store.add_storage_root(&music, "Music").unwrap();
+    let root =
+        crate::backend::library::repo::storage_roots::add(&mut store, &music, "Music").unwrap();
     storage_root(&mut store, root.id, temp.path().join("covers"), |_| {}).unwrap();
     fs::remove_file(track_path).unwrap();
     let started_at_ms = system_time_ms(SystemTime::now()).unwrap();
-    let scan_id = store.begin_scan(root.id, started_at_ms).unwrap();
+    let scan_id =
+        crate::backend::library::repo::scan_history::begin(&mut store, root.id, started_at_ms)
+            .unwrap();
 
     let report = apply_reachable_scan(
         &mut store,
@@ -319,8 +364,16 @@ fn walk_errors_surface_that_missing_track_removals_were_suppressed() {
     assert!(report.removals_suppressed);
     assert_eq!(report.outcome, ScanOutcome::CompletedWithErrors);
     assert_eq!(report.removed, 0);
-    assert_eq!(store.tracks_for_root(root.id).unwrap().len(), 1);
-    assert!(store.recent_scans(root.id, 1).unwrap()[0].removals_suppressed);
+    assert_eq!(
+        crate::backend::library::repo::tracks::for_root(&store, root.id)
+            .unwrap()
+            .len(),
+        1
+    );
+    assert!(
+        crate::backend::library::repo::scan_history::recent(&store, root.id, 1).unwrap()[0]
+            .removals_suppressed
+    );
 }
 
 #[test]
@@ -331,7 +384,8 @@ fn progress_callbacks_can_read_committed_rows_from_a_second_connection() {
     fs::create_dir(&music).unwrap();
     metadata::write_test_wav(&music.join("track.wav"), "Track", "Artist", "Album").unwrap();
     let mut store = LibraryStore::open(&database).unwrap();
-    let root = store.add_storage_root(&music, "Music").unwrap();
+    let root =
+        crate::backend::library::repo::storage_roots::add(&mut store, &music, "Music").unwrap();
     let mut visible_tracks = 0;
 
     storage_root(
@@ -340,11 +394,12 @@ fn progress_callbacks_can_read_committed_rows_from_a_second_connection() {
         temp.path().join("covers"),
         |progress| {
             if matches!(progress, ScanProgress::Processing { .. }) {
-                visible_tracks = LibraryStore::open(&database)
-                    .unwrap()
-                    .root_summary(root.id)
-                    .unwrap()
-                    .track_count;
+                visible_tracks = crate::backend::library::repo::tracks::root_summary(
+                    &LibraryStore::open(&database).unwrap(),
+                    root.id,
+                )
+                .unwrap()
+                .track_count;
             }
         },
     )
@@ -363,14 +418,15 @@ fn cover_cache_failure_keeps_the_scanned_track() {
     let unusable_cache_path = temp.path().join("not-a-directory");
     fs::write(&unusable_cache_path, "occupied").unwrap();
     let mut store = LibraryStore::open_in_memory().unwrap();
-    let root = store.add_storage_root(&music, "Music").unwrap();
+    let root =
+        crate::backend::library::repo::storage_roots::add(&mut store, &music, "Music").unwrap();
 
     let report = storage_root(&mut store, root.id, &unusable_cache_path, |_| {}).unwrap();
 
     assert_eq!(report.outcome, ScanOutcome::CompletedWithErrors);
     assert_eq!(report.added, 1);
     assert_eq!(report.errors.len(), 1);
-    let tracks = store.tracks_for_root(root.id).unwrap();
+    let tracks = crate::backend::library::repo::tracks::for_root(&store, root.id).unwrap();
     assert_eq!(tracks.len(), 1);
     assert_eq!(tracks[0].title.as_deref(), Some("Track"));
     assert!(tracks[0].cover_art_path.is_none());
@@ -388,11 +444,12 @@ fn folder_art_prefers_conventional_names_and_extensions() {
     fs::write(music.join("cover.png"), test_art(2)).unwrap();
     fs::write(music.join("COVER.JPG"), test_art(1)).unwrap();
     let mut store = LibraryStore::open_in_memory().unwrap();
-    let root = store.add_storage_root(&music, "Music").unwrap();
+    let root =
+        crate::backend::library::repo::storage_roots::add(&mut store, &music, "Music").unwrap();
 
     storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
 
-    let track = &store.tracks_for_root(root.id).unwrap()[0];
+    let track = &crate::backend::library::repo::tracks::for_root(&store, root.id).unwrap()[0];
     assert_eq!(track.cover_art_mime_type.as_deref(), Some("image/jpeg"));
     assert_eq!(
         fs::read(track.cover_art_path.as_ref().unwrap()).unwrap(),
@@ -409,12 +466,13 @@ fn folder_art_ignores_booklet_scans() {
     metadata::write_test_wav(&music.join("track.wav"), "Track", "Artist", "Album").unwrap();
     fs::write(music.join("P001.jpg"), TEST_PNG).unwrap();
     let mut store = LibraryStore::open_in_memory().unwrap();
-    let root = store.add_storage_root(&music, "Music").unwrap();
+    let root =
+        crate::backend::library::repo::storage_roots::add(&mut store, &music, "Music").unwrap();
 
     storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
 
     assert!(
-        store.tracks_for_root(root.id).unwrap()[0]
+        crate::backend::library::repo::tracks::for_root(&store, root.id).unwrap()[0]
             .cover_art_path
             .is_none()
     );
@@ -430,10 +488,11 @@ fn incremental_scan_fills_missing_cover_without_rereading_audio() {
     let track_path = music.join("track.wav");
     metadata::write_test_wav(&track_path, "Track", "Artist", "Album").unwrap();
     let mut store = LibraryStore::open_in_memory().unwrap();
-    let root = store.add_storage_root(&music, "Music").unwrap();
+    let root =
+        crate::backend::library::repo::storage_roots::add(&mut store, &music, "Music").unwrap();
     storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
     assert!(
-        store.tracks_for_root(root.id).unwrap()[0]
+        crate::backend::library::repo::tracks::for_root(&store, root.id).unwrap()[0]
             .cover_art_path
             .is_none()
     );
@@ -450,7 +509,7 @@ fn incremental_scan_fills_missing_cover_without_rereading_audio() {
     let report = storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
 
     assert_eq!((report.updated, report.skipped), (1, 0));
-    let track = &store.tracks_for_root(root.id).unwrap()[0];
+    let track = &crate::backend::library::repo::tracks::for_root(&store, root.id).unwrap()[0];
     assert_eq!(track.cover_art_mime_type.as_deref(), Some("image/png"));
     assert_eq!(
         fs::read(track.cover_art_path.as_ref().unwrap()).unwrap(),
@@ -469,9 +528,12 @@ fn folder_art_rescan_moves_the_cover_to_a_new_content_unique_path() {
     metadata::write_test_wav(&track_path, "Track", "Artist", "Album").unwrap();
     fs::write(&art_path, test_art(1)).unwrap();
     let mut store = LibraryStore::open_in_memory().unwrap();
-    let root = store.add_storage_root(&music, "Music").unwrap();
+    let root =
+        crate::backend::library::repo::storage_roots::add(&mut store, &music, "Music").unwrap();
     storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
-    let first_track = store.tracks_for_root(root.id).unwrap().remove(0);
+    let first_track = crate::backend::library::repo::tracks::for_root(&store, root.id)
+        .unwrap()
+        .remove(0);
     let first_cover_path = first_track.cover_art_path.unwrap();
 
     fs::write(&art_path, test_art(2)).unwrap();
@@ -483,7 +545,7 @@ fn folder_art_rescan_moves_the_cover_to_a_new_content_unique_path() {
         .set_times(fs::FileTimes::new().set_modified(previous_modified + Duration::from_secs(2)))
         .unwrap();
     let report = storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
-    let track = &store.tracks_for_root(root.id).unwrap()[0];
+    let track = &crate::backend::library::repo::tracks::for_root(&store, root.id).unwrap()[0];
 
     assert_eq!(report.updated, 1);
     assert_eq!(track.id, first_track.id);
@@ -508,9 +570,10 @@ fn cover_cache_paths_are_content_unique_and_deterministic() {
     fs::create_dir(&music).unwrap();
     metadata::write_test_wav(&music.join("track.wav"), "Track", "Artist", "Album").unwrap();
     let mut store = LibraryStore::open_in_memory().unwrap();
-    let root = store.add_storage_root(&music, "Music").unwrap();
+    let root =
+        crate::backend::library::repo::storage_roots::add(&mut store, &music, "Music").unwrap();
     storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
-    let track_id = store.tracks_for_root(root.id).unwrap()[0].id;
+    let track_id = crate::backend::library::repo::tracks::for_root(&store, root.id).unwrap()[0].id;
 
     let cache_bytes = |store: &mut LibraryStore, data: Vec<u8>, mime: &str| {
         let transaction = store.transaction().unwrap();
@@ -535,7 +598,7 @@ fn cover_cache_paths_are_content_unique_and_deterministic() {
     assert_eq!(first, same_again, "identical bytes keep a stable path");
     assert_ne!(first, changed, "different bytes get a different path");
     assert_eq!(fs::read(&changed).unwrap(), [9, 8]);
-    let track = &store.tracks_for_root(root.id).unwrap()[0];
+    let track = &crate::backend::library::repo::tracks::for_root(&store, root.id).unwrap()[0];
     assert_eq!(track.cover_art_path.as_ref(), Some(&changed));
     assert_eq!(track.cover_art_mime_type.as_deref(), Some("image/jpeg"));
 }
@@ -549,7 +612,12 @@ fn real_library_scan_timing() {
     };
     let temp = tempdir().unwrap();
     let mut store = LibraryStore::open(temp.path().join("library.sqlite")).unwrap();
-    let root = store.add_storage_root(&root_path, "Real library").unwrap();
+    let root = crate::backend::library::repo::storage_roots::add(
+        &mut store,
+        std::path::Path::new(&root_path),
+        "Real library",
+    )
+    .unwrap();
     let cache = temp.path().join("covers");
 
     let first_started = Instant::now();
@@ -590,7 +658,7 @@ fn real_library_scan_timing() {
 
     let mut compared = 0;
     let mut divergent = 0;
-    for track in store.tracks_for_root(root.id).unwrap() {
+    for track in crate::backend::library::repo::tracks::for_root(&store, root.id).unwrap() {
         let Ok(stream) = pulse_engine::decode::open(&track.path) else {
             continue;
         };

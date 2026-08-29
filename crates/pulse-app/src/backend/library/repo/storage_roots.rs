@@ -1,12 +1,14 @@
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{OptionalExtension, params};
 
 use super::super::{
     LibraryError, StorageRoot, StorageRootId, path::normalize_storage_root, system_time_ms,
 };
-use super::{artists, playlists, scan_history, select_list, tracks};
+use super::{
+    LibraryStore, LibraryTransaction, artists, playlists, scan_history, select_list, tracks,
+};
 
 const COLUMNS: &[&str] = &[
     "id",
@@ -45,10 +47,11 @@ impl From<StorageRootRow> for StorageRoot {
 }
 
 pub fn add(
-    conn: &Connection,
+    store: &mut LibraryStore,
     path: &Path,
     display_name: &str,
 ) -> Result<StorageRoot, LibraryError> {
+    let conn = &store.connection;
     let normalized = normalize_storage_root(path)?;
     let added_at_ms = system_time_ms(SystemTime::now())?;
     let id = conn.query_row(
@@ -66,13 +69,14 @@ pub fn add(
         |row| row.get(0),
     )?;
 
-    get(conn, id)?.ok_or(LibraryError::StorageRootNotFound(id))
+    get(store, id)?.ok_or(LibraryError::StorageRootNotFound(id))
 }
 
 pub fn get(
-    conn: &Connection,
+    store: &LibraryStore,
     storage_root_id: StorageRootId,
 ) -> Result<Option<StorageRoot>, LibraryError> {
+    let conn = &store.connection;
     let columns = select_list(COLUMNS);
     let sql = format!(
         "SELECT {columns}
@@ -84,7 +88,8 @@ pub fn get(
         .map_err(Into::into)
 }
 
-pub fn list(conn: &Connection) -> Result<Vec<StorageRoot>, LibraryError> {
+pub fn list(store: &LibraryStore) -> Result<Vec<StorageRoot>, LibraryError> {
+    let conn = &store.connection;
     let columns = select_list(COLUMNS);
     let sql = format!(
         "SELECT {columns}
@@ -99,10 +104,11 @@ pub fn list(conn: &Connection) -> Result<Vec<StorageRoot>, LibraryError> {
 }
 
 pub fn rename(
-    conn: &Connection,
+    store: &mut LibraryStore,
     storage_root_id: StorageRootId,
     display_name: &str,
 ) -> Result<StorageRoot, LibraryError> {
+    let conn = &store.connection;
     let updated = conn.execute(
         "UPDATE storage_roots SET display_name = ?2 WHERE id = ?1",
         params![storage_root_id, display_name],
@@ -110,15 +116,15 @@ pub fn rename(
     if updated == 0 {
         return Err(LibraryError::StorageRootNotFound(storage_root_id));
     }
-    get(conn, storage_root_id)?.ok_or(LibraryError::StorageRootNotFound(storage_root_id))
+    get(store, storage_root_id)?.ok_or(LibraryError::StorageRootNotFound(storage_root_id))
 }
 
 pub fn remove(
-    conn: &mut Connection,
+    store: &mut LibraryStore,
     storage_root_id: StorageRootId,
 ) -> Result<Vec<PathBuf>, LibraryError> {
     let refreshed_at_ms = system_time_ms(SystemTime::now())?;
-    let transaction = conn.transaction()?;
+    let transaction = store.transaction()?;
     let cover_art_paths = tracks::cover_paths_for_root(&transaction, storage_root_id)?;
     playlists::delete_entries_for_root(&transaction, storage_root_id)?;
     scan_history::delete_for_root(&transaction, storage_root_id)?;
@@ -134,14 +140,20 @@ pub fn remove(
 
 /// Deletes the root row alone; callers clear the root's children first.
 /// Returns the number of rows deleted so callers can map zero to not-found.
-pub fn delete(conn: &Connection, storage_root_id: StorageRootId) -> Result<usize, LibraryError> {
-    Ok(conn.execute("DELETE FROM storage_roots WHERE id = ?1", [storage_root_id])?)
+pub fn delete(
+    transaction: &LibraryTransaction<'_>,
+    storage_root_id: StorageRootId,
+) -> Result<usize, LibraryError> {
+    Ok(transaction
+        .inner
+        .execute("DELETE FROM storage_roots WHERE id = ?1", [storage_root_id])?)
 }
 
 pub fn mark_reachable(
-    conn: &Connection,
+    store: &mut LibraryStore,
     storage_root_id: StorageRootId,
 ) -> Result<(), LibraryError> {
+    let conn = &store.connection;
     conn.execute(
         "UPDATE storage_roots SET is_reachable = 1 WHERE id = ?1",
         [storage_root_id],
@@ -152,11 +164,12 @@ pub fn mark_reachable(
 /// Stamps a finished scan onto the root: always the last-scan time, and the
 /// reachability verdict when the scan produced one (a failed scan does not).
 pub fn record_scan_outcome(
-    conn: &Connection,
+    transaction: &LibraryTransaction<'_>,
     storage_root_id: StorageRootId,
     last_scan_at_ms: i64,
     is_reachable: Option<bool>,
 ) -> Result<(), LibraryError> {
+    let conn = &transaction.inner;
     match is_reachable {
         Some(is_reachable) => conn.execute(
             "UPDATE storage_roots
@@ -205,13 +218,20 @@ mod tests {
     fn renames_a_storage_root() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Before").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Before")
+                .unwrap();
 
-        let renamed = store.rename_storage_root(root.id, "After").unwrap();
+        let renamed =
+            crate::backend::library::repo::storage_roots::rename(&mut store, root.id, "After")
+                .unwrap();
 
         assert_eq!(renamed.display_name, "After");
         assert_eq!(
-            store.storage_root(root.id).unwrap().unwrap().display_name,
+            crate::backend::library::repo::storage_roots::get(&store, root.id)
+                .unwrap()
+                .unwrap()
+                .display_name,
             "After"
         );
     }
@@ -226,7 +246,9 @@ mod tests {
             .connection
             .execute_batch("PRAGMA foreign_keys = OFF")
             .unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         let file = test_file(&root, "track.wav", 1, 10);
         let id = insert_track(
             &mut store,
@@ -242,7 +264,7 @@ mod tests {
         );
         let cover_path = temp.path().join("cover.cache");
         {
-            let transaction = store.connection.transaction().unwrap();
+            let transaction = store.transaction().unwrap();
             set_track_cover(
                 &transaction,
                 id,
@@ -253,17 +275,35 @@ mod tests {
             transaction.commit().unwrap();
         }
 
-        let playlist = store.create_playlist("Keeper").unwrap();
-        store.append_playlist_tracks(playlist.id, &[id]).unwrap();
-        store.begin_scan(root.id, 100).unwrap();
+        let playlist =
+            crate::backend::library::repo::playlists::create(&mut store, "Keeper").unwrap();
+        crate::backend::library::repo::playlists::append_tracks_transactional(
+            &mut store,
+            playlist.id,
+            &[id],
+        )
+        .unwrap();
+        crate::backend::library::repo::scan_history::begin(&mut store, root.id, 100).unwrap();
 
         assert_eq!(
-            store.remove_storage_root(root.id).unwrap(),
+            crate::backend::library::repo::storage_roots::remove(&mut store, root.id).unwrap(),
             vec![cover_path]
         );
-        assert!(store.storage_root(root.id).unwrap().is_none());
-        assert!(store.tracks_for_root(root.id).unwrap().is_empty());
-        assert!(store.artist_index().unwrap().is_empty());
+        assert!(
+            crate::backend::library::repo::storage_roots::get(&store, root.id)
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            crate::backend::library::repo::tracks::for_root(&store, root.id)
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            crate::backend::library::repo::artists::index(&store)
+                .unwrap()
+                .is_empty()
+        );
         let count = |sql: &str| -> i64 {
             store
                 .connection
@@ -285,7 +325,10 @@ mod tests {
             "playlist entries of the root's tracks are deleted explicitly"
         );
         assert_eq!(
-            store.playlist(playlist.id).unwrap().unwrap().name,
+            crate::backend::library::repo::playlists::get(&store, playlist.id)
+                .unwrap()
+                .unwrap()
+                .name,
             "Keeper",
             "the playlist itself survives"
         );

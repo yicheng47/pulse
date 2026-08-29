@@ -3,14 +3,15 @@ use std::{
     path::PathBuf,
 };
 
-use rusqlite::{Connection, Transaction, params, params_from_iter, types::Value};
+use rusqlite::{params, params_from_iter, types::Value};
 
 use super::super::{
     LibraryError, LibrarySummary, StorageRootId, Track, TrackId, TrackPage, TrackQueryFilter,
     TrackSortOrder, UNKNOWN_ALBUM, UNKNOWN_ARTIST, metadata::AudioMetadata, walk::DiscoveredFile,
 };
 use super::{
-    EFFECTIVE_ALBUM_ARTIST_SQL, album_title_sql, qualified_select_list, select_list, usize_to_i64,
+    EFFECTIVE_ALBUM_ARTIST_SQL, LibraryStore, LibraryTransaction, album_title_sql,
+    qualified_select_list, select_list, usize_to_i64,
 };
 
 /// Column list matching `track_from_row_at`'s positional mapping — every
@@ -129,10 +130,12 @@ pub struct ExistingTrack {
     pub cover_art_path: Option<PathBuf>,
 }
 
+#[cfg_attr(not(test), allow(dead_code, reason = "retained tested repo query"))]
 pub fn for_root(
-    conn: &Connection,
+    store: &LibraryStore,
     storage_root_id: StorageRootId,
 ) -> Result<Vec<Track>, LibraryError> {
+    let conn = &store.connection;
     let columns = select_list(COLUMNS);
     let sql = format!(
         "SELECT {columns}
@@ -147,7 +150,9 @@ pub fn for_root(
     Ok(tracks)
 }
 
-pub fn all(conn: &Connection, sort_order: TrackSortOrder) -> Result<Vec<Track>, LibraryError> {
+#[cfg_attr(not(test), allow(dead_code, reason = "retained tested repo query"))]
+pub fn all(store: &LibraryStore, sort_order: TrackSortOrder) -> Result<Vec<Track>, LibraryError> {
+    let conn = &store.connection;
     let columns = select_list(COLUMNS);
     let sql = format!(
         "SELECT {columns}
@@ -163,13 +168,14 @@ pub fn all(conn: &Connection, sort_order: TrackSortOrder) -> Result<Vec<Track>, 
 }
 
 pub fn page(
-    conn: &Connection,
+    store: &LibraryStore,
     sort_order: TrackSortOrder,
     filter: &TrackQueryFilter,
     artist_filter: Option<&str>,
     limit: usize,
     offset: usize,
 ) -> Result<TrackPage, LibraryError> {
+    let conn = &store.connection;
     assert!(limit > 0, "track page size must be positive");
 
     let (where_clause, mut parameters) = track_filter_clause(filter, artist_filter);
@@ -205,11 +211,12 @@ pub fn page(
 }
 
 pub fn matching(
-    conn: &Connection,
+    store: &LibraryStore,
     sort_order: TrackSortOrder,
     filter: &TrackQueryFilter,
     artist_filter: Option<&str>,
 ) -> Result<Vec<Track>, LibraryError> {
+    let conn = &store.connection;
     let (where_clause, parameters) = track_filter_clause(filter, artist_filter);
     let columns = select_list(COLUMNS);
     let sql = format!(
@@ -225,7 +232,12 @@ pub fn matching(
     Ok(tracks)
 }
 
-pub fn for_album(conn: &Connection, artist: &str, title: &str) -> Result<Vec<Track>, LibraryError> {
+pub fn for_album(
+    store: &LibraryStore,
+    artist: &str,
+    title: &str,
+) -> Result<Vec<Track>, LibraryError> {
+    let conn = &store.connection;
     let sql = for_album_sql();
     let mut statement = conn.prepare(&sql)?;
     let tracks = statement
@@ -237,15 +249,17 @@ pub fn for_album(conn: &Connection, artist: &str, title: &str) -> Result<Vec<Tra
     Ok(tracks)
 }
 
-pub fn preflight_write(conn: &mut Connection) -> Result<(), LibraryError> {
-    let transaction = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+pub fn preflight_write(store: &mut LibraryStore) -> Result<(), LibraryError> {
+    let transaction = store
+        .connection
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
     transaction.rollback()?;
     Ok(())
 }
 
-pub fn delete_tracks(conn: &mut Connection, track_ids: &[TrackId]) -> Result<(), LibraryError> {
+pub fn delete_tracks(store: &mut LibraryStore, track_ids: &[TrackId]) -> Result<(), LibraryError> {
     let refreshed_at_ms = super::super::system_time_ms(std::time::SystemTime::now())?;
-    let transaction = conn.transaction()?;
+    let transaction = store.transaction()?;
     for &track_id in track_ids {
         delete_track(&transaction, track_id)?;
     }
@@ -268,7 +282,10 @@ fn for_album_sql() -> String {
     sql
 }
 
-pub fn artists(conn: &Connection) -> Result<Vec<(String, u64)>, LibraryError> {
+/// Distinct normalized artists with track counts for the artist-filter popover.
+/// Keep this normalization aligned with the artist branch in `track_filter_clause`.
+pub fn artists(store: &LibraryStore) -> Result<Vec<(String, u64)>, LibraryError> {
+    let conn = &store.connection;
     let mut statement = conn.prepare(
         "SELECT COALESCE(NULLIF(trim(artist), ''), ?1) AS artist_name, COUNT(*)
          FROM tracks
@@ -283,14 +300,16 @@ pub fn artists(conn: &Connection) -> Result<Vec<(String, u64)>, LibraryError> {
     Ok(artists)
 }
 
-pub fn genres(conn: &Connection) -> Result<Vec<String>, LibraryError> {
-    Ok(genre_album_counts(conn)?
+#[cfg_attr(not(test), allow(dead_code, reason = "retained tested repo query"))]
+pub fn genres(store: &LibraryStore) -> Result<Vec<String>, LibraryError> {
+    Ok(genre_album_counts(store)?
         .into_iter()
         .map(|(genre, _)| genre)
         .collect())
 }
 
-pub fn genre_album_counts(conn: &Connection) -> Result<Vec<(String, u64)>, LibraryError> {
+pub fn genre_album_counts(store: &LibraryStore) -> Result<Vec<(String, u64)>, LibraryError> {
+    let conn = &store.connection;
     let album_title = album_title_sql("?2");
     let sql = format!(
         "SELECT {EFFECTIVE_ALBUM_ARTIST_SQL} AS album_owner,
@@ -325,9 +344,10 @@ pub fn genre_album_counts(conn: &Connection) -> Result<Vec<(String, u64)>, Libra
 }
 
 pub fn root_summary(
-    conn: &Connection,
+    store: &LibraryStore,
     storage_root_id: StorageRootId,
 ) -> Result<LibrarySummary, LibraryError> {
+    let conn = &store.connection;
     let album_title = album_title_sql("?2");
     let sql = format!(
         "SELECT
@@ -355,7 +375,8 @@ pub fn root_summary(
     Ok(summary)
 }
 
-pub fn catalog_summary(conn: &Connection) -> Result<LibrarySummary, LibraryError> {
+pub fn catalog_summary(store: &LibraryStore) -> Result<LibrarySummary, LibraryError> {
+    let conn = &store.connection;
     let album_title = album_title_sql("?1");
     let sql = format!(
         "SELECT
@@ -378,9 +399,10 @@ pub fn catalog_summary(conn: &Connection) -> Result<LibrarySummary, LibraryError
 }
 
 pub fn existing(
-    conn: &Connection,
+    store: &LibraryStore,
     storage_root_id: StorageRootId,
 ) -> Result<HashMap<String, ExistingTrack>, LibraryError> {
+    let conn = &store.connection;
     let mut statement = conn.prepare(
         "SELECT id, path, path_key, modified_at_ns, cover_art_path
          FROM tracks
@@ -403,9 +425,10 @@ pub fn existing(
 }
 
 pub fn cover_paths_for_root(
-    conn: &Connection,
+    transaction: &LibraryTransaction<'_>,
     storage_root_id: StorageRootId,
 ) -> Result<Vec<PathBuf>, LibraryError> {
+    let conn = &transaction.inner;
     let mut statement = conn.prepare(
         "SELECT cover_art_path
          FROM tracks
@@ -420,10 +443,10 @@ pub fn cover_paths_for_root(
 }
 
 pub fn delete_for_root(
-    conn: &Connection,
+    transaction: &LibraryTransaction<'_>,
     storage_root_id: StorageRootId,
 ) -> Result<(), LibraryError> {
-    conn.execute(
+    transaction.inner.execute(
         "DELETE FROM tracks WHERE storage_root_id = ?1",
         [storage_root_id],
     )?;
@@ -431,12 +454,13 @@ pub fn delete_for_root(
 }
 
 pub fn upsert_track(
-    transaction: &Transaction<'_>,
+    transaction: &LibraryTransaction<'_>,
     storage_root_id: StorageRootId,
     file: &DiscoveredFile,
     metadata: &AudioMetadata,
     now_ms: i64,
 ) -> Result<TrackId, LibraryError> {
+    let transaction = &transaction.inner;
     let file_size_bytes = i64::try_from(file.file_size_bytes)
         .map_err(|_| LibraryError::IntegerOutOfRange("file size"))?;
     let track_number = metadata.track_number.map(i64::from);
@@ -498,12 +522,12 @@ pub fn upsert_track(
 }
 
 pub fn update_track_path(
-    transaction: &Transaction<'_>,
+    transaction: &LibraryTransaction<'_>,
     track_id: TrackId,
     path: &str,
     updated_at_ms: i64,
 ) -> Result<(), LibraryError> {
-    transaction.execute(
+    transaction.inner.execute(
         "UPDATE tracks SET path = ?2, updated_at_ms = ?3 WHERE id = ?1",
         params![track_id, path, updated_at_ms],
     )?;
@@ -511,12 +535,12 @@ pub fn update_track_path(
 }
 
 pub fn set_track_cover(
-    transaction: &Transaction<'_>,
+    transaction: &LibraryTransaction<'_>,
     track_id: TrackId,
     path: &str,
     mime_type: Option<&str>,
 ) -> Result<(), LibraryError> {
-    transaction.execute(
+    transaction.inner.execute(
         "UPDATE tracks
          SET cover_art_path = ?2, cover_art_mime_type = ?3
          WHERE id = ?1",
@@ -526,10 +550,10 @@ pub fn set_track_cover(
 }
 
 pub fn clear_track_cover(
-    transaction: &Transaction<'_>,
+    transaction: &LibraryTransaction<'_>,
     track_id: TrackId,
 ) -> Result<(), LibraryError> {
-    transaction.execute(
+    transaction.inner.execute(
         "UPDATE tracks
          SET cover_art_path = NULL, cover_art_mime_type = NULL
          WHERE id = ?1",
@@ -538,9 +562,14 @@ pub fn clear_track_cover(
     Ok(())
 }
 
-pub fn delete_track(transaction: &Transaction<'_>, track_id: TrackId) -> Result<(), LibraryError> {
+pub fn delete_track(
+    transaction: &LibraryTransaction<'_>,
+    track_id: TrackId,
+) -> Result<(), LibraryError> {
     super::playlists::delete_entries_for_track(transaction, track_id)?;
-    transaction.execute("DELETE FROM tracks WHERE id = ?1", [track_id])?;
+    transaction
+        .inner
+        .execute("DELETE FROM tracks WHERE id = ?1", [track_id])?;
     Ok(())
 }
 
@@ -693,7 +722,9 @@ mod tests {
     fn track_artist_facets_and_filters_keep_track_artist_identity() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         insert_track(
             &mut store,
             &root,
@@ -707,32 +738,32 @@ mod tests {
         );
 
         assert_eq!(
-            store.artists().unwrap(),
+            crate::backend::library::repo::tracks::artists(&store).unwrap(),
             [("Featured Singer".to_string(), 1)]
         );
         assert_eq!(
-            store
-                .track_page(
-                    TrackSortOrder::Title,
-                    &TrackQueryFilter::All,
-                    Some("Featured Singer"),
-                    10,
-                    0,
-                )
-                .unwrap()
-                .tracks
-                .len(),
+            crate::backend::library::repo::tracks::page(
+                &store,
+                TrackSortOrder::Title,
+                &TrackQueryFilter::All,
+                Some("Featured Singer"),
+                10,
+                0,
+            )
+            .unwrap()
+            .tracks
+            .len(),
             1
         );
         assert!(
-            store
-                .matching_tracks(
-                    TrackSortOrder::Title,
-                    &TrackQueryFilter::All,
-                    Some("Album Owner"),
-                )
-                .unwrap()
-                .is_empty()
+            crate::backend::library::repo::tracks::matching(
+                &store,
+                TrackSortOrder::Title,
+                &TrackQueryFilter::All,
+                Some("Album Owner"),
+            )
+            .unwrap()
+            .is_empty()
         );
     }
 
@@ -740,7 +771,9 @@ mod tests {
     fn inserts_and_incrementally_updates_a_track_in_place() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         let mut file = test_file(&root, "track.wav", 10, 100);
 
         let first_id = insert_track(
@@ -758,14 +791,16 @@ mod tests {
             &test_metadata("Updated", "Artist", Some("Album"), Some("Album Artist")),
         );
 
-        let tracks = store.tracks_for_root(root.id).unwrap();
+        let tracks = crate::backend::library::repo::tracks::for_root(&store, root.id).unwrap();
         assert_eq!(first_id, second_id);
         assert_eq!(tracks.len(), 1);
         assert_eq!(tracks[0].title.as_deref(), Some("Updated"));
         assert_eq!(tracks[0].modified_at_ns, 20);
         assert_eq!(tracks[0].file_size_bytes, 200);
         assert_eq!(
-            store.existing_tracks(root.id).unwrap()[&file.path_key].modified_at_ns,
+            crate::backend::library::repo::tracks::existing(&store, root.id).unwrap()
+                [&file.path_key]
+                .modified_at_ns,
             20
         );
     }
@@ -775,10 +810,18 @@ mod tests {
         let first_temp = tempdir().unwrap();
         let second_temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let first_root = store.add_storage_root(first_temp.path(), "First").unwrap();
-        let second_root = store
-            .add_storage_root(second_temp.path(), "Second")
-            .unwrap();
+        let first_root = crate::backend::library::repo::storage_roots::add(
+            &mut store,
+            first_temp.path(),
+            "First",
+        )
+        .unwrap();
+        let second_root = crate::backend::library::repo::storage_roots::add(
+            &mut store,
+            second_temp.path(),
+            "Second",
+        )
+        .unwrap();
 
         for (index, (album, album_artist)) in [
             (Some("Shared"), Some("Artist A")),
@@ -804,7 +847,7 @@ mod tests {
         );
 
         assert_eq!(
-            store.root_summary(first_root.id).unwrap(),
+            crate::backend::library::repo::tracks::root_summary(&store, first_root.id).unwrap(),
             LibrarySummary {
                 album_count: 3,
                 track_count: 4,
@@ -812,7 +855,7 @@ mod tests {
             }
         );
         assert_eq!(
-            store.catalog_summary().unwrap(),
+            crate::backend::library::repo::tracks::catalog_summary(&store).unwrap(),
             LibrarySummary {
                 album_count: 4,
                 track_count: 5,
@@ -825,7 +868,9 @@ mod tests {
     fn delete_tracks_removes_rows_and_playlist_entries_for_only_the_given_tracks() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         let doomed_first = insert_track(
             &mut store,
             &root,
@@ -844,25 +889,34 @@ mod tests {
             &test_file(&root, "survivor.wav", 3, 10),
             &test_metadata("Three", "Artist", Some("Kept"), None),
         );
-        let playlist = store.create_playlist("Mixed").unwrap();
-        store
-            .append_playlist_tracks(playlist.id, &[doomed_first, survivor, doomed_second])
-            .unwrap();
+        let playlist =
+            crate::backend::library::repo::playlists::create(&mut store, "Mixed").unwrap();
+        crate::backend::library::repo::playlists::append_tracks_transactional(
+            &mut store,
+            playlist.id,
+            &[doomed_first, survivor, doomed_second],
+        )
+        .unwrap();
 
-        store.delete_tracks(&[doomed_first, doomed_second]).unwrap();
+        crate::backend::library::repo::tracks::delete_tracks(
+            &mut store,
+            &[doomed_first, doomed_second],
+        )
+        .unwrap();
 
         assert!(
-            store
-                .tracks_for_album("Artist", "Doomed")
+            crate::backend::library::repo::tracks::for_album(&store, "Artist", "Doomed")
                 .unwrap()
                 .is_empty()
         );
-        let kept = store.tracks_for_album("Artist", "Kept").unwrap();
+        let kept =
+            crate::backend::library::repo::tracks::for_album(&store, "Artist", "Kept").unwrap();
         assert_eq!(
             kept.iter().map(|track| track.id).collect::<Vec<_>>(),
             vec![survivor]
         );
-        let entries = store.playlist_tracks(playlist.id).unwrap();
+        let entries =
+            crate::backend::library::repo::playlists::tracks(&store, playlist.id).unwrap();
         assert_eq!(
             entries
                 .iter()
@@ -876,7 +930,9 @@ mod tests {
     fn all_tracks_implements_every_mvp_sort_order() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         let mut beta = test_metadata("Beta", "Alpha", Some("Zulu"), None);
         beta.year = Some(2020);
         beta.duration_ms = Some(3_000);
@@ -905,8 +961,7 @@ mod tests {
             .unwrap();
 
         let titles = |sort_order| {
-            store
-                .all_tracks(sort_order)
+            crate::backend::library::repo::tracks::all(&store, sort_order)
                 .unwrap()
                 .into_iter()
                 .map(|track| track.title.unwrap())
@@ -943,7 +998,9 @@ mod tests {
     fn track_pages_apply_backend_filters_counts_and_offsets() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         for (index, (title, artist, genre, bit_depth, sample_rate_hz, added_at_ms)) in [
             ("Alpha", "Artist A", "Jazz", 16, 44_100, 100),
             ("Bravo", "Artist B", "Rock", 24, 44_100, 200),
@@ -974,9 +1031,15 @@ mod tests {
                 .unwrap();
         }
 
-        let page = store
-            .track_page(TrackSortOrder::Title, &TrackQueryFilter::All, None, 2, 2)
-            .unwrap();
+        let page = crate::backend::library::repo::tracks::page(
+            &store,
+            TrackSortOrder::Title,
+            &TrackQueryFilter::All,
+            None,
+            2,
+            2,
+        )
+        .unwrap();
         assert_eq!(page.total_count, 6);
         let first_track_on_page = page.tracks[0].id;
         assert_eq!(
@@ -989,15 +1052,15 @@ mod tests {
 
         let mut paged_titles = Vec::new();
         for offset in [0, 2, 4] {
-            let page = store
-                .track_page(
-                    TrackSortOrder::Title,
-                    &TrackQueryFilter::All,
-                    None,
-                    2,
-                    offset,
-                )
-                .unwrap();
+            let page = crate::backend::library::repo::tracks::page(
+                &store,
+                TrackSortOrder::Title,
+                &TrackQueryFilter::All,
+                None,
+                2,
+                offset,
+            )
+            .unwrap();
             assert_eq!(page.total_count, 6);
             paged_titles.extend(page.tracks.into_iter().map(|track| track.title.unwrap()));
         }
@@ -1006,59 +1069,69 @@ mod tests {
             ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"]
         );
 
-        let artist = store
-            .track_page(
-                TrackSortOrder::Title,
-                &TrackQueryFilter::All,
-                Some("artist a"),
-                50,
-                0,
-            )
-            .unwrap();
+        let artist = crate::backend::library::repo::tracks::page(
+            &store,
+            TrackSortOrder::Title,
+            &TrackQueryFilter::All,
+            Some("artist a"),
+            50,
+            0,
+        )
+        .unwrap();
         assert_eq!(artist.total_count, 3);
-        let jazz = store
-            .track_page(
-                TrackSortOrder::Title,
-                &TrackQueryFilter::Genre("jazz".to_string()),
-                None,
-                50,
-                0,
-            )
-            .unwrap();
+        let jazz = crate::backend::library::repo::tracks::page(
+            &store,
+            TrackSortOrder::Title,
+            &TrackQueryFilter::Genre("jazz".to_string()),
+            None,
+            50,
+            0,
+        )
+        .unwrap();
         assert_eq!(jazz.total_count, 3, "comma-list member still matches");
-        let modal = store
-            .track_page(
-                TrackSortOrder::Title,
-                &TrackQueryFilter::Genre("modal".to_string()),
-                None,
-                50,
-                0,
-            )
-            .unwrap();
+        let modal = crate::backend::library::repo::tracks::page(
+            &store,
+            TrackSortOrder::Title,
+            &TrackQueryFilter::Genre("modal".to_string()),
+            None,
+            50,
+            0,
+        )
+        .unwrap();
         assert_eq!(modal.total_count, 1, "secondary member of the list matches");
         assert_eq!(
-            store.genres().unwrap(),
+            crate::backend::library::repo::tracks::genres(&store).unwrap(),
             ["Jazz", "Modal", "Rock"],
             "comma lists split into one chip per member"
         );
-        let hi_res = store
-            .track_page(TrackSortOrder::Title, &TrackQueryFilter::HiRes, None, 50, 0)
-            .unwrap();
+        let hi_res = crate::backend::library::repo::tracks::page(
+            &store,
+            TrackSortOrder::Title,
+            &TrackQueryFilter::HiRes,
+            None,
+            50,
+            0,
+        )
+        .unwrap();
         assert_eq!(hi_res.total_count, 2);
-        let recent = store
-            .track_page(
-                TrackSortOrder::Title,
-                &TrackQueryFilter::AddedSince(400),
-                None,
-                50,
-                0,
-            )
-            .unwrap();
+        let recent = crate::backend::library::repo::tracks::page(
+            &store,
+            TrackSortOrder::Title,
+            &TrackQueryFilter::AddedSince(400),
+            None,
+            50,
+            0,
+        )
+        .unwrap();
         assert_eq!(recent.total_count, 3);
 
-        let queue = store
-            .matching_tracks(TrackSortOrder::Title, &TrackQueryFilter::All, None)
-            .unwrap();
+        let queue = crate::backend::library::repo::tracks::matching(
+            &store,
+            TrackSortOrder::Title,
+            &TrackQueryFilter::All,
+            None,
+        )
+        .unwrap();
         assert_eq!(queue.len(), 6);
         assert_eq!(
             queue
@@ -1067,13 +1140,13 @@ mod tests {
             Some(2)
         );
 
-        let matching = store
-            .matching_tracks(
-                TrackSortOrder::Title,
-                &TrackQueryFilter::Genre("jazz".to_string()),
-                None,
-            )
-            .unwrap();
+        let matching = crate::backend::library::repo::tracks::matching(
+            &store,
+            TrackSortOrder::Title,
+            &TrackQueryFilter::Genre("jazz".to_string()),
+            None,
+        )
+        .unwrap();
         assert_eq!(matching.len(), 3);
         assert_eq!(
             matching
@@ -1088,7 +1161,9 @@ mod tests {
     fn track_pages_keep_a_total_order_for_tied_sort_keys() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         for (index, title) in ["Tie C", "Tie A", "Tie B"].into_iter().enumerate() {
             let id = insert_track(
                 &mut store,
@@ -1107,15 +1182,15 @@ mod tests {
 
         let mut seen = Vec::new();
         for offset in [0, 1, 2] {
-            let page = store
-                .track_page(
-                    TrackSortOrder::DateAdded,
-                    &TrackQueryFilter::All,
-                    None,
-                    1,
-                    offset,
-                )
-                .unwrap();
+            let page = crate::backend::library::repo::tracks::page(
+                &store,
+                TrackSortOrder::DateAdded,
+                &TrackQueryFilter::All,
+                None,
+                1,
+                offset,
+            )
+            .unwrap();
             assert_eq!(page.total_count, 3);
             assert_eq!(page.tracks.len(), 1);
             seen.push(page.tracks[0].title.clone().unwrap());
@@ -1132,7 +1207,9 @@ mod tests {
     fn track_pages_are_empty_at_and_beyond_the_end() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         for (index, title) in ["Alpha", "Bravo"].into_iter().enumerate() {
             insert_track(
                 &mut store,
@@ -1143,15 +1220,15 @@ mod tests {
         }
 
         for offset in [2, 100] {
-            let page = store
-                .track_page(
-                    TrackSortOrder::Title,
-                    &TrackQueryFilter::All,
-                    None,
-                    2,
-                    offset,
-                )
-                .unwrap();
+            let page = crate::backend::library::repo::tracks::page(
+                &store,
+                TrackSortOrder::Title,
+                &TrackQueryFilter::All,
+                None,
+                2,
+                offset,
+            )
+            .unwrap();
             assert_eq!(page.total_count, 2);
             assert!(page.tracks.is_empty());
         }
@@ -1161,7 +1238,9 @@ mod tests {
     fn genre_album_counts_split_members_and_count_each_album_once() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         for (index, (title, album, genre)) in [
             ("One A", "Album One", "Jazz, Modal"),
             ("One B", "Album One", "jazz"),
@@ -1182,7 +1261,7 @@ mod tests {
         }
 
         assert_eq!(
-            store.genre_album_counts().unwrap(),
+            crate::backend::library::repo::tracks::genre_album_counts(&store).unwrap(),
             [
                 ("Jazz".to_string(), 2),
                 ("Modal".to_string(), 1),
@@ -1195,7 +1274,9 @@ mod tests {
     fn genre_membership_is_exact_for_chips_tracks_and_albums() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         for (index, (title, album, genre)) in [
             ("Alpha", "Album One", "Jazz,  Modal"),
             ("Bravo", "Album Two", "Rock%"),
@@ -1217,25 +1298,25 @@ mod tests {
         }
 
         assert_eq!(
-            store.genres().unwrap(),
+            crate::backend::library::repo::tracks::genres(&store).unwrap(),
             ["Jazz", "Modal", "R_B", "RnB", "Rock%", "Rockabilly"],
             "chips trim every member, including repeated delimiter whitespace"
         );
 
         let tracks_for = |genre: &str| {
-            store
-                .track_page(
-                    TrackSortOrder::Title,
-                    &TrackQueryFilter::Genre(genre.to_string()),
-                    None,
-                    50,
-                    0,
-                )
-                .unwrap()
-                .tracks
-                .into_iter()
-                .map(|track| track.title.unwrap())
-                .collect::<Vec<_>>()
+            crate::backend::library::repo::tracks::page(
+                &store,
+                TrackSortOrder::Title,
+                &TrackQueryFilter::Genre(genre.to_string()),
+                None,
+                50,
+                0,
+            )
+            .unwrap()
+            .tracks
+            .into_iter()
+            .map(|track| track.title.unwrap())
+            .collect::<Vec<_>>()
         };
         assert_eq!(
             tracks_for("Modal"),
@@ -1254,19 +1335,19 @@ mod tests {
         );
 
         let albums_for = |genre: &str| {
-            store
-                .album_page(
-                    AlbumSortOrder::Title,
-                    &AlbumQueryFilter::Genre(genre.to_string()),
-                    None,
-                    50,
-                    0,
-                )
-                .unwrap()
-                .albums
-                .into_iter()
-                .map(|album| album.title)
-                .collect::<Vec<_>>()
+            crate::backend::library::repo::albums::page(
+                &store,
+                AlbumSortOrder::Title,
+                &AlbumQueryFilter::Genre(genre.to_string()),
+                None,
+                50,
+                0,
+            )
+            .unwrap()
+            .albums
+            .into_iter()
+            .map(|album| album.title)
+            .collect::<Vec<_>>()
         };
         assert_eq!(
             albums_for("Modal"),
@@ -1281,7 +1362,9 @@ mod tests {
     fn orders_album_tracks_by_disc_then_track_number() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
 
         for (name, disc, track) in [("Disc Two", 2, 1), ("Second", 1, 2), ("First", 1, 1)] {
             let mut metadata = test_metadata(name, "Artist", Some("Album"), None);
@@ -1295,8 +1378,7 @@ mod tests {
             );
         }
 
-        let titles = store
-            .tracks_for_album("Artist", "Album")
+        let titles = crate::backend::library::repo::tracks::for_album(&store, "Artist", "Album")
             .unwrap()
             .into_iter()
             .map(|track| track.title.unwrap())

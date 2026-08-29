@@ -1,9 +1,12 @@
 use std::{collections::BTreeSet, path::PathBuf};
 
-use rusqlite::{Connection, OptionalExtension, Transaction, params};
+use rusqlite::{Connection, OptionalExtension, params};
 
 use super::super::{AlbumSortOrder, Artist, LibraryError, TrackId, UNKNOWN_ALBUM};
-use super::{EFFECTIVE_ALBUM_ARTIST_SQL, album_title_sql, albums, select_list};
+use super::{
+    EFFECTIVE_ALBUM_ARTIST_SQL, LibraryStore, LibraryTransaction, album_title_sql, albums,
+    select_list,
+};
 
 const COLUMNS: &[&str] = &[
     "id",
@@ -150,16 +153,18 @@ fn upsert_from_tracks(
 }
 
 pub(super) fn backfill(
-    transaction: &Transaction<'_>,
+    transaction: &LibraryTransaction<'_>,
     refreshed_at_ms: i64,
 ) -> Result<(), LibraryError> {
+    let transaction = &transaction.inner;
     upsert_from_tracks(transaction, refreshed_at_ms, None)
 }
 
 pub(super) fn refresh(
-    transaction: &Transaction<'_>,
+    transaction: &LibraryTransaction<'_>,
     refreshed_at_ms: i64,
 ) -> Result<(), LibraryError> {
+    let transaction = &transaction.inner;
     upsert_from_tracks(transaction, refreshed_at_ms, None)?;
     transaction.execute(
         &format!(
@@ -174,11 +179,12 @@ pub(super) fn refresh(
     Ok(())
 }
 
-pub(super) fn refresh_keys(
-    transaction: &Transaction<'_>,
+pub fn refresh_keys(
+    transaction: &LibraryTransaction<'_>,
     name_keys: &[String],
     refreshed_at_ms: i64,
 ) -> Result<(), LibraryError> {
+    let transaction = &transaction.inner;
     for name_key in name_keys.iter().collect::<BTreeSet<_>>() {
         upsert_from_tracks(transaction, refreshed_at_ms, Some(name_key))?;
         transaction.execute(
@@ -196,10 +202,11 @@ pub(super) fn refresh_keys(
     Ok(())
 }
 
-pub(super) fn name_key_for_track(
-    conn: &Connection,
+pub fn name_key_for_track(
+    transaction: &LibraryTransaction<'_>,
     track_id: TrackId,
 ) -> Result<Option<String>, LibraryError> {
+    let conn = &transaction.inner;
     conn.query_row(
         &format!(
             "SELECT {EFFECTIVE_ALBUM_ARTIST_SQL}
@@ -213,7 +220,8 @@ pub(super) fn name_key_for_track(
     .map_err(Into::into)
 }
 
-pub fn index(conn: &Connection) -> Result<Vec<Artist>, LibraryError> {
+pub fn index(store: &LibraryStore) -> Result<Vec<Artist>, LibraryError> {
+    let conn = &store.connection;
     let columns = select_list(COLUMNS);
     let sql = format!(
         "SELECT {columns},
@@ -265,7 +273,7 @@ mod tests {
     };
 
     fn refresh(store: &mut LibraryStore, refreshed_at_ms: i64) {
-        let transaction = store.connection.transaction().unwrap();
+        let transaction = store.transaction().unwrap();
         super::refresh(&transaction, refreshed_at_ms).unwrap();
         transaction.commit().unwrap();
     }
@@ -298,7 +306,9 @@ mod tests {
     fn artist_index_uses_effective_album_artist_identity_without_splitting_names() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
 
         for (file, title, artist, album, album_artist) in [
             ("one.wav", "One", "王菲", "天空", Some("   ")),
@@ -324,7 +334,7 @@ mod tests {
             .unwrap();
         refresh(&mut store, 1_700_000_000_000);
 
-        let artists = store.artist_index().unwrap();
+        let artists = crate::backend::library::repo::artists::index(&store).unwrap();
         assert_eq!(artists.len(), 2);
         assert_eq!(artists[0].name, "Crosby, Stills & Nash");
         assert_eq!(artists[0].album_count, 1);
@@ -339,7 +349,9 @@ mod tests {
     fn artist_index_ignores_feat_track_artists_and_groups_reissues() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
 
         for (index, (artist, album)) in [
             ("Lead feat. Guest One", "Original"),
@@ -357,7 +369,7 @@ mod tests {
             );
         }
 
-        let artists = store.artist_index().unwrap();
+        let artists = crate::backend::library::repo::artists::index(&store).unwrap();
         assert_eq!(artists.len(), 1);
         assert_eq!(artists[0].name, "Lead");
         assert_eq!(artists[0].album_count, 2);
@@ -368,7 +380,9 @@ mod tests {
     fn artist_index_and_album_filter_share_binary_identity() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
 
         for (file, album, album_artist) in [
             ("muse-one.wav", "Muse One", "Muse"),
@@ -383,30 +397,30 @@ mod tests {
             );
         }
 
-        let artists = store.artist_index().unwrap();
+        let artists = crate::backend::library::repo::artists::index(&store).unwrap();
         let muse = artists.iter().find(|artist| artist.name == "Muse").unwrap();
         let upper = artists.iter().find(|artist| artist.name == "MUSE").unwrap();
         assert_eq!((muse.album_count, muse.track_count), (2, 2));
         assert_eq!((upper.album_count, upper.track_count), (1, 1));
 
-        let muse_albums = store
-            .album_page(
-                AlbumSortOrder::Title,
-                &AlbumQueryFilter::All,
-                Some("Muse"),
-                10,
-                0,
-            )
-            .unwrap();
-        let upper_albums = store
-            .album_page(
-                AlbumSortOrder::Title,
-                &AlbumQueryFilter::All,
-                Some("MUSE"),
-                10,
-                0,
-            )
-            .unwrap();
+        let muse_albums = crate::backend::library::repo::albums::page(
+            &store,
+            AlbumSortOrder::Title,
+            &AlbumQueryFilter::All,
+            Some("Muse"),
+            10,
+            0,
+        )
+        .unwrap();
+        let upper_albums = crate::backend::library::repo::albums::page(
+            &store,
+            AlbumSortOrder::Title,
+            &AlbumQueryFilter::All,
+            Some("MUSE"),
+            10,
+            0,
+        )
+        .unwrap();
         assert_eq!(muse_albums.total_count, muse.album_count as usize);
         assert_eq!(upper_albums.total_count, upper.album_count as usize);
         assert_eq!(
@@ -424,7 +438,9 @@ mod tests {
     fn artist_avatar_uses_the_first_available_cover_in_album_page_order() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         let older = insert_track(
             &mut store,
             &root,
@@ -447,7 +463,7 @@ mod tests {
         let older_cover = temp.path().join("older.cover");
         set_cover(&mut store, older, &older_cover);
 
-        let artists = store.artist_index().unwrap();
+        let artists = crate::backend::library::repo::artists::index(&store).unwrap();
         assert_eq!(artists[0].cover_art_path.as_ref(), Some(&older_cover));
     }
 
@@ -455,14 +471,18 @@ mod tests {
     fn refresh_preserves_artist_identity_and_enrichment_seams() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         insert_track(
             &mut store,
             &root,
             &test_file(&root, "first.wav", 1, 10),
             &test_metadata("First", "Artist", Some("First Album"), Some("Artist")),
         );
-        let original = store.artist_index().unwrap().remove(0);
+        let original = crate::backend::library::repo::artists::index(&store)
+            .unwrap()
+            .remove(0);
         store
             .connection
             .execute(
@@ -481,7 +501,9 @@ mod tests {
             &test_metadata("Second", "Artist", Some("Second Album"), Some("Artist")),
         );
 
-        let refreshed = store.artist_index().unwrap().remove(0);
+        let refreshed = crate::backend::library::repo::artists::index(&store)
+            .unwrap()
+            .remove(0);
         assert_eq!(refreshed.id, original.id);
         assert_eq!(refreshed.created_at_ms, original.created_at_ms);
         assert_eq!((refreshed.album_count, refreshed.track_count), (2, 2));
@@ -500,7 +522,9 @@ mod tests {
     fn deleting_tracks_prunes_empty_artists_and_recounts_survivors() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         let first = insert_track(
             &mut store,
             &root,
@@ -520,9 +544,10 @@ mod tests {
             &test_metadata("Empty", "Gone", Some("Only Album"), Some("Gone")),
         );
 
-        store.delete_tracks(&[first, emptied]).unwrap();
+        crate::backend::library::repo::tracks::delete_tracks(&mut store, &[first, emptied])
+            .unwrap();
 
-        let artists = store.artist_index().unwrap();
+        let artists = crate::backend::library::repo::artists::index(&store).unwrap();
         assert_eq!(artists.len(), 1);
         assert_eq!(artists[0].name_key, "Artist");
         assert_eq!((artists[0].album_count, artists[0].track_count), (1, 1));
@@ -532,7 +557,9 @@ mod tests {
     fn artist_refresh_failure_rolls_back_the_track_delete() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         let track = insert_track(
             &mut store,
             &root,
@@ -548,16 +575,30 @@ mod tests {
             )
             .unwrap();
 
-        assert!(store.delete_tracks(&[track]).is_err());
-        assert_eq!(store.tracks_for_root(root.id).unwrap().len(), 1);
-        assert_eq!(store.artist_index().unwrap().len(), 1);
+        assert!(
+            crate::backend::library::repo::tracks::delete_tracks(&mut store, &[track]).is_err()
+        );
+        assert_eq!(
+            crate::backend::library::repo::tracks::for_root(&store, root.id)
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            crate::backend::library::repo::artists::index(&store)
+                .unwrap()
+                .len(),
+            1
+        );
     }
 
     #[test]
     fn artist_index_reads_only_the_materialized_artist_rows() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         insert_track(
             &mut store,
             &root,
@@ -569,8 +610,14 @@ mod tests {
             .execute("UPDATE tracks SET album_artist = 'After'", [])
             .unwrap();
 
-        assert_eq!(store.artist_index().unwrap()[0].name_key, "Before");
+        assert_eq!(
+            crate::backend::library::repo::artists::index(&store).unwrap()[0].name_key,
+            "Before"
+        );
         refresh(&mut store, 200);
-        assert_eq!(store.artist_index().unwrap()[0].name_key, "After");
+        assert_eq!(
+            crate::backend::library::repo::artists::index(&store).unwrap()[0].name_key,
+            "After"
+        );
     }
 }

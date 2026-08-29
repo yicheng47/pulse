@@ -2,7 +2,7 @@ use std::{collections::HashMap, fs, io};
 
 use crate::backend::library::{
     model::{DeleteAlbumOutcome, LibraryError, StorageRootId, Track, TrackId},
-    repo::LibraryStore,
+    repo::{LibraryStore, storage_roots, tracks as track_repo},
 };
 
 /// Attempt to delete each track's audio file from disk. A missing file
@@ -46,21 +46,19 @@ pub fn album_tracks(
     artist: &str,
     title: &str,
 ) -> Result<DeleteAlbumOutcome, LibraryError> {
-    let tracks = store.tracks_for_album(artist, title)?;
-    let roots = store
-        .storage_roots()?
+    let tracks = track_repo::for_album(store, artist, title)?;
+    let roots = storage_roots::list(store)?
         .into_iter()
         .map(|root| (root.id, root.path))
         .collect::<HashMap<_, _>>();
-    store.preflight_write()?;
+    track_repo::preflight_write(store)?;
     let (deleted_ids, mut failures) = track_files(&tracks, |root_id| {
         roots.get(&root_id).is_some_and(|path| path.exists())
     });
     let db_error = if deleted_ids.is_empty() {
         None
     } else {
-        store
-            .delete_tracks(&deleted_ids)
+        track_repo::delete_tracks(store, &deleted_ids)
             .err()
             .map(|error| error.to_string())
     };
@@ -100,7 +98,9 @@ mod tests {
     fn delete_track_files_tolerates_missing_files_and_keeps_undeletable_tracks() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         let present = test_file(&root, "present.wav", 1, 10);
         fs::write(&present.path, b"audio").unwrap();
         let vanished = test_file(&root, "vanished.wav", 2, 10);
@@ -111,7 +111,7 @@ mod tests {
         let vanished_id = insert_track(&mut store, &root, &vanished, &metadata);
         insert_track(&mut store, &root, &blocked, &metadata);
 
-        let tracks = store.tracks_for_root(root.id).unwrap();
+        let tracks = crate::backend::library::repo::tracks::for_root(&store, root.id).unwrap();
         let (mut deleted, failures) = track_files(&tracks, |_| true);
         deleted.sort_unstable();
 
@@ -130,7 +130,8 @@ mod tests {
         let music = temp.path().join("music");
         fs::create_dir(&music).unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(&music, "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, &music, "Music").unwrap();
         let metadata = test_metadata("Track", "Artist", Some("Album"), None);
         insert_track(
             &mut store,
@@ -153,14 +154,21 @@ mod tests {
         assert_eq!(outcome.failures.len(), 2);
         assert!(outcome.failures.iter().all(|f| f.contains("offline")));
         assert!(outcome.db_error.is_none());
-        assert_eq!(store.tracks_for_album("Artist", "Album").unwrap().len(), 2);
+        assert_eq!(
+            crate::backend::library::repo::tracks::for_album(&store, "Artist", "Album")
+                .unwrap()
+                .len(),
+            2
+        );
     }
 
     #[test]
     fn delete_album_tracks_reports_db_failure_after_files_are_gone() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         let file = test_file(&root, "doomed.wav", 1, 10);
         fs::write(&file.path, b"audio").unwrap();
         insert_track(
@@ -176,14 +184,21 @@ mod tests {
         assert_eq!(outcome.deleted_files, 1);
         assert!(outcome.db_error.is_some());
         assert!(!file.path.exists());
-        assert_eq!(store.tracks_for_album("Artist", "Album").unwrap().len(), 1);
+        assert_eq!(
+            crate::backend::library::repo::tracks::for_album(&store, "Artist", "Album")
+                .unwrap()
+                .len(),
+            1
+        );
     }
 
     #[test]
     fn delete_album_tracks_removes_files_rows_and_covers() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         let file = test_file(&root, "track.wav", 1, 10);
         fs::write(&file.path, b"audio").unwrap();
         let track_id = insert_track(
@@ -204,8 +219,7 @@ mod tests {
         assert!(!file.path.exists());
         assert!(!cover.exists());
         assert!(
-            store
-                .tracks_for_album("Artist", "Album")
+            crate::backend::library::repo::tracks::for_album(&store, "Artist", "Album")
                 .unwrap()
                 .is_empty()
         );
@@ -215,7 +229,9 @@ mod tests {
     fn delete_album_treats_a_missing_file_on_a_reachable_root_as_deleted() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         let track_id = insert_track(
             &mut store,
             &root,
@@ -231,8 +247,7 @@ mod tests {
         assert!(outcome.failures.is_empty());
         assert!(outcome.db_error.is_none());
         assert!(
-            store
-                .tracks_for_album("Artist", "Album")
+            crate::backend::library::repo::tracks::for_album(&store, "Artist", "Album")
                 .unwrap()
                 .is_empty()
         );

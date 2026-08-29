@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 
-use rusqlite::{Connection, params, params_from_iter, types::Value};
+use rusqlite::{params, params_from_iter, types::Value};
 
 use super::super::{
     Album, AlbumPage, AlbumQueryFilter, AlbumSortOrder, LibraryError, UNKNOWN_ALBUM,
 };
-use super::{EFFECTIVE_ALBUM_ARTIST_SQL, album_title_sql, usize_to_i64};
+use super::{EFFECTIVE_ALBUM_ARTIST_SQL, LibraryStore, album_title_sql, usize_to_i64};
 
 struct AlbumRow {
     title: String,
@@ -35,7 +35,9 @@ impl From<AlbumRow> for Album {
     }
 }
 
-pub fn list(conn: &Connection, sort_order: AlbumSortOrder) -> Result<Vec<Album>, LibraryError> {
+#[cfg_attr(not(test), allow(dead_code, reason = "retained tested repo query"))]
+pub fn list(store: &LibraryStore, sort_order: AlbumSortOrder) -> Result<Vec<Album>, LibraryError> {
+    let conn = &store.connection;
     let order_by = album_order_by(sort_order);
     let album_title = album_title_sql("?1");
     let sql = format!(
@@ -69,13 +71,14 @@ pub fn list(conn: &Connection, sort_order: AlbumSortOrder) -> Result<Vec<Album>,
 }
 
 pub fn page(
-    conn: &Connection,
+    store: &LibraryStore,
     sort_order: AlbumSortOrder,
     filter: &AlbumQueryFilter,
     artist_filter: Option<&str>,
     limit: usize,
     offset: usize,
 ) -> Result<AlbumPage, LibraryError> {
+    let conn = &store.connection;
     assert!(limit > 0, "album page size must be positive");
     let order_by = album_order_by(sort_order);
     let album_title = album_title_sql("?1");
@@ -209,7 +212,9 @@ mod tests {
     fn album_pages_apply_filters_counts_and_offsets() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         let mut add = |name: &str,
                        album: &str,
                        artist: &str,
@@ -222,7 +227,7 @@ mod tests {
             metadata.genre = Some(genre.to_string());
             metadata.bit_depth = Some(bit_depth);
             metadata.sample_rate_hz = Some(sample_rate_hz);
-            let transaction = store.connection.transaction().unwrap();
+            let transaction = store.transaction().unwrap();
             upsert_track(&transaction, root.id, &file, &metadata, added_at_ms).unwrap();
             transaction.commit().unwrap();
         };
@@ -237,74 +242,74 @@ mod tests {
                 .collect::<Vec<_>>()
         };
 
-        let first = store
-            .album_page(
-                AlbumSortOrder::DateAdded,
-                &AlbumQueryFilter::All,
-                None,
-                2,
-                0,
-            )
-            .unwrap();
+        let first = crate::backend::library::repo::albums::page(
+            &store,
+            AlbumSortOrder::DateAdded,
+            &AlbumQueryFilter::All,
+            None,
+            2,
+            0,
+        )
+        .unwrap();
         assert_eq!(first.total_count, 3);
         assert_eq!(titles(&first), ["Gamma", "Beta"]);
 
-        let second = store
-            .album_page(
-                AlbumSortOrder::DateAdded,
-                &AlbumQueryFilter::All,
-                None,
-                2,
-                2,
-            )
-            .unwrap();
+        let second = crate::backend::library::repo::albums::page(
+            &store,
+            AlbumSortOrder::DateAdded,
+            &AlbumQueryFilter::All,
+            None,
+            2,
+            2,
+        )
+        .unwrap();
         assert_eq!(titles(&second), ["Alpha"]);
 
-        let beyond = store
-            .album_page(
-                AlbumSortOrder::DateAdded,
-                &AlbumQueryFilter::All,
-                None,
-                2,
-                10,
-            )
-            .unwrap();
+        let beyond = crate::backend::library::repo::albums::page(
+            &store,
+            AlbumSortOrder::DateAdded,
+            &AlbumQueryFilter::All,
+            None,
+            2,
+            10,
+        )
+        .unwrap();
         assert_eq!(beyond.total_count, 3);
         assert!(beyond.albums.is_empty());
 
-        let hi_res = store
-            .album_page(
-                AlbumSortOrder::DateAdded,
-                &AlbumQueryFilter::HiRes,
-                None,
-                10,
-                0,
-            )
-            .unwrap();
+        let hi_res = crate::backend::library::repo::albums::page(
+            &store,
+            AlbumSortOrder::DateAdded,
+            &AlbumQueryFilter::HiRes,
+            None,
+            10,
+            0,
+        )
+        .unwrap();
         assert_eq!(hi_res.total_count, 1);
         assert_eq!(titles(&hi_res), ["Alpha"]);
 
-        let recent = store
-            .album_page(
-                AlbumSortOrder::DateAdded,
-                &AlbumQueryFilter::AddedSince(2_000),
-                None,
-                10,
-                0,
-            )
-            .unwrap();
+        let recent = crate::backend::library::repo::albums::page(
+            &store,
+            AlbumSortOrder::DateAdded,
+            &AlbumQueryFilter::AddedSince(2_000),
+            None,
+            10,
+            0,
+        )
+        .unwrap();
         assert_eq!(recent.total_count, 2);
         assert_eq!(titles(&recent), ["Gamma", "Beta"]);
 
-        let genre = store
-            .album_page(
-                AlbumSortOrder::DateAdded,
-                &AlbumQueryFilter::Genre("jazz".to_string()),
-                None,
-                10,
-                0,
-            )
-            .unwrap();
+        let genre = crate::backend::library::repo::albums::page(
+            &store,
+            AlbumSortOrder::DateAdded,
+            &AlbumQueryFilter::Genre("jazz".to_string()),
+            None,
+            10,
+            0,
+        )
+        .unwrap();
         assert_eq!(genre.total_count, 2);
         assert_eq!(titles(&genre), ["Gamma", "Alpha"]);
     }
@@ -313,12 +318,14 @@ mod tests {
     fn album_pages_keep_a_total_order_for_tied_sort_keys() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         // Three albums tied on every DateAdded/Duration sort key.
         for (index, album) in ["Tie C", "Tie A", "Tie B"].into_iter().enumerate() {
             let file = test_file(&root, &format!("{album}.wav"), 10, 100);
             let metadata = test_metadata("Track", "Artist", Some(album), Some("Artist"));
-            let transaction = store.connection.transaction().unwrap();
+            let transaction = store.transaction().unwrap();
             upsert_track(&transaction, root.id, &file, &metadata, 1_000).unwrap();
             transaction.commit().unwrap();
             let _ = index;
@@ -326,15 +333,15 @@ mod tests {
 
         let mut seen = Vec::new();
         for offset in [0, 1, 2] {
-            let page = store
-                .album_page(
-                    AlbumSortOrder::DateAdded,
-                    &AlbumQueryFilter::All,
-                    None,
-                    1,
-                    offset,
-                )
-                .unwrap();
+            let page = crate::backend::library::repo::albums::page(
+                &store,
+                AlbumSortOrder::DateAdded,
+                &AlbumQueryFilter::All,
+                None,
+                1,
+                offset,
+            )
+            .unwrap();
             assert_eq!(page.total_count, 3);
             assert_eq!(page.albums.len(), 1);
             seen.push(page.albums[0].title.clone());
@@ -351,7 +358,9 @@ mod tests {
     fn album_artist_filter_composes_with_every_album_filter() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         let mut add = |file: &str,
                        album: &str,
                        album_artist: &str,
@@ -369,7 +378,7 @@ mod tests {
             metadata.bit_depth = Some(bit_depth);
             metadata.sample_rate_hz = Some(sample_rate_hz);
             let file = test_file(&root, file, added_at_ms, 10);
-            let transaction = store.connection.transaction().unwrap();
+            let transaction = store.transaction().unwrap();
             upsert_track(&transaction, root.id, &file, &metadata, added_at_ms).unwrap();
             transaction.commit().unwrap();
         };
@@ -378,13 +387,19 @@ mod tests {
         add("gamma.wav", "Gamma", "Artist B", "Jazz", 24, 96_000, 3_000);
 
         let titles = |filter: AlbumQueryFilter| {
-            store
-                .album_page(AlbumSortOrder::Title, &filter, Some("Artist A"), 10, 0)
-                .unwrap()
-                .albums
-                .into_iter()
-                .map(|album| album.title)
-                .collect::<Vec<_>>()
+            crate::backend::library::repo::albums::page(
+                &store,
+                AlbumSortOrder::Title,
+                &filter,
+                Some("Artist A"),
+                10,
+                0,
+            )
+            .unwrap()
+            .albums
+            .into_iter()
+            .map(|album| album.title)
+            .collect::<Vec<_>>()
         };
 
         assert_eq!(titles(AlbumQueryFilter::All), ["Alpha", "Beta"]);
@@ -400,7 +415,9 @@ mod tests {
     fn groups_albums_with_unknown_bucket_genres_and_cover_fallback() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         let first = insert_track(
             &mut store,
             &root,
@@ -422,7 +439,7 @@ mod tests {
             &unknown,
         );
         let cover = temp.path().join("album.cover");
-        let transaction = store.connection.transaction().unwrap();
+        let transaction = store.transaction().unwrap();
         set_track_cover(
             &transaction,
             second,
@@ -432,7 +449,8 @@ mod tests {
         .unwrap();
         transaction.commit().unwrap();
 
-        let albums = store.albums(AlbumSortOrder::Title).unwrap();
+        let albums =
+            crate::backend::library::repo::albums::list(&store, AlbumSortOrder::Title).unwrap();
 
         assert_eq!(albums.len(), 2);
         assert_eq!(albums[0].title, "Album");
@@ -443,14 +461,19 @@ mod tests {
         assert_eq!(albums[1].artist, UNKNOWN_ARTIST);
         assert!(albums[1].cover_art_path.is_none());
         assert_ne!(first, second);
-        assert_eq!(store.genres().unwrap(), ["Electronic"]);
+        assert_eq!(
+            crate::backend::library::repo::tracks::genres(&store).unwrap(),
+            ["Electronic"]
+        );
     }
 
     #[test]
     fn albums_implements_every_mvp_sort_order() {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
-        let root = store.add_storage_root(temp.path(), "Music").unwrap();
+        let root =
+            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
+                .unwrap();
         let mut beta = test_metadata("Track B", "Alpha", Some("Beta"), None);
         beta.year = Some(2020);
         beta.duration_ms = Some(3_000);
@@ -479,8 +502,7 @@ mod tests {
             .unwrap();
 
         let titles = |sort_order| {
-            store
-                .albums(sort_order)
+            crate::backend::library::repo::albums::list(&store, sort_order)
                 .unwrap()
                 .into_iter()
                 .map(|album| album.title)

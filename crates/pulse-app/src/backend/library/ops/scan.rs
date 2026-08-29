@@ -12,9 +12,15 @@ use crate::backend::library::{
         StorageRoot, StorageRootId, TrackId,
     },
     repo::{
-        CompletedScan, LibraryStore, LibraryTransaction, artist_name_key_for_track,
-        clear_track_cover, delete_track, refresh_artist_keys, set_track_cover, update_track_path,
-        upsert_track,
+        LibraryStore, LibraryTransaction,
+        artists::{
+            name_key_for_track as artist_name_key_for_track, refresh_keys as refresh_artist_keys,
+        },
+        scan_history::{self, CompletedScan},
+        storage_roots,
+        tracks::{
+            self, clear_track_cover, delete_track, set_track_cover, update_track_path, upsert_track,
+        },
     },
     system_time_ms,
     walk::{self, walk_music_files_until},
@@ -74,7 +80,7 @@ where
     let root = super::storage::get(store, storage_root_id)?
         .ok_or(LibraryError::StorageRootNotFound(storage_root_id))?;
     let started_at_ms = system_time_ms(SystemTime::now())?;
-    let scan_id = store.begin_scan(storage_root_id, started_at_ms)?;
+    let scan_id = scan_history::begin(store, storage_root_id, started_at_ms)?;
 
     on_progress(ScanProgress::Discovering {
         discovered_files: 0,
@@ -94,7 +100,7 @@ where
     ) {
         Ok(Some(walk)) => walk,
         Ok(None) => {
-            store.cancel_scan(scan_id)?;
+            scan_history::cancel_and_refresh(store, scan_id)?;
             return Ok(None);
         }
         Err(error) => {
@@ -110,7 +116,7 @@ where
         }
     };
 
-    if let Err(error) = store.mark_root_reachable(storage_root_id) {
+    if let Err(error) = storage_roots::mark_reachable(store, storage_root_id) {
         return finish_fatal_scan(store, scan_id, &root, error, &mut on_progress).map(Some);
     }
 
@@ -142,7 +148,7 @@ where
     C: FnMut() -> bool,
 {
     let (scan_id, started_at_ms) = scan;
-    let existing = store.existing_tracks(root.id)?;
+    let existing = tracks::existing(store, root.id)?;
     let seen = walk
         .files
         .iter()
@@ -166,7 +172,7 @@ where
 
     for (index, file) in walk.files.into_iter().enumerate() {
         if is_cancelled() {
-            store.cancel_scan(scan_id)?;
+            scan_history::cancel_and_refresh(store, scan_id)?;
             return Ok(None);
         }
         let current = existing.get(&file.path_key);
@@ -356,7 +362,7 @@ where
     }
 
     if is_cancelled() {
-        store.cancel_scan(scan_id)?;
+        scan_history::cancel_and_refresh(store, scan_id)?;
         return Ok(None);
     }
 
@@ -397,7 +403,8 @@ where
     } else {
         ScanOutcome::CompletedWithErrors
     };
-    store.finish_completed_scan(
+    scan_history::finish_completed_scan_and_refresh(
+        store,
         scan_id,
         root.id,
         &CompletedScan {
@@ -546,7 +553,7 @@ where
 {
     let finished_at_ms = system_time_ms(SystemTime::now())?;
     let message = error.to_string();
-    store.finish_offline_scan(scan_id, root.id, finished_at_ms, &message)?;
+    scan_history::finish_offline_and_refresh(store, scan_id, root.id, finished_at_ms, &message)?;
     let report = ScanReport {
         scan_id,
         storage_root_id: root.id,
@@ -580,7 +587,13 @@ where
     F: FnMut(ScanProgress),
 {
     let finished_at_ms = system_time_ms(SystemTime::now())?;
-    store.finish_failed_scan(scan_id, root.id, finished_at_ms, &error.to_string())?;
+    scan_history::finish_failed_and_refresh(
+        store,
+        scan_id,
+        root.id,
+        finished_at_ms,
+        &error.to_string(),
+    )?;
     on_progress(ScanProgress::Finished {
         outcome: ScanOutcome::Failed,
         added: 0,

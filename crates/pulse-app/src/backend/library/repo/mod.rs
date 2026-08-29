@@ -1,39 +1,25 @@
 // Persistence layer: one submodule per table family, with derived album and
 // search query modules over tracks, over the shared connection lifecycle here.
-//
-// Conventions:
-//   - Module functions take a connection or transaction, never the store;
-//     transactional repo functions compose table functions in dependency order.
-//   - `LibraryStore` keeps the public API the rest of the app calls as thin
-//     delegation; the split is an internal reorganization, not a redesign.
-//   - Functions return `Result<_, LibraryError>` — the same contract the
-//     monolithic store had — so caller-side error handling is untouched.
 
-mod albums;
-mod artists;
-mod playlists;
-mod scan_history;
+pub(super) mod albums;
+pub(super) mod artists;
+pub(super) mod playlists;
+pub(super) mod scan_history;
 mod schema;
-mod search;
-mod storage_roots;
-mod tracks;
+pub(super) mod search;
+pub(super) mod storage_roots;
+pub(super) mod tracks;
 
 use std::{
-    collections::HashMap,
     fs,
-    path::{Path, PathBuf},
+    path::Path,
     sync::OnceLock,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use rusqlite::{Connection, Transaction, config::DbConfig, functions::FunctionFlags};
 
-use super::{
-    Album, AlbumPage, AlbumQueryFilter, AlbumSortOrder, Artist, LibraryError, LibrarySearchResults,
-    LibrarySummary, Playlist, PlaylistId, PlaylistSummary, PlaylistTrack, ScanHistoryEntry,
-    StorageRoot, StorageRootId, Track, TrackId, TrackPage, TrackQueryFilter, TrackSortOrder,
-    metadata::AudioMetadata, system_time_ms, walk::DiscoveredFile,
-};
+use super::{LibraryError, system_time_ms};
 
 impl From<rusqlite::Error> for LibraryError {
     fn from(error: rusqlite::Error) -> Self {
@@ -64,9 +50,7 @@ fn qualified_select_list(alias: &str, columns: &[&str]) -> String {
         .join(", ")
 }
 
-pub(super) use scan_history::CompletedScan;
 pub use schema::BackfillProgress;
-pub(super) use tracks::ExistingTrack;
 
 pub(super) struct LibraryTransaction<'connection> {
     inner: Transaction<'connection>,
@@ -79,65 +63,8 @@ impl LibraryTransaction<'_> {
     }
 }
 
-pub(super) fn artist_name_key_for_track(
-    transaction: &LibraryTransaction<'_>,
-    track_id: TrackId,
-) -> Result<Option<String>, LibraryError> {
-    artists::name_key_for_track(&transaction.inner, track_id)
-}
-
-pub(super) fn refresh_artist_keys(
-    transaction: &LibraryTransaction<'_>,
-    name_keys: &[String],
-    refreshed_at_ms: i64,
-) -> Result<(), LibraryError> {
-    artists::refresh_keys(&transaction.inner, name_keys, refreshed_at_ms)
-}
-
-pub(super) fn upsert_track(
-    transaction: &LibraryTransaction<'_>,
-    storage_root_id: StorageRootId,
-    file: &DiscoveredFile,
-    metadata: &AudioMetadata,
-    now_ms: i64,
-) -> Result<TrackId, LibraryError> {
-    tracks::upsert_track(&transaction.inner, storage_root_id, file, metadata, now_ms)
-}
-
-pub(super) fn update_track_path(
-    transaction: &LibraryTransaction<'_>,
-    track_id: TrackId,
-    path: &str,
-    updated_at_ms: i64,
-) -> Result<(), LibraryError> {
-    tracks::update_track_path(&transaction.inner, track_id, path, updated_at_ms)
-}
-
-pub(super) fn set_track_cover(
-    transaction: &LibraryTransaction<'_>,
-    track_id: TrackId,
-    path: &str,
-    mime_type: Option<&str>,
-) -> Result<(), LibraryError> {
-    tracks::set_track_cover(&transaction.inner, track_id, path, mime_type)
-}
-
-pub(super) fn clear_track_cover(
-    transaction: &LibraryTransaction<'_>,
-    track_id: TrackId,
-) -> Result<(), LibraryError> {
-    tracks::clear_track_cover(&transaction.inner, track_id)
-}
-
-pub(super) fn delete_track(
-    transaction: &LibraryTransaction<'_>,
-    track_id: TrackId,
-) -> Result<(), LibraryError> {
-    tracks::delete_track(&transaction.inner, track_id)
-}
-
 pub struct LibraryStore {
-    pub(super) connection: Connection,
+    connection: Connection,
     scan_session_id: String,
 }
 
@@ -211,311 +138,13 @@ impl LibraryStore {
 
         schema::migrate_to_current(&mut connection, on_backfill_progress)?;
 
-        let recovered_at_ms = system_time_ms(SystemTime::now())?;
-        scan_history::recover_interrupted(&connection, recovered_at_ms, &scan_session_id)?;
-
-        Ok(Self {
+        let mut store = Self {
             connection,
             scan_session_id,
-        })
-    }
-
-    pub fn add_storage_root(
-        &mut self,
-        path: impl AsRef<Path>,
-        display_name: impl AsRef<str>,
-    ) -> Result<StorageRoot, LibraryError> {
-        storage_roots::add(&self.connection, path.as_ref(), display_name.as_ref())
-    }
-
-    pub fn storage_root(
-        &self,
-        storage_root_id: StorageRootId,
-    ) -> Result<Option<StorageRoot>, LibraryError> {
-        storage_roots::get(&self.connection, storage_root_id)
-    }
-
-    pub fn storage_roots(&self) -> Result<Vec<StorageRoot>, LibraryError> {
-        storage_roots::list(&self.connection)
-    }
-
-    pub fn rename_storage_root(
-        &mut self,
-        storage_root_id: StorageRootId,
-        display_name: impl AsRef<str>,
-    ) -> Result<StorageRoot, LibraryError> {
-        storage_roots::rename(&self.connection, storage_root_id, display_name.as_ref())
-    }
-
-    pub fn remove_storage_root(
-        &mut self,
-        storage_root_id: StorageRootId,
-    ) -> Result<Vec<PathBuf>, LibraryError> {
-        storage_roots::remove(&mut self.connection, storage_root_id)
-    }
-
-    pub fn tracks_for_root(
-        &self,
-        storage_root_id: StorageRootId,
-    ) -> Result<Vec<Track>, LibraryError> {
-        tracks::for_root(&self.connection, storage_root_id)
-    }
-
-    pub fn albums(&self, sort_order: AlbumSortOrder) -> Result<Vec<Album>, LibraryError> {
-        albums::list(&self.connection, sort_order)
-    }
-
-    /// One page of the grouped album catalog, filtered in SQL so the grid's
-    /// infinite scroll never has to load the whole library.
-    pub fn album_page(
-        &self,
-        sort_order: AlbumSortOrder,
-        filter: &AlbumQueryFilter,
-        artist_filter: Option<&str>,
-        limit: usize,
-        offset: usize,
-    ) -> Result<AlbumPage, LibraryError> {
-        albums::page(
-            &self.connection,
-            sort_order,
-            filter,
-            artist_filter,
-            limit,
-            offset,
-        )
-    }
-
-    pub fn artist_index(&self) -> Result<Vec<Artist>, LibraryError> {
-        artists::index(&self.connection)
-    }
-
-    pub fn all_tracks(&self, sort_order: TrackSortOrder) -> Result<Vec<Track>, LibraryError> {
-        tracks::all(&self.connection, sort_order)
-    }
-
-    pub fn track_page(
-        &self,
-        sort_order: TrackSortOrder,
-        filter: &TrackQueryFilter,
-        artist_filter: Option<&str>,
-        limit: usize,
-        offset: usize,
-    ) -> Result<TrackPage, LibraryError> {
-        tracks::page(
-            &self.connection,
-            sort_order,
-            filter,
-            artist_filter,
-            limit,
-            offset,
-        )
-    }
-
-    pub fn matching_tracks(
-        &self,
-        sort_order: TrackSortOrder,
-        filter: &TrackQueryFilter,
-        artist_filter: Option<&str>,
-    ) -> Result<Vec<Track>, LibraryError> {
-        tracks::matching(&self.connection, sort_order, filter, artist_filter)
-    }
-
-    pub fn tracks_for_album(&self, artist: &str, title: &str) -> Result<Vec<Track>, LibraryError> {
-        tracks::for_album(&self.connection, artist, title)
-    }
-
-    /// Acquire and immediately release a write lock, proving the database
-    /// accepts writes before a caller starts irreversible filesystem work.
-    pub fn preflight_write(&mut self) -> Result<(), LibraryError> {
-        tracks::preflight_write(&mut self.connection)
-    }
-
-    /// Delete a set of tracks and their playlist entries in one transaction.
-    /// Callers own the files: audio and cover-cache deletion happens outside
-    /// the store, mirroring `remove_storage_root`.
-    pub fn delete_tracks(&mut self, track_ids: &[TrackId]) -> Result<(), LibraryError> {
-        tracks::delete_tracks(&mut self.connection, track_ids)
-    }
-
-    /// Distinct normalized artists with track counts, for the artist-filter
-    /// popover. Normalization matches the artist-filter query clause.
-    pub fn artists(&self) -> Result<Vec<(String, u64)>, LibraryError> {
-        tracks::artists(&self.connection)
-    }
-
-    /// Distinct individual genres. Stores like Qobuz write one comma-separated
-    /// list into the tag ("Musiques du monde, J-pop, Japon"), so the stored
-    /// strings are split into members here rather than surfaced as one value.
-    pub fn genres(&self) -> Result<Vec<String>, LibraryError> {
-        tracks::genres(&self.connection)
-    }
-
-    /// Distinct individual genres with unique album counts, for the shared
-    /// Albums and Tracks genre-filter popover.
-    pub fn genre_album_counts(&self) -> Result<Vec<(String, u64)>, LibraryError> {
-        tracks::genre_album_counts(&self.connection)
-    }
-
-    pub fn root_summary(
-        &self,
-        storage_root_id: StorageRootId,
-    ) -> Result<LibrarySummary, LibraryError> {
-        tracks::root_summary(&self.connection, storage_root_id)
-    }
-
-    pub fn catalog_summary(&self) -> Result<LibrarySummary, LibraryError> {
-        tracks::catalog_summary(&self.connection)
-    }
-
-    pub fn recent_scans(
-        &self,
-        storage_root_id: StorageRootId,
-        limit: usize,
-    ) -> Result<Vec<ScanHistoryEntry>, LibraryError> {
-        scan_history::recent(&self.connection, storage_root_id, limit)
-    }
-
-    pub fn create_playlist(&mut self, name: &str) -> Result<Playlist, LibraryError> {
-        playlists::create(&self.connection, name)
-    }
-
-    pub fn playlist(&self, playlist_id: PlaylistId) -> Result<Option<Playlist>, LibraryError> {
-        playlists::get(&self.connection, playlist_id)
-    }
-
-    pub fn rename_playlist(
-        &mut self,
-        playlist_id: PlaylistId,
-        name: &str,
-    ) -> Result<Playlist, LibraryError> {
-        playlists::rename(&self.connection, playlist_id, name)
-    }
-
-    pub fn delete_playlist(&mut self, playlist_id: PlaylistId) -> Result<(), LibraryError> {
-        playlists::delete_transactional(&mut self.connection, playlist_id)
-    }
-
-    pub fn append_playlist_tracks(
-        &mut self,
-        playlist_id: PlaylistId,
-        track_ids: &[TrackId],
-    ) -> Result<(), LibraryError> {
-        playlists::append_tracks_transactional(&mut self.connection, playlist_id, track_ids)
-    }
-
-    pub fn remove_playlist_entry(
-        &mut self,
-        playlist_id: PlaylistId,
-        position: usize,
-    ) -> Result<(), LibraryError> {
-        playlists::remove_entry_transactional(&mut self.connection, playlist_id, position)
-    }
-
-    /// Moves the entry at a stored position to a zero-based index in the ordered entries.
-    pub fn move_playlist_entry(
-        &mut self,
-        playlist_id: PlaylistId,
-        from_position: usize,
-        to_position: usize,
-    ) -> Result<(), LibraryError> {
-        playlists::move_entry_transactional(
-            &mut self.connection,
-            playlist_id,
-            from_position,
-            to_position,
-        )
-    }
-
-    pub fn playlists(&self) -> Result<Vec<PlaylistSummary>, LibraryError> {
-        playlists::list(&self.connection)
-    }
-
-    pub fn playlist_tracks(
-        &self,
-        playlist_id: PlaylistId,
-    ) -> Result<Vec<PlaylistTrack>, LibraryError> {
-        playlists::tracks(&self.connection, playlist_id)
-    }
-
-    pub fn search(&self, query: &str) -> Result<LibrarySearchResults, LibraryError> {
-        search::search(&self.connection, query)
-    }
-
-    pub(super) fn begin_scan(
-        &self,
-        storage_root_id: StorageRootId,
-        started_at_ms: i64,
-    ) -> Result<i64, LibraryError> {
-        scan_history::begin(
-            &self.connection,
-            &self.scan_session_id,
-            storage_root_id,
-            started_at_ms,
-        )
-    }
-
-    pub(super) fn cancel_scan(&mut self, scan_id: i64) -> Result<(), LibraryError> {
-        scan_history::cancel_and_refresh(&mut self.connection, scan_id)
-    }
-
-    pub(super) fn mark_root_reachable(
-        &self,
-        storage_root_id: StorageRootId,
-    ) -> Result<(), LibraryError> {
-        storage_roots::mark_reachable(&self.connection, storage_root_id)
-    }
-
-    pub(super) fn finish_offline_scan(
-        &mut self,
-        scan_id: i64,
-        storage_root_id: StorageRootId,
-        finished_at_ms: i64,
-        error_message: &str,
-    ) -> Result<(), LibraryError> {
-        scan_history::finish_offline_and_refresh(
-            &mut self.connection,
-            scan_id,
-            storage_root_id,
-            finished_at_ms,
-            error_message,
-        )
-    }
-
-    pub(super) fn finish_failed_scan(
-        &mut self,
-        scan_id: i64,
-        storage_root_id: StorageRootId,
-        finished_at_ms: i64,
-        error_message: &str,
-    ) -> Result<(), LibraryError> {
-        scan_history::finish_failed_and_refresh(
-            &mut self.connection,
-            scan_id,
-            storage_root_id,
-            finished_at_ms,
-            error_message,
-        )
-    }
-
-    pub(super) fn finish_completed_scan(
-        &mut self,
-        scan_id: i64,
-        storage_root_id: StorageRootId,
-        completed: &CompletedScan,
-    ) -> Result<(), LibraryError> {
-        scan_history::finish_completed_scan_and_refresh(
-            &mut self.connection,
-            scan_id,
-            storage_root_id,
-            completed,
-        )
-    }
-
-    pub(super) fn existing_tracks(
-        &self,
-        storage_root_id: StorageRootId,
-    ) -> Result<HashMap<String, ExistingTrack>, LibraryError> {
-        tracks::existing(&self.connection, storage_root_id)
+        };
+        let recovered_at_ms = system_time_ms(SystemTime::now())?;
+        scan_history::recover_interrupted(&mut store, recovered_at_ms)?;
+        Ok(store)
     }
 }
 
@@ -542,7 +171,7 @@ pub(crate) mod testing {
     use super::{LibraryStore, tracks::upsert_track};
 
     pub fn set_cover(store: &mut LibraryStore, track_id: TrackId, path: &std::path::Path) {
-        let transaction = store.connection.transaction().unwrap();
+        let transaction = store.transaction().unwrap();
         super::tracks::set_track_cover(
             &transaction,
             track_id,
@@ -625,7 +254,7 @@ pub(crate) mod testing {
         file: &DiscoveredFile,
         metadata: &AudioMetadata,
     ) -> TrackId {
-        let transaction = store.connection.transaction().unwrap();
+        let transaction = store.transaction().unwrap();
         let id = upsert_track(&transaction, root.id, file, metadata, 100).unwrap();
         let name_key = super::artists::name_key_for_track(&transaction, id)
             .unwrap()
