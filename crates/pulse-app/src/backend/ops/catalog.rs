@@ -94,7 +94,7 @@ pub fn search(store: &LibraryStore, query: &str) -> Result<LibrarySearchResults,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::library::{
+    use crate::backend::{
         LibraryStore,
         repo::testing::{insert_track, test_file, test_metadata},
     };
@@ -105,8 +105,7 @@ mod tests {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
         let root =
-            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
-                .unwrap();
+            crate::backend::repo::storage_roots::add(&mut store, temp.path(), "Music").unwrap();
 
         let standard = test_metadata("Standard", "Artist A", Some("Standard Album"), None);
         insert_track(

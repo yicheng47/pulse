@@ -6,7 +6,7 @@
 
 `pulse-app` is the macOS product shell around `pulse-engine`. It owns the GPUI window, user interaction, local library, persisted app settings, update UI, device-management presentation, and the adapter that translates UI actions into playback-controller commands.
 
-The app is organized by responsibility rather than by widget type. Rendering belongs in `surfaces/`, reusable visual primitives belong in `ui/`, observable cross-surface state belongs in `app_store.rs`, persistence types belong in `backend/settings.rs`, playback adaptation belongs in `backend/playback/`, and the SQLite-backed music catalog belongs in `backend/library/`.
+The app is organized by responsibility rather than by widget type. Rendering belongs in `surfaces/`, reusable visual primitives belong in `ui/`, observable cross-surface state belongs in `app_store.rs`, persistence types belong in `backend/settings.rs`, playback adaptation belongs in `backend/playback/`, and the SQLite-backed music catalog belongs in `backend/{model.rs, repo/, ops/, scan/}`.
 
 `pulse-engine` remains UI-agnostic. No GPUI entity, window, view, or surface type crosses into the engine crate.
 
@@ -18,6 +18,13 @@ crates/pulse-app/src/
   app_store.rs               sole GPUI bridge for observable backend state
   backend/
     mod.rs                   backend exports and the no-GPUI boundary gate
+    model.rs                 catalog domain types (Track, Album, Artist, Playlist, ...)
+    repo/                    SQLite schema, migrations, queries, and the transaction boundary; rusqlite lives only here
+    ops/                     use cases (scan, delete, catalog, playlists, storage); the only door for surfaces
+    scan/
+      metadata.rs            local audio metadata extraction
+      path.rs                path normalization
+      walk.rs                filesystem discovery
     settings.rs              version-tolerant JSON settings model and persistence
     preferences.rs           data paths and one-time flat-file migration
     queue.rs                 app-side queue order, shuffle, repeat, and history
@@ -28,14 +35,6 @@ crates/pulse-app/src/
       devices.rs             live and managed devices, capabilities, and defaults
       queue_control.rs       queue actions and track transitions
       logic.rs               formatting and numeric helpers
-    library/
-      mod.rs                 module root; re-exports the domain model and LibraryStore
-      model.rs               catalog domain types (Track, Album, Artist, Playlist, ...)
-      ops/                   use cases (scan, delete, catalog, playlists, storage); the only door for surfaces
-      repo/                  SQLite schema, migrations, queries, and the transaction boundary; rusqlite lives only here
-      metadata.rs            local audio metadata extraction
-      path.rs                path normalization
-      walk.rs                filesystem discovery
   settings.rs                settings page view models and section selection
   text_input.rs              shared editable text and selection state
   menu.rs                    macOS menu actions and installation
@@ -99,7 +98,7 @@ Arrows mark ownership the application enforces, not database constraints.
 
 ### 3.2 StorageRoot — *a scanned folder*
 
-A user-added directory (usually a NAS mount). Identity is `path_key`, the normalized path (`backend/library/path.rs`), unique across roots; `path` keeps the display form. `is_case_sensitive` is probed at add time and drives how track paths under it are keyed; `is_reachable` and `last_scan_at_ms` record the last scan's view of the mount. Removing a root deletes, in one transaction and in this order, the playlist entries that pointed at its tracks, its scan history, its tracks, and the root row, then refreshes `artists` (§3.5).
+A user-added directory (usually a NAS mount). Identity is `path_key`, the normalized path (`backend/scan/path.rs`), unique across roots; `path` keeps the display form. `is_case_sensitive` is probed at add time and drives how track paths under it are keyed; `is_reachable` and `last_scan_at_ms` record the last scan's view of the mount. Removing a root deletes, in one transaction and in this order, the playlist entries that pointed at its tracks, its scan history, its tracks, and the root row, then refreshes `artists` (§3.5).
 
 ### 3.3 Track — *one audio file*
 
@@ -107,7 +106,7 @@ The only scanned entity. Identity is `(storage_root_id, path_key)`; a rescan mat
 
 ### 3.4 Album — *derived, not stored*
 
-An album is the group of tracks sharing `(effective album artist, album title)`, where the effective album artist is the shared SQL fragment `COALESCE(NULLIF(trim(album_artist), ''), NULLIF(trim(artist), ''), 'Unknown Artist')` defined once in `backend/library/repo/mod.rs` (`EFFECTIVE_ALBUM_ARTIST_SQL`). The Albums page, Album Detail, the genre filter, and the Artists refresh all group with that one expression; a "feat." credit on `artist` therefore never splits an album whose `album_artist` is set. Album-level facts (year, duration, quality ceiling, cover, added-at) are aggregates computed in the page query. There is no album id: routes carry `(artist, title)`.
+An album is the group of tracks sharing `(effective album artist, album title)`, where the effective album artist is the shared SQL fragment `COALESCE(NULLIF(trim(album_artist), ''), NULLIF(trim(artist), ''), 'Unknown Artist')` defined once in `backend/repo/mod.rs` (`EFFECTIVE_ALBUM_ARTIST_SQL`). The Albums page, Album Detail, the genre filter, and the Artists refresh all group with that one expression; a "feat." credit on `artist` therefore never splits an album whose `album_artist` is set. Album-level facts (year, duration, quality ceiling, cover, added-at) are aggregates computed in the page query. There is no album id: routes carry `(artist, title)`.
 
 ### 3.5 Artist — *stored, refreshed by the app*
 
@@ -127,15 +126,15 @@ Per root, per run: counts of added/updated/removed/unsupported/errored files, wh
 
 ## 4. Library Layers
 
-The catalog backend has three layers. `backend/library/model.rs` owns the domain types returned across the boundary: tracks, derived albums and artists, playlists, storage roots, scan history, filters, sort orders, reports, and mutation outcomes. These types contain no database handles.
+The catalog backend has three layers. `backend/model.rs` owns the domain types returned across the boundary: tracks, derived albums and artists, playlists, storage roots, scan history, filters, sort orders, reports, and mutation outcomes. These types contain no database handles.
 
-`backend/library/repo/` owns persistence. Row-backed table families have one module with their row mapping and shared `COLUMNS` list; `albums.rs` and `search.rs` are query modules over those tables, while `playlists.rs` owns both playlists and their ordered entries. `repo/mod.rs` defines `EFFECTIVE_ALBUM_ARTIST_SQL`, `ALBUM_TITLE_SQL`, `select_list`, and `qualified_select_list` once for the query modules that share them. `LibraryStore` owns the SQLite connection and exposes only opening plus the transaction boundary. `LibraryTransaction` wraps a SQLite transaction; its inner handle is private to `repo/`, so `ops/` can choose and commit a transaction boundary without acquiring a raw connection.
+`backend/repo/` owns persistence. Row-backed table families have one module with their row mapping and shared `COLUMNS` list; `albums.rs` and `search.rs` are query modules over those tables, while `playlists.rs` owns both playlists and their ordered entries. `repo/mod.rs` defines `EFFECTIVE_ALBUM_ARTIST_SQL`, `ALBUM_TITLE_SQL`, `select_list`, and `qualified_select_list` once for the query modules that share them. `LibraryStore` owns the SQLite connection and exposes only opening plus the transaction boundary. `LibraryTransaction` wraps a SQLite transaction; its inner handle is private to `repo/`, so `ops/` can choose and commit a transaction boundary without acquiring a raw connection.
 
-`backend/library/ops/` owns use cases and is the only catalog door for surfaces and the future `pulse mcp` process. Ops compose named table-repo functions, filesystem work, metadata extraction, and domain outcomes. Surfaces never see SQL or `rusqlite`, and no SQL string is built outside `repo/`. Relationships are application-owned with no enforced foreign keys: repo operations delete dependent rows, refresh derived artists, and preserve ordering explicitly; `PRAGMA foreign_keys` remains off, including for the legacy schema clauses that are only declarative.
+`backend/ops/` owns use cases and is the only catalog door for surfaces and the future `pulse mcp` process. Ops compose named table-repo functions, filesystem work, metadata extraction, and domain outcomes. Surfaces never see SQL or `rusqlite`, and no SQL string is built outside `repo/`. Relationships are application-owned with no enforced foreign keys: repo operations delete dependent rows, refresh derived artists, and preserve ordering explicitly; `PRAGMA foreign_keys` remains off, including for the legacy schema clauses that are only declarative.
 
 Scanning a root flows from the library surface to `ops::scan`, which reads the root through `repo::storage_roots`, walks and extracts metadata, applies each database unit through a `LibraryTransaction` and the tracks/artists repo modules, then records the scan outcome through `repo::scan_history`. Deleting an album flows to `ops::delete`, which reads its tracks and roots through repo modules, preflights the write, removes verifiably reachable files, deletes the corresponding track and playlist-entry rows in one repo transaction, refreshes affected artists, and returns `DeleteAlbumOutcome` for the surface to reconcile playback and view state.
 
-The boundary tests in `backend/mod.rs` enforce that the database driver and SQL literals remain under `backend/library/repo/`, and that the effective album-artist fragment has exactly one source definition.
+The boundary tests in `backend/mod.rs` enforce that the database driver and SQL literals remain under `backend/repo/`, and that the effective album-artist fragment has exactly one source definition.
 
 ## 5. Startup And Ownership
 
@@ -161,7 +160,7 @@ Every store command and every event-drain cycle finishes by taking a new interna
 
 Active-device comparison includes the transient Core Audio device ID as well as the stable UID and display name. Managed-device sightings and persisted preferences use UID and name because a Core Audio ID can change, while the live active row remains ID-aware because the same UID can be rebound to a different current device instance.
 
-The library catalog remains a separate `LibraryStore` owned by the library surface, opened through `backend::library::ops::open` and driven only through `ops` functions. Library loading and mutation are explicit surface tasks; playback, device, settings, and queue observation use `GlobalAppStore` revisions.
+The library catalog remains a separate `LibraryStore` owned by the library surface, opened through `backend::ops::open` and driven only through `ops` functions. Library loading and mutation are explicit surface tasks; playback, device, settings, and queue observation use `GlobalAppStore` revisions.
 
 ## 7. Settings And Migration
 
@@ -193,6 +192,6 @@ Do not create a page-local replacement for a component already provided by `ui/`
 
 `backend/` never imports `gpui`; `app_store.rs` is the only bridge between backend state and GPUI surfaces.
 
-`backend/library/model.rs` owns catalog domain types, `backend/library/repo/` owns every SQL statement and the opaque store/transaction handles, and `backend/library/ops/` owns the use cases that surfaces call.
+`backend/model.rs` owns catalog domain types, `backend/repo/` owns every SQL statement and the opaque store/transaction handles, and `backend/ops/` owns the use cases that surfaces call.
 
-`surfaces/` renders product areas and converts interaction into app actions. `ui/` supplies reusable visual grammar. `app_store.rs` owns observable cross-surface playback state and notifications. `backend/settings.rs` owns the persisted settings shape. `backend/playback/` adapts the engine to app semantics. `backend/library/` owns the local catalog and scan pipeline. `pulse-engine` owns audio playback and contains no GPUI code.
+`surfaces/` renders product areas and converts interaction into app actions. `ui/` supplies reusable visual grammar. `app_store.rs` owns observable cross-surface playback state and notifications. `backend/settings.rs` owns the persisted settings shape. `backend/playback/` adapts the engine to app semantics. `backend/{model.rs, repo/, ops/, scan/}` owns the local catalog and scan pipeline. `pulse-engine` owns audio playback and contains no GPUI code.

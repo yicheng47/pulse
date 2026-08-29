@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::library::{Track, TrackId, UNKNOWN_ALBUM, UNKNOWN_ARTIST};
+use super::{Track, TrackId, UNKNOWN_ALBUM, UNKNOWN_ARTIST};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct TrackRef {

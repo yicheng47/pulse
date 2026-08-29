@@ -72,7 +72,7 @@ pub fn cancel(transaction: &LibraryTransaction<'_>, scan_id: i64) -> Result<(), 
 }
 
 pub fn cancel_and_refresh(store: &mut LibraryStore, scan_id: i64) -> Result<(), LibraryError> {
-    let refreshed_at_ms = super::super::system_time_ms(std::time::SystemTime::now())?;
+    let refreshed_at_ms = super::super::scan::system_time_ms(std::time::SystemTime::now())?;
     let transaction = store.transaction()?;
     cancel(&transaction, scan_id)?;
     artists::refresh(&transaction, refreshed_at_ms)?;
@@ -308,7 +308,7 @@ mod tests {
     use rusqlite::Connection;
     use tempfile::tempdir;
 
-    use crate::backend::library::{
+    use crate::backend::{
         LibraryStore, ScanOutcome,
         repo::testing::{insert_track, test_file, test_metadata},
     };
@@ -318,18 +318,16 @@ mod tests {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
         let root =
-            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
-                .unwrap();
+            crate::backend::repo::storage_roots::add(&mut store, temp.path(), "Music").unwrap();
         insert_track(
             &mut store,
             &root,
             &test_file(&root, "track.wav", 1, 10),
             &test_metadata("Track", "Artist", Some("Album"), None),
         );
-        let scan_id =
-            crate::backend::library::repo::scan_history::begin(&mut store, root.id, 100).unwrap();
+        let scan_id = crate::backend::repo::scan_history::begin(&mut store, root.id, 100).unwrap();
 
-        crate::backend::library::repo::scan_history::finish_offline_and_refresh(
+        crate::backend::repo::scan_history::finish_offline_and_refresh(
             &mut store,
             scan_id,
             root.id,
@@ -339,18 +337,17 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            crate::backend::library::repo::tracks::for_root(&store, root.id)
+            crate::backend::repo::tracks::for_root(&store, root.id)
                 .unwrap()
                 .len(),
             1
         );
-        let stored_root = crate::backend::library::repo::storage_roots::get(&store, root.id)
+        let stored_root = crate::backend::repo::storage_roots::get(&store, root.id)
             .unwrap()
             .unwrap();
         assert!(!stored_root.is_reachable);
         assert_eq!(stored_root.last_scan_at_ms, Some(200));
-        let history =
-            crate::backend::library::repo::scan_history::recent(&store, root.id, 1).unwrap();
+        let history = crate::backend::repo::scan_history::recent(&store, root.id, 1).unwrap();
         assert_eq!(history[0].outcome, Some(ScanOutcome::Offline));
         assert_eq!(history[0].error_count, 1);
     }

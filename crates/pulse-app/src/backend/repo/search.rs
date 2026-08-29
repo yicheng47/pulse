@@ -98,7 +98,7 @@ fn like_pattern(query: &str) -> String {
 mod tests {
     use tempfile::tempdir;
 
-    use crate::backend::library::{
+    use crate::backend::{
         LibrarySearchResults, LibraryStore,
         repo::testing::{insert_track, test_file, test_metadata},
     };
@@ -108,8 +108,7 @@ mod tests {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
         let root =
-            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
-                .unwrap();
+            crate::backend::repo::storage_roots::add(&mut store, temp.path(), "Music").unwrap();
         insert_track(
             &mut store,
             &root,
@@ -133,28 +132,27 @@ mod tests {
                 Some("The Collective"),
             ),
         );
-        crate::backend::library::repo::playlists::create(&mut store, "Frank favorites").unwrap();
+        crate::backend::repo::playlists::create(&mut store, "Frank favorites").unwrap();
 
-        let frank = crate::backend::library::repo::search::search(&store, "FRANK").unwrap();
+        let frank = crate::backend::repo::search::search(&store, "FRANK").unwrap();
         assert_eq!(frank.tracks.len(), 1);
         assert_eq!(frank.albums.len(), 1);
         assert_eq!(frank.playlists.len(), 1);
 
-        let cjk = crate::backend::library::repo::search::search(&store, "菲").unwrap();
+        let cjk = crate::backend::repo::search::search(&store, "菲").unwrap();
         assert_eq!(cjk.tracks[0].artist.as_deref(), Some("王菲"));
         assert_eq!(cjk.albums[0].title, "菲靡靡之音");
 
-        let album_artist =
-            crate::backend::library::repo::search::search(&store, "collective").unwrap();
+        let album_artist = crate::backend::repo::search::search(&store, "collective").unwrap();
         assert_eq!(album_artist.tracks.len(), 1);
         assert_eq!(album_artist.albums[0].artist, "The Collective");
 
         assert_eq!(
-            crate::backend::library::repo::search::search(&store, "gibberish").unwrap(),
+            crate::backend::repo::search::search(&store, "gibberish").unwrap(),
             LibrarySearchResults::default()
         );
         assert_eq!(
-            crate::backend::library::repo::search::search(&store, "   ").unwrap(),
+            crate::backend::repo::search::search(&store, "   ").unwrap(),
             LibrarySearchResults::default()
         );
     }
@@ -164,8 +162,7 @@ mod tests {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
         let root =
-            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
-                .unwrap();
+            crate::backend::repo::storage_roots::add(&mut store, temp.path(), "Music").unwrap();
         for index in 0..7 {
             insert_track(
                 &mut store,
@@ -180,14 +177,11 @@ mod tests {
             );
         }
         for index in 0..4 {
-            crate::backend::library::repo::playlists::create(
-                &mut store,
-                &format!("Cap Playlist {index}"),
-            )
-            .unwrap();
+            crate::backend::repo::playlists::create(&mut store, &format!("Cap Playlist {index}"))
+                .unwrap();
         }
 
-        let results = crate::backend::library::repo::search::search(&store, "cap").unwrap();
+        let results = crate::backend::repo::search::search(&store, "cap").unwrap();
         assert_eq!(results.albums.len(), 3);
         assert_eq!(results.tracks.len(), 5);
         assert_eq!(results.playlists.len(), 3);

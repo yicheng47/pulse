@@ -19,7 +19,7 @@ use std::{
 
 use rusqlite::{Connection, Transaction, config::DbConfig, functions::FunctionFlags};
 
-use super::{LibraryError, system_time_ms};
+use super::{LibraryError, scan::system_time_ms};
 
 impl From<rusqlite::Error> for LibraryError {
     fn from(error: rusqlite::Error) -> Self {
@@ -166,7 +166,8 @@ fn usize_to_i64(value: usize, name: &'static str) -> Result<i64, LibraryError> {
 #[cfg(test)]
 pub(crate) mod testing {
     use super::super::{
-        StorageRoot, TrackId, metadata::AudioMetadata, path::path_identity, walk::DiscoveredFile,
+        StorageRoot, TrackId,
+        scan::{metadata::AudioMetadata, path::path_identity, walk::DiscoveredFile},
     };
     use super::{LibraryStore, tracks::upsert_track};
 

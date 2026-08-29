@@ -4,7 +4,7 @@ use rusqlite::{OptionalExtension, Transaction, params};
 
 use super::super::{
     LibraryError, Playlist, PlaylistId, PlaylistSummary, PlaylistTrack, StorageRootId, TrackId,
-    system_time_ms,
+    scan::system_time_ms,
 };
 use super::{
     LibraryStore, LibraryTransaction, qualified_select_list, select_list, tracks, usize_to_i64,
@@ -447,7 +447,7 @@ pub fn playlist_summary_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Pl
 mod tests {
     use tempfile::tempdir;
 
-    use crate::backend::library::{
+    use crate::backend::{
         LibraryError, LibraryStore,
         repo::{
             testing::{insert_track, test_file, test_metadata},
@@ -459,38 +459,30 @@ mod tests {
     fn playlist_crud_allows_duplicate_names() {
         let mut store = LibraryStore::open_in_memory().unwrap();
 
-        let first =
-            crate::backend::library::repo::playlists::create(&mut store, "Night Drive").unwrap();
-        let second =
-            crate::backend::library::repo::playlists::create(&mut store, "Night Drive").unwrap();
+        let first = crate::backend::repo::playlists::create(&mut store, "Night Drive").unwrap();
+        let second = crate::backend::repo::playlists::create(&mut store, "Night Drive").unwrap();
         let renamed =
-            crate::backend::library::repo::playlists::rename(&mut store, first.id, "Night Drive")
-                .unwrap();
+            crate::backend::repo::playlists::rename(&mut store, first.id, "Night Drive").unwrap();
 
         assert_ne!(first.id, second.id);
         assert_eq!(renamed.name, "Night Drive");
         assert_eq!(
-            crate::backend::library::repo::playlists::list(&store)
-                .unwrap()
-                .len(),
+            crate::backend::repo::playlists::list(&store).unwrap().len(),
             2
         );
 
-        crate::backend::library::repo::playlists::delete_transactional(&mut store, first.id)
-            .unwrap();
+        crate::backend::repo::playlists::delete_transactional(&mut store, first.id).unwrap();
         assert!(
-            crate::backend::library::repo::playlists::get(&store, first.id)
+            crate::backend::repo::playlists::get(&store, first.id)
                 .unwrap()
                 .is_none()
         );
         assert_eq!(
-            crate::backend::library::repo::playlists::list(&store)
-                .unwrap()
-                .len(),
+            crate::backend::repo::playlists::list(&store).unwrap().len(),
             1
         );
         assert!(matches!(
-            crate::backend::library::repo::playlists::delete_transactional(&mut store, first.id),
+            crate::backend::repo::playlists::delete_transactional(&mut store, first.id),
             Err(LibraryError::PlaylistNotFound(id)) if id == first.id
         ));
     }
@@ -500,8 +492,7 @@ mod tests {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
         let root =
-            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
-                .unwrap();
+            crate::backend::repo::storage_roots::add(&mut store, temp.path(), "Music").unwrap();
         let first = insert_track(
             &mut store,
             &root,
@@ -514,17 +505,15 @@ mod tests {
             &test_file(&root, "second.wav", 2, 10),
             &test_metadata("Second", "Artist", Some("Album"), None),
         );
-        let playlist =
-            crate::backend::library::repo::playlists::create(&mut store, "Duplicates").unwrap();
+        let playlist = crate::backend::repo::playlists::create(&mut store, "Duplicates").unwrap();
 
-        crate::backend::library::repo::playlists::append_tracks_transactional(
+        crate::backend::repo::playlists::append_tracks_transactional(
             &mut store,
             playlist.id,
             &[first, first, second],
         )
         .unwrap();
-        let entries =
-            crate::backend::library::repo::playlists::tracks(&store, playlist.id).unwrap();
+        let entries = crate::backend::repo::playlists::tracks(&store, playlist.id).unwrap();
         assert_eq!(
             entries
                 .iter()
@@ -533,14 +522,9 @@ mod tests {
             [(0, first), (1, first), (2, second)]
         );
 
-        crate::backend::library::repo::playlists::remove_entry_transactional(
-            &mut store,
-            playlist.id,
-            1,
-        )
-        .unwrap();
-        let entries =
-            crate::backend::library::repo::playlists::tracks(&store, playlist.id).unwrap();
+        crate::backend::repo::playlists::remove_entry_transactional(&mut store, playlist.id, 1)
+            .unwrap();
+        let entries = crate::backend::repo::playlists::tracks(&store, playlist.id).unwrap();
         assert_eq!(
             entries
                 .iter()
@@ -555,8 +539,7 @@ mod tests {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
         let root =
-            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
-                .unwrap();
+            crate::backend::repo::storage_roots::add(&mut store, temp.path(), "Music").unwrap();
         let mut ids = Vec::new();
         for (index, title) in ["A", "B", "C", "D"].into_iter().enumerate() {
             ids.push(insert_track(
@@ -566,29 +549,19 @@ mod tests {
                 &test_metadata(title, "Artist", Some("Album"), None),
             ));
         }
-        let playlist =
-            crate::backend::library::repo::playlists::create(&mut store, "Order").unwrap();
-        crate::backend::library::repo::playlists::append_tracks_transactional(
-            &mut store,
-            playlist.id,
-            &ids,
-        )
-        .unwrap();
+        let playlist = crate::backend::repo::playlists::create(&mut store, "Order").unwrap();
+        crate::backend::repo::playlists::append_tracks_transactional(&mut store, playlist.id, &ids)
+            .unwrap();
         let titles = |store: &LibraryStore| {
-            crate::backend::library::repo::playlists::tracks(store, playlist.id)
+            crate::backend::repo::playlists::tracks(store, playlist.id)
                 .unwrap()
                 .into_iter()
                 .map(|entry| (entry.position, entry.track.title.unwrap()))
                 .collect::<Vec<_>>()
         };
 
-        crate::backend::library::repo::playlists::move_entry_transactional(
-            &mut store,
-            playlist.id,
-            0,
-            3,
-        )
-        .unwrap();
+        crate::backend::repo::playlists::move_entry_transactional(&mut store, playlist.id, 0, 3)
+            .unwrap();
         assert_eq!(
             titles(&store),
             [
@@ -599,13 +572,8 @@ mod tests {
             ]
         );
 
-        crate::backend::library::repo::playlists::move_entry_transactional(
-            &mut store,
-            playlist.id,
-            3,
-            0,
-        )
-        .unwrap();
+        crate::backend::repo::playlists::move_entry_transactional(&mut store, playlist.id, 3, 0)
+            .unwrap();
         assert_eq!(
             titles(&store),
             [
@@ -616,13 +584,8 @@ mod tests {
             ]
         );
 
-        crate::backend::library::repo::playlists::move_entry_transactional(
-            &mut store,
-            playlist.id,
-            1,
-            2,
-        )
-        .unwrap();
+        crate::backend::repo::playlists::move_entry_transactional(&mut store, playlist.id, 1, 2)
+            .unwrap();
         assert_eq!(
             titles(&store),
             [
@@ -645,24 +608,22 @@ mod tests {
             .execute_batch("PRAGMA foreign_keys = OFF")
             .unwrap();
         let root =
-            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
-                .unwrap();
+            crate::backend::repo::storage_roots::add(&mut store, temp.path(), "Music").unwrap();
         let track = insert_track(
             &mut store,
             &root,
             &test_file(&root, "track.wav", 1, 10),
             &test_metadata("Track", "Artist", Some("Album"), None),
         );
-        let first = crate::backend::library::repo::playlists::create(&mut store, "First").unwrap();
-        let second =
-            crate::backend::library::repo::playlists::create(&mut store, "Second").unwrap();
-        crate::backend::library::repo::playlists::append_tracks_transactional(
+        let first = crate::backend::repo::playlists::create(&mut store, "First").unwrap();
+        let second = crate::backend::repo::playlists::create(&mut store, "Second").unwrap();
+        crate::backend::repo::playlists::append_tracks_transactional(
             &mut store,
             first.id,
             &[track],
         )
         .unwrap();
-        crate::backend::library::repo::playlists::append_tracks_transactional(
+        crate::backend::repo::playlists::append_tracks_transactional(
             &mut store,
             second.id,
             &[track],
@@ -673,12 +634,12 @@ mod tests {
         delete_track(&transaction, track).unwrap();
         transaction.commit().unwrap();
         assert!(
-            crate::backend::library::repo::playlists::tracks(&store, first.id)
+            crate::backend::repo::playlists::tracks(&store, first.id)
                 .unwrap()
                 .is_empty()
         );
         assert!(
-            crate::backend::library::repo::playlists::tracks(&store, second.id)
+            crate::backend::repo::playlists::tracks(&store, second.id)
                 .unwrap()
                 .is_empty()
         );
@@ -689,14 +650,13 @@ mod tests {
             &test_file(&root, "replacement.wav", 2, 10),
             &test_metadata("Replacement", "Artist", Some("Album"), None),
         );
-        crate::backend::library::repo::playlists::append_tracks_transactional(
+        crate::backend::repo::playlists::append_tracks_transactional(
             &mut store,
             first.id,
             &[replacement],
         )
         .unwrap();
-        crate::backend::library::repo::playlists::delete_transactional(&mut store, first.id)
-            .unwrap();
+        crate::backend::repo::playlists::delete_transactional(&mut store, first.id).unwrap();
         let remaining: i64 = store
             .connection
             .query_row(
@@ -713,8 +673,7 @@ mod tests {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
         let root =
-            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
-                .unwrap();
+            crate::backend::repo::storage_roots::add(&mut store, temp.path(), "Music").unwrap();
         let mut ids = Vec::new();
         for (index, duration) in [1_000, 2_000, 3_000].into_iter().enumerate() {
             let mut metadata =
@@ -745,17 +704,12 @@ mod tests {
         )
         .unwrap();
         transaction.commit().unwrap();
-        let playlist =
-            crate::backend::library::repo::playlists::create(&mut store, "Aggregate").unwrap();
-        crate::backend::library::repo::playlists::append_tracks_transactional(
-            &mut store,
-            playlist.id,
-            &ids,
-        )
-        .unwrap();
-        let empty = crate::backend::library::repo::playlists::create(&mut store, "Empty").unwrap();
+        let playlist = crate::backend::repo::playlists::create(&mut store, "Aggregate").unwrap();
+        crate::backend::repo::playlists::append_tracks_transactional(&mut store, playlist.id, &ids)
+            .unwrap();
+        let empty = crate::backend::repo::playlists::create(&mut store, "Empty").unwrap();
 
-        let playlists = crate::backend::library::repo::playlists::list(&store).unwrap();
+        let playlists = crate::backend::repo::playlists::list(&store).unwrap();
         let aggregate = playlists
             .iter()
             .find(|summary| summary.playlist.id == playlist.id)

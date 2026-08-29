@@ -66,7 +66,7 @@ pub fn tracks(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::library::{
+    use crate::backend::{
         LibraryStore,
         repo::testing::{insert_track, test_file, test_metadata},
     };
@@ -77,8 +77,7 @@ mod tests {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
         let root =
-            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
-                .unwrap();
+            crate::backend::repo::storage_roots::add(&mut store, temp.path(), "Music").unwrap();
         let metadata = test_metadata("Track", "Artist", Some("Album"), None);
         let first = insert_track(
             &mut store,

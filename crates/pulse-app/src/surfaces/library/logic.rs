@@ -319,7 +319,7 @@ mod tests {
     use super::*;
     use crate::backend::{
         Album, AlbumSortOrder, Playlist, PlaylistSummary, QueueState, ScanProgressAction,
-        StorageRootId, library::ops, metadata,
+        StorageRootId, ops, scan::metadata,
     };
     use tempfile::tempdir;
 

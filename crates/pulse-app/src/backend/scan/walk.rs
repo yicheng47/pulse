@@ -3,10 +3,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use super::{LibraryError, path::path_identity, system_time_ns};
+use super::{path::path_identity, system_time_ns};
+use crate::backend::LibraryError;
 
 #[derive(Debug)]
-pub(super) struct DiscoveredFile {
+pub(in crate::backend) struct DiscoveredFile {
     pub path: PathBuf,
     pub path_text: String,
     pub path_key: String,
@@ -15,18 +16,18 @@ pub(super) struct DiscoveredFile {
 }
 
 #[derive(Debug)]
-pub(super) struct WalkError {
+pub(in crate::backend) struct WalkError {
     pub path: PathBuf,
     pub message: String,
 }
 
-pub(super) struct WalkResult {
+pub(in crate::backend) struct WalkResult {
     pub files: Vec<DiscoveredFile>,
     pub errors: Vec<WalkError>,
 }
 
 #[cfg(test)]
-pub(super) fn walk_music_files<F>(
+pub(in crate::backend) fn walk_music_files<F>(
     root: &Path,
     is_case_sensitive: bool,
     on_discovered: F,
@@ -38,7 +39,7 @@ where
         .map(|result| result.expect("non-cancellable walk cannot be cancelled"))
 }
 
-pub(super) fn walk_music_files_until<F, C>(
+pub(in crate::backend) fn walk_music_files_until<F, C>(
     root: &Path,
     is_case_sensitive: bool,
     mut on_discovered: F,

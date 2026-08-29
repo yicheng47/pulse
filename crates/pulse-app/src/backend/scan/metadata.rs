@@ -26,7 +26,7 @@ use lofty::{
 use thiserror::Error;
 
 #[derive(Debug)]
-pub(super) struct AudioMetadata {
+pub(in crate::backend) struct AudioMetadata {
     pub title: Option<String>,
     pub artist: Option<String>,
     pub album: Option<String>,
@@ -43,13 +43,13 @@ pub(super) struct AudioMetadata {
 }
 
 #[derive(Debug)]
-pub(super) struct EmbeddedArtwork {
+pub(in crate::backend) struct EmbeddedArtwork {
     pub data: Vec<u8>,
     pub mime_type: Option<String>,
 }
 
 #[derive(Debug, Error)]
-pub(super) enum MetadataError {
+pub(in crate::backend) enum MetadataError {
     #[error("{0}")]
     Io(#[from] std::io::Error),
     #[error("{0}")]
@@ -60,7 +60,7 @@ pub(super) enum MetadataError {
     DurationOutOfRange,
 }
 
-pub(super) fn extract_metadata(path: &Path) -> Result<AudioMetadata, MetadataError> {
+pub(in crate::backend) fn extract_metadata(path: &Path) -> Result<AudioMetadata, MetadataError> {
     let tagged_file = read_pcm_file(path)?;
     let properties = tagged_file.properties();
     let duration_ms = (!properties.duration().is_zero())
@@ -87,7 +87,7 @@ pub(super) fn extract_metadata(path: &Path) -> Result<AudioMetadata, MetadataErr
     })
 }
 
-pub(super) fn folder_artwork(path: &Path) -> io::Result<Option<EmbeddedArtwork>> {
+pub(in crate::backend) fn folder_artwork(path: &Path) -> io::Result<Option<EmbeddedArtwork>> {
     const STEMS: &[&str] = &["cover", "folder", "front"];
     const EXTENSIONS: &[&str] = &["jpg", "jpeg", "png"];
 
@@ -249,7 +249,7 @@ pub(crate) fn write_test_wav(
 }
 
 #[cfg(test)]
-pub(super) fn write_test_wav_with_format(
+pub(in crate::backend) fn write_test_wav_with_format(
     path: &Path,
     title: &str,
     artist: &str,
@@ -293,7 +293,7 @@ pub(super) fn write_test_wav_with_format(
 }
 
 #[cfg(test)]
-pub(super) fn write_test_wav_with_artwork(
+pub(in crate::backend) fn write_test_wav_with_artwork(
     path: &Path,
     title: &str,
     artist: &str,

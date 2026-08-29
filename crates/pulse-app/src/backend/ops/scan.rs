@@ -5,8 +5,7 @@ use std::{
     time::SystemTime,
 };
 
-use crate::backend::library::{
-    metadata,
+use crate::backend::{
     model::{
         LibraryError, ScanFileError, ScanOutcome, ScanProgress, ScanProgressAction, ScanReport,
         StorageRoot, StorageRootId, TrackId,
@@ -22,8 +21,10 @@ use crate::backend::library::{
             self, clear_track_cover, delete_track, set_track_cover, update_track_path, upsert_track,
         },
     },
-    system_time_ms,
-    walk::{self, walk_music_files_until},
+    scan::{
+        metadata, system_time_ms,
+        walk::{self, walk_music_files_until},
+    },
 };
 
 #[allow(dead_code, reason = "shared non-cancellable entry point for pulse mcp")]

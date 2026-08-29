@@ -57,7 +57,7 @@ pub fn recent_scans(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::library::{
+    use crate::backend::{
         LibraryStore,
         repo::testing::{insert_track, set_cover, test_file, test_metadata},
     };

@@ -4,7 +4,8 @@ use std::time::SystemTime;
 use rusqlite::{OptionalExtension, params};
 
 use super::super::{
-    LibraryError, StorageRoot, StorageRootId, path::normalize_storage_root, system_time_ms,
+    LibraryError, StorageRoot, StorageRootId,
+    scan::{path::normalize_storage_root, system_time_ms},
 };
 use super::{
     LibraryStore, LibraryTransaction, artists, playlists, scan_history, select_list, tracks,
@@ -205,13 +206,13 @@ fn storage_root_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<StorageRoo
 mod tests {
     use tempfile::tempdir;
 
-    use crate::backend::library::{
+    use crate::backend::{
         LibraryStore,
-        metadata::{AudioMetadata, EmbeddedArtwork},
         repo::{
             testing::{insert_track, test_file, test_metadata},
             tracks::set_track_cover,
         },
+        scan::metadata::{AudioMetadata, EmbeddedArtwork},
     };
 
     #[test]
@@ -219,16 +220,14 @@ mod tests {
         let temp = tempdir().unwrap();
         let mut store = LibraryStore::open_in_memory().unwrap();
         let root =
-            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Before")
-                .unwrap();
+            crate::backend::repo::storage_roots::add(&mut store, temp.path(), "Before").unwrap();
 
         let renamed =
-            crate::backend::library::repo::storage_roots::rename(&mut store, root.id, "After")
-                .unwrap();
+            crate::backend::repo::storage_roots::rename(&mut store, root.id, "After").unwrap();
 
         assert_eq!(renamed.display_name, "After");
         assert_eq!(
-            crate::backend::library::repo::storage_roots::get(&store, root.id)
+            crate::backend::repo::storage_roots::get(&store, root.id)
                 .unwrap()
                 .unwrap()
                 .display_name,
@@ -247,8 +246,7 @@ mod tests {
             .execute_batch("PRAGMA foreign_keys = OFF")
             .unwrap();
         let root =
-            crate::backend::library::repo::storage_roots::add(&mut store, temp.path(), "Music")
-                .unwrap();
+            crate::backend::repo::storage_roots::add(&mut store, temp.path(), "Music").unwrap();
         let file = test_file(&root, "track.wav", 1, 10);
         let id = insert_track(
             &mut store,
@@ -275,32 +273,31 @@ mod tests {
             transaction.commit().unwrap();
         }
 
-        let playlist =
-            crate::backend::library::repo::playlists::create(&mut store, "Keeper").unwrap();
-        crate::backend::library::repo::playlists::append_tracks_transactional(
+        let playlist = crate::backend::repo::playlists::create(&mut store, "Keeper").unwrap();
+        crate::backend::repo::playlists::append_tracks_transactional(
             &mut store,
             playlist.id,
             &[id],
         )
         .unwrap();
-        crate::backend::library::repo::scan_history::begin(&mut store, root.id, 100).unwrap();
+        crate::backend::repo::scan_history::begin(&mut store, root.id, 100).unwrap();
 
         assert_eq!(
-            crate::backend::library::repo::storage_roots::remove(&mut store, root.id).unwrap(),
+            crate::backend::repo::storage_roots::remove(&mut store, root.id).unwrap(),
             vec![cover_path]
         );
         assert!(
-            crate::backend::library::repo::storage_roots::get(&store, root.id)
+            crate::backend::repo::storage_roots::get(&store, root.id)
                 .unwrap()
                 .is_none()
         );
         assert!(
-            crate::backend::library::repo::tracks::for_root(&store, root.id)
+            crate::backend::repo::tracks::for_root(&store, root.id)
                 .unwrap()
                 .is_empty()
         );
         assert!(
-            crate::backend::library::repo::artists::index(&store)
+            crate::backend::repo::artists::index(&store)
                 .unwrap()
                 .is_empty()
         );
@@ -325,7 +322,7 @@ mod tests {
             "playlist entries of the root's tracks are deleted explicitly"
         );
         assert_eq!(
-            crate::backend::library::repo::playlists::get(&store, playlist.id)
+            crate::backend::repo::playlists::get(&store, playlist.id)
                 .unwrap()
                 .unwrap()
                 .name,

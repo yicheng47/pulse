@@ -1,20 +1,16 @@
 pub(crate) mod metadata;
-mod model;
-pub(crate) mod ops;
-mod path;
-mod repo;
-mod walk;
+pub(super) mod path;
+pub(super) mod walk;
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub use model::*;
-pub use repo::{BackfillProgress, LibraryStore};
+use super::LibraryError;
 
-fn system_time_ms(time: SystemTime) -> Result<i64, LibraryError> {
+pub(in crate::backend) fn system_time_ms(time: SystemTime) -> Result<i64, LibraryError> {
     system_time_units(time, 1_000)
 }
 
-fn system_time_ns(time: SystemTime) -> Result<i64, LibraryError> {
+pub(in crate::backend) fn system_time_ns(time: SystemTime) -> Result<i64, LibraryError> {
     system_time_units(time, 1_000_000_000)
 }
 

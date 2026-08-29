@@ -1,14 +1,18 @@
-pub mod library;
+mod model;
+pub(crate) mod ops;
 mod playback;
 mod preferences;
 mod queue;
+mod repo;
+pub(crate) mod scan;
 mod settings;
 mod updater;
 
-pub(crate) use library::*;
+pub use model::*;
 pub(crate) use playback::*;
 pub(crate) use preferences::*;
 pub(crate) use queue::*;
+pub use repo::{BackfillProgress, LibraryStore};
 pub(crate) use settings::*;
 pub(crate) use updater::*;
 
@@ -34,7 +38,7 @@ mod boundary_tests {
     #[test]
     fn library_sql_and_database_driver_stay_in_repo() {
         let source_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
-        let repo_root = source_root.join("backend/library/repo");
+        let repo_root = source_root.join("backend/repo");
         let driver = ["rusq", "lite"].concat();
         let sql_prefixes = ["SELECT", "INSERT", "UPDATE", "DELETE", "WITH", "CREATE"]
             .map(|keyword| ["\"", keyword, " "].concat());
@@ -66,7 +70,7 @@ mod boundary_tests {
 
         assert!(
             offenders.is_empty(),
-            "library persistence escaped backend/library/repo: {}",
+            "library persistence escaped backend/repo: {}",
             offenders.join(", ")
         );
         assert_eq!(
@@ -81,7 +85,7 @@ mod boundary_tests {
         );
         assert!(
             fragment_files[0].starts_with(&repo_root),
-            "effective album-artist SQL must stay under backend/library/repo: {}",
+            "effective album-artist SQL must stay under backend/repo: {}",
             fragment_files[0].display()
         );
     }

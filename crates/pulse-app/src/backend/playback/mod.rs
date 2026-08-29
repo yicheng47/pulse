@@ -22,7 +22,7 @@ use pulse_engine::{
 };
 
 use super::{
-    library::{Track, TrackId},
+    Track, TrackId,
     queue::{PreviousAction, QueueState, TrackRef},
     settings::{AppSettings, ExclusiveModePreferences, StoredDeviceCapabilities},
 };

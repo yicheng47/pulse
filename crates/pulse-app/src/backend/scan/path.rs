@@ -5,15 +5,17 @@ use std::os::unix::ffi::OsStrExt;
 
 use unicode_normalization::UnicodeNormalization;
 
-use super::LibraryError;
+use super::super::LibraryError;
 
-pub(super) struct StorageRootPath {
+pub(in crate::backend) struct StorageRootPath {
     pub path_text: String,
     pub path_key: String,
     pub is_case_sensitive: bool,
 }
 
-pub(super) fn normalize_storage_root(path: &Path) -> Result<StorageRootPath, LibraryError> {
+pub(in crate::backend) fn normalize_storage_root(
+    path: &Path,
+) -> Result<StorageRootPath, LibraryError> {
     let path = fs::canonicalize(path).map_err(|source| LibraryError::Io {
         path: path.to_path_buf(),
         source,
@@ -35,7 +37,7 @@ pub(super) fn normalize_storage_root(path: &Path) -> Result<StorageRootPath, Lib
     })
 }
 
-pub(super) fn path_identity(
+pub(in crate::backend) fn path_identity(
     path: &Path,
     is_case_sensitive: bool,
 ) -> Result<(String, String), LibraryError> {
