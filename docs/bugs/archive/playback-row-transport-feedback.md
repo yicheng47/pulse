@@ -1,6 +1,6 @@
 # Playback row transport buttons give no click feedback and prev/next blink on resume
 
-> Bug · P2 · filed 2026-08-29 from Jason's in-app report. Local note only — no GitHub issue.
+> Bug · P2 · filed 2026-08-29 from Jason's in-app report. **Fixed** 2026-08-29, commit `3d85c64` — kit-level hover/active, availability from the queue, optimistic play/pause reconciled by settled states, `Loading` shows pause.
 
 ## Description
 

@@ -25,7 +25,7 @@ Make the domain layer structural before more features land on it.
 | [Feature 27 — flatten the backend layout](features/27-flatten-backend-layout.md) | P2 | planned | Drop the `backend/library/` wrapper → `backend/{model.rs, repo/, ops/, scan/}`; moves only. Runs before the remaining M1 bugs since they touch `repo/`. |
 | [Bug — app menu items disabled without focus](bugs/app-menu-items-disabled.md) | P2 | planned | Global `cx.on_action` handlers, Runner's pattern. Small; run right after phase 1. |
 | [Bug — macOS 12 deployment target](bugs/macos-deployment-target.md) | P2 | planned | Release hygiene; validate or raise before the next release. |
-| [Bug — playback row transport feedback](bugs/playback-row-transport-feedback.md) | P2 | planned | Hover/pressed states on the transport buttons (kit-level), optimistic play/pause, and prev/next availability from the queue rather than the engine's `Loading` state. |
+| [Bug — playback row transport feedback](bugs/archive/playback-row-transport-feedback.md) | P2 | done | `3d85c64`: kit-level hover/active, prev/next from the queue, play button stable across resume and next/previous. |
 | [Bug — effective-artist SQL copies](bugs/archive/effective-artist-sql-copies.md) | P3 | done | Fixed by 25 phase 2 (`aa211ec`). |
 | [Bug — album card image clipping](bugs/album-card-image-clipping.md) | P3 | planned | Same fix as the artist avatar: radius on the `img`. |
 | [Bug — track-artist SQL copies](bugs/track-artist-sql-copies.md) | P3 | planned | Hoist the three `tracks.rs` copies into one `repo/mod.rs` fragment and extend the boundary gate; found in 25 phase 4 review. |
