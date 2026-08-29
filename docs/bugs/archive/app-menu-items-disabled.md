@@ -1,6 +1,6 @@
 # App menu: About / Settings… / Check for Updates… are disabled unless something in the window has focus
 
-> Bug · P2 · filed 2026-08-29 as GitHub issue #69 (closed when tracking moved to docs, 2026-08-29)
+> Bug · P2 · filed 2026-08-29 as GitHub issue #69 (closed when tracking moved to docs, 2026-08-29). **Fixed** 2026-08-29, commit `f51accf`: the three actions (plus Edit ▸ Search) are global `cx.on_action` handlers in `menu::install`, routed to the active `Shell` window through `cx.defer` because GPUI holds the window lease during action dispatch. The same defer fixed the pre-existing `Minimize` / `Close Window` no-ops (Cmd-M / Cmd-W).
 
 ## Description
 The Pulse app menu shows **About Pulse**, **Settings…**, and **Check for Updates…** greyed out (screenshot from Jason, 2026-08-29, v0.1.7 / `main`), while Hide / Hide Others / Show All / Quit work.
