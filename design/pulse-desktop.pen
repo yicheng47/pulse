@@ -4350,6 +4350,42 @@
                             },
                             {
                               "type": "frame",
+                              "id": "IPHd0",
+                              "name": "Nav / Artists",
+                              "width": "fill_container",
+                              "fill": "#00000000",
+                              "cornerRadius": 6,
+                              "gap": 10,
+                              "padding": [
+                                9,
+                                10
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "UNR5D",
+                                  "name": "Icon",
+                                  "width": 17,
+                                  "height": 17,
+                                  "icon": "mic-vocal",
+                                  "library": "lucide",
+                                  "fill": "#6A6A66"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "d2Bjp",
+                                  "name": "Label",
+                                  "fill": "#9D9D99",
+                                  "content": "Artists",
+                                  "fontFamily": "Rajdhani",
+                                  "fontSize": 15,
+                                  "fontWeight": "600"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
                               "id": "WNgrJ",
                               "name": "Nav / Tracks",
                               "width": "fill_container",
@@ -5545,7 +5581,7 @@
       "type": "frame",
       "id": "C6IrDC",
       "x": -1763,
-      "y": 4316,
+      "y": 6876,
       "name": "Library / Storage",
       "clip": true,
       "width": 1440,
@@ -7742,7 +7778,7 @@
       "type": "frame",
       "id": "KfJr9",
       "x": -1763,
-      "y": 2227,
+      "y": 4556,
       "name": "Library / Tracks",
       "clip": true,
       "width": 1440,
@@ -10475,7 +10511,7 @@
       "type": "frame",
       "id": "MHrLm",
       "x": -1763,
-      "y": 3267,
+      "y": 5716,
       "name": "Library / Playlists",
       "clip": true,
       "width": 1440,
@@ -13001,7 +13037,7 @@
       "type": "frame",
       "id": "cJCbr",
       "x": -243,
-      "y": 4316,
+      "y": 6876,
       "name": "Library / Storage — Add Storage",
       "clip": true,
       "width": 1440,
@@ -15655,7 +15691,7 @@
       "type": "frame",
       "id": "NK6lk",
       "x": 1277,
-      "y": 4316,
+      "y": 6876,
       "name": "Library / Storage — Scanning",
       "clip": true,
       "width": 1440,
@@ -17919,7 +17955,7 @@
       "type": "frame",
       "id": "e2xOQ",
       "x": 2797,
-      "y": 4316,
+      "y": 6876,
       "name": "Library / Storage — Offline & Scan Failure",
       "clip": true,
       "width": 1440,
@@ -21858,7 +21894,7 @@
     {
       "type": "frame",
       "id": "lTVhl",
-      "x": 1277,
+      "x": 4317,
       "y": 1216,
       "name": "Library / Albums — Empty",
       "clip": true,
@@ -22597,7 +22633,7 @@
       "type": "frame",
       "id": "VPPvT",
       "x": 4317,
-      "y": 4316,
+      "y": 6876,
       "name": "Library / Storage — Empty",
       "clip": true,
       "width": 1440,
@@ -23674,7 +23710,7 @@
       "type": "frame",
       "id": "LNdSq",
       "x": -243,
-      "y": 3267,
+      "y": 5716,
       "name": "Library / Playlists — Empty",
       "clip": true,
       "width": 1440,
@@ -24590,8 +24626,8 @@
     {
       "type": "frame",
       "id": "A3JuUc",
-      "x": 2797,
-      "y": 1216,
+      "x": -1763,
+      "y": 10356,
       "name": "Library / Search Results",
       "clip": true,
       "width": 1440,
@@ -27053,7 +27089,7 @@
       "type": "frame",
       "id": "Lr7A3",
       "x": 1277,
-      "y": 3267,
+      "y": 5716,
       "name": "Library / Playlists — Name Dialog",
       "clip": true,
       "width": 1440,
@@ -29824,7 +29860,7 @@
       "type": "frame",
       "id": "cYA3i",
       "x": -243,
-      "y": 2227,
+      "y": 4556,
       "name": "Library / Tracks — Context Menu",
       "clip": true,
       "width": 1440,
@@ -32659,7 +32695,7 @@
       "type": "frame",
       "id": "f9sxo",
       "x": 1277,
-      "y": 2227,
+      "y": 4556,
       "name": "Library / Tracks — Missing File & Skip Report",
       "clip": true,
       "width": 1440,
@@ -35474,7 +35510,7 @@
       "type": "frame",
       "id": "UNybN",
       "x": -243,
-      "y": 5316,
+      "y": 10356,
       "name": "Playback — Device Interrupted",
       "clip": true,
       "width": 1440,
@@ -37825,8 +37861,8 @@
     {
       "type": "frame",
       "id": "uxymZ",
-      "x": -1763,
-      "y": 5316,
+      "x": 2797,
+      "y": 10356,
       "name": "App — Loading & Migration",
       "clip": true,
       "width": 1440,
@@ -38487,7 +38523,7 @@
       "type": "frame",
       "id": "VSy1Y",
       "x": 2797,
-      "y": 2227,
+      "y": 4556,
       "name": "Library / Tracks — Artist Filter",
       "clip": true,
       "width": 1440,
@@ -41527,7 +41563,7 @@
       "type": "frame",
       "id": "LjEHI",
       "x": 1277,
-      "y": 5316,
+      "y": 10356,
       "name": "Playback — Queue Popover",
       "clip": true,
       "width": 1440,
@@ -44965,7 +45001,7 @@
     {
       "type": "frame",
       "id": "KhURs",
-      "x": 4317,
+      "x": 1277,
       "y": 1216,
       "name": "Library / Album Detail — Album Menu",
       "clip": true,
@@ -46727,7 +46763,7 @@
     {
       "type": "frame",
       "id": "AlTSd",
-      "x": 5837,
+      "x": 2797,
       "y": 1216,
       "name": "Library / Album Detail — Delete Album",
       "clip": true,
@@ -48717,7 +48753,7 @@
       "type": "frame",
       "id": "C5mRG",
       "x": -1763,
-      "y": 6560,
+      "y": 9196,
       "name": "Settings / General",
       "clip": true,
       "width": 1440,
@@ -49356,7 +49392,7 @@
       "type": "frame",
       "id": "D9PDB",
       "x": -243,
-      "y": 6560,
+      "y": 9196,
       "name": "Settings / Update",
       "clip": true,
       "width": 1440,
@@ -49748,7 +49784,7 @@
       "type": "frame",
       "id": "Tnibv",
       "x": 1277,
-      "y": 6560,
+      "y": 9196,
       "name": "Settings / About",
       "clip": true,
       "width": 1440,
@@ -50155,8 +50191,8 @@
     {
       "type": "frame",
       "id": "I1OSIN",
-      "x": 4357,
-      "y": 2227,
+      "x": -1763,
+      "y": 2236,
       "name": "Library / Albums — Genre Filter",
       "clip": true,
       "width": 1440,
@@ -53494,7 +53530,7 @@
       "type": "frame",
       "id": "XmoeK",
       "x": -1763,
-      "y": 7784,
+      "y": 8036,
       "name": "Library / Devices",
       "clip": true,
       "width": 1440,
@@ -54844,6 +54880,2867 @@
           "fill": "#28C840",
           "width": 12,
           "height": 12
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "ixG6j",
+      "x": -1763,
+      "y": 3396,
+      "name": "Library / Artists",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$bg-page",
+      "cornerRadius": "$radius-lg",
+      "stroke": "$border",
+      "strokeWidth": {
+        "top": 1,
+        "right": 1,
+        "left": 1
+      },
+      "strokeAlignment": "inner",
+      "strokeLinejoin": "round",
+      "children": [
+        {
+          "id": "oqGqe",
+          "type": "ref",
+          "ref": "IqX8X",
+          "name": "Sidebar / Tracks",
+          "width": 236,
+          "height": "fill_container",
+          "descendants": {
+            "GWXPo": {
+              "fill": "#00000000"
+            },
+            "bCZAw": {
+              "fill": "$text-muted"
+            },
+            "LOfz0": {
+              "fill": "$text-secondary"
+            },
+            "IPHd0": {
+              "fill": "$accent-soft"
+            },
+            "UNR5D": {
+              "fill": "$accent"
+            },
+            "d2Bjp": {
+              "fill": "$text-primary"
+            },
+            "WNgrJ": {
+              "fill": "#00000000"
+            },
+            "Q98yur": {
+              "fill": "$text-muted"
+            },
+            "cSYYH": {
+              "fill": "$text-secondary"
+            },
+            "sfVum": {
+              "fill": "#00000000"
+            },
+            "w58Av2": {
+              "fill": "$text-muted"
+            },
+            "d6a9c": {
+              "fill": "$text-secondary"
+            },
+            "coGs2": {
+              "fill": "#00000000"
+            },
+            "dvTbd": {
+              "fill": "$text-muted"
+            },
+            "O9h6J1": {
+              "fill": "$text-secondary"
+            },
+            "e2Pal": {
+              "fill": "#00000000"
+            },
+            "fBGKp": {
+              "fill": "$text-muted"
+            },
+            "UigfG": {
+              "fill": "$text-secondary"
+            }
+          }
+        },
+        {
+          "type": "frame",
+          "id": "mEZ8k",
+          "name": "Right Column",
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "children": [
+            {
+              "type": "frame",
+              "id": "QmpF2",
+              "name": "Main",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "$bg-page",
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "o3RbY",
+                  "name": "Top Bar",
+                  "width": "fill_container",
+                  "height": 74,
+                  "stroke": "$border",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "strokeAlignment": "inner",
+                  "strokeLinejoin": "round",
+                  "padding": [
+                    0,
+                    28
+                  ],
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "id": "lrtSx",
+                      "type": "ref",
+                      "ref": "VoSds",
+                      "width": 420
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "TZlHG",
+                  "name": "Body",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "DLSG3",
+                      "name": "Artists Content",
+                      "width": "fill_container",
+                      "height": "fill_container",
+                      "fill": "#0F0F0F",
+                      "layout": "vertical",
+                      "gap": 18,
+                      "padding": [
+                        26,
+                        28,
+                        24,
+                        28
+                      ],
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "usPMf",
+                          "name": "Artists Header",
+                          "width": "fill_container",
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "NQzcJ",
+                              "name": "Copy",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "i0rimw",
+                                  "name": "Title",
+                                  "fill": "#F0F0EE",
+                                  "content": "Artists",
+                                  "fontFamily": "Rajdhani",
+                                  "fontSize": 34,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "kV3sW",
+                                  "name": "Meta",
+                                  "fill": "#9D9D99",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "12 artists · 44 albums · 545 tracks",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 13,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "ZvMKS",
+                          "name": "Artist Filter Input",
+                          "width": 280,
+                          "height": 36,
+                          "fill": "$bg-inset",
+                          "cornerRadius": "$radius-sm",
+                          "stroke": "$accent",
+                          "strokeWidth": 1,
+                          "strokeAlignment": "inner",
+                          "gap": 8,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "nngHD",
+                              "name": "Icon",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "search",
+                              "library": "lucide",
+                              "fill": "$text-muted"
+                            },
+                            {
+                              "type": "text",
+                              "id": "L0cHA",
+                              "name": "Placeholder",
+                              "fill": "$text-muted",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Filter artists",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "kxNoq",
+                              "name": "Caret",
+                              "fill": "$accent",
+                              "width": 1.5,
+                              "height": 14
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "I881m",
+                          "name": "Artists Scroll Region",
+                          "clip": true,
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "layout": "none",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "m5iGv",
+                              "x": 0,
+                              "y": 0,
+                              "name": "Artists Grid",
+                              "width": 1148,
+                              "fill": "#00000000",
+                              "layout": "vertical",
+                              "gap": 32,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "jIhaz",
+                                  "name": "Artist Row 1",
+                                  "width": "fill_container",
+                                  "gap": 32,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "R5w2r",
+                                      "name": "Artist Card / Adele",
+                                      "width": 204,
+                                      "layout": "vertical",
+                                      "gap": 12,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "ZMmQO",
+                                          "name": "Avatar / Photo",
+                                          "clip": true,
+                                          "width": 180,
+                                          "height": 180,
+                                          "fill": {
+                                            "type": "image",
+                                            "enabled": true,
+                                            "url": "album-covers/pop/21.jpg",
+                                            "mode": "fill"
+                                          },
+                                          "cornerRadius": 90,
+                                          "stroke": "#403D39",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "layout": "none"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "OqEXX",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "zC0Td",
+                                              "name": "Name",
+                                              "fill": "#F0F0EE",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Adele",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 14,
+                                              "fontWeight": "600"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "P6YJ9s",
+                                              "name": "Meta",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "3 albums · 36 tracks",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "zKuLT",
+                                      "name": "Artist Card / Aphex Twin",
+                                      "width": 204,
+                                      "layout": "vertical",
+                                      "gap": 12,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "YDyRa",
+                                          "name": "Avatar / Empty",
+                                          "width": 180,
+                                          "height": 180,
+                                          "fill": "#1E1E1C",
+                                          "cornerRadius": 90,
+                                          "stroke": "#312F2C",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "justifyContent": "center",
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "icon",
+                                              "id": "WjATD",
+                                              "name": "Silhouette",
+                                              "width": 72,
+                                              "height": 72,
+                                              "icon": "user",
+                                              "library": "lucide",
+                                              "fill": "#6A6A66"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "oXqxi",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "yIXxu",
+                                              "name": "Name",
+                                              "fill": "#F0F0EE",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Aphex Twin",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 14,
+                                              "fontWeight": "600"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "BxaLe",
+                                              "name": "Meta",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "3 albums · 38 tracks",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "aS99f",
+                                      "name": "Artist Card / Charli xcx",
+                                      "width": 204,
+                                      "layout": "vertical",
+                                      "gap": 12,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "P861m",
+                                          "name": "Avatar / Photo",
+                                          "clip": true,
+                                          "width": 180,
+                                          "height": 180,
+                                          "fill": {
+                                            "type": "image",
+                                            "enabled": true,
+                                            "url": "album-covers/pop/brat.jpg",
+                                            "mode": "fill"
+                                          },
+                                          "cornerRadius": 90,
+                                          "stroke": "#403D39",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "layout": "none"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "kwd6W",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "AWM6X",
+                                              "name": "Name",
+                                              "fill": "#F0F0EE",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Charli xcx",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 14,
+                                              "fontWeight": "600"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "yPwDF",
+                                              "name": "Meta",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "4 albums · 47 tracks",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "OZRs8",
+                                      "name": "Artist Card / Crosby, Stills & Nash",
+                                      "width": 204,
+                                      "layout": "vertical",
+                                      "gap": 12,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "piXqY",
+                                          "name": "Avatar / Photo",
+                                          "clip": true,
+                                          "width": 180,
+                                          "height": 180,
+                                          "fill": {
+                                            "type": "image",
+                                            "enabled": true,
+                                            "url": "album-covers/pop/off-the-wall.jpg",
+                                            "mode": "fill"
+                                          },
+                                          "cornerRadius": 90,
+                                          "stroke": "#403D39",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "layout": "none"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "rUTWc",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "HFGSY",
+                                              "name": "Name",
+                                              "fill": "#F0F0EE",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Crosby, Stills & Nash",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 14,
+                                              "fontWeight": "600"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "w0NRx",
+                                              "name": "Meta",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "2 albums · 24 tracks",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "rsDGV",
+                                      "name": "Artist Card / D'Angelo",
+                                      "width": 204,
+                                      "layout": "vertical",
+                                      "gap": 12,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "KVKZx",
+                                          "name": "Avatar / Photo",
+                                          "clip": true,
+                                          "width": 180,
+                                          "height": 180,
+                                          "fill": {
+                                            "type": "image",
+                                            "enabled": true,
+                                            "url": "album-covers/pop/voodoo.jpg",
+                                            "mode": "fill"
+                                          },
+                                          "cornerRadius": 90,
+                                          "stroke": "#403D39",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "layout": "none"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "VCExM",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "K6Dszu",
+                                              "name": "Name",
+                                              "fill": "#F0F0EE",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "D'Angelo",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 14,
+                                              "fontWeight": "600"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "b5pcLw",
+                                              "name": "Meta",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "3 albums · 39 tracks",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "cxogu",
+                                  "name": "Artist Row 2",
+                                  "width": "fill_container",
+                                  "gap": 32,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "TPkVB",
+                                      "name": "Artist Card / Fiona Apple",
+                                      "width": 204,
+                                      "layout": "vertical",
+                                      "gap": 12,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "bwo4z",
+                                          "name": "Avatar / Photo",
+                                          "clip": true,
+                                          "width": 180,
+                                          "height": 180,
+                                          "fill": {
+                                            "type": "image",
+                                            "enabled": true,
+                                            "url": "album-covers/pop/fetch-the-bolt-cutters.jpg",
+                                            "mode": "fill"
+                                          },
+                                          "cornerRadius": 90,
+                                          "stroke": "#403D39",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "layout": "none"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "uaY2Z",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "K33jM",
+                                              "name": "Name",
+                                              "fill": "#F0F0EE",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Fiona Apple",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 14,
+                                              "fontWeight": "600"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "GF7fx",
+                                              "name": "Meta",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "3 albums · 33 tracks",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "iL87B",
+                                      "name": "Artist Card / Frank Ocean",
+                                      "width": 204,
+                                      "layout": "vertical",
+                                      "gap": 12,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "FHh5E",
+                                          "name": "Avatar / Photo",
+                                          "clip": true,
+                                          "width": 180,
+                                          "height": 180,
+                                          "fill": {
+                                            "type": "image",
+                                            "enabled": true,
+                                            "url": "album-covers/pop/blonde.jpg",
+                                            "mode": "fill"
+                                          },
+                                          "cornerRadius": 90,
+                                          "stroke": "#403D39",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "layout": "none"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "Z4D8nN",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "gvTAP",
+                                              "name": "Name",
+                                              "fill": "#F0F0EE",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Frank Ocean",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 14,
+                                              "fontWeight": "600"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "wYDTc",
+                                              "name": "Meta",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "2 albums · 26 tracks",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "W2pzce",
+                                      "name": "Artist Card / Kate Bush",
+                                      "width": 204,
+                                      "layout": "vertical",
+                                      "gap": 12,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "j7vfUZ",
+                                          "name": "Avatar / Photo",
+                                          "clip": true,
+                                          "width": 180,
+                                          "height": 180,
+                                          "fill": {
+                                            "type": "image",
+                                            "enabled": true,
+                                            "url": "album-covers/pop/hounds-of-love.jpg",
+                                            "mode": "fill"
+                                          },
+                                          "cornerRadius": 90,
+                                          "stroke": "#403D39",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "layout": "none"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "r1zFgp",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "fruiU",
+                                              "name": "Name",
+                                              "fill": "#F0F0EE",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Kate Bush",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 14,
+                                              "fontWeight": "600"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "Jf39S",
+                                              "name": "Meta",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "5 albums · 58 tracks",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "yxblv",
+                                      "name": "Artist Card / Lana Del Rey",
+                                      "width": 204,
+                                      "layout": "vertical",
+                                      "gap": 12,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "JwfRn",
+                                          "name": "Avatar / Photo",
+                                          "clip": true,
+                                          "width": 180,
+                                          "height": 180,
+                                          "fill": {
+                                            "type": "image",
+                                            "enabled": true,
+                                            "url": "album-covers/pop/norman-fucking-rockwell.jpg",
+                                            "mode": "fill"
+                                          },
+                                          "cornerRadius": 90,
+                                          "stroke": "#403D39",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "layout": "none"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "fAcwE",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "hURnk",
+                                              "name": "Name",
+                                              "fill": "#F0F0EE",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Lana Del Rey",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 14,
+                                              "fontWeight": "600"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "Rkh0g",
+                                              "name": "Meta",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "4 albums · 62 tracks",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "PVKst",
+                                      "name": "Artist Card / Lorde",
+                                      "width": 204,
+                                      "layout": "vertical",
+                                      "gap": 12,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "A9hct5",
+                                          "name": "Avatar / Photo",
+                                          "clip": true,
+                                          "width": 180,
+                                          "height": 180,
+                                          "fill": {
+                                            "type": "image",
+                                            "enabled": true,
+                                            "url": "album-covers/pop/melodrama.jpg",
+                                            "mode": "fill"
+                                          },
+                                          "cornerRadius": 90,
+                                          "stroke": "#403D39",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "layout": "none"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "RF6nW",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "qSayd",
+                                              "name": "Name",
+                                              "fill": "#F0F0EE",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Lorde",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 14,
+                                              "fontWeight": "600"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "E73GZ",
+                                              "name": "Meta",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "3 albums · 35 tracks",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "IpjKk",
+                                  "name": "Artist Row 3",
+                                  "width": "fill_container",
+                                  "gap": 32,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "LNbbs",
+                                      "name": "Artist Card / 王菲",
+                                      "width": 204,
+                                      "layout": "vertical",
+                                      "gap": 12,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "S31mS",
+                                          "name": "Avatar / Empty",
+                                          "width": 180,
+                                          "height": 180,
+                                          "fill": "#1E1E1C",
+                                          "cornerRadius": 90,
+                                          "stroke": "#312F2C",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "justifyContent": "center",
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "icon",
+                                              "id": "y8FLS",
+                                              "name": "Silhouette",
+                                              "width": 72,
+                                              "height": 72,
+                                              "icon": "user",
+                                              "library": "lucide",
+                                              "fill": "#6A6A66"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "CmrG5",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "tVkjH",
+                                              "name": "Name",
+                                              "fill": "#F0F0EE",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "王菲",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 14,
+                                              "fontWeight": "600"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "CFj9K",
+                                              "name": "Meta",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "7 albums · 84 tracks",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "u9WJbW",
+                                      "name": "Artist Card / 宇多田ヒカル",
+                                      "width": 204,
+                                      "layout": "vertical",
+                                      "gap": 12,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "iWiQw",
+                                          "name": "Avatar / Photo",
+                                          "clip": true,
+                                          "width": 180,
+                                          "height": 180,
+                                          "fill": {
+                                            "type": "image",
+                                            "enabled": true,
+                                            "url": "album-covers/pop/after-hours.jpg",
+                                            "mode": "fill"
+                                          },
+                                          "cornerRadius": 90,
+                                          "stroke": "#403D39",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "layout": "none"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "lLUAK",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "eub0g",
+                                              "name": "Name",
+                                              "fill": "#F0F0EE",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "宇多田ヒカル",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 14,
+                                              "fontWeight": "600"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "m0eqhA",
+                                              "name": "Meta",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "5 albums · 63 tracks",
+                                              "textAlign": "center",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "ism8F",
+                              "x": 1140,
+                              "y": 37,
+                              "name": "Scrollbar / Track",
+                              "width": 4,
+                              "height": 515,
+                              "fill": "#1E1E1C",
+                              "cornerRadius": 2,
+                              "layout": "none",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "oGqzU",
+                                  "x": 0,
+                                  "y": 0,
+                                  "name": "Scrollbar / Thumb",
+                                  "width": 4,
+                                  "height": 64,
+                                  "fill": "#6A6A66",
+                                  "cornerRadius": 2
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Oqtpz",
+              "name": "Bottom Player",
+              "width": "fill_container",
+              "height": 92,
+              "fill": "$bg-surface",
+              "stroke": "$border",
+              "strokeAlignment": "inner",
+              "strokeLinejoin": "round",
+              "layout": "vertical",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "UdSIr",
+                  "name": "Progress Strip",
+                  "width": "fill_container",
+                  "height": 3,
+                  "fill": "$bg-elevated",
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "id": "FuuGY",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Elapsed Fill",
+                      "fill": "$accent",
+                      "width": 340,
+                      "height": 3
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "ydg1z",
+                  "name": "Content Row",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "gap": 22,
+                  "padding": [
+                    12,
+                    20
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "aA4ef",
+                      "name": "Now Playing",
+                      "width": 317,
+                      "gap": 16,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "x0WDg3",
+                          "name": "Track Info",
+                          "width": "fill_container",
+                          "gap": 12,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "Rpuwg",
+                              "name": "Cover",
+                              "clip": true,
+                              "width": 60,
+                              "height": 60,
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "album-covers/pop/blonde.jpg",
+                                "mode": "fill"
+                              },
+                              "cornerRadius": "$radius-sm",
+                              "stroke": "$border-strong",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner",
+                              "layout": "none"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "R7f66",
+                              "name": "Copy",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "yLE37",
+                                  "name": "Track Title",
+                                  "fill": "#F0F0EE",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "Nights",
+                                  "fontFamily": "Rajdhani",
+                                  "fontSize": 15,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "KbKDH",
+                                  "name": "Artist And Album",
+                                  "fill": "#9D9D99",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "Frank Ocean - Blonde",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "rectangle",
+                          "id": "ri1Xt",
+                          "name": "Now Playing Divider",
+                          "fill": "$border",
+                          "width": 1,
+                          "height": 44
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "evFKC",
+                      "name": "Transport Center",
+                      "width": "fill_container",
+                      "gap": 28,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "XVsUS",
+                          "name": "Elapsed Slot",
+                          "width": 44,
+                          "justifyContent": "end",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "QhDMr",
+                              "name": "Elapsed",
+                              "fill": "$text-secondary",
+                              "content": "2:14",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "H4rKL",
+                          "name": "Controls",
+                          "gap": 16,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "I5UBc",
+                              "name": "Shuffle",
+                              "width": 19,
+                              "height": 19,
+                              "icon": "shuffle",
+                              "library": "lucide",
+                              "fill": "$text-secondary"
+                            },
+                            {
+                              "type": "icon",
+                              "id": "p31LdG",
+                              "name": "Previous",
+                              "width": 19,
+                              "height": 19,
+                              "icon": "skip-back",
+                              "library": "lucide",
+                              "fill": "$text-secondary"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "MT3VD",
+                              "name": "Play",
+                              "width": 34,
+                              "height": 34,
+                              "fill": "$accent",
+                              "cornerRadius": "$radius-md",
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "t17M1Z",
+                                  "name": "Play Icon",
+                                  "width": 18,
+                                  "height": 18,
+                                  "icon": "play",
+                                  "library": "lucide",
+                                  "fill": "$bg-inset"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "icon",
+                              "id": "a7sv2",
+                              "name": "Next",
+                              "width": 19,
+                              "height": 19,
+                              "icon": "skip-forward",
+                              "library": "lucide",
+                              "fill": "$text-secondary"
+                            },
+                            {
+                              "type": "icon",
+                              "id": "Y61Qn2",
+                              "name": "Repeat",
+                              "width": 19,
+                              "height": 19,
+                              "icon": "repeat-2",
+                              "library": "lucide",
+                              "fill": "$text-secondary"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "GFdj7",
+                          "name": "Duration Slot",
+                          "width": 44,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "D6n0l",
+                              "name": "Duration",
+                              "fill": "$text-muted",
+                              "content": "4:28",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "U84Nl",
+                      "name": "Output Slot",
+                      "width": 317,
+                      "gap": 16,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "id": "S45nu",
+                          "name": "Output Leading Divider",
+                          "fill": "$border",
+                          "width": 1,
+                          "height": 44
+                        },
+                        {
+                          "type": "frame",
+                          "id": "fG1tW",
+                          "name": "Output Status",
+                          "width": 300,
+                          "gap": 14,
+                          "justifyContent": "end",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "Tka4s",
+                              "name": "Format",
+                              "width": 132,
+                              "layout": "vertical",
+                              "gap": 3,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "j8SRi",
+                                  "name": "Quality",
+                                  "fill": "#9DE23A",
+                                  "content": "FLAC · 16-bit",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 12,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "UwLWN",
+                                  "name": "Device",
+                                  "fill": "$text-secondary",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "44.1 kHz · Matrix mini-i",
+                                  "fontFamily": "$font-sans",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "TETv4",
+                              "name": "Divider",
+                              "fill": "$border",
+                              "width": 1,
+                              "height": 24
+                            },
+                            {
+                              "type": "frame",
+                              "id": "xm6Kz",
+                              "name": "Volume",
+                              "gap": 8,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "VBqcH",
+                                  "name": "Volume Icon",
+                                  "width": 17,
+                                  "height": 17,
+                                  "icon": "volume-2",
+                                  "library": "lucide",
+                                  "fill": "$text-secondary"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "G0nva",
+                              "name": "Divider",
+                              "fill": "$border",
+                              "width": 1,
+                              "height": 24
+                            },
+                            {
+                              "type": "icon",
+                              "id": "i3XFrk",
+                              "name": "Output",
+                              "width": 17,
+                              "height": 17,
+                              "icon": "speaker",
+                              "library": "lucide",
+                              "fill": "$text-secondary"
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "rqSHZ",
+                              "name": "Divider",
+                              "fill": "$border",
+                              "width": 1,
+                              "height": 24
+                            },
+                            {
+                              "type": "frame",
+                              "id": "yS5eQ",
+                              "name": "Queue Button",
+                              "width": 38,
+                              "height": 34,
+                              "layout": "none",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "DmgeQ",
+                                  "x": 0,
+                                  "y": 8,
+                                  "name": "Queue",
+                                  "width": 17,
+                                  "height": 17,
+                                  "icon": "list-music",
+                                  "library": "lucide",
+                                  "fill": "$text-secondary"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "D6Y1Qh",
+                                  "x": 22,
+                                  "y": 0,
+                                  "name": "Badge",
+                                  "width": 16,
+                                  "height": 16,
+                                  "fill": "$accent",
+                                  "cornerRadius": 8,
+                                  "stroke": "$bg-surface",
+                                  "strokeWidth": 2,
+                                  "strokeAlignment": "outer",
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "DtMkH",
+                                      "name": "Count",
+                                      "fill": "$bg-inset",
+                                      "content": "7",
+                                      "fontFamily": "$font-mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "700"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "ellipse",
+                  "id": "uES5A",
+                  "layoutPosition": "absolute",
+                  "x": 335,
+                  "y": -3,
+                  "name": "Hover Scrubber (hover and drag only)",
+                  "fill": "$accent",
+                  "width": 10,
+                  "height": 10
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "ktVzq",
+      "x": -1763,
+      "y": 1152,
+      "name": "Group / ALBUMS",
+      "fill": "#161615",
+      "cornerRadius": 4,
+      "stroke": "#312F2C",
+      "strokeWidth": 1,
+      "padding": [
+        6,
+        12
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "text",
+          "id": "eu4zf",
+          "name": "Label",
+          "fill": "#FF2D7E",
+          "content": "ALBUMS",
+          "fontFamily": "Geist Mono",
+          "fontSize": 13,
+          "fontWeight": "700",
+          "letterSpacing": 2
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "I1Dfdq",
+      "x": -1763,
+      "y": 3332,
+      "name": "Group / ARTISTS",
+      "fill": "#161615",
+      "cornerRadius": 4,
+      "stroke": "#312F2C",
+      "strokeWidth": 1,
+      "padding": [
+        6,
+        12
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "text",
+          "id": "rDXgo",
+          "name": "Label",
+          "fill": "#FF2D7E",
+          "content": "ARTISTS",
+          "fontFamily": "Geist Mono",
+          "fontSize": 13,
+          "fontWeight": "700",
+          "letterSpacing": 2
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "WuqnV",
+      "x": -1763,
+      "y": 4492,
+      "name": "Group / TRACKS",
+      "fill": "#161615",
+      "cornerRadius": 4,
+      "stroke": "#312F2C",
+      "strokeWidth": 1,
+      "padding": [
+        6,
+        12
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "text",
+          "id": "XP23P",
+          "name": "Label",
+          "fill": "#FF2D7E",
+          "content": "TRACKS",
+          "fontFamily": "Geist Mono",
+          "fontSize": 13,
+          "fontWeight": "700",
+          "letterSpacing": 2
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "Dx21S",
+      "x": -1763,
+      "y": 5652,
+      "name": "Group / PLAYLISTS",
+      "fill": "#161615",
+      "cornerRadius": 4,
+      "stroke": "#312F2C",
+      "strokeWidth": 1,
+      "padding": [
+        6,
+        12
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "text",
+          "id": "qdJyQ",
+          "name": "Label",
+          "fill": "#FF2D7E",
+          "content": "PLAYLISTS",
+          "fontFamily": "Geist Mono",
+          "fontSize": 13,
+          "fontWeight": "700",
+          "letterSpacing": 2
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "tkWBM",
+      "x": -1763,
+      "y": 6812,
+      "name": "Group / STORAGE",
+      "fill": "#161615",
+      "cornerRadius": 4,
+      "stroke": "#312F2C",
+      "strokeWidth": 1,
+      "padding": [
+        6,
+        12
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "text",
+          "id": "spAOz",
+          "name": "Label",
+          "fill": "#FF2D7E",
+          "content": "STORAGE",
+          "fontFamily": "Geist Mono",
+          "fontSize": 13,
+          "fontWeight": "700",
+          "letterSpacing": 2
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "swyIb",
+      "x": -1763,
+      "y": 7972,
+      "name": "Group / DEVICES",
+      "fill": "#161615",
+      "cornerRadius": 4,
+      "stroke": "#312F2C",
+      "strokeWidth": 1,
+      "padding": [
+        6,
+        12
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "text",
+          "id": "uYOUy",
+          "name": "Label",
+          "fill": "#FF2D7E",
+          "content": "DEVICES",
+          "fontFamily": "Geist Mono",
+          "fontSize": 13,
+          "fontWeight": "700",
+          "letterSpacing": 2
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "v495Q5",
+      "x": -1763,
+      "y": 9132,
+      "name": "Group / SETTINGS",
+      "fill": "#161615",
+      "cornerRadius": 4,
+      "stroke": "#312F2C",
+      "strokeWidth": 1,
+      "padding": [
+        6,
+        12
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "text",
+          "id": "gTMyq",
+          "name": "Label",
+          "fill": "#FF2D7E",
+          "content": "SETTINGS",
+          "fontFamily": "Geist Mono",
+          "fontSize": 13,
+          "fontWeight": "700",
+          "letterSpacing": 2
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "NTBFS",
+      "x": -1763,
+      "y": 10292,
+      "name": "Group / SHELL & PLAYBACK",
+      "fill": "#161615",
+      "cornerRadius": 4,
+      "stroke": "#312F2C",
+      "strokeWidth": 1,
+      "padding": [
+        6,
+        12
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "text",
+          "id": "kE6nh",
+          "name": "Label",
+          "fill": "#FF2D7E",
+          "content": "SHELL & PLAYBACK",
+          "fontFamily": "Geist Mono",
+          "fontSize": 13,
+          "fontWeight": "700",
+          "letterSpacing": 2
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "rA7SD",
+      "x": -243,
+      "y": 3396,
+      "name": "Library / Artist Detail",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$bg-page",
+      "cornerRadius": "$radius-lg",
+      "stroke": "$border",
+      "strokeWidth": {
+        "top": 1,
+        "right": 1,
+        "left": 1
+      },
+      "strokeAlignment": "inner",
+      "strokeLinejoin": "round",
+      "children": [
+        {
+          "id": "NKpXu",
+          "type": "ref",
+          "ref": "IqX8X",
+          "name": "Sidebar / Albums",
+          "width": 236,
+          "height": "fill_container",
+          "descendants": {
+            "GWXPo": {
+              "fill": "#00000000"
+            },
+            "bCZAw": {
+              "fill": "$text-muted"
+            },
+            "LOfz0": {
+              "fill": "$text-secondary"
+            },
+            "IPHd0": {
+              "fill": "$accent-soft"
+            },
+            "UNR5D": {
+              "fill": "$accent"
+            },
+            "d2Bjp": {
+              "fill": "$text-primary"
+            },
+            "WNgrJ": {
+              "fill": "#00000000"
+            },
+            "Q98yur": {
+              "fill": "$text-muted"
+            },
+            "cSYYH": {
+              "fill": "$text-secondary"
+            },
+            "sfVum": {
+              "fill": "#00000000"
+            },
+            "w58Av2": {
+              "fill": "$text-muted"
+            },
+            "d6a9c": {
+              "fill": "$text-secondary"
+            },
+            "coGs2": {
+              "fill": "#00000000"
+            },
+            "dvTbd": {
+              "fill": "$text-muted"
+            },
+            "O9h6J1": {
+              "fill": "$text-secondary"
+            },
+            "e2Pal": {
+              "fill": "#00000000"
+            },
+            "fBGKp": {
+              "fill": "$text-muted"
+            },
+            "UigfG": {
+              "fill": "$text-secondary"
+            }
+          }
+        },
+        {
+          "type": "frame",
+          "id": "SdBZN",
+          "name": "Right Column",
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "children": [
+            {
+              "type": "frame",
+              "id": "NVpkX",
+              "name": "Main",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "$bg-page",
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "uKKby",
+                  "name": "Top Bar",
+                  "width": "fill_container",
+                  "height": 74,
+                  "stroke": "$border",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "strokeAlignment": "inner",
+                  "strokeLinejoin": "round",
+                  "padding": [
+                    0,
+                    28
+                  ],
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "id": "y05aD0",
+                      "type": "ref",
+                      "ref": "VoSds",
+                      "width": 420
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "xk2N9",
+                  "name": "Body",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "layout": "vertical",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "GxOFC",
+                      "name": "Artist Detail Content",
+                      "width": "fill_container",
+                      "height": "fill_container",
+                      "fill": "$bg-page",
+                      "layout": "vertical",
+                      "gap": 18,
+                      "padding": [
+                        22,
+                        28,
+                        24,
+                        28
+                      ],
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "y1kxje",
+                          "name": "Back",
+                          "gap": 8,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "Eolp8",
+                              "name": "Icon",
+                              "width": 15,
+                              "height": 15,
+                              "icon": "arrow-left",
+                              "library": "lucide",
+                              "fill": "$text-muted"
+                            },
+                            {
+                              "type": "text",
+                              "id": "VFj5o",
+                              "name": "Label",
+                              "fill": "$text-muted",
+                              "content": "Artists",
+                              "fontFamily": "$font-display",
+                              "fontSize": 13,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "G3hCl",
+                          "name": "Artist Header",
+                          "width": "fill_container",
+                          "gap": 24,
+                          "alignItems": "end",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "MKlia",
+                              "name": "Avatar / Photo",
+                              "clip": true,
+                              "width": 190,
+                              "height": 190,
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "album-covers/pop/blonde.jpg",
+                                "mode": "fill"
+                              },
+                              "cornerRadius": 95,
+                              "stroke": "#403D39",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner",
+                              "layout": "none"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "r6FQs",
+                              "name": "Copy",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 6,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "mzdgt",
+                                  "name": "Eyebrow",
+                                  "fill": "$text-muted",
+                                  "content": "ARTIST",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 10,
+                                  "fontWeight": "700",
+                                  "letterSpacing": 0.8
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "eNt5C",
+                                  "name": "Title",
+                                  "fill": "$text-primary",
+                                  "content": "Frank Ocean",
+                                  "lineHeight": 1.1,
+                                  "fontFamily": "$font-display",
+                                  "fontSize": 38,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "PgG1d",
+                                  "name": "Meta Row",
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "Lsei8",
+                                      "name": "Artist",
+                                      "fill": "$text-primary",
+                                      "content": "2 albums · 26 tracks",
+                                      "fontFamily": "$font-sans",
+                                      "fontSize": 14,
+                                      "fontWeight": "600"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "nuHHv",
+                                      "name": "Meta",
+                                      "fill": "$text-secondary",
+                                      "content": "1 h 52 min · added 2024",
+                                      "fontFamily": "$font-sans",
+                                      "fontSize": 13,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "E5ezq5",
+                                  "name": "Actions",
+                                  "gap": 10,
+                                  "padding": [
+                                    10,
+                                    0,
+                                    0,
+                                    0
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "jThQ3",
+                                      "name": "Play",
+                                      "fill": "$accent",
+                                      "cornerRadius": "$radius-md",
+                                      "gap": 8,
+                                      "padding": [
+                                        9,
+                                        16
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "agens",
+                                          "name": "Icon",
+                                          "width": 15,
+                                          "height": 15,
+                                          "icon": "play",
+                                          "library": "lucide",
+                                          "fill": "$bg-inset"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "uvOzs",
+                                          "name": "Label",
+                                          "fill": "$bg-inset",
+                                          "content": "Play all",
+                                          "fontFamily": "$font-display",
+                                          "fontSize": 14,
+                                          "fontWeight": "700"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "id": "iewZF",
+                                      "type": "ref",
+                                      "ref": "b4MNr8",
+                                      "name": "Shuffle",
+                                      "descendants": {
+                                        "jQ5Ha": {
+                                          "icon": "shuffle"
+                                        },
+                                        "ezvDc": {
+                                          "content": "Shuffle"
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "w9x4u",
+                          "name": "Albums Section",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 12,
+                          "padding": [
+                            6,
+                            0
+                          ],
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "KTjTJ",
+                              "name": "Section Header",
+                              "width": "fill_container",
+                              "justifyContent": "space_between",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "Q1cpN",
+                                  "name": "Title",
+                                  "fill": "$text-primary",
+                                  "content": "Albums",
+                                  "fontFamily": "$font-display",
+                                  "fontSize": 22,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "QX32x",
+                                  "name": "Count",
+                                  "fill": "$text-muted",
+                                  "content": "2 albums",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "bU860",
+                              "name": "Album Grid",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 14,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "WqaeX",
+                                  "name": "Album Row",
+                                  "width": "fill_container",
+                                  "gap": 14,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "I8ngt",
+                                      "name": "Album / Blonde",
+                                      "width": 218,
+                                      "fill": "$bg-surface",
+                                      "cornerRadius": "$radius-md",
+                                      "stroke": "$accent",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "layout": "vertical",
+                                      "gap": 10,
+                                      "padding": 12,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "U3H60P",
+                                          "name": "Cover",
+                                          "clip": true,
+                                          "width": "fill_container",
+                                          "height": 140,
+                                          "fill": {
+                                            "type": "image",
+                                            "enabled": true,
+                                            "url": "album-covers/pop/blonde.jpg",
+                                            "mode": "fill"
+                                          },
+                                          "cornerRadius": "$radius-sm",
+                                          "stroke": "$border-strong",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "layout": "none",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "x2amp",
+                                              "x": 14,
+                                              "y": 12,
+                                              "name": "Mark",
+                                              "enabled": false,
+                                              "fill": "$accent-bright",
+                                              "content": "GV",
+                                              "fontFamily": "$font-display",
+                                              "fontSize": 38,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "rectangle",
+                                              "cornerRadius": 2,
+                                              "id": "i2kKuM",
+                                              "x": 14,
+                                              "y": 118,
+                                              "name": "Neon Rule",
+                                              "enabled": false,
+                                              "fill": "$accent",
+                                              "width": 68,
+                                              "height": 3
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "XrBKp",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "Pfso0",
+                                              "name": "Title",
+                                              "fill": "$text-primary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Blonde",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 13,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "WTW4b",
+                                              "name": "Artist",
+                                              "fill": "$text-secondary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Frank Ocean",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "HVXwM",
+                                              "name": "Meta",
+                                              "fill": "$quality",
+                                              "content": "FLAC · 17 tracks",
+                                              "fontFamily": "$font-mono",
+                                              "fontSize": 10,
+                                              "fontWeight": "600"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "fv6Et",
+                                      "name": "Album / channel ORANGE",
+                                      "width": 218,
+                                      "fill": "$bg-surface",
+                                      "cornerRadius": "$radius-md",
+                                      "stroke": "$border",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "layout": "vertical",
+                                      "gap": 10,
+                                      "padding": 12,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "OlWwU",
+                                          "name": "Cover",
+                                          "clip": true,
+                                          "width": "fill_container",
+                                          "height": 140,
+                                          "fill": {
+                                            "type": "image",
+                                            "enabled": true,
+                                            "url": "album-covers/pop/melodrama.jpg",
+                                            "mode": "fill"
+                                          },
+                                          "cornerRadius": "$radius-sm",
+                                          "stroke": "$border-strong",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "layout": "none",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "nU9ar",
+                                              "x": 14,
+                                              "y": 12,
+                                              "name": "Mark",
+                                              "enabled": false,
+                                              "fill": "$text-secondary",
+                                              "content": "KB",
+                                              "fontFamily": "$font-display",
+                                              "fontSize": 38,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "rectangle",
+                                              "cornerRadius": 2,
+                                              "id": "V3IhF",
+                                              "x": 14,
+                                              "y": 118,
+                                              "name": "Neon Rule",
+                                              "enabled": false,
+                                              "fill": "$quality",
+                                              "width": 68,
+                                              "height": 3
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "TNEit",
+                                          "name": "Copy",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "Kqg41",
+                                              "name": "Title",
+                                              "fill": "$text-primary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "channel ORANGE",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 13,
+                                              "fontWeight": "700"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "Td6P6",
+                                              "name": "Artist",
+                                              "fill": "$text-secondary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Frank Ocean",
+                                              "fontFamily": "$font-sans",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "Lf0En",
+                                              "name": "Meta",
+                                              "fill": "$quality",
+                                              "content": "FLAC · 17 tracks",
+                                              "fontFamily": "$font-mono",
+                                              "fontSize": 10,
+                                              "fontWeight": "600"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "E6BJ31",
+              "name": "Bottom Player",
+              "width": "fill_container",
+              "height": 92,
+              "fill": "$bg-surface",
+              "stroke": "$border",
+              "strokeAlignment": "inner",
+              "strokeLinejoin": "round",
+              "layout": "vertical",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "uR1RU",
+                  "name": "Progress Strip",
+                  "width": "fill_container",
+                  "height": 3,
+                  "fill": "$bg-elevated",
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "id": "qlEC8",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Elapsed Fill",
+                      "fill": "$accent",
+                      "width": 340,
+                      "height": 3
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "fYEN7",
+                  "name": "Content Row",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "gap": 22,
+                  "padding": [
+                    12,
+                    20
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "WPTbS",
+                      "name": "Now Playing",
+                      "width": 317,
+                      "gap": 16,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "Ifwq1",
+                          "name": "Track Info",
+                          "width": "fill_container",
+                          "gap": 12,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "aUKjw",
+                              "name": "Cover",
+                              "clip": true,
+                              "width": 60,
+                              "height": 60,
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "album-covers/pop/blonde.jpg",
+                                "mode": "fill"
+                              },
+                              "cornerRadius": "$radius-sm",
+                              "stroke": "$border-strong",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner",
+                              "layout": "none"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "Q1iQx",
+                              "name": "Copy",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "KTP9H",
+                                  "name": "Track Title",
+                                  "fill": "#F0F0EE",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "Nights",
+                                  "fontFamily": "Rajdhani",
+                                  "fontSize": 15,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "jBbLM",
+                                  "name": "Artist And Album",
+                                  "fill": "#9D9D99",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "Frank Ocean - Blonde",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "rectangle",
+                          "id": "m1XvH5",
+                          "name": "Now Playing Divider",
+                          "fill": "$border",
+                          "width": 1,
+                          "height": 44
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "UGlO4",
+                      "name": "Transport Center",
+                      "width": "fill_container",
+                      "gap": 28,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "E2jaKM",
+                          "name": "Elapsed Slot",
+                          "width": 44,
+                          "justifyContent": "end",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "GXSwc",
+                              "name": "Elapsed",
+                              "fill": "$text-secondary",
+                              "content": "2:14",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "nZRf5",
+                          "name": "Controls",
+                          "gap": 16,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "S9JCiB",
+                              "name": "Shuffle",
+                              "width": 19,
+                              "height": 19,
+                              "icon": "shuffle",
+                              "library": "lucide",
+                              "fill": "$text-secondary"
+                            },
+                            {
+                              "type": "icon",
+                              "id": "W0vIs",
+                              "name": "Previous",
+                              "width": 19,
+                              "height": 19,
+                              "icon": "skip-back",
+                              "library": "lucide",
+                              "fill": "$text-secondary"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "v3KQZ",
+                              "name": "Play",
+                              "width": 34,
+                              "height": 34,
+                              "fill": "$accent",
+                              "cornerRadius": "$radius-md",
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "jqdyR",
+                                  "name": "Play Icon",
+                                  "width": 18,
+                                  "height": 18,
+                                  "icon": "play",
+                                  "library": "lucide",
+                                  "fill": "$bg-inset"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "icon",
+                              "id": "jBvzg",
+                              "name": "Next",
+                              "width": 19,
+                              "height": 19,
+                              "icon": "skip-forward",
+                              "library": "lucide",
+                              "fill": "$text-secondary"
+                            },
+                            {
+                              "type": "icon",
+                              "id": "EfmOB",
+                              "name": "Repeat",
+                              "width": 19,
+                              "height": 19,
+                              "icon": "repeat-2",
+                              "library": "lucide",
+                              "fill": "$text-secondary"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "fmHMw",
+                          "name": "Duration Slot",
+                          "width": 44,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "e56gK",
+                              "name": "Duration",
+                              "fill": "$text-muted",
+                              "content": "4:28",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "HVkaS",
+                      "name": "Output Slot",
+                      "width": 317,
+                      "gap": 16,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "id": "oXqu2",
+                          "name": "Output Leading Divider",
+                          "fill": "$border",
+                          "width": 1,
+                          "height": 44
+                        },
+                        {
+                          "type": "frame",
+                          "id": "CdM18",
+                          "name": "Output Status",
+                          "width": 300,
+                          "gap": 14,
+                          "justifyContent": "end",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "Weh9j",
+                              "name": "Format",
+                              "width": 132,
+                              "layout": "vertical",
+                              "gap": 3,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "BpOxf",
+                                  "name": "Quality",
+                                  "fill": "#9DE23A",
+                                  "content": "FLAC · 16-bit",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 12,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "BaI8Z",
+                                  "name": "Device",
+                                  "fill": "$text-secondary",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "44.1 kHz · Matrix mini-i",
+                                  "fontFamily": "$font-sans",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "JtEcQ",
+                              "name": "Divider",
+                              "fill": "$border",
+                              "width": 1,
+                              "height": 24
+                            },
+                            {
+                              "type": "frame",
+                              "id": "L3i2ub",
+                              "name": "Volume",
+                              "gap": 8,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "Oe306",
+                                  "name": "Volume Icon",
+                                  "width": 17,
+                                  "height": 17,
+                                  "icon": "volume-2",
+                                  "library": "lucide",
+                                  "fill": "$text-secondary"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "wE5RW",
+                              "name": "Divider",
+                              "fill": "$border",
+                              "width": 1,
+                              "height": 24
+                            },
+                            {
+                              "type": "icon",
+                              "id": "SFmCX",
+                              "name": "Output",
+                              "width": 17,
+                              "height": 17,
+                              "icon": "speaker",
+                              "library": "lucide",
+                              "fill": "$text-secondary"
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "DN1l7",
+                              "name": "Divider",
+                              "fill": "$border",
+                              "width": 1,
+                              "height": 24
+                            },
+                            {
+                              "type": "frame",
+                              "id": "m0skFU",
+                              "name": "Queue Button",
+                              "width": 38,
+                              "height": 34,
+                              "layout": "none",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "S2lRd",
+                                  "x": 0,
+                                  "y": 8,
+                                  "name": "Queue",
+                                  "width": 17,
+                                  "height": 17,
+                                  "icon": "list-music",
+                                  "library": "lucide",
+                                  "fill": "$text-secondary"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "rwc77",
+                                  "x": 22,
+                                  "y": 0,
+                                  "name": "Badge",
+                                  "width": 16,
+                                  "height": 16,
+                                  "fill": "$accent",
+                                  "cornerRadius": 8,
+                                  "stroke": "$bg-surface",
+                                  "strokeWidth": 2,
+                                  "strokeAlignment": "outer",
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "ranOh",
+                                      "name": "Count",
+                                      "fill": "$bg-inset",
+                                      "content": "7",
+                                      "fontFamily": "$font-mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "700"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "ellipse",
+                  "id": "r6EhGW",
+                  "layoutPosition": "absolute",
+                  "x": 335,
+                  "y": -3,
+                  "name": "Hover Scrubber (hover and drag only)",
+                  "fill": "$accent",
+                  "width": 10,
+                  "height": 10
+                }
+              ]
+            }
+          ]
         }
       ]
     }
