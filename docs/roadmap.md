@@ -22,7 +22,7 @@ Everything after the backend foundations, in build order: the audio path first, 
 
 | Item | Priority | Status | Notes |
 |---|---|---|---|
-| [Feature 16 — gapless playback](features/16-gapless-playback.md) | P1 | in progress | Phases 1–2 merged (`4ae4fe4`: SetNext/ClearNext, seamless swap, `Advanced` at the audible boundary); phase 3 (app wiring) next; phase 4 is Jason's Matrix DAC validation. |
+| [Feature 16 — gapless playback](features/16-gapless-playback.md) | P1 | review | Phases 1–3 merged (`4ae4fe4` engine, `7d61a32` app wiring); phase 4 = Jason's Matrix DAC validation, then archive. |
 | [Bug — seek lands early](bugs/seek-lands-early.md) | P2 | planned | Coarse seek, no decode-forward. |
 | [Bug — built-in speakers exclusive mode freezes volume](bugs/builtin-speakers-exclusive-volume.md) | P2 | planned | Probably: never take exclusive on the built-in output, or restore the hardware level on release. |
 | [Feature 17 — playback dropout reporting](features/17-playback-dropout-reporting.md) | P2 | planned | Read side of the underrun counter. |

@@ -26,7 +26,7 @@ A large class of albums is mastered as continuous audio — live recordings, cla
 
 ## Implementation Phases
 
-Phases 1–2 merged 2026-08-30 in `4ae4fe4`: `PlaybackCommand::SetNext { path }` / `ClearNext`; `PlaybackEvent::Advanced { attempt, source, format }` (same `attempt`, followed by `Position 0`) replaces `Ended` + `PlayFile` whenever a next source is set — seamless on matching formats, engine-driven stop/rebuild otherwise; `Ended` only when no next source is set.
+Phases 1–2 merged 2026-08-30 in `4ae4fe4`: `PlaybackCommand::SetNext { path }` / `ClearNext`; `PlaybackEvent::Advanced { attempt, source, format }` (same `attempt`, followed by `Position 0`) replaces `Ended` + `PlayFile` whenever a next source is set — seamless on matching formats, engine-driven stop/rebuild otherwise; `Ended` only when no next source is set. Phase 3 merged in `7d61a32`: the app keeps one `sync_next_source` behind every queue mutation, handles `Advanced` by reconciling the queue by path, and gets `NextRejected` for a failed preload.
 
 1. Engine accounting: track the fed-frame boundary between the outgoing and incoming track so the controller can observe when the callback's position crosses it; verify the position/underrun atomics stay callback-safe.
 2. Controller: add the next-source command surface; on decoder EOF with a matching preloaded format, swap decoders and keep feeding the live ring, emitting `NowPlaying`/position/advance events at the audible boundary; fall back to the rebuild path on format mismatch or missing preload.
