@@ -1,10 +1,10 @@
 use std::path::Path;
 
-use crate::{backend::Artist, surfaces::SIDEBAR_WIDTH};
+use crate::{backend::Artist, ui::SIDEBAR_SLOT_WIDTH};
 
 pub(super) const ARTIST_BODY_HORIZONTAL_PADDING: f32 = 28.;
 pub(super) const ARTIST_GRID_GAP: f32 = 32.;
-pub(super) const ARTIST_CARD_WIDTH: f32 = 204.;
+pub(super) const ARTIST_CARD_MIN_WIDTH: f32 = 200.;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(super) enum ArtistRoute {
@@ -71,8 +71,8 @@ pub(super) fn filter_artist_index<'a>(artists: &'a [Artist], search: &str) -> Ve
 
 pub(super) fn artist_grid_columns(viewport_width: f32) -> u16 {
     let content_width =
-        (viewport_width - SIDEBAR_WIDTH - ARTIST_BODY_HORIZONTAL_PADDING * 2.).max(0.);
-    (((content_width + ARTIST_GRID_GAP) / (ARTIST_CARD_WIDTH + ARTIST_GRID_GAP)).floor() as u16)
+        (viewport_width - SIDEBAR_SLOT_WIDTH - ARTIST_BODY_HORIZONTAL_PADDING * 2.).max(0.);
+    (((content_width + ARTIST_GRID_GAP) / (ARTIST_CARD_MIN_WIDTH + ARTIST_GRID_GAP)).floor() as u16)
         .max(1)
 }
 
@@ -201,6 +201,8 @@ mod tests {
     #[test]
     fn artist_grid_is_five_columns_at_the_approved_canvas_width() {
         assert_eq!(artist_grid_columns(1440.), 5);
+        assert_eq!(artist_grid_columns(1663.), 5);
+        assert_eq!(artist_grid_columns(1664.), 6);
         assert_eq!(artist_grid_columns(0.), 1);
     }
 

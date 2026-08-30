@@ -8,16 +8,16 @@ pub(crate) const ACKNOWLEDGEMENTS_URL: &str =
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum SettingsSection {
     General,
+    Output,
     Update,
     About,
 }
 
 impl SettingsSection {
-    pub(crate) const ALL: [Self; 3] = [Self::General, Self::Update, Self::About];
-
     pub(crate) fn label(self) -> &'static str {
         match self {
             Self::General => "General",
+            Self::Output => "Output",
             Self::Update => "Update",
             Self::About => "About",
         }
@@ -26,11 +26,20 @@ impl SettingsSection {
     pub(crate) fn icon(self) -> &'static str {
         match self {
             Self::General => "icons/sliders-horizontal.svg",
+            Self::Output => "icons/speaker.svg",
             Self::Update => "icons/refresh-cw.svg",
             Self::About => "icons/info.svg",
         }
     }
 }
+
+pub(crate) const SETTINGS_GROUPS: &[(&str, &[SettingsSection])] = &[
+    (
+        "SETTINGS",
+        &[SettingsSection::General, SettingsSection::Output],
+    ),
+    ("APP", &[SettingsSection::Update, SettingsSection::About]),
+];
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct SettingsViewModel {
@@ -96,10 +105,49 @@ mod tests {
     fn section_selection_marks_only_the_current_section() {
         let model = SettingsViewModel::new(SettingsSection::Update, None);
 
+        let selected: Vec<bool> = SETTINGS_GROUPS
+            .iter()
+            .flat_map(|(_, sections)| sections.iter())
+            .map(|section| model.is_selected(*section))
+            .collect();
+
+        assert_eq!(selected, [false, false, true, false]);
+    }
+
+    #[test]
+    fn every_section_is_reachable_once_in_design_order() {
         assert_eq!(
-            SettingsSection::ALL.map(|section| model.is_selected(section)),
-            [false, true, false]
+            SETTINGS_GROUPS,
+            &[
+                (
+                    "SETTINGS",
+                    &[SettingsSection::General, SettingsSection::Output][..],
+                ),
+                (
+                    "APP",
+                    &[SettingsSection::Update, SettingsSection::About][..],
+                ),
+            ]
         );
+
+        let listed: Vec<SettingsSection> = SETTINGS_GROUPS
+            .iter()
+            .flat_map(|(_, sections)| sections.iter().copied())
+            .collect();
+        assert_eq!(listed.len(), 4);
+        for section in [
+            SettingsSection::General,
+            SettingsSection::Output,
+            SettingsSection::Update,
+            SettingsSection::About,
+        ] {
+            assert_eq!(
+                listed.iter().filter(|listed| **listed == section).count(),
+                1,
+                "{}",
+                section.label()
+            );
+        }
     }
 
     #[test]

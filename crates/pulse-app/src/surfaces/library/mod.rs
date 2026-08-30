@@ -500,7 +500,6 @@ impl Render for LibraryView {
                 Destination::Tracks => self.render_tracks(window, cx),
                 Destination::Playlists => self.render_playlists(cx),
                 Destination::Storage => self.render_storage(window, cx),
-                Destination::Devices => div().into_any_element(),
             },
         };
 

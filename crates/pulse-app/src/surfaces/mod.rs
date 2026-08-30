@@ -18,4 +18,4 @@ pub(crate) use devices::DeviceManagementPage;
 pub(crate) use library::{LibraryView, logic::SearchViewModel};
 pub(crate) use playback_row::{PlaybackRow, PlaybackSurface};
 pub(crate) use shell::{Shell, TOP_BAR_HEIGHT};
-pub(crate) use sidebar_logic::{Destination, NAV_GROUPS, SIDEBAR_WIDTH};
+pub(crate) use sidebar_logic::{Destination, NAV_GROUPS};

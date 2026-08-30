@@ -5,7 +5,7 @@ use gpui::{
 
 use crate::{
     app_store::{UpdaterBridge, global_app_store},
-    backend::PlaybackAction,
+    backend::{PlaybackAction, SessionRoute, SessionState},
     settings::SettingsSection,
     surfaces::{Destination, DeviceManagementPage, LibraryView, PlaybackRow, SearchViewModel},
     text_input::TextInput,
@@ -13,6 +13,12 @@ use crate::{
 };
 
 pub(crate) const TOP_BAR_HEIGHT: f32 = 74.0;
+
+fn launch_settings_section(session: Option<&SessionState>) -> Option<SettingsSection> {
+    session.and_then(|session| {
+        matches!(&session.route, SessionRoute::Devices).then_some(SettingsSection::Output)
+    })
+}
 
 pub struct Shell {
     pub(super) destination: Destination,
@@ -42,6 +48,9 @@ impl Shell {
         })
         .detach();
 
+        let launch_session = global_app_store(cx).read(cx).launch_session();
+        let launch_settings_section = launch_settings_section(launch_session.as_ref());
+        let restore_output = launch_settings_section == Some(SettingsSection::Output);
         let row = cx.new(PlaybackRow::new);
         let settings_output_picker = cx.new(PlaybackRow::new_settings_output_picker);
         let devices = cx.new(DeviceManagementPage::new);
@@ -54,6 +63,12 @@ impl Shell {
         .detach();
         cx.observe(&updater, |_, _, cx| cx.notify()).detach();
         updater.read(cx).start();
+        if restore_output {
+            row.update(cx, |row, cx| row.enter_settings(cx));
+            global_app_store(cx).update(cx, |store, store_cx| {
+                store.send_command(PlaybackAction::RefreshOutputDevices, store_cx);
+            });
+        }
         Self {
             destination: Destination::Albums,
             row,
@@ -66,7 +81,7 @@ impl Shell {
             search_revision: 0,
             search_scroll: ScrollHandle::new(),
             search_focus: cx.focus_handle(),
-            settings_section: None,
+            settings_section: launch_settings_section,
             settings_output_toggle_press_closed: false,
             settings_output_picker,
             updater,
@@ -111,11 +126,8 @@ impl Shell {
             })
     }
 
-    fn render_body(&self, _cx: &Context<Self>) -> AnyElement {
-        if self.destination != Destination::Devices {
-            return self.library.clone().into_any_element();
-        }
-        self.devices.clone().into_any_element()
+    fn render_body(&self) -> AnyElement {
+        self.library.clone().into_any_element()
     }
 }
 
@@ -169,7 +181,7 @@ impl Render for Shell {
                         .flex_1()
                         .min_w_0()
                         .h_full()
-                        .child(self.render_body(cx)),
+                        .child(self.render_body()),
                 )
                 .into_any_element()
         };
@@ -177,5 +189,22 @@ impl Render for Shell {
         root.child(self.render_header(window, cx))
             .child(body)
             .child(self.row.clone())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn legacy_devices_session_opens_output_settings() {
+        let mut session = SessionState::default();
+        assert_eq!(launch_settings_section(Some(&session)), None);
+
+        session.route = SessionRoute::Devices;
+        assert_eq!(
+            launch_settings_section(Some(&session)),
+            Some(SettingsSection::Output)
+        );
     }
 }

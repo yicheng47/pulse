@@ -1,10 +1,7 @@
 use gpui::{AnyElement, Context, FontWeight, IntoElement, div, point, prelude::*, px, svg};
 
 use super::{LibraryView, TrackSurface};
-use crate::{
-    surfaces::{SIDEBAR_WIDTH, TOP_BAR_HEIGHT},
-    theme, ui,
-};
+use crate::{surfaces::TOP_BAR_HEIGHT, theme, ui};
 
 impl LibraryView {
     pub(super) fn render_track_context_menu(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -118,7 +115,7 @@ impl LibraryView {
         let mut wrapper = ui::ContextMenu::new(
             "track-context-menu",
             point(
-                menu.anchor.x - px(SIDEBAR_WIDTH),
+                menu.anchor.x - px(ui::SIDEBAR_SLOT_WIDTH),
                 menu.anchor.y - px(TOP_BAR_HEIGHT),
             ),
         )
@@ -252,7 +249,7 @@ impl LibraryView {
         ui::ContextMenu::new(
             "playlist-context-menu",
             point(
-                menu.anchor.x - px(SIDEBAR_WIDTH),
+                menu.anchor.x - px(ui::SIDEBAR_SLOT_WIDTH),
                 menu.anchor.y - px(TOP_BAR_HEIGHT),
             ),
         )

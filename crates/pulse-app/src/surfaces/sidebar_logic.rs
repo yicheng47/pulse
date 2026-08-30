@@ -1,5 +1,3 @@
-pub(crate) const SIDEBAR_WIDTH: f32 = 236.0;
-
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub(crate) enum Destination {
     Albums,
@@ -7,7 +5,6 @@ pub(crate) enum Destination {
     Tracks,
     Playlists,
     Storage,
-    Devices,
 }
 
 impl Destination {
@@ -18,7 +15,6 @@ impl Destination {
             Self::Tracks => "Tracks",
             Self::Playlists => "Playlists",
             Self::Storage => "Storage",
-            Self::Devices => "Devices",
         }
     }
 
@@ -29,7 +25,6 @@ impl Destination {
             Self::Tracks => "icons/music.svg",
             Self::Playlists => "icons/list-music.svg",
             Self::Storage => "icons/database.svg",
-            Self::Devices => "icons/speaker.svg",
         }
     }
 }
@@ -45,7 +40,6 @@ pub(crate) const NAV_GROUPS: &[(&str, &[Destination])] = &[
         ],
     ),
     ("MANAGE", &[Destination::Storage]),
-    ("OUTPUT", &[Destination::Devices]),
 ];
 
 #[cfg(test)]
@@ -59,14 +53,13 @@ mod tests {
             .flat_map(|(_, destinations)| destinations.iter().copied())
             .collect();
 
-        assert_eq!(listed.len(), 6);
+        assert_eq!(listed.len(), 5);
         for destination in [
             Destination::Albums,
             Destination::Artists,
             Destination::Tracks,
             Destination::Playlists,
             Destination::Storage,
-            Destination::Devices,
         ] {
             assert_eq!(
                 listed

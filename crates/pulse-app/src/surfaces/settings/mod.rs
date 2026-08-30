@@ -6,14 +6,15 @@ mod update_logic;
 use std::time::Duration;
 
 use gpui::{
-    AnyElement, Context, FontWeight, IntoElement, MouseButton, MouseDownEvent, SharedString, div,
+    AnyElement, Context, FontWeight, IntoElement, MouseButton, MouseDownEvent, div,
     linear_color_stop, linear_gradient, prelude::*, px, svg,
 };
 
 use crate::{
     app_store::global_app_store,
-    settings::{AboutLink, SettingsSection, SettingsViewModel},
-    surfaces::{SIDEBAR_WIDTH, Shell},
+    backend::PlaybackAction,
+    settings::{AboutLink, SETTINGS_GROUPS, SettingsSection, SettingsViewModel},
+    surfaces::Shell,
     theme, ui,
 };
 
@@ -29,6 +30,11 @@ impl Shell {
         self.row.update(cx, |row, cx| row.enter_settings(cx));
         self.settings_output_picker
             .update(cx, |picker, cx| picker.close_output_popover(cx));
+        if section == SettingsSection::Output {
+            global_app_store(cx).update(cx, |store, store_cx| {
+                store.send_command(PlaybackAction::RefreshOutputDevices, store_cx);
+            });
+        }
         self.sync_update_check_polling(cx);
         cx.notify();
     }
@@ -50,6 +56,11 @@ impl Shell {
         self.settings_section = Some(section);
         self.settings_output_picker
             .update(cx, |picker, cx| picker.close_output_popover(cx));
+        if section == SettingsSection::Output {
+            global_app_store(cx).update(cx, |store, store_cx| {
+                store.send_command(PlaybackAction::RefreshOutputDevices, store_cx);
+            });
+        }
         self.sync_update_check_polling(cx);
         cx.notify();
     }
@@ -109,82 +120,27 @@ impl Shell {
         model: &SettingsViewModel,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let mut navigation = div().flex().flex_col().gap(px(4.)).w_full();
-        for section in SettingsSection::ALL {
-            navigation = navigation.child(self.render_settings_nav_item(model, section, cx));
+        let mut navigation = div().flex().flex_col().gap(px(32.)).w_full().child(
+            ui::SidebarItem::new(
+                "back-to-library",
+                "Back to library",
+                "icons/chevron-left.svg",
+            )
+            .on_click(cx.listener(|this, _, window, cx| {
+                window.blur();
+                this.close_settings(cx);
+            })),
+        );
+        for (header, sections) in SETTINGS_GROUPS {
+            let mut group = ui::SidebarSection::new(*header);
+            for section in *sections {
+                group = group.child(self.render_settings_nav_item(model, *section, cx));
+            }
+            navigation = navigation.child(group);
         }
 
-        div()
-            .flex()
-            .flex_col()
-            .flex_none()
-            .w(px(SIDEBAR_WIDTH))
-            .h_full()
-            .gap(px(22.))
-            .pt(px(20.))
-            .pr(px(14.))
-            .pb(px(16.))
-            .pl(px(14.))
-            .bg(theme::bg_surface())
-            .border_r_1()
-            .border_color(theme::border())
-            .child(
-                div()
-                    .id("back-to-library")
-                    .group("settings-back")
-                    .flex()
-                    .items_center()
-                    .gap(px(10.))
-                    .w_full()
-                    .px(px(10.))
-                    .py(px(9.))
-                    .rounded(px(theme::RADIUS_MD))
-                    .cursor_pointer()
-                    .hover(|style| style.bg(theme::accent_soft()))
-                    .on_click(cx.listener(|this, _, window, cx| {
-                        window.blur();
-                        this.close_settings(cx);
-                    }))
-                    .child(
-                        svg()
-                            .path("icons/chevron-left.svg")
-                            .size(px(17.))
-                            .flex_none()
-                            .text_color(theme::text_muted())
-                            .group_hover("settings-back", |style| {
-                                style.text_color(theme::accent())
-                            }),
-                    )
-                    .child(
-                        div()
-                            .font_family(theme::FONT_DISPLAY)
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .text_size(px(15.))
-                            .text_color(theme::text_secondary())
-                            .group_hover("settings-back", |style| {
-                                style.text_color(theme::text_primary())
-                            })
-                            .child("Back to library"),
-                    ),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap(px(6.))
-                    .w_full()
-                    .child(
-                        div().flex().px(px(10.)).w_full().child(
-                            div()
-                                .font_family(theme::FONT_MONO)
-                                .font_weight(FontWeight::BOLD)
-                                .text_size(px(10.))
-                                .text_color(theme::text_muted())
-                                .child("SETTINGS"),
-                        ),
-                    )
-                    .child(navigation),
-            )
+        ui::SidebarIsland::new()
+            .child(navigation)
             .child(div().flex_1())
     }
 
@@ -193,73 +149,36 @@ impl Shell {
         model: &SettingsViewModel,
         section: SettingsSection,
         cx: &mut Context<Self>,
-    ) -> impl IntoElement {
+    ) -> ui::SidebarItem {
         let selected = model.is_selected(section);
-        let hover_group = SharedString::from(format!("settings-nav-{}", section.label()));
-
-        div()
-            .id(SharedString::from(format!(
-                "settings-section-{}",
-                section.label()
-            )))
-            .group(hover_group.clone())
-            .flex()
-            .items_center()
-            .gap(px(10.))
-            .w_full()
-            .px(px(10.))
-            .py(px(9.))
-            .rounded(px(theme::RADIUS_MD))
-            .when(selected, |item| item.bg(theme::accent_soft()))
-            .when(!selected, |item| {
-                item.hover(|style| style.bg(theme::accent_soft()))
-            })
-            .cursor_pointer()
-            .on_click(cx.listener(move |this, _, _, cx| {
-                this.select_settings_section(section, cx);
-            }))
-            .child(
-                svg()
-                    .path(section.icon())
-                    .size(px(17.))
-                    .flex_none()
-                    .text_color(if selected {
-                        theme::accent()
-                    } else {
-                        theme::text_muted()
-                    })
-                    .when(!selected, |icon| {
-                        icon.group_hover(hover_group.clone(), |style| {
-                            style.text_color(theme::accent())
-                        })
-                    }),
-            )
-            .child(
-                div()
-                    .font_family(theme::FONT_DISPLAY)
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .text_size(px(15.))
-                    .text_color(if selected {
-                        theme::text_primary()
-                    } else {
-                        theme::text_secondary()
-                    })
-                    .when(!selected, |label| {
-                        label.group_hover(hover_group.clone(), |style| {
-                            style.text_color(theme::text_primary())
-                        })
-                    })
-                    .child(section.label()),
-            )
+        ui::SidebarItem::new(
+            format!("settings-section-{}", section.label()),
+            section.label(),
+            section.icon(),
+        )
+        .selected(selected)
+        .on_click(cx.listener(move |this, _, _, cx| {
+            this.select_settings_section(section, cx);
+        }))
     }
 
     fn render_settings_content(
         &self,
         model: &SettingsViewModel,
         cx: &mut Context<Self>,
-    ) -> impl IntoElement {
+    ) -> AnyElement {
         let content = match model.section {
             SettingsSection::General => self.render_general_settings(model, cx),
+            SettingsSection::Output => {
+                return div()
+                    .flex()
+                    .flex_col()
+                    .flex_1()
+                    .min_w_0()
+                    .h_full()
+                    .child(self.devices.clone())
+                    .into_any_element();
+            }
             SettingsSection::Update => self.render_update_settings(cx),
             SettingsSection::About => self.render_about_settings(cx),
         };
@@ -288,6 +207,7 @@ impl Shell {
                     .child(model.section.label()),
             )
             .child(content)
+            .into_any_element()
     }
 }
 

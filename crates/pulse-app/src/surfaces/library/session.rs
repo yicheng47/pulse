@@ -9,7 +9,6 @@ enum RestoredRoute {
     Tracks,
     Playlists(Option<(PlaylistSummary, Vec<PlaylistTrack>)>),
     Storage,
-    Devices,
 }
 
 impl LibraryView {
@@ -40,8 +39,6 @@ impl LibraryView {
             )
         };
         self.launch_state_restored = true;
-        let restore_devices = matches!(&route, Ok(RestoredRoute::Devices));
-
         match route {
             Ok(route) => self.apply_restored_route(route),
             Err(error) => {
@@ -49,12 +46,6 @@ impl LibraryView {
                 self.error = Some(error.to_string());
             }
         }
-        if restore_devices {
-            self.app_store.update(cx, |store, store_cx| {
-                store.send_command(PlaybackAction::RefreshOutputDevices, store_cx);
-            });
-        }
-
         match tracks {
             Ok(tracks) => {
                 self.app_store.update(cx, |store, store_cx| {
@@ -109,7 +100,6 @@ impl LibraryView {
                 playlist_id: self.selected_playlist_id,
             },
             Destination::Storage => SessionRoute::Storage,
-            Destination::Devices => SessionRoute::Devices,
         }
     }
 
@@ -146,7 +136,6 @@ impl LibraryView {
                 }
             }
             RestoredRoute::Storage => self.destination = Destination::Storage,
-            RestoredRoute::Devices => self.destination = Destination::Devices,
         }
     }
 }
@@ -221,7 +210,7 @@ fn resolve_session_route(
             Ok(RestoredRoute::Playlists(Some((summary, tracks))))
         }
         SessionRoute::Storage => Ok(RestoredRoute::Storage),
-        SessionRoute::Devices => Ok(RestoredRoute::Devices),
+        SessionRoute::Devices => Ok(RestoredRoute::Albums(None)),
     }
 }
 
@@ -255,14 +244,23 @@ mod tests {
     }
 
     fn launch_harness(cx: &mut TestAppContext, store: Option<ops::Store>) -> LaunchHarness {
+        launch_harness_with_session(cx, store, saved_session())
+    }
+
+    fn launch_harness_with_session(
+        cx: &mut TestAppContext,
+        store: Option<ops::Store>,
+        session: SessionState,
+    ) -> LaunchHarness {
         let directory = tempfile::tempdir().unwrap();
         let settings_path = directory.path().join("settings.json");
         let settings = AppSettings {
-            session: Some(saved_session()),
+            session: Some(session),
             ..AppSettings::default()
         };
         settings.save(&settings_path).unwrap();
         let original_settings = fs::read(&settings_path).unwrap();
+        let settings = AppSettings::load(&settings_path).unwrap();
         let app_store = cx.new(|cx| AppStore::for_test(settings_path.clone(), settings, cx));
         let view = cx.new(|cx| {
             let mut view = LibraryView::for_test(
@@ -372,6 +370,24 @@ mod tests {
             assert!(!view.launch_state_restored)
         });
         assert_blob_unchanged_after_shutdown(&harness, cx);
+    }
+
+    #[gpui::test]
+    fn legacy_devices_route_restores_the_library_underlay_to_albums(cx: &mut TestAppContext) {
+        let directory = tempfile::tempdir().unwrap();
+        let mut session = saved_session();
+        session.route = SessionRoute::Devices;
+        let harness =
+            launch_harness_with_session(cx, Some(populated_store(directory.path())), session);
+
+        cx.update_entity(&harness.view, |view, cx| view.restore_launch_state(cx));
+        cx.read_entity(&harness.view, |view, _| {
+            assert!(view.destination() == Destination::Albums);
+            assert!(matches!(
+                view.session_route(),
+                SessionRoute::Albums { album: None }
+            ));
+        });
     }
 
     #[gpui::test]
