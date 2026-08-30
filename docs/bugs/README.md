@@ -4,7 +4,7 @@ One note per open bug, written with the `bug` skill's template (description, exp
 
 ## Open
 
-- [`builtin-speakers-exclusive-volume.md`](builtin-speakers-exclusive-volume.md) - P2. Exclusive mode on the built-in speakers disables the macOS volume control and freezes the hardware level.
+- [`builtin-speakers-exclusive-volume.md`](builtin-speakers-exclusive-volume.md) - P2. Hogged devices: Pulse now drives the hardware volume control (`38734b8`); awaiting hardware validation.
 
 ## Fixed
 
