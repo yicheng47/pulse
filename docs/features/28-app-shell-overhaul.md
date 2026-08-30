@@ -37,8 +37,8 @@ Today the sidebar runs the full window height with the brand and the Settings ro
 
 ## Implementation Phases
 
-1. **Shell + header + player width**: layout bands, header component in `ui/` or `surfaces/shell.rs`, traffic-light drag area, gear + update hint, player full width with centered transport. Settings still opens as it does today.
-2. **Sidebar island + Settings restructure**: island styling and spacing, active-row style, remove brand/footer/OUTPUT; Settings page with its island sidebar and sections; Devices page becomes Settings ▸ Output; routes and deep links updated.
+1. **Shell + header + player width** — done, `3edc358` (2026-08-30): layout bands, `surfaces/header.rs` + `header_logic.rs`, the header as the titlebar drag area, gear + update hint as kit `IconButton`s, player full width with the transport centered on the window. Settings render in the body band with the player still mounted; the header search field is shown but inert on Settings pages (as designed). Traffic lights: macOS only hit-tests the standard window buttons inside the native title-bar band (32 px on macOS 26; the buttons are 14 px, not the design's 12), and gpui positions them relative to that band, so centering them in a 74 px header put them outside it and made them unclickable. `main.rs` installs an empty unified `NSToolbar` on the window, which makes the band 66 px while every click in its empty area still reaches gpui; the toolbar is hidden while fullscreen (a window-bounds observer in `Shell::new`) because macOS would otherwise paint it over the header. `traffic_light_position` is `(24, 30)`.
+2. **Sidebar island + Settings restructure**: island styling and spacing, active-row style, remove the OUTPUT group; Settings page with its island sidebar and sections; Devices page becomes Settings ▸ Output; routes and deep links updated, including the persisted `Devices` session route (feature 21), which restores to Settings ▸ Output. Also drops the dead `icons/circle-arrow-down.svg` asset left by phase 1.
 
 ## Verification
 
