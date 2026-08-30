@@ -2,7 +2,11 @@ use std::time::Duration;
 
 use rtrb::{Consumer, Producer, RingBuffer};
 
-use crate::{EngineError, Levels, PcmFormat, auhal, device, gain::GainControl, hal};
+use crate::{
+    EngineError, Levels, PcmFormat, auhal, device,
+    gain::{GainControl, UNITY_GAIN, volume_gain_for_level},
+    hal,
+};
 
 #[derive(Debug, Clone, Copy)]
 struct FloatPacker {
@@ -41,6 +45,8 @@ pub struct Engine {
     device: device::DeviceId,
     exclusive_mode: bool,
     _hog: Option<hal::HogGuard>,
+    hardware_volume: Option<hal::HardwareVolume>,
+    hardware_volume_event_pending: bool,
     producer: Option<Producer<u8>>,
     consumer: Option<Consumer<u8>>,
     sink: Option<auhal::AuhalSink>,
@@ -52,12 +58,20 @@ pub struct Engine {
 
 impl Engine {
     pub fn open(device: device::DeviceId, exclusive_mode: bool) -> Result<Self, EngineError> {
+        let hog = exclusive_mode
+            .then(|| hal::HogGuard::acquire(device))
+            .transpose()?;
+        let hardware_volume = hog
+            .as_ref()
+            .filter(|hog| hog.owns())
+            .and_then(|_| hal::hardware_volume_control(device));
+        let hardware_volume_event_pending = hardware_volume.is_some();
         Ok(Self {
             device,
             exclusive_mode,
-            _hog: exclusive_mode
-                .then(|| hal::HogGuard::acquire(device))
-                .transpose()?,
+            _hog: hog,
+            hardware_volume,
+            hardware_volume_event_pending,
             producer: None,
             consumer: None,
             sink: None,
@@ -160,8 +174,25 @@ impl Engine {
             .map_or(0, auhal::AuhalSink::position_frames)
     }
 
-    pub fn set_volume(&self, gain: f32, muted: bool) {
-        self.gain_control.set_volume(gain, muted);
+    pub fn set_volume(&mut self, level: f32, muted: bool) -> Result<(), EngineError> {
+        if let Some(hardware_volume) = &mut self.hardware_volume {
+            self.gain_control.set_volume(UNITY_GAIN, false);
+            hardware_volume.set_volume(level, muted)
+        } else {
+            self.gain_control
+                .set_volume(volume_gain_for_level(level), muted);
+            Ok(())
+        }
+    }
+
+    pub(crate) fn take_hardware_volume(&mut self) -> Option<(f32, bool)> {
+        if !self.hardware_volume_event_pending {
+            return None;
+        }
+        self.hardware_volume_event_pending = false;
+        self.hardware_volume
+            .as_ref()
+            .map(|volume| (volume.level, volume.muted))
     }
 
     /// Latest RMS/peak from the realtime tap.

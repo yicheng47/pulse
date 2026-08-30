@@ -27,7 +27,6 @@ use super::{
     settings::{AppSettings, ExclusiveModePreferences, StoredDeviceCapabilities},
 };
 
-const MIN_AUDIBLE_GAIN: f32 = 0.001;
 const SUPPORTED_EXTENSIONS: &[&str] = &["flac", "m4a", "aif", "aiff", "wav"];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

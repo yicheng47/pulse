@@ -28,7 +28,7 @@ impl From<&EngineError> for PlaybackErrorKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PlaybackEvent {
     StateChanged(PlaybackState),
     NowPlaying {
@@ -56,6 +56,14 @@ pub enum PlaybackEvent {
     },
     ExclusiveModeFallback {
         device_id: crate::device::DeviceId,
+    },
+    /// Output-main level captured the first time this app session takes a controllable device's
+    /// hog. Later hogs for the same device reapply the app's current level without another event.
+    /// `muted` is the app's mute as applied before playback, not the probed hardware mute.
+    /// Consumers should persist this state without sending a `SetVolume` command back.
+    HardwareVolume {
+        level: f32,
+        muted: bool,
     },
     Ended {
         /// See [`PlaybackEvent::Error::attempt`].

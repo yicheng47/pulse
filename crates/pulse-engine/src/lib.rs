@@ -21,6 +21,7 @@ pub use controller::PlaybackController;
 pub use engine::Engine;
 pub use error::EngineError;
 pub use event::{PlaybackErrorKind, PlaybackEvent};
+pub use gain::volume_gain_for_level;
 pub use levels::Levels;
 pub use source::PlayableSource;
 pub use state::PlaybackState;

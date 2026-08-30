@@ -14,14 +14,15 @@ use std::{
 };
 
 use objc2_core_audio::{
-    AudioObjectGetPropertyData, AudioObjectGetPropertyDataSize, AudioObjectID,
-    AudioObjectPropertyAddress, AudioObjectPropertyElement, AudioObjectPropertyScope,
-    AudioObjectPropertySelector, AudioObjectSetPropertyData, AudioStreamRangedDescription,
+    AudioObjectGetPropertyData, AudioObjectGetPropertyDataSize, AudioObjectHasProperty,
+    AudioObjectID, AudioObjectIsPropertySettable, AudioObjectPropertyAddress,
+    AudioObjectPropertyElement, AudioObjectPropertyScope, AudioObjectPropertySelector,
+    AudioObjectSetPropertyData, AudioStreamRangedDescription,
     kAudioDevicePropertyAvailableNominalSampleRates, kAudioDevicePropertyHogMode,
-    kAudioDevicePropertyNominalSampleRate, kAudioDevicePropertyStreams, kAudioHardwareNoError,
-    kAudioObjectPropertyElementMain, kAudioObjectPropertyScopeGlobal,
-    kAudioObjectPropertyScopeOutput, kAudioStreamPropertyAvailablePhysicalFormats,
-    kAudioStreamPropertyPhysicalFormat,
+    kAudioDevicePropertyMute, kAudioDevicePropertyNominalSampleRate, kAudioDevicePropertyStreams,
+    kAudioDevicePropertyVolumeScalar, kAudioHardwareNoError, kAudioObjectPropertyElementMain,
+    kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyScopeOutput,
+    kAudioStreamPropertyAvailablePhysicalFormats, kAudioStreamPropertyPhysicalFormat,
 };
 use objc2_core_audio_types::{
     AudioBuffer, AudioBufferList, AudioStreamBasicDescription, AudioValueRange,
@@ -70,6 +71,10 @@ impl HogGuard {
             }),
             owner => Err(EngineError::Hogged(owner)),
         }
+    }
+
+    pub(crate) fn owns(&self) -> bool {
+        self.owns
     }
 }
 
@@ -229,6 +234,88 @@ pub(crate) fn get_cf_string(
     Ok(value.to_string())
 }
 
+#[derive(Debug)]
+pub(crate) struct HardwareVolume {
+    device_id: AudioObjectID,
+    pub level: f32,
+    pub muted: bool,
+    mute_settable: bool,
+}
+
+impl HardwareVolume {
+    pub(crate) fn set_volume(&mut self, level: f32, muted: bool) -> Result<(), EngineError> {
+        let scalar = hardware_volume_scalar(level, muted, self.mute_settable);
+        set_value(
+            self.device_id,
+            address(
+                kAudioDevicePropertyVolumeScalar,
+                kAudioObjectPropertyScopeOutput,
+            ),
+            scalar,
+            "AudioObjectSetPropertyData(kAudioDevicePropertyVolumeScalar)",
+        )?;
+        if self.mute_settable && muted != self.muted {
+            set_value(
+                self.device_id,
+                address(kAudioDevicePropertyMute, kAudioObjectPropertyScopeOutput),
+                u32::from(muted),
+                "AudioObjectSetPropertyData(kAudioDevicePropertyMute)",
+            )?;
+        }
+        self.level = level;
+        self.muted = muted;
+        Ok(())
+    }
+}
+
+pub(crate) fn hardware_volume_control(device_id: AudioObjectID) -> Option<HardwareVolume> {
+    let volume_address = address(
+        kAudioDevicePropertyVolumeScalar,
+        kAudioObjectPropertyScopeOutput,
+    );
+    if !property_is_settable(device_id, volume_address) {
+        return None;
+    }
+    let level = get_value::<f32>(
+        device_id,
+        volume_address,
+        "AudioObjectGetPropertyData(kAudioDevicePropertyVolumeScalar)",
+    )
+    .ok()?;
+    if !hardware_volume_level_is_valid(level) {
+        return None;
+    }
+
+    let mute_address = address(kAudioDevicePropertyMute, kAudioObjectPropertyScopeOutput);
+    let mute_settable = property_is_settable(device_id, mute_address);
+    let muted = if mute_settable {
+        get_value::<u32>(
+            device_id,
+            mute_address,
+            "AudioObjectGetPropertyData(kAudioDevicePropertyMute)",
+        )
+        .map(|muted| muted != 0)
+        .unwrap_or(level == 0.0)
+    } else {
+        level == 0.0
+    };
+
+    Some(HardwareVolume {
+        device_id,
+        level,
+        muted,
+        mute_settable,
+    })
+}
+
+fn hardware_volume_scalar(level: f32, muted: bool, mute_settable: bool) -> f32 {
+    if muted && !mute_settable { 0.0 } else { level }
+}
+
+fn hardware_volume_level_is_valid(level: f32) -> bool {
+    level.is_finite() && (0.0..=1.0).contains(&level)
+}
+
 pub(crate) fn set_nominal_sample_rate(
     device_id: AudioObjectID,
     format: PcmFormat,
@@ -331,6 +418,21 @@ fn hog_owner(device_id: AudioObjectID) -> Result<i32, EngineError> {
         address(kAudioDevicePropertyHogMode, kAudioObjectPropertyScopeGlobal),
         "AudioObjectGetPropertyData(kAudioDevicePropertyHogMode)",
     )
+}
+
+fn property_is_settable(object_id: AudioObjectID, mut address: AudioObjectPropertyAddress) -> bool {
+    if !unsafe { AudioObjectHasProperty(object_id, (&mut address).into()) } {
+        return false;
+    }
+    let mut settable = 0_u8;
+    let status = unsafe {
+        AudioObjectIsPropertySettable(
+            object_id,
+            (&mut address).into(),
+            NonNull::from(&mut settable),
+        )
+    };
+    status == kAudioHardwareNoError && settable != 0
 }
 
 fn toggle_hog_mode(device_id: AudioObjectID) -> Result<i32, EngineError> {
@@ -641,6 +743,22 @@ mod tests {
         );
 
         assert_eq!(audio_buffer_list_channel_count(&bytes), 8);
+    }
+
+    #[test]
+    fn hardware_volume_without_mute_control_uses_zero_scalar_for_mute() {
+        assert_eq!(hardware_volume_scalar(0.6, true, false), 0.0);
+        assert_eq!(hardware_volume_scalar(0.6, false, false), 0.6);
+        assert_eq!(hardware_volume_scalar(0.6, true, true), 0.6);
+    }
+
+    #[test]
+    fn hardware_volume_rejects_invalid_driver_scalars() {
+        assert!(hardware_volume_level_is_valid(0.0));
+        assert!(hardware_volume_level_is_valid(1.0));
+        assert!(!hardware_volume_level_is_valid(f32::NAN));
+        assert!(!hardware_volume_level_is_valid(-0.1));
+        assert!(!hardware_volume_level_is_valid(1.1));
     }
 
     #[test]

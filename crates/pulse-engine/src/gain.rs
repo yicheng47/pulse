@@ -4,9 +4,18 @@ use std::sync::{
 };
 use std::{thread, time::Duration};
 
-const UNITY_GAIN: f32 = 1.0;
+pub(crate) const UNITY_GAIN: f32 = 1.0;
+const MIN_AUDIBLE_GAIN: f32 = 0.001;
 const RAMP_DURATION_MS: u64 = 10;
 pub(crate) const RAMP_DURATION: Duration = Duration::from_millis(RAMP_DURATION_MS);
+
+pub fn volume_gain_for_level(level: f32) -> f32 {
+    let level = level.clamp(0.0, 1.0);
+    if level == 0.0 {
+        return 0.0;
+    }
+    (level * level * level).max(MIN_AUDIBLE_GAIN)
+}
 
 #[derive(Clone)]
 pub(crate) struct GainControl {
@@ -230,6 +239,16 @@ impl GainProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn maps_volume_level_to_a_perceptual_gain_curve() {
+        assert_eq!(volume_gain_for_level(0.0), 0.0);
+        assert_eq!(volume_gain_for_level(0.05), MIN_AUDIBLE_GAIN);
+        assert_eq!(volume_gain_for_level(0.5), 0.125);
+        assert_eq!(volume_gain_for_level(1.0), 1.0);
+        assert!(volume_gain_for_level(0.25) < volume_gain_for_level(0.5));
+        assert!(volume_gain_for_level(0.5) < volume_gain_for_level(0.75));
+    }
 
     #[test]
     fn unity_is_sample_identical() {

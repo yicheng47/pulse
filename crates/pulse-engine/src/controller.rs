@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     path::{Path, PathBuf},
     sync::{
         Arc, Mutex,
@@ -127,7 +128,8 @@ trait PlaybackBackend {
     fn start(&mut self, format: PcmFormat) -> Result<(), EngineError>;
     fn feed(&mut self, pcm: &[u8]) -> usize;
     fn position(&self) -> u64;
-    fn set_volume(&mut self, gain: f32, muted: bool);
+    fn take_hardware_volume(&mut self) -> Option<(f32, bool)>;
+    fn set_volume(&mut self, level: f32, muted: bool) -> Result<(), EngineError>;
     fn stop(&mut self) -> Result<(), EngineError>;
 }
 
@@ -157,8 +159,12 @@ impl PlaybackBackend for EngineBackend {
         self.engine.position()
     }
 
-    fn set_volume(&mut self, gain: f32, muted: bool) {
-        self.engine.set_volume(gain, muted);
+    fn take_hardware_volume(&mut self) -> Option<(f32, bool)> {
+        self.engine.take_hardware_volume()
+    }
+
+    fn set_volume(&mut self, level: f32, muted: bool) -> Result<(), EngineError> {
+        self.engine.set_volume(level, muted)
     }
 
     fn stop(&mut self) -> Result<(), EngineError> {
@@ -244,7 +250,8 @@ struct Worker {
     output_device: DeviceId,
     exclusive_mode: bool,
     shared_mode_fallback: bool,
-    volume_gain: f32,
+    adopted_hardware_volume: HashSet<DeviceId>,
+    volume_level: f32,
     muted: bool,
     current: Option<CurrentTrack>,
     active: Option<ActivePlayback>,
@@ -278,7 +285,8 @@ impl Worker {
             output_device: settings.output_device,
             exclusive_mode: settings.exclusive_mode,
             shared_mode_fallback: false,
-            volume_gain: 1.0,
+            adopted_hardware_volume: HashSet::new(),
+            volume_level: 1.0,
             muted: false,
             current: None,
             active: None,
@@ -321,6 +329,24 @@ impl Worker {
     }
 
     fn handle_command(&mut self, command: PlaybackCommand) {
+        let next_command = match command {
+            PlaybackCommand::SetVolume { level, muted } => {
+                let (level, muted, next_command) =
+                    coalesce_volume_commands(&self.command_rx, level, muted);
+                self.handle_command_once(PlaybackCommand::SetVolume { level, muted });
+                next_command
+            }
+            command => {
+                self.handle_command_once(command);
+                None
+            }
+        };
+        if let Some(command) = next_command {
+            self.handle_command(command);
+        }
+    }
+
+    fn handle_command_once(&mut self, command: PlaybackCommand) {
         if self.transition.is_some() {
             let backend_position = self
                 .backend
@@ -346,10 +372,7 @@ impl Worker {
                 exclusive_mode,
             } => self.set_output_device(device_id, exclusive_mode),
             PlaybackCommand::SetExclusiveMode { enabled } => self.set_exclusive_mode(enabled),
-            PlaybackCommand::SetVolume { gain, muted } => {
-                self.set_volume(gain, muted);
-                Ok(())
-            }
+            PlaybackCommand::SetVolume { level, muted } => self.set_volume(level, muted),
         };
 
         if let Err(error) = result {
@@ -586,12 +609,13 @@ impl Worker {
         Ok(())
     }
 
-    fn set_volume(&mut self, gain: f32, muted: bool) {
-        self.volume_gain = gain;
+    fn set_volume(&mut self, level: f32, muted: bool) -> Result<(), EngineError> {
+        self.volume_level = level;
         self.muted = muted;
         if let Some((_, _, backend)) = &mut self.backend {
-            backend.set_volume(gain, muted);
+            backend.set_volume(level, muted)?;
         }
+        Ok(())
     }
 
     fn actual_exclusive_mode(&self) -> bool {
@@ -605,10 +629,28 @@ impl Worker {
             Err(_) if exclusive_mode => return self.start_shared_fallback(format),
             Err(error) => return Err(error),
         };
-        backend.set_volume(self.volume_gain, self.muted);
+        let hardware_volume_event = match backend.take_hardware_volume() {
+            Some(_) if self.adopted_hardware_volume.contains(&self.output_device) => {
+                backend.set_volume(self.volume_level, self.muted)?;
+                None
+            }
+            Some((level, _)) => {
+                backend.set_volume(level, self.muted)?;
+                Some((level, self.muted))
+            }
+            None => {
+                backend.set_volume(self.volume_level, self.muted)?;
+                None
+            }
+        };
         match backend.start(format) {
             Ok(()) => {
                 self.backend = Some((self.output_device, exclusive_mode, backend));
+                if let Some((level, muted)) = hardware_volume_event {
+                    self.volume_level = level;
+                    self.adopted_hardware_volume.insert(self.output_device);
+                    self.broadcast(PlaybackEvent::HardwareVolume { level, muted });
+                }
                 Ok(())
             }
             Err(error) if exclusive_mode && exclusive_start_can_fallback(&error) => {
@@ -635,7 +677,7 @@ impl Worker {
 
     fn start_shared_fallback(&mut self, format: PcmFormat) -> Result<(), EngineError> {
         let mut backend = self.take_or_open_backend(false)?;
-        backend.set_volume(self.volume_gain, self.muted);
+        backend.set_volume(self.volume_level, self.muted)?;
         backend.start(format)?;
         self.shared_mode_fallback = true;
         self.backend = Some((self.output_device, false, backend));
@@ -1103,6 +1145,28 @@ impl Worker {
     }
 }
 
+fn coalesce_volume_commands(
+    command_rx: &Receiver<PlaybackCommand>,
+    mut level: f32,
+    mut muted: bool,
+) -> (f32, bool, Option<PlaybackCommand>) {
+    loop {
+        match command_rx.try_recv() {
+            Ok(PlaybackCommand::SetVolume {
+                level: next_level,
+                muted: next_muted,
+            }) => {
+                level = next_level;
+                muted = next_muted;
+            }
+            Ok(command) => return (level, muted, Some(command)),
+            Err(TryRecvError::Empty | TryRecvError::Disconnected) => {
+                return (level, muted, None);
+            }
+        }
+    }
+}
+
 fn frames_to_ms(frames: u64, sample_rate: u32) -> u64 {
     frames.saturating_mul(1_000) / u64::from(sample_rate)
 }
@@ -1132,6 +1196,12 @@ mod tests {
         exclusive_modes: Vec<bool>,
         seek_positions: Vec<u64>,
         started_volumes: Vec<(f32, bool)>,
+        volume_writes: Vec<(f32, bool)>,
+        software_volume_writes: Vec<(f32, bool)>,
+        hardware_volume: Option<(f32, bool)>,
+        hardware_volume_on_release: Option<(f32, bool)>,
+        hardware_volume_settable: bool,
+        hardware_volume_writes: Vec<(f32, bool)>,
         backend_starts: Vec<PcmFormat>,
         backend_fed_frames: u64,
         stops: usize,
@@ -1155,6 +1225,12 @@ mod tests {
                 exclusive_modes: Vec::new(),
                 seek_positions: Vec::new(),
                 started_volumes: Vec::new(),
+                volume_writes: Vec::new(),
+                software_volume_writes: Vec::new(),
+                hardware_volume: None,
+                hardware_volume_on_release: None,
+                hardware_volume_settable: false,
+                hardware_volume_writes: Vec::new(),
                 backend_starts: Vec::new(),
                 backend_fed_frames: 0,
                 stops: 0,
@@ -1199,6 +1275,9 @@ mod tests {
         fed_frames: u64,
         format: Option<PcmFormat>,
         volume: (f32, bool),
+        hardware_volume: Option<(f32, bool)>,
+        hardware_volume_active: bool,
+        hardware_volume_event_pending: bool,
     }
 
     impl PlaybackBackend for FakeBackend {
@@ -1232,13 +1311,37 @@ mod tests {
             self.fed_frames.min(self.log.lock().unwrap().position_limit)
         }
 
-        fn set_volume(&mut self, gain: f32, muted: bool) {
-            self.volume = (gain, muted);
+        fn take_hardware_volume(&mut self) -> Option<(f32, bool)> {
+            if !self.hardware_volume_event_pending {
+                return None;
+            }
+            self.hardware_volume_event_pending = false;
+            self.hardware_volume
+        }
+
+        fn set_volume(&mut self, level: f32, muted: bool) -> Result<(), EngineError> {
+            let mut log = self.log.lock().unwrap();
+            log.volume_writes.push((level, muted));
+            if self.hardware_volume_active {
+                self.volume = (1.0, false);
+                self.hardware_volume = Some((level, muted));
+                log.hardware_volume = self.hardware_volume;
+                log.hardware_volume_writes.push((level, muted));
+            } else {
+                self.volume = (crate::volume_gain_for_level(level), muted);
+                log.software_volume_writes.push(self.volume);
+            }
+            Ok(())
         }
 
         fn stop(&mut self) -> Result<(), EngineError> {
             let mut log = self.log.lock().unwrap();
             log.stops += 1;
+            if self.hardware_volume_active
+                && let Some(hardware_volume) = log.hardware_volume_on_release
+            {
+                log.hardware_volume = Some(hardware_volume);
+            }
             if log.stop_error {
                 Err(EngineError::Decode("backend stop failed".to_string()))
             } else {
@@ -1899,7 +2002,7 @@ mod tests {
         let commands = controller.command_sender();
         commands
             .send(PlaybackCommand::SetVolume {
-                gain: 0.25,
+                level: 0.25,
                 muted: true,
             })
             .unwrap();
@@ -1958,7 +2061,392 @@ mod tests {
                 }
         });
 
-        assert_eq!(log.lock().unwrap().started_volumes, [(0.25, true); 5]);
+        assert_eq!(
+            log.lock().unwrap().started_volumes,
+            [(crate::volume_gain_for_level(0.25), true); 5]
+        );
+    }
+
+    #[test]
+    fn hogged_controllable_device_writes_hardware_and_keeps_software_gain_at_unity() {
+        let (controller, log) = fake_controller();
+        {
+            let mut log = log.lock().unwrap();
+            log.hardware_volume = Some((0.4, false));
+            log.hardware_volume_settable = true;
+        }
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            *event
+                == PlaybackEvent::HardwareVolume {
+                    level: 0.4,
+                    muted: false,
+                }
+        });
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+
+        {
+            let log = log.lock().unwrap();
+            assert_eq!(log.volume_writes, [(0.4, false)]);
+            assert!(log.software_volume_writes.is_empty());
+            assert_eq!(log.hardware_volume_writes, [(0.4, false)]);
+            assert_eq!(log.started_volumes, [(1.0, false)]);
+        }
+
+        commands
+            .send(PlaybackCommand::SetVolume {
+                level: 0.8,
+                muted: true,
+            })
+            .unwrap();
+        wait_for_log(&log, |log| {
+            log.hardware_volume_writes == [(0.4, false), (0.8, true)]
+        });
+
+        let log = log.lock().unwrap();
+        assert!(log.software_volume_writes.is_empty());
+        assert_eq!(log.started_volumes, [(1.0, false)]);
+    }
+
+    #[test]
+    fn first_hardware_adoption_preserves_the_apps_mute() {
+        let (controller, log) = fake_controller();
+        {
+            let mut log = log.lock().unwrap();
+            log.hardware_volume = Some((0.4, false));
+            log.hardware_volume_settable = true;
+        }
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::SetVolume {
+                level: 0.7,
+                muted: true,
+            })
+            .unwrap();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::HardwareVolume { .. }
+            )),
+            PlaybackEvent::HardwareVolume {
+                level: 0.4,
+                muted: true,
+            }
+        );
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+
+        let log = log.lock().unwrap();
+        assert_eq!(log.hardware_volume_writes, [(0.4, true)]);
+        assert_eq!(log.started_volumes, [(1.0, false)]);
+    }
+
+    #[test]
+    fn later_hog_reapplies_the_app_level_without_emitting_another_hardware_event() {
+        let (controller, log) = fake_controller();
+        {
+            let mut log = log.lock().unwrap();
+            log.hardware_volume = Some((0.5, false));
+            log.hardware_volume_on_release = Some((0.5, false));
+            log.hardware_volume_settable = true;
+        }
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            matches!(event, PlaybackEvent::HardwareVolume { .. })
+        });
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+        commands
+            .send(PlaybackCommand::SetVolume {
+                level: 0.2,
+                muted: false,
+            })
+            .unwrap();
+        wait_for_log(&log, |log| {
+            log.hardware_volume_writes.last() == Some(&(0.2, false))
+        });
+
+        commands.send(PlaybackCommand::Pause).unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Paused)
+        });
+        assert_eq!(log.lock().unwrap().hardware_volume, Some((0.5, false)));
+        commands.send(PlaybackCommand::Resume).unwrap();
+        let mut emitted_hardware_volume = false;
+        loop {
+            match events.recv_timeout(Duration::from_secs(1)).unwrap() {
+                PlaybackEvent::HardwareVolume { .. } => emitted_hardware_volume = true,
+                PlaybackEvent::StateChanged(PlaybackState::Playing) => break,
+                _ => {}
+            }
+        }
+
+        assert!(!emitted_hardware_volume);
+        let log = log.lock().unwrap();
+        assert_eq!(log.hardware_volume, Some((0.2, false)));
+        assert_eq!(
+            log.hardware_volume_writes,
+            [(0.5, false), (0.2, false), (0.2, false)]
+        );
+        assert_eq!(log.started_volumes, [(1.0, false), (1.0, false)]);
+    }
+
+    #[test]
+    fn hogged_device_without_hardware_control_uses_software_gain() {
+        let (controller, log) = fake_controller();
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::SetVolume {
+                level: 0.5,
+                muted: false,
+            })
+            .unwrap();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+
+        let log = log.lock().unwrap();
+        assert_eq!(log.started_volumes, [(0.125, false)]);
+        assert_eq!(log.volume_writes, [(0.5, false)]);
+        assert_eq!(log.software_volume_writes, [(0.125, false)]);
+        assert!(log.hardware_volume_writes.is_empty());
+    }
+
+    #[test]
+    fn shared_mode_uses_software_gain_even_when_the_device_has_hardware_volume() {
+        let (controller, log) = fake_controller_with_exclusive_mode(false);
+        {
+            let mut log = log.lock().unwrap();
+            log.hardware_volume = Some((0.4, false));
+            log.hardware_volume_settable = true;
+        }
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::SetVolume {
+                level: 0.5,
+                muted: false,
+            })
+            .unwrap();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+
+        let log = log.lock().unwrap();
+        assert_eq!(log.started_volumes, [(0.125, false)]);
+        assert_eq!(log.volume_writes, [(0.5, false)]);
+        assert_eq!(log.software_volume_writes, [(0.125, false)]);
+        assert!(log.hardware_volume_writes.is_empty());
+    }
+
+    #[test]
+    fn controllable_hog_emits_hardware_volume_once() {
+        let (controller, log) = fake_controller();
+        {
+            let mut log = log.lock().unwrap();
+            log.hardware_volume = Some((0.4, true));
+            log.hardware_volume_settable = true;
+        }
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("first.flac"),
+            })
+            .unwrap();
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::HardwareVolume { .. }
+            )),
+            PlaybackEvent::HardwareVolume {
+                level: 0.4,
+                muted: false,
+            }
+        );
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("second.flac"),
+            })
+            .unwrap();
+        wait_for(
+            &events,
+            |event| matches!(event, PlaybackEvent::NowPlaying { source, .. } if source.path == Path::new("second.flac")),
+        );
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+        assert_no_matching_event(&events, Duration::from_millis(20), |event| {
+            matches!(event, PlaybackEvent::HardwareVolume { .. })
+        });
+    }
+
+    #[test]
+    fn switching_from_controllable_hog_to_shared_reapplies_last_level_as_software_gain() {
+        let (controller, log) = fake_controller();
+        {
+            let mut log = log.lock().unwrap();
+            log.hardware_volume = Some((0.5, false));
+            log.hardware_volume_settable = true;
+        }
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            matches!(event, PlaybackEvent::HardwareVolume { .. })
+        });
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+
+        commands
+            .send(PlaybackCommand::SetOutputDevice {
+                device_id: 9,
+                exclusive_mode: false,
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            *event
+                == PlaybackEvent::OutputDeviceChanged {
+                    device_id: 9,
+                    exclusive_mode: false,
+                }
+        });
+
+        assert_eq!(
+            log.lock().unwrap().started_volumes,
+            [(1.0, false), (0.125, false)]
+        );
+    }
+
+    #[test]
+    fn device_round_trip_reapplies_the_adopted_level_without_readopting() {
+        let (controller, log) = fake_controller();
+        {
+            let mut log = log.lock().unwrap();
+            log.hardware_volume = Some((0.5, false));
+            log.hardware_volume_settable = true;
+        }
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            matches!(event, PlaybackEvent::HardwareVolume { .. })
+        });
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+        commands
+            .send(PlaybackCommand::SetVolume {
+                level: 0.2,
+                muted: false,
+            })
+            .unwrap();
+        wait_for_log(&log, |log| {
+            log.hardware_volume_writes.last() == Some(&(0.2, false))
+        });
+
+        commands
+            .send(PlaybackCommand::SetOutputDevice {
+                device_id: 9,
+                exclusive_mode: false,
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            matches!(
+                event,
+                PlaybackEvent::OutputDeviceChanged { device_id: 9, .. }
+            )
+        });
+        commands
+            .send(PlaybackCommand::SetOutputDevice {
+                device_id: 7,
+                exclusive_mode: true,
+            })
+            .unwrap();
+        let mut emitted_hardware_volume = false;
+        loop {
+            match events.recv_timeout(Duration::from_secs(1)).unwrap() {
+                PlaybackEvent::HardwareVolume { .. } => emitted_hardware_volume = true,
+                PlaybackEvent::OutputDeviceChanged { device_id: 7, .. } => break,
+                _ => {}
+            }
+        }
+
+        assert!(!emitted_hardware_volume);
+        assert_eq!(log.lock().unwrap().hardware_volume, Some((0.2, false)));
+    }
+
+    #[test]
+    fn coalesces_queued_volume_commands_before_transport() {
+        let (command_tx, command_rx) = mpsc::channel();
+        command_tx
+            .send(PlaybackCommand::SetVolume {
+                level: 0.2,
+                muted: false,
+            })
+            .unwrap();
+        command_tx
+            .send(PlaybackCommand::SetVolume {
+                level: 0.7,
+                muted: true,
+            })
+            .unwrap();
+        command_tx.send(PlaybackCommand::Pause).unwrap();
+
+        let PlaybackCommand::SetVolume { level, muted } = command_rx.recv().unwrap() else {
+            panic!("first queued command must set volume");
+        };
+        assert_eq!(
+            coalesce_volume_commands(&command_rx, level, muted),
+            (0.7, true, Some(PlaybackCommand::Pause))
+        );
     }
 
     #[test]
@@ -3344,6 +3832,9 @@ mod tests {
                     fed_frames: 0,
                     format: None,
                     volume: (f32::NAN, false),
+                    hardware_volume: None,
+                    hardware_volume_active: false,
+                    hardware_volume_event_pending: false,
                 }))
             }),
             Arc::new(|_| panic!("decoder factory exploded")),
@@ -3432,13 +3923,15 @@ mod tests {
             7,
             exclusive_mode,
             Arc::new(move |device_id, exclusive_mode| {
-                let (fail_all_open, fail_exclusive_open) = {
+                let (fail_all_open, fail_exclusive_open, hardware_volume, hardware_volume_settable) = {
                     let mut log = backend_log.lock().unwrap();
                     log.opened_devices.push(device_id);
                     log.exclusive_modes.push(exclusive_mode);
                     (
                         log.fail_all_open_device == Some(device_id),
                         exclusive_mode && log.fail_exclusive_open_device == Some(device_id),
+                        log.hardware_volume,
+                        log.hardware_volume_settable,
                     )
                 };
                 if fail_all_open {
@@ -3447,6 +3940,8 @@ mod tests {
                 if fail_exclusive_open {
                     return Err(EngineError::Hogged(42));
                 }
+                let hardware_volume_active =
+                    exclusive_mode && hardware_volume_settable && hardware_volume.is_some();
                 Ok(Box::new(FakeBackend {
                     log: Arc::clone(&backend_log),
                     device_id,
@@ -3454,6 +3949,9 @@ mod tests {
                     fed_frames: 0,
                     format: None,
                     volume: (f32::NAN, false),
+                    hardware_volume,
+                    hardware_volume_active,
+                    hardware_volume_event_pending: hardware_volume_active,
                 }))
             }),
             Arc::new(move |path| {

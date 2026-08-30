@@ -41,6 +41,30 @@ fn start_scripted_queue_play(
 }
 
 #[test]
+fn hardware_volume_updates_and_persists_without_sending_volume_back() {
+    let directory = tempfile::tempdir().unwrap();
+    let settings_path = directory.path().join("settings.json");
+    let mut row = Playback::initial();
+    row.settings_path = settings_path.clone();
+    let command_rx = command_sink(&mut row);
+
+    row.handle_event(PlaybackEvent::HardwareVolume {
+        level: 0.5,
+        muted: true,
+    });
+
+    assert_eq!(row.volume_level, 0.5);
+    assert!(row.volume_muted);
+    assert!(matches!(
+        command_rx.try_recv(),
+        Err(std::sync::mpsc::TryRecvError::Empty)
+    ));
+    let settings = AppSettings::load(&settings_path).unwrap();
+    assert_eq!(settings.volume_level, 0.5);
+    assert!(settings.volume_muted);
+}
+
+#[test]
 fn gapless_lookahead_advances_the_queue_without_dispatching_play_file() {
     let temp = tempfile::tempdir().unwrap();
     let tracks = wav_tracks(temp.path(), &["a", "b", "c"]);

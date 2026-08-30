@@ -194,16 +194,6 @@ fn maps_scrub_fraction_to_position() {
 }
 
 #[test]
-fn maps_volume_level_to_a_perceptual_gain_curve() {
-    assert_eq!(volume_gain_for_level(0.0), 0.0);
-    assert_eq!(volume_gain_for_level(0.05), MIN_AUDIBLE_GAIN);
-    assert_eq!(volume_gain_for_level(0.5), 0.125);
-    assert_eq!(volume_gain_for_level(1.0), 1.0);
-    assert!(volume_gain_for_level(0.25) < volume_gain_for_level(0.5));
-    assert!(volume_gain_for_level(0.5) < volume_gain_for_level(0.75));
-}
-
-#[test]
 fn volume_icon_and_fill_follow_the_designed_states() {
     assert_eq!(volume_icon_state(1.0, false), VolumeIconState::High);
     assert_eq!(volume_icon_state(0.5, false), VolumeIconState::High);
@@ -222,7 +212,7 @@ fn default_volume_command_is_unity_and_unmuted() {
     assert_eq!(
         Playback::initial().volume_command(),
         PlaybackCommand::SetVolume {
-            gain: 1.0,
+            level: 1.0,
             muted: false,
         }
     );

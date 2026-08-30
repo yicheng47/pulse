@@ -29,7 +29,7 @@ pub enum PlaybackCommand {
         enabled: bool,
     },
     SetVolume {
-        gain: f32,
+        level: f32,
         muted: bool,
     },
 }

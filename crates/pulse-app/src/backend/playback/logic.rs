@@ -18,14 +18,6 @@ pub(crate) fn volume_icon_state(level: f32, muted: bool) -> VolumeIconState {
     }
 }
 
-pub(crate) fn volume_gain_for_level(level: f32) -> f32 {
-    let level = level.clamp(0.0, 1.0);
-    if level == 0.0 {
-        return 0.0;
-    }
-    (level * level * level).max(MIN_AUDIBLE_GAIN)
-}
-
 pub(crate) fn scrub_position_ms(fraction: f32, duration_ms: u64) -> u64 {
     (duration_ms as f64 * f64::from(fraction)).round() as u64
 }

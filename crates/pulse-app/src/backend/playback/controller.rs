@@ -15,7 +15,7 @@ impl Playback {
 
     pub(crate) fn volume_command(&self) -> PlaybackCommand {
         PlaybackCommand::SetVolume {
-            gain: volume_gain_for_level(self.volume_level),
+            level: self.volume_level,
             muted: self.volume_muted,
         }
     }
@@ -327,6 +327,16 @@ impl Playback {
                         "{device_name} could not start in exclusive mode. Playback continues in shared mode."
                     ),
                 });
+            }
+            PlaybackEvent::HardwareVolume { level, muted } => {
+                self.volume_level = level;
+                self.volume_muted = muted;
+                if let Err(error) = self.update_settings(|settings| {
+                    settings.volume_level = level;
+                    settings.volume_muted = muted;
+                }) {
+                    self.error = Some(format!("Could not save the volume preference: {error}"));
+                }
             }
             PlaybackEvent::Ended { attempt } => {
                 if attempt != self.dispatched_plays {
