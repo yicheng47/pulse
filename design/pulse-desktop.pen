@@ -37617,7 +37617,7 @@
                               "id": "Not8k",
                               "name": "Label",
                               "fill": "$text-muted",
-                              "content": "PLAYBACK",
+                              "content": "INTERFACE",
                               "fontFamily": "$font-mono",
                               "fontSize": 11,
                               "fontWeight": "700",
@@ -37640,81 +37640,106 @@
                               ],
                               "children": [
                                 {
-                                  "id": "x4CXOa",
-                                  "type": "ref",
-                                  "ref": "pF8bk",
-                                  "name": "Row / Default output device",
+                                  "type": "frame",
+                                  "id": "VARZq",
+                                  "name": "Row / Interface scale",
                                   "width": "fill_container",
+                                  "gap": 16,
                                   "padding": [
                                     13,
                                     0
                                   ],
-                                  "strokeWidth": {
-                                    "bottom": 1
-                                  },
-                                  "descendants": {
-                                    "l9GWAM": {
-                                      "content": "Default output device"
-                                    },
-                                    "Mo9R6": {
-                                      "content": "Where Pulse sends audio."
-                                    },
-                                    "p4In90": {
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
                                       "type": "frame",
-                                      "id": "i3KUn",
-                                      "name": "Value",
+                                      "id": "Kv102",
+                                      "name": "Copy",
+                                      "width": "fill_container",
+                                      "layout": "vertical",
+                                      "gap": 4,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "F1og3",
+                                          "name": "Title",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Interface scale",
+                                          "fontFamily": "$font-sans",
+                                          "fontSize": 14,
+                                          "fontWeight": "600"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "A7Z4L",
+                                          "name": "Description",
+                                          "fill": "$text-muted",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Scales every part of the window. 100% is the default.",
+                                          "fontFamily": "$font-sans",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "FyX8A",
+                                      "name": "Stepper",
                                       "gap": 8,
                                       "alignItems": "center",
                                       "children": [
                                         {
-                                          "type": "text",
-                                          "id": "rZiiG",
-                                          "name": "Value",
-                                          "fill": "$text-secondary",
-                                          "content": "Matrix mini-i Pro 4",
-                                          "fontFamily": "$font-sans",
-                                          "fontSize": 13,
-                                          "fontWeight": "600"
+                                          "id": "YwF3J",
+                                          "type": "ref",
+                                          "ref": "cQjUd",
+                                          "name": "Button / Decrease",
+                                          "descendants": {
+                                            "MicBg": {
+                                              "icon": "minus"
+                                            }
+                                          }
                                         },
                                         {
-                                          "type": "icon",
-                                          "id": "DPi5H",
-                                          "name": "Chevron",
-                                          "width": 16,
-                                          "height": 16,
-                                          "icon": "chevron-right",
-                                          "library": "lucide",
-                                          "fill": "$text-muted"
+                                          "type": "frame",
+                                          "id": "FiKXE",
+                                          "name": "Value",
+                                          "width": 56,
+                                          "height": 34,
+                                          "fill": "$bg-inset",
+                                          "cornerRadius": 6,
+                                          "justifyContent": "center",
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "Zs1fI",
+                                              "name": "Percent",
+                                              "fill": "$text-primary",
+                                              "content": "100%",
+                                              "fontFamily": "$font-mono",
+                                              "fontSize": 13,
+                                              "fontWeight": "600"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "id": "wI2k3",
+                                          "type": "ref",
+                                          "ref": "cQjUd",
+                                          "name": "Button / Increase",
+                                          "descendants": {
+                                            "MicBg": {
+                                              "icon": "plus"
+                                            }
+                                          }
                                         }
                                       ]
                                     }
-                                  }
-                                },
-                                {
-                                  "id": "prncW",
-                                  "type": "ref",
-                                  "ref": "pF8bk",
-                                  "name": "Row / Exclusive mode",
-                                  "width": "fill_container",
-                                  "padding": [
-                                    13,
-                                    0
-                                  ],
-                                  "strokeWidth": 0,
-                                  "descendants": {
-                                    "l9GWAM": {
-                                      "content": "Exclusive mode"
-                                    },
-                                    "Mo9R6": {
-                                      "content": "Take exclusive control of the device so nothing else can resample the stream."
-                                    },
-                                    "p4In90": {
-                                      "id": "F3dLm",
-                                      "type": "ref",
-                                      "ref": "SK7jO",
-                                      "name": "Toggle"
-                                    }
-                                  }
+                                  ]
                                 }
                               ]
                             }

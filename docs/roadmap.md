@@ -18,7 +18,7 @@ The active-development tracker for Pulse. Since 2026-08-29 this file — not Git
 
 ## M2 — Playback, session, app shell → v0.2.0
 
-The audio path first, then session state, then the shell overhaul. Closed at feature 28 on 2026-08-30 (Jason: release 0.2.0 after the overhaul); metadata, now playing, and integrations moved to M3.
+The audio path first, then session state, then the shell overhaul and the interface scale. Closed at feature 30 on 2026-08-30 (Jason: release 0.2.0 after the overhaul plus the interface scale); metadata, now playing, and integrations moved to M3.
 
 | Item | Priority | Status | Notes |
 |---|---|---|---|
@@ -29,6 +29,8 @@ The audio path first, then session state, then the shell overhaul. Closed at fea
 | [Feature 17 — playback dropout reporting](features/archive/17-playback-dropout-reporting.md) | P2 | done | `5952c95`: underrun read path, `Dropout` events, sustained-dropout notice; diagnostic count surface deferred to a design pass. |
 | [Bug — stale row selection after advance](bugs/archive/stale-row-selection-after-advance.md) | P2 | done | `cf02027`: selection cleared (playlist: re-anchored) when playback moves to another track. |
 | [Feature 28 — app shell overhaul](features/archive/28-app-shell-overhaul.md) | P1 | done | `3edc358` (header, bands, player width), `d213219` (island sidebars, Settings sections with Output); both smoke-tested by Jason 2026-08-30. |
+| [Feature 30 — interface scale](features/30-interface-scale.md) | P2 | in progress | Pulled into M2 by Jason 2026-08-30 ("deliver this feature before 0.2.0"); design approved and committed. Phase 1: `px` → `rems` migration + type scale (closes 29); phase 2: setting, General row, `Cmd-=`/`Cmd--`/`Cmd-0`. |
+| [Feature 29 — type scale](features/29-type-scale.md) | P3 | in progress | Delivered by 30's phase 1. |
 | [Feature 21 — launch state restore](features/archive/21-launch-state-restore.md) | P2 | done | `1c7880f`: session blob in `settings.json`, engine `Load` (paused, no sink), route restore; smoke: quit mid-album and relaunch. |
 
 ## M3 — Metadata, now playing, integrations → v0.3.0
@@ -41,8 +43,6 @@ Artist metadata first, then the now-playing page, then integrations and polish. 
 | [Feature 20 — now playing page](features/20-now-playing-page.md) | P2 | planned | Design pinned. |
 | [Feature 19 — MCP server](features/19-mcp-server.md) | P2 | planned | Needs 25's ops layer; the trigger for splitting `backend/` into a crate. |
 | [Feature 09 — collapsible library sidebar](features/09-collapsible-library-sidebar.md) | P3 | planned | |
-| [Feature 30 — interface scale](features/30-interface-scale.md) | P2 | designing | Settings ▸ General: Interface scale stepper 80–150% replacing the Default output row; phase 1 is the `px` → `rems` migration (folds in 29), phase 2 the setting + control + `Cmd-=`/`Cmd--`/`Cmd-0`. Design in Pencil awaiting Jason's approval. |
-| [Feature 29 — type scale](features/29-type-scale.md) | P3 | planned | Refactor: named text sizes in `theme.rs` from the design's type styles, literal `text_size(px(N))` replaced, grep gate. Not urgent; delivered by 30's phase 1. |
 
 ## Parking lot
 

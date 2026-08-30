@@ -1,6 +1,6 @@
 # Interface Scale
 
-> Feature 30 · P2. A Settings ▸ General control that scales the whole window (80–150%), replacing the redundant "Default output device" row now that Settings ▸ Output exists. Requested by Jason 2026-08-30; design in `design/pulse-desktop.pen` awaiting approval. Depends on moving the app from `px` to `rems` units, which also delivers feature 29.
+> Feature 30 · P2. A Settings ▸ General control that scales the whole window (80–150%), replacing the redundant "Default output device" row now that Settings ▸ Output exists. Requested by Jason 2026-08-30; design approved the same day ("Let's deliver this feature and the bug fix before 0.2.0") and pulled into M2. Depends on moving the app from `px` to `rems` units, which also delivers feature 29.
 
 ## Motivation
 
