@@ -1,4 +1,6 @@
-use gpui::{Context, FontWeight, IntoElement, Window, div, prelude::*, px, svg};
+use crate::theme::rpx;
+
+use gpui::{Context, FontWeight, IntoElement, Window, div, prelude::*, svg};
 
 use crate::{
     settings::SettingsSection,
@@ -46,14 +48,14 @@ impl Shell {
         let header = div()
             .flex()
             .items_center()
-            .gap(px(16.))
+            .gap(rpx(16.))
             .w_full()
-            .h(px(TOP_BAR_HEIGHT))
+            .h(rpx(TOP_BAR_HEIGHT))
             .flex_none()
             .pt_0()
-            .pr(px(28.))
+            .pr(rpx(28.))
             .pb_0()
-            .pl(px(24.))
+            .pl(rpx(24.))
             .border_b_1()
             .border_color(theme::border())
             .bg(theme::bg_page())
@@ -61,22 +63,22 @@ impl Shell {
                 div()
                     .flex()
                     .items_center()
-                    .gap(px(10.))
+                    .gap(rpx(10.))
                     .h_full()
                     .flex_none()
-                    .child(div().w(px(52.)).h(px(12.)).flex_none())
-                    .child(div().w(px(2.)).h(px(1.)).flex_none())
+                    .child(div().w(rpx(52.)).h(rpx(12.)).flex_none())
+                    .child(div().w(rpx(2.)).h(rpx(1.)).flex_none())
                     .child(
                         div()
                             .flex()
                             .items_center()
                             .justify_center()
-                            .size(px(32.))
+                            .size(rpx(32.))
                             .flex_none()
                             .child(
                                 svg()
                                     .path("icons/activity.svg")
-                                    .size(px(24.))
+                                    .size(rpx(24.))
                                     .text_color(theme::accent()),
                             ),
                     )
@@ -84,20 +86,26 @@ impl Shell {
                         div()
                             .font_family(theme::FONT_DISPLAY)
                             .font_weight(FontWeight::BOLD)
-                            .text_size(px(22.))
+                            .text_size(theme::text::HEADING)
                             .text_color(theme::text_primary())
                             .child("Pulse"),
                     ),
             )
-            .child(div().w(px(1.)).h(px(28.)).flex_none().bg(theme::border()))
+            .child(
+                div()
+                    .w(gpui::px(1.)) // physical
+                    .h(rpx(28.))
+                    .flex_none()
+                    .bg(theme::border()),
+            )
             .child(self.render_search_input(window, cx))
-            .child(div().flex_1().min_w_0().h(px(1.)))
+            .child(div().flex_1().min_w_0().h(rpx(1.)))
             .child(
                 div()
                     .flex()
                     .items_center()
                     .justify_end()
-                    .gap(px(12.))
+                    .gap(rpx(12.))
                     .h_full()
                     .flex_none()
                     .occlude()

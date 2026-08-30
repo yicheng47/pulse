@@ -1,6 +1,8 @@
+use crate::theme::rpx;
+
 use gpui::{
     AnyElement, Context, Entity, FontWeight, IntoElement, Pixels, Render, ScrollHandle, Size,
-    StatefulInteractiveElement, Subscription, Window, div, prelude::*, px, svg,
+    StatefulInteractiveElement, Subscription, Window, div, prelude::*, svg,
 };
 
 use crate::{
@@ -66,20 +68,20 @@ impl DeviceManagementPage {
         index_offset: usize,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let mut cards = div().flex().flex_col().gap(px(10.)).w_full();
+        let mut cards = div().flex().flex_col().gap(rpx(10.)).w_full();
         for (index, device) in devices.iter().enumerate() {
             cards = cards.child(self.render_device_card(device, index_offset + index, cx));
         }
         div()
             .flex()
             .flex_col()
-            .gap(px(10.))
+            .gap(rpx(10.))
             .w_full()
             .child(
                 div()
                     .font_family(theme::FONT_MONO)
                     .font_weight(FontWeight::BOLD)
-                    .text_size(px(10.))
+                    .text_size(theme::text::CAPTION)
                     .text_color(theme::text_muted())
                     .child(label),
             )
@@ -113,7 +115,7 @@ impl DeviceManagementPage {
             "icons/speaker.svg"
         };
 
-        let mut actions = div().flex().items_center().gap(px(8.)).flex_none();
+        let mut actions = div().flex().items_center().gap(rpx(8.)).flex_none();
         if device.active {
             actions = actions.child(ui::pill("Active", true));
         }
@@ -152,14 +154,14 @@ impl DeviceManagementPage {
             .flex_1()
             .min_w_0()
             .flex_col()
-            .gap(px(3.))
+            .gap(rpx(3.))
             .child(
                 div()
                     .w_full()
                     .truncate()
                     .font_family(theme::FONT_DISPLAY)
                     .font_weight(FontWeight::BOLD)
-                    .text_size(px(17.))
+                    .text_size(theme::text::TITLE)
                     .text_color(theme::text_primary())
                     .child(device.name.clone()),
             )
@@ -169,7 +171,7 @@ impl DeviceManagementPage {
                     .truncate()
                     .font_family(theme::FONT_MONO)
                     .font_weight(FontWeight::BOLD)
-                    .text_size(px(11.))
+                    .text_size(theme::text::SMALL)
                     .text_color(status_color)
                     .child(metadata),
             );
@@ -179,7 +181,7 @@ impl DeviceManagementPage {
                     .w_full()
                     .truncate()
                     .font_family(theme::FONT_SANS)
-                    .text_size(px(11.))
+                    .text_size(theme::text::SMALL)
                     .text_color(theme::text_muted())
                     .child(format_last_seen(device.last_seen_unix_seconds)),
             );
@@ -195,10 +197,10 @@ impl DeviceManagementPage {
             .id(("managed-device", index))
             .flex()
             .flex_col()
-            .gap(px(10.))
+            .gap(rpx(10.))
             .w_full()
-            .p(px(14.))
-            .rounded(px(theme::RADIUS_MD))
+            .p(rpx(14.))
+            .rounded(rpx(theme::RADIUS_MD))
             .border_1()
             .border_color(if device.active {
                 theme::accent()
@@ -210,9 +212,9 @@ impl DeviceManagementPage {
                 div()
                     .flex()
                     .items_center()
-                    .gap(px(12.))
+                    .gap(rpx(12.))
                     .w_full()
-                    .child(svg().path(icon).size(px(22.)).flex_none().text_color(
+                    .child(svg().path(icon).size(rpx(22.)).flex_none().text_color(
                         if device.connected {
                             theme::accent()
                         } else {
@@ -222,7 +224,12 @@ impl DeviceManagementPage {
                     .child(copy)
                     .child(actions),
             )
-            .child(div().w_full().h(px(1.)).bg(theme::border()))
+            .child(
+                div()
+                    .w_full()
+                    .h(gpui::px(1.)) // physical
+                    .bg(theme::border()),
+            )
             .child(ui::exclusive_mode_control(
                 device.automatic,
                 ui::exclusive_mode_reset_link(("device-mode-reset", index))
@@ -261,21 +268,21 @@ impl DeviceManagementPage {
         let body = div()
             .flex()
             .flex_col()
-            .gap(px(9.))
-            .p(px(22.))
+            .gap(rpx(9.))
+            .p(rpx(22.))
             .child(
                 div()
                     .font_family(theme::FONT_DISPLAY)
                     .font_weight(FontWeight::SEMIBOLD)
-                    .text_size(px(17.))
+                    .text_size(theme::text::TITLE)
                     .text_color(theme::text_primary())
                     .child(format!("Forget “{}”?", device.name)),
             )
             .child(
                 div()
                     .font_family(theme::FONT_SANS)
-                    .text_size(px(12.))
-                    .line_height(px(18.))
+                    .text_size(theme::text::BODY)
+                    .line_height(rpx(18.))
                     .text_color(theme::text_secondary())
                     .child(
                         "This removes the saved device details and exclusive-mode setting. If it reconnects, Pulse will probe it again and return it to Auto.",
@@ -335,20 +342,20 @@ impl Render for DeviceManagementPage {
         let mut content = div()
             .flex()
             .flex_col()
-            .gap(px(18.))
+            .gap(rpx(18.))
             .w_full()
-            .max_w(px(720.))
+            .max_w(rpx(720.))
             .child(
                 div()
                     .flex()
                     .flex_col()
-                    .gap(px(4.))
+                    .gap(rpx(4.))
                     .w_full()
                     .child(
                         div()
                             .font_family(theme::FONT_DISPLAY)
                             .font_weight(FontWeight::BOLD)
-                            .text_size(px(34.))
+                            .text_size(theme::text::DISPLAY)
                             .text_color(theme::text_primary())
                             .child("Devices"),
                     )
@@ -356,7 +363,7 @@ impl Render for DeviceManagementPage {
                         div()
                             .w_full()
                             .font_family(theme::FONT_SANS)
-                            .text_size(px(13.))
+                            .text_size(theme::text::BODY_LARGE)
                             .text_color(theme::text_secondary())
                             .child("Every output Pulse knows — settings stick to each device whether it’s connected or not. Exclusive mode follows the device’s Auto default until you pin it."),
                     ),
@@ -365,9 +372,9 @@ impl Render for DeviceManagementPage {
             content = content.child(
                 div()
                     .w_full()
-                    .px(px(12.))
-                    .py(px(9.))
-                    .rounded(px(theme::RADIUS_MD))
+                    .px(rpx(12.))
+                    .py(rpx(9.))
+                    .rounded(rpx(theme::RADIUS_MD))
                     .border_1()
                     .border_color(if is_error {
                         theme::danger()
@@ -375,7 +382,7 @@ impl Render for DeviceManagementPage {
                         theme::warning()
                     })
                     .font_family(theme::FONT_SANS)
-                    .text_size(px(12.))
+                    .text_size(theme::text::BODY)
                     .text_color(if is_error {
                         theme::danger()
                     } else {
@@ -408,9 +415,9 @@ impl Render for DeviceManagementPage {
                     .flex()
                     .justify_center()
                     .w_full()
-                    .px(px(28.))
-                    .pt(px(26.))
-                    .pb(px(24.))
+                    .px(rpx(28.))
+                    .pt(rpx(26.))
+                    .pb(rpx(24.))
                     .child(content),
             );
 
@@ -435,15 +442,15 @@ fn device_action_button(
 ) -> gpui::Stateful<gpui::Div> {
     div()
         .id(id)
-        .px(px(10.))
-        .py(px(4.))
-        .rounded(px(theme::RADIUS_SM))
+        .px(rpx(10.))
+        .py(rpx(4.))
+        .rounded(rpx(theme::RADIUS_SM))
         .border_1()
         .border_color(theme::border_strong())
         .cursor_pointer()
         .font_family(theme::FONT_SANS)
         .font_weight(FontWeight::SEMIBOLD)
-        .text_size(px(11.))
+        .text_size(theme::text::SMALL)
         .text_color(theme::text_secondary())
         .child(label)
 }

@@ -1,8 +1,10 @@
+use crate::theme::rpx;
+
 use std::rc::Rc;
 
 use gpui::{
     App, ClickEvent, CursorStyle, ElementId, FontWeight, IntoElement, RenderOnce, SharedString,
-    Window, div, prelude::*, px, svg,
+    Window, div, prelude::*, svg,
 };
 
 use crate::{theme, ui::Tooltip};
@@ -111,17 +113,17 @@ impl RenderOnce for Button {
             .flex()
             .items_center()
             .justify_center()
-            .gap(px(8.))
-            .h(px(if compact { 24. } else { 34. }))
+            .gap(rpx(8.))
+            .h(rpx(if compact { 24. } else { 34. }))
             .when(compact, |button| button.flex_none())
-            .px(px(if compact {
+            .px(rpx(if compact {
                 10.
             } else if self.variant == ButtonVariant::Secondary {
                 13.
             } else {
                 14.
             }))
-            .rounded(px(self.corner_radius))
+            .rounded(rpx(self.corner_radius))
             .when(
                 compact || self.variant == ButtonVariant::Secondary,
                 |button| {
@@ -150,7 +152,8 @@ impl RenderOnce for Button {
             } else {
                 FontWeight::BOLD
             })
-            .text_size(px(if compact { 12. } else { 13. }))
+            .text_size(theme::text::BODY_LARGE)
+            .when(compact, |button| button.text_size(theme::text::BODY))
             .text_color(content_color)
             .opacity(if self.disabled {
                 if self.variant == ButtonVariant::Danger {
@@ -164,7 +167,7 @@ impl RenderOnce for Button {
             .children(self.icon.map(|icon| {
                 svg()
                     .path(icon)
-                    .size(px(15.))
+                    .size(rpx(15.))
                     .flex_none()
                     .text_color(content_color)
                     .when(variant == ButtonVariant::Danger && !disabled, |icon| {
@@ -325,9 +328,9 @@ impl RenderOnce for IconButton {
             .flex()
             .items_center()
             .justify_center()
-            .size(px(self.button_size))
-            .mx(px(self.horizontal_margin))
-            .rounded(px(self.corner_radius))
+            .size(rpx(self.button_size))
+            .mx(rpx(self.horizontal_margin))
+            .rounded(rpx(self.corner_radius))
             .when(self.variant == IconButtonVariant::Primary, |button| {
                 button.bg(theme::accent())
             })
@@ -348,7 +351,7 @@ impl RenderOnce for IconButton {
             .child(
                 svg()
                     .path(self.icon)
-                    .size(px(self.icon_size))
+                    .size(rpx(self.icon_size))
                     .text_color(foreground)
                     .when(
                         variant == IconButtonVariant::AccentSoft && !selected && !disabled,

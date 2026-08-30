@@ -1,4 +1,6 @@
-use gpui::{AnyElement, Context, FontWeight, IntoElement, Window, div, prelude::*, px, svg};
+use crate::theme::rpx;
+
+use gpui::{AnyElement, Context, FontWeight, IntoElement, Window, div, prelude::*, svg};
 
 use super::{
     LibraryView,
@@ -18,7 +20,8 @@ impl LibraryView {
         let artist = detail.artist.clone();
         let albums = detail.albums.clone();
         let has_tracks = !detail.tracks.is_empty();
-        let columns = album_grid_columns(f32::from(window.viewport_size().width));
+        let scale = f32::from(window.rem_size()) / 16.;
+        let columns = album_grid_columns(f32::from(window.viewport_size().width), scale);
         let count_meta = format!(
             "{} · {}",
             format_artist_count(artist.album_count, "album"),
@@ -37,9 +40,9 @@ impl LibraryView {
         let mut album_grid = div()
             .grid()
             .grid_cols(columns)
-            .gap(px(ALBUM_GRID_GAP))
+            .gap(rpx(ALBUM_GRID_GAP))
             .w_full()
-            .pb(px(24.));
+            .pb(rpx(24.));
         for (index, album) in albums.into_iter().enumerate() {
             album_grid = album_grid.child(self.render_album_card(index, album, cx));
         }
@@ -51,10 +54,10 @@ impl LibraryView {
             .flex_1()
             .min_h_0()
             .w_full()
-            .gap(px(18.))
-            .px(px(28.))
-            .pt(px(22.))
-            .pb(px(24.))
+            .gap(rpx(18.))
+            .px(rpx(28.))
+            .pt(rpx(22.))
+            .pb(rpx(24.))
             .overflow_y_scroll()
             .track_scroll(&self.artist_detail_scroll)
             .child(
@@ -62,9 +65,9 @@ impl LibraryView {
                     .id("artist-detail-back")
                     .flex()
                     .items_center()
-                    .gap(px(8.))
-                    .h(px(17.))
-                    .w(px(80.))
+                    .gap(rpx(8.))
+                    .h(rpx(17.))
+                    .w(rpx(80.))
                     .flex_none()
                     .cursor_pointer()
                     .on_click(cx.listener(|this, _, _, cx| {
@@ -76,14 +79,14 @@ impl LibraryView {
                     .child(
                         svg()
                             .path("icons/arrow-left.svg")
-                            .size(px(15.))
+                            .size(rpx(15.))
                             .text_color(theme::text_muted()),
                     )
                     .child(
                         div()
                             .font_family(theme::FONT_DISPLAY)
                             .font_weight(FontWeight::BOLD)
-                            .text_size(px(13.))
+                            .text_size(theme::text::BODY_LARGE)
                             .text_color(theme::text_muted())
                             .child("Artists"),
                     ),
@@ -92,7 +95,7 @@ impl LibraryView {
                 div()
                     .flex()
                     .items_end()
-                    .gap(px(24.))
+                    .gap(rpx(24.))
                     .w_full()
                     .flex_none()
                     .child(render_artist_avatar(
@@ -108,12 +111,12 @@ impl LibraryView {
                             .flex_col()
                             .flex_1()
                             .min_w_0()
-                            .gap(px(6.))
+                            .gap(rpx(6.))
                             .child(
                                 div()
                                     .font_family(theme::FONT_MONO)
                                     .font_weight(FontWeight::BOLD)
-                                    .text_size(px(10.))
+                                    .text_size(theme::text::CAPTION)
                                     .text_color(theme::text_muted())
                                     .child("ARTIST"),
                             )
@@ -123,8 +126,8 @@ impl LibraryView {
                                     .truncate()
                                     .font_family(theme::FONT_DISPLAY)
                                     .font_weight(FontWeight::BOLD)
-                                    .text_size(px(38.))
-                                    .line_height(px(42.))
+                                    .text_size(theme::text::DISPLAY_LARGE)
+                                    .line_height(rpx(42.))
                                     .text_color(theme::text_primary())
                                     .child(artist.name.clone()),
                             )
@@ -132,19 +135,19 @@ impl LibraryView {
                                 div()
                                     .flex()
                                     .items_center()
-                                    .gap(px(8.))
+                                    .gap(rpx(8.))
                                     .child(
                                         div()
                                             .font_family(theme::FONT_SANS)
                                             .font_weight(FontWeight::SEMIBOLD)
-                                            .text_size(px(14.))
+                                            .text_size(theme::text::LABEL)
                                             .text_color(theme::text_primary())
                                             .child(count_meta),
                                     )
                                     .child(
                                         div()
                                             .font_family(theme::FONT_SANS)
-                                            .text_size(px(13.))
+                                            .text_size(theme::text::BODY_LARGE)
                                             .text_color(theme::text_secondary())
                                             .child(duration_meta),
                                     ),
@@ -153,17 +156,17 @@ impl LibraryView {
                                 div()
                                     .flex()
                                     .items_center()
-                                    .gap(px(10.))
-                                    .mt(px(10.))
+                                    .gap(rpx(10.))
+                                    .mt(rpx(10.))
                                     .child(
                                         div()
                                             .id("play-artist")
                                             .flex()
                                             .items_center()
-                                            .gap(px(8.))
-                                            .h(px(36.))
-                                            .px(px(16.))
-                                            .rounded(px(theme::RADIUS_MD))
+                                            .gap(rpx(8.))
+                                            .h(rpx(36.))
+                                            .px(rpx(16.))
+                                            .rounded(rpx(theme::RADIUS_MD))
                                             .bg(theme::accent())
                                             .opacity(if has_tracks { 1.0 } else { 0.45 })
                                             .when(has_tracks, |button| {
@@ -176,14 +179,14 @@ impl LibraryView {
                                             .child(
                                                 svg()
                                                     .path("icons/play.svg")
-                                                    .size(px(15.))
+                                                    .size(rpx(15.))
                                                     .text_color(theme::bg_inset()),
                                             )
                                             .child(
                                                 div()
                                                     .font_family(theme::FONT_DISPLAY)
                                                     .font_weight(FontWeight::BOLD)
-                                                    .text_size(px(14.))
+                                                    .text_size(theme::text::LABEL)
                                                     .text_color(theme::bg_inset())
                                                     .child("Play all"),
                                             ),
@@ -204,9 +207,9 @@ impl LibraryView {
                 div()
                     .flex()
                     .flex_col()
-                    .gap(px(12.))
+                    .gap(rpx(12.))
                     .w_full()
-                    .pt(px(6.))
+                    .pt(rpx(6.))
                     .child(
                         div()
                             .flex()
@@ -217,14 +220,14 @@ impl LibraryView {
                                 div()
                                     .font_family(theme::FONT_DISPLAY)
                                     .font_weight(FontWeight::SEMIBOLD)
-                                    .text_size(px(22.))
+                                    .text_size(theme::text::HEADING)
                                     .text_color(theme::text_primary())
                                     .child("Albums"),
                             )
                             .child(
                                 div()
                                     .font_family(theme::FONT_MONO)
-                                    .text_size(px(11.))
+                                    .text_size(theme::text::SMALL)
                                     .text_color(theme::text_muted())
                                     .child(format_artist_count(artist.album_count, "album")),
                             ),

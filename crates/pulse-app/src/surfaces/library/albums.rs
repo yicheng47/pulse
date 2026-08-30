@@ -1,8 +1,10 @@
+use crate::theme::rpx;
+
 use std::{collections::BTreeSet, path::Path};
 
 use gpui::{
     AnyElement, ClickEvent, Context, FontWeight, IntoElement, KeyDownEvent, MouseButton,
-    MouseDownEvent, ObjectFit, StatefulInteractiveElement, Window, div, img, prelude::*, px, svg,
+    MouseDownEvent, ObjectFit, StatefulInteractiveElement, Window, div, img, prelude::*, svg,
 };
 
 use super::{
@@ -36,7 +38,7 @@ impl LibraryView {
     fn render_album_grid(&mut self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
         // Infinite scroll: fetch the next backend page when the grid is
         // scrolled near its bottom (or does not fill the viewport yet).
-        if self.should_load_more_albums() && self.load_more_albums() {
+        if self.should_load_more_albums(window.rem_size()) && self.load_more_albums() {
             cx.notify();
         }
         let library_empty = self.album_total == 0 && self.album_filter == FilterChip::All;
@@ -63,17 +65,17 @@ impl LibraryView {
             .flex_1()
             .min_h_0()
             .w_full()
-            .px(px(ALBUM_BODY_HORIZONTAL_PADDING))
-            .pt(px(26.))
-            .pb(px(24.))
+            .px(rpx(ALBUM_BODY_HORIZONTAL_PADDING))
+            .pt(rpx(26.))
+            .pb(rpx(24.))
             .child(
                 div()
                     .flex()
                     .items_start()
                     .justify_between()
                     .w_full()
-                    .min_h(px(63.))
-                    .pb(px(4.))
+                    .min_h(rpx(63.))
+                    .pb(rpx(4.))
                     .flex_none()
                     .child(render_page_title("Albums", meta)),
             );
@@ -93,8 +95,8 @@ impl LibraryView {
                 .items_center()
                 .justify_between()
                 .w_full()
-                .h(px(47.))
-                .mb(px(9.))
+                .h(rpx(47.))
+                .mb(rpx(9.))
                 .flex_none()
                 .child(self.render_album_filters(cx))
                 .child(self.render_album_sort(cx)),
@@ -104,13 +106,14 @@ impl LibraryView {
             render_no_filter_matches("No albums match this filter").into_any_element()
         } else {
             let visible = self.albums.clone();
-            let columns = album_grid_columns(f32::from(window.viewport_size().width));
+            let scale = f32::from(window.rem_size()) / 16.;
+            let columns = album_grid_columns(f32::from(window.viewport_size().width), scale);
             let mut grid = div()
                 .grid()
                 .grid_cols(columns)
-                .gap(px(ALBUM_GRID_GAP))
+                .gap(rpx(ALBUM_GRID_GAP))
                 .w_full()
-                .pb(px(24.));
+                .pb(rpx(24.));
             for (index, album) in visible.into_iter().enumerate() {
                 grid = grid.child(self.render_album_card(index, album, cx));
             }
@@ -141,32 +144,32 @@ impl LibraryView {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .size(px(64.))
-                    .rounded(px(theme::RADIUS_LG))
+                    .size(rpx(64.))
+                    .rounded(rpx(theme::RADIUS_LG))
                     .bg(theme::bg_muted())
                     .child(
                         svg()
                             .path("icons/disc-3.svg")
-                            .size(px(30.))
+                            .size(rpx(30.))
                             .text_color(theme::text_muted()),
                     ),
             )
             .child(
                 div()
-                    .mt(px(14.))
+                    .mt(rpx(14.))
                     .font_family(theme::FONT_DISPLAY)
                     .font_weight(FontWeight::BOLD)
-                    .text_size(px(24.))
+                    .text_size(theme::text::HEADING_LARGE)
                     .text_color(theme::text_primary())
                     .child("Your library is empty"),
             )
             .child(
                 div()
-                    .mt(px(12.))
-                    .w(px(400.))
+                    .mt(rpx(12.))
+                    .w(rpx(400.))
                     .text_center()
                     .font_family(theme::FONT_SANS)
-                    .text_size(px(13.))
+                    .text_size(theme::text::BODY_LARGE)
                     .text_color(theme::text_secondary())
                     .child(
                         "Add a storage folder and Pulse will index your FLAC, ALAC, AIFF and WAV files into one library.",
@@ -177,11 +180,11 @@ impl LibraryView {
                     .id("albums-add-storage")
                     .flex()
                     .items_center()
-                    .gap(px(8.))
-                    .mt(px(14.))
-                    .px(px(14.))
-                    .h(px(36.))
-                    .rounded(px(theme::RADIUS_MD))
+                    .gap(rpx(8.))
+                    .mt(rpx(14.))
+                    .px(rpx(14.))
+                    .h(rpx(36.))
+                    .rounded(rpx(theme::RADIUS_MD))
                     .border_1()
                     .border_color(theme::accent())
                     .bg(theme::accent_soft())
@@ -190,24 +193,24 @@ impl LibraryView {
                     .child(
                         svg()
                             .path("icons/plus.svg")
-                            .size(px(15.))
+                            .size(rpx(15.))
                             .text_color(theme::accent()),
                     )
                     .child(
                         div()
                             .font_family(theme::FONT_DISPLAY)
                             .font_weight(FontWeight::SEMIBOLD)
-                            .text_size(px(14.))
+                            .text_size(theme::text::LABEL)
                             .text_color(theme::text_primary())
                             .child("Add Storage"),
                     ),
             )
             .child(
                 div()
-                    .mt(px(14.))
+                    .mt(rpx(14.))
                     .font_family(theme::FONT_MONO)
                     .font_weight(FontWeight::BOLD)
-                    .text_size(px(10.))
+                    .text_size(theme::text::CAPTION)
                     .text_color(theme::text_muted())
                     .child("LOCAL FOLDERS AND NAS MOUNTS SUPPORTED"),
             )
@@ -219,7 +222,7 @@ impl LibraryView {
             .id("album-filter-scroll")
             .flex()
             .items_center()
-            .gap(px(8.));
+            .gap(rpx(8.));
         for chip in [
             FilterChip::All,
             FilterChip::HiRes,
@@ -238,10 +241,10 @@ impl LibraryView {
             .id(format!("album-filter-{label}"))
             .flex()
             .items_center()
-            .h(px(29.))
+            .h(rpx(29.))
             .flex_none()
-            .px(px(10.))
-            .rounded(px(theme::RADIUS_SM))
+            .px(rpx(10.))
+            .rounded(rpx(theme::RADIUS_SM))
             .bg(if selected {
                 theme::accent_soft()
             } else {
@@ -252,7 +255,7 @@ impl LibraryView {
                 this.set_album_filter(chip.clone(), cx);
             }))
             .font_family(theme::FONT_SANS)
-            .text_size(px(12.))
+            .text_size(theme::text::BODY)
             .text_color(if selected {
                 theme::accent()
             } else {
@@ -266,10 +269,10 @@ impl LibraryView {
             .id("album-sort")
             .flex()
             .items_center()
-            .gap(px(8.))
-            .h(px(28.))
-            .px(px(10.))
-            .rounded(px(theme::RADIUS_SM))
+            .gap(rpx(8.))
+            .h(rpx(28.))
+            .px(rpx(10.))
+            .rounded(rpx(theme::RADIUS_SM))
             .bg(theme::bg_muted())
             .cursor_pointer()
             .on_click(cx.listener(|this, _, _, cx| this.cycle_album_sort(cx)))
@@ -277,14 +280,14 @@ impl LibraryView {
                 div()
                     .font_family(theme::FONT_MONO)
                     .font_weight(FontWeight::BOLD)
-                    .text_size(px(11.))
+                    .text_size(theme::text::SMALL)
                     .text_color(theme::text_muted())
                     .child(album_sort_label(self.album_sort)),
             )
             .child(
                 svg()
                     .path("icons/arrow-up-down.svg")
-                    .size(px(14.))
+                    .size(rpx(14.))
                     .text_color(theme::text_muted()),
             )
     }
@@ -307,9 +310,9 @@ impl LibraryView {
             .flex()
             .flex_col()
             .w_full()
-            .min_h(px(226.))
-            .p(px(12.))
-            .rounded(px(theme::RADIUS_MD))
+            .min_h(rpx(226.))
+            .p(rpx(12.))
+            .rounded(rpx(theme::RADIUS_MD))
             .border_1()
             .border_color(theme::border())
             .bg(theme::bg_surface())
@@ -322,7 +325,7 @@ impl LibraryView {
                 div()
                     .flex()
                     .flex_col()
-                    .mt(px(10.))
+                    .mt(rpx(10.))
                     .w_full()
                     .child(
                         div()
@@ -330,26 +333,26 @@ impl LibraryView {
                             .truncate()
                             .font_family(theme::FONT_SANS)
                             .font_weight(FontWeight::SEMIBOLD)
-                            .text_size(px(13.))
+                            .text_size(theme::text::BODY_LARGE)
                             .text_color(theme::text_primary())
                             .child(title),
                     )
                     .child(
                         div()
-                            .mt(px(3.))
+                            .mt(rpx(3.))
                             .w_full()
                             .truncate()
                             .font_family(theme::FONT_SANS)
-                            .text_size(px(12.))
+                            .text_size(theme::text::BODY)
                             .text_color(theme::text_secondary())
                             .child(artist),
                     )
                     .child(
                         div()
-                            .mt(px(3.))
+                            .mt(rpx(3.))
                             .font_family(theme::FONT_MONO)
                             .font_weight(FontWeight::BOLD)
-                            .text_size(px(10.))
+                            .text_size(theme::text::CAPTION)
                             .text_color(theme::quality())
                             .child(meta),
                     ),
@@ -406,18 +409,18 @@ impl LibraryView {
             .flex_1()
             .min_h_0()
             .w_full()
-            .gap(px(18.))
-            .px(px(28.))
-            .pt(px(22.))
-            .pb(px(24.))
+            .gap(rpx(18.))
+            .px(rpx(28.))
+            .pt(rpx(22.))
+            .pb(rpx(24.))
             .child(
                 div()
                     .id("album-detail-back")
                     .flex()
                     .items_center()
-                    .gap(px(8.))
-                    .h(px(17.))
-                    .max_w(px(220.))
+                    .gap(rpx(8.))
+                    .h(rpx(17.))
+                    .max_w(rpx(220.))
                     .min_w_0()
                     .flex_none()
                     .cursor_pointer()
@@ -434,7 +437,7 @@ impl LibraryView {
                     .child(
                         svg()
                             .path("icons/arrow-left.svg")
-                            .size(px(15.))
+                            .size(rpx(15.))
                             .text_color(theme::text_muted()),
                     )
                     .child(
@@ -443,7 +446,7 @@ impl LibraryView {
                             .truncate()
                             .font_family(theme::FONT_DISPLAY)
                             .font_weight(FontWeight::BOLD)
-                            .text_size(px(13.))
+                            .text_size(theme::text::BODY_LARGE)
                             .text_color(theme::text_muted())
                             .child(back_label),
                     ),
@@ -452,7 +455,7 @@ impl LibraryView {
                 div()
                     .flex()
                     .items_end()
-                    .gap(px(24.))
+                    .gap(rpx(24.))
                     .w_full()
                     .flex_none()
                     .child(
@@ -472,12 +475,12 @@ impl LibraryView {
                             .flex_col()
                             .flex_1()
                             .min_w_0()
-                            .gap(px(6.))
+                            .gap(rpx(6.))
                             .child(
                                 div()
                                     .font_family(theme::FONT_MONO)
                                     .font_weight(FontWeight::BOLD)
-                                    .text_size(px(10.))
+                                    .text_size(theme::text::CAPTION)
                                     .text_color(theme::text_muted())
                                     .child("ALBUM"),
                             )
@@ -487,8 +490,8 @@ impl LibraryView {
                                     .truncate()
                                     .font_family(theme::FONT_DISPLAY)
                                     .font_weight(FontWeight::BOLD)
-                                    .text_size(px(38.))
-                                    .line_height(px(42.))
+                                    .text_size(theme::text::DISPLAY_LARGE)
+                                    .line_height(rpx(42.))
                                     .text_color(theme::text_primary())
                                     .child(album.title.clone()),
                             )
@@ -498,13 +501,13 @@ impl LibraryView {
                                     .items_center()
                                     .w_full()
                                     .min_w_0()
-                                    .gap(px(8.))
+                                    .gap(rpx(8.))
                                     .child(
                                         div()
                                             .flex_none()
                                             .font_family(theme::FONT_SANS)
                                             .font_weight(FontWeight::SEMIBOLD)
-                                            .text_size(px(14.))
+                                            .text_size(theme::text::LABEL)
                                             .text_color(theme::text_primary())
                                             .child(album.artist.clone()),
                                     )
@@ -514,7 +517,7 @@ impl LibraryView {
                                             .min_w_0()
                                             .truncate()
                                             .font_family(theme::FONT_SANS)
-                                            .text_size(px(13.))
+                                            .text_size(theme::text::BODY_LARGE)
                                             .text_color(theme::text_secondary())
                                             .child(format!(
                                                 "{} · {} tracks · {} min",
@@ -531,7 +534,7 @@ impl LibraryView {
                                 div()
                                     .flex()
                                     .items_center()
-                                    .gap(px(8.))
+                                    .gap(rpx(8.))
                                     .when_some(quality.clone(), |row, quality| {
                                         row.child(
                                             ui::Badge::new(format!("{formats} {quality}"))
@@ -547,17 +550,17 @@ impl LibraryView {
                                 div()
                                     .flex()
                                     .items_center()
-                                    .gap(px(10.))
-                                    .mt(px(10.))
+                                    .gap(rpx(10.))
+                                    .mt(rpx(10.))
                                     .child(
                                         div()
                                             .id("play-album")
                                             .flex()
                                             .items_center()
-                                            .gap(px(8.))
-                                            .h(px(36.))
-                                            .px(px(16.))
-                                            .rounded(px(theme::RADIUS_MD))
+                                            .gap(rpx(8.))
+                                            .h(rpx(36.))
+                                            .px(rpx(16.))
+                                            .rounded(rpx(theme::RADIUS_MD))
                                             .bg(theme::accent())
                                             .opacity(if has_tracks { 1.0 } else { 0.45 })
                                             .when(has_tracks, |button| {
@@ -570,14 +573,14 @@ impl LibraryView {
                                             .child(
                                                 svg()
                                                     .path("icons/play.svg")
-                                                    .size(px(15.))
+                                                    .size(rpx(15.))
                                                     .text_color(theme::bg_inset()),
                                             )
                                             .child(
                                                 div()
                                                     .font_family(theme::FONT_DISPLAY)
                                                     .font_weight(FontWeight::SEMIBOLD)
-                                                    .text_size(px(14.))
+                                                    .text_size(theme::text::LABEL)
                                                     .text_color(theme::bg_inset())
                                                     .child("Play Album"),
                                             ),
@@ -591,8 +594,8 @@ impl LibraryView {
                                                     .flex()
                                                     .items_center()
                                                     .justify_center()
-                                                    .size(px(36.))
-                                                    .rounded(px(theme::RADIUS_MD))
+                                                    .size(rpx(36.))
+                                                    .rounded(rpx(theme::RADIUS_MD))
                                                     .border_1()
                                                     .border_color(theme::border())
                                                     .bg(theme::bg_muted())
@@ -622,7 +625,7 @@ impl LibraryView {
                                                     .child(
                                                         svg()
                                                             .path("icons/ellipsis.svg")
-                                                            .size(px(16.))
+                                                            .size(rpx(16.))
                                                             .text_color(if self.album_menu_open {
                                                                 theme::accent()
                                                             } else {
@@ -662,7 +665,7 @@ impl LibraryView {
             .flex()
             .items_center()
             .w_full()
-            .h(px(58.))
+            .h(rpx(58.))
             .flex_none()
             .relative()
             .border_b_1()
@@ -695,13 +698,13 @@ impl LibraryView {
                 div()
                     .flex()
                     .items_center()
-                    .w(px(56.))
-                    .pl(px(16.))
+                    .w(rpx(56.))
+                    .pl(rpx(16.))
                     .when(playing, |cell| {
                         cell.child(
                             svg()
                                 .path("icons/audio-lines.svg")
-                                .size(px(13.))
+                                .size(rpx(13.))
                                 .text_color(theme::accent()),
                         )
                     })
@@ -709,7 +712,7 @@ impl LibraryView {
                         cell.child(
                             div()
                                 .font_family(theme::FONT_MONO)
-                                .text_size(px(11.))
+                                .text_size(theme::text::SMALL)
                                 .text_color(theme::text_muted())
                                 .child(number),
                         )
@@ -719,14 +722,14 @@ impl LibraryView {
                 div()
                     .flex()
                     .items_center()
-                    .gap(px(8.))
-                    .w(px(700.))
+                    .gap(rpx(8.))
+                    .w(rpx(700.))
                     .child(
                         div()
                             .min_w_0()
                             .truncate()
                             .font_family(theme::FONT_SANS)
-                            .text_size(px(13.))
+                            .text_size(theme::text::BODY_LARGE)
                             .text_color(if playing {
                                 theme::accent()
                             } else if missing {
@@ -740,18 +743,18 @@ impl LibraryView {
             )
             .child(
                 div()
-                    .w(px(234.))
+                    .w(rpx(234.))
                     .truncate()
                     .font_family(theme::FONT_SANS)
-                    .text_size(px(12.))
+                    .text_size(theme::text::BODY)
                     .text_color(theme::text_secondary())
                     .child(track_artist(&track).to_string()),
             )
             .child(
                 div()
-                    .w(px(66.))
+                    .w(rpx(66.))
                     .font_family(theme::FONT_MONO)
-                    .text_size(px(11.))
+                    .text_size(theme::text::SMALL)
                     .text_color(theme::text_secondary())
                     .child(format_duration(track.duration_ms)),
             )
@@ -761,11 +764,11 @@ impl LibraryView {
     fn render_album_menu(&self, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .absolute()
-            .top(px(42.))
+            .top(rpx(42.))
             .left_0()
-            .w(px(210.))
-            .py(px(6.))
-            .rounded(px(theme::RADIUS_LG))
+            .w(rpx(210.))
+            .py(rpx(6.))
+            .rounded(rpx(theme::RADIUS_LG))
             .border_1()
             .border_color(theme::border_strong())
             .bg(theme::bg_surface())
@@ -786,10 +789,10 @@ impl LibraryView {
                     .id("album-menu-delete")
                     .flex()
                     .items_center()
-                    .gap(px(10.))
-                    .h(px(32.))
+                    .gap(rpx(10.))
+                    .h(rpx(32.))
                     .w_full()
-                    .px(px(12.))
+                    .px(rpx(12.))
                     .cursor_pointer()
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.request_delete_album(cx);
@@ -797,13 +800,13 @@ impl LibraryView {
                     .child(
                         svg()
                             .path("icons/trash-2.svg")
-                            .size(px(15.))
+                            .size(rpx(15.))
                             .text_color(theme::danger()),
                     )
                     .child(
                         div()
                             .font_family(theme::FONT_SANS)
-                            .text_size(px(13.))
+                            .text_size(theme::text::BODY_LARGE)
                             .text_color(theme::danger())
                             .child("Delete Album…"),
                     ),
@@ -823,13 +826,13 @@ impl LibraryView {
         let body = div()
             .flex()
             .flex_col()
-            .gap(px(14.))
-            .p(px(22.))
+            .gap(rpx(14.))
+            .p(rpx(22.))
             .child(
                 div()
                     .flex()
                     .items_center()
-                    .gap(px(12.))
+                    .gap(rpx(12.))
                     .child(render_cover(
                         album.cover_art_path.as_deref(),
                         44.,
@@ -841,7 +844,7 @@ impl LibraryView {
                         div()
                             .flex()
                             .flex_col()
-                            .gap(px(2.))
+                            .gap(rpx(2.))
                             .flex_1()
                             .min_w_0()
                             .child(
@@ -849,7 +852,7 @@ impl LibraryView {
                                     .truncate()
                                     .font_family(theme::FONT_DISPLAY)
                                     .font_weight(FontWeight::BOLD)
-                                    .text_size(px(15.))
+                                    .text_size(theme::text::LABEL_LARGE)
                                     .text_color(theme::text_primary())
                                     .child(album.title.clone()),
                             )
@@ -857,7 +860,7 @@ impl LibraryView {
                                 div()
                                     .truncate()
                                     .font_family(theme::FONT_SANS)
-                                    .text_size(px(12.))
+                                    .text_size(theme::text::BODY)
                                     .text_color(theme::text_secondary())
                                     .child(format!(
                                         "{} · {} tracks · {} min",
@@ -872,28 +875,28 @@ impl LibraryView {
                 div()
                     .flex()
                     .items_start()
-                    .gap(px(10.))
+                    .gap(rpx(10.))
                     .w_full()
-                    .px(px(12.))
-                    .py(px(10.))
-                    .rounded(px(theme::RADIUS_MD))
+                    .px(rpx(12.))
+                    .py(rpx(10.))
+                    .rounded(rpx(theme::RADIUS_MD))
                     .border_1()
                     .border_color(theme::danger())
                     .bg(theme::danger_soft())
                     .child(
                         svg()
                             .path("icons/triangle-alert.svg")
-                            .size(px(15.))
+                            .size(rpx(15.))
                             .flex_none()
-                            .mt(px(1.))
+                            .mt(rpx(1.))
                             .text_color(theme::danger()),
                     )
                     .child(
                         div()
                             .flex_1()
                             .font_family(theme::FONT_SANS)
-                            .text_size(px(12.))
-                            .line_height(px(18.))
+                            .text_size(theme::text::BODY)
+                            .line_height(rpx(18.))
                             .text_color(theme::text_secondary())
                             .child(format!(
                                 "Deletes the album’s {} audio {file_word} from disk \
@@ -904,7 +907,7 @@ impl LibraryView {
                     ),
             );
         ui::ConfirmDialog::new("delete-album-dialog", "Delete Album", body)
-            .width(px(520.))
+            .width(rpx(520.))
             .busy(self.album_delete_in_flight)
             .busy_label("Deleting…")
             .cancel_id("cancel-delete-album")
@@ -933,23 +936,23 @@ pub(super) fn render_cover(
         .flex()
         .items_center()
         .justify_center()
-        .w(px(width))
-        .h(px(height))
+        .w(rpx(width))
+        .h(rpx(height))
         .flex_none()
         .overflow_hidden()
-        .rounded(px(radius))
+        .rounded(rpx(radius))
         .bg(theme::bg_muted());
     match cover_path {
         Some(path) => base.child(
             img(path.to_path_buf())
                 .size_full()
                 .object_fit(ObjectFit::Cover)
-                .rounded(px(radius)),
+                .rounded(rpx(radius)),
         ),
         None => base.child(
             svg()
                 .path("icons/disc-3.svg")
-                .size(px(icon_size))
+                .size(rpx(icon_size))
                 .text_color(theme::text_muted()),
         ),
     }
@@ -963,14 +966,14 @@ fn render_page_title(title: &'static str, meta: String) -> impl IntoElement {
             div()
                 .font_family(theme::FONT_DISPLAY)
                 .font_weight(FontWeight::BOLD)
-                .text_size(px(34.))
+                .text_size(theme::text::DISPLAY)
                 .text_color(theme::text_primary())
                 .child(title),
         )
         .child(
             div()
                 .font_family(theme::FONT_SANS)
-                .text_size(px(13.))
+                .text_size(theme::text::BODY_LARGE)
                 .text_color(theme::text_secondary())
                 .child(meta),
         )
@@ -982,9 +985,9 @@ fn render_no_filter_matches(message: &'static str) -> impl IntoElement {
         .items_center()
         .justify_center()
         .w_full()
-        .h(px(260.))
+        .h(rpx(260.))
         .font_family(theme::FONT_SANS)
-        .text_size(px(13.))
+        .text_size(theme::text::BODY_LARGE)
         .text_color(theme::text_muted())
         .child(message)
 }
@@ -993,15 +996,15 @@ fn render_hi_res_badge() -> impl IntoElement {
     div()
         .flex()
         .items_center()
-        .h(px(21.))
-        .px(px(7.))
-        .rounded(px(theme::RADIUS_SM))
+        .h(rpx(21.))
+        .px(rpx(7.))
+        .rounded(rpx(theme::RADIUS_SM))
         .border_1()
         .border_color(theme::primary())
         .bg(theme::primary_soft())
         .font_family(theme::FONT_MONO)
         .font_weight(FontWeight::BOLD)
-        .text_size(px(10.))
+        .text_size(theme::text::CAPTION)
         .text_color(theme::primary())
         .child("HI-RES")
 }
@@ -1011,11 +1014,11 @@ fn render_album_track_header() -> impl IntoElement {
         .flex()
         .items_center()
         .w_full()
-        .h(px(30.))
+        .h(rpx(30.))
         .flex_none()
         .border_b_1()
         .border_color(theme::border())
-        .child(table_header_cell("#", 56.).pl(px(16.)))
+        .child(table_header_cell("#", 56.).pl(rpx(16.)))
         .child(table_header_cell("TITLE", 700.))
         .child(table_header_cell("ARTIST", 234.))
         .child(table_header_cell("TIME", 66.))
@@ -1024,10 +1027,10 @@ fn render_album_track_header() -> impl IntoElement {
 
 fn table_header_cell(label: &'static str, width: f32) -> gpui::Div {
     div()
-        .w(px(width))
+        .w(rpx(width))
         .font_family(theme::FONT_MONO)
         .font_weight(FontWeight::BOLD)
-        .text_size(px(9.))
+        .text_size(theme::text::CAPTION_XS)
         .text_color(theme::text_muted())
         .child(label)
 }

@@ -1,6 +1,8 @@
+use crate::theme::rpx;
+
 use gpui::{
     AnyElement, ClickEvent, Context, FontWeight, IntoElement, MouseButton, MouseDownEvent, div,
-    prelude::*, px, svg,
+    prelude::*, svg,
 };
 
 use super::{
@@ -37,17 +39,17 @@ impl LibraryView {
             .flex_1()
             .min_h_0()
             .w_full()
-            .px(px(28.))
-            .pt(px(26.))
-            .pb(px(24.))
+            .px(rpx(28.))
+            .pt(rpx(26.))
+            .pb(rpx(24.))
             .child(
                 div()
                     .flex()
                     .items_start()
                     .justify_between()
                     .w_full()
-                    .min_h(px(63.))
-                    .pb(px(10.))
+                    .min_h(rpx(63.))
+                    .pb(rpx(10.))
                     .flex_none()
                     .child(
                         div()
@@ -57,14 +59,14 @@ impl LibraryView {
                                 div()
                                     .font_family(theme::FONT_DISPLAY)
                                     .font_weight(FontWeight::BOLD)
-                                    .text_size(px(34.))
+                                    .text_size(theme::text::DISPLAY)
                                     .text_color(theme::text_primary())
                                     .child("Playlists"),
                             )
                             .child(
                                 div()
                                     .font_family(theme::FONT_SANS)
-                                    .text_size(px(13.))
+                                    .text_size(theme::text::BODY_LARGE)
                                     .text_color(theme::text_secondary())
                                     .child(meta),
                             ),
@@ -77,7 +79,7 @@ impl LibraryView {
                     .flex_1()
                     .min_h_0()
                     .w_full()
-                    .gap(px(18.))
+                    .gap(rpx(18.))
                     .child(self.render_playlist_list(cx))
                     .child(self.render_playlist_detail(cx)),
             )
@@ -92,7 +94,7 @@ impl LibraryView {
         div()
             .flex()
             .flex_col()
-            .w(px(390.))
+            .w(rpx(390.))
             .h_full()
             .flex_none()
             .overflow_hidden()
@@ -103,16 +105,16 @@ impl LibraryView {
                     .flex()
                     .items_center()
                     .justify_between()
-                    .h(px(45.))
+                    .h(rpx(45.))
                     .flex_none()
-                    .px(px(16.))
+                    .px(rpx(16.))
                     .border_b_1()
                     .border_color(theme::border())
                     .child(
                         div()
                             .font_family(theme::FONT_DISPLAY)
                             .font_weight(FontWeight::BOLD)
-                            .text_size(px(17.))
+                            .text_size(theme::text::TITLE)
                             .text_color(theme::text_primary())
                             .child("Library Playlists"),
                     )
@@ -121,14 +123,14 @@ impl LibraryView {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .min_w(px(22.))
-                            .h(px(18.))
-                            .px(px(5.))
-                            .rounded(px(theme::RADIUS_SM))
+                            .min_w(rpx(22.))
+                            .h(rpx(18.))
+                            .px(rpx(5.))
+                            .rounded(rpx(theme::RADIUS_SM))
                             .bg(theme::bg_muted())
                             .font_family(theme::FONT_MONO)
                             .font_weight(FontWeight::BOLD)
-                            .text_size(px(10.))
+                            .text_size(theme::text::CAPTION)
                             .text_color(theme::text_muted())
                             .child(self.playlists.len().to_string()),
                     ),
@@ -168,11 +170,11 @@ impl LibraryView {
             .id(format!("playlist-row-{index}"))
             .flex()
             .items_center()
-            .gap(px(10.))
+            .gap(rpx(10.))
             .w_full()
-            .h(px(64.))
+            .h(rpx(64.))
             .flex_none()
-            .px(px(10.))
+            .px(rpx(10.))
             .relative()
             .border_b_1()
             .border_color(theme::border())
@@ -210,14 +212,14 @@ impl LibraryView {
                     .flex_col()
                     .flex_1()
                     .min_w_0()
-                    .gap(px(3.))
+                    .gap(rpx(3.))
                     .child(
                         div()
                             .w_full()
                             .truncate()
                             .font_family(theme::FONT_SANS)
                             .font_weight(FontWeight::SEMIBOLD)
-                            .text_size(px(13.))
+                            .text_size(theme::text::BODY_LARGE)
                             .text_color(if selected {
                                 theme::accent()
                             } else {
@@ -230,7 +232,7 @@ impl LibraryView {
                             .w_full()
                             .truncate()
                             .font_family(theme::FONT_SANS)
-                            .text_size(px(11.))
+                            .text_size(theme::text::SMALL)
                             .text_color(theme::text_muted())
                             .child(meta),
                     ),
@@ -238,7 +240,7 @@ impl LibraryView {
             .child(
                 div()
                     .font_family(theme::FONT_MONO)
-                    .text_size(px(9.))
+                    .text_size(theme::text::CAPTION_XS)
                     .text_color(theme::text_muted())
                     .child(updated),
             )
@@ -278,11 +280,11 @@ impl LibraryView {
                 div()
                     .flex()
                     .items_center()
-                    .gap(px(18.))
+                    .gap(rpx(18.))
                     .w_full()
-                    .h(px(132.))
+                    .h(rpx(132.))
                     .flex_none()
-                    .p(px(18.))
+                    .p(rpx(18.))
                     .border_b_1()
                     .border_color(theme::border())
                     .child(super::albums::render_cover(
@@ -298,12 +300,12 @@ impl LibraryView {
                             .flex_col()
                             .flex_1()
                             .min_w_0()
-                            .gap(px(6.))
+                            .gap(rpx(6.))
                             .child(
                                 div()
                                     .font_family(theme::FONT_MONO)
                                     .font_weight(FontWeight::BOLD)
-                                    .text_size(px(9.))
+                                    .text_size(theme::text::CAPTION_XS)
                                     .text_color(theme::text_muted())
                                     .child("SELECTED PLAYLIST"),
                             )
@@ -313,7 +315,7 @@ impl LibraryView {
                                     .truncate()
                                     .font_family(theme::FONT_DISPLAY)
                                     .font_weight(FontWeight::BOLD)
-                                    .text_size(px(30.))
+                                    .text_size(theme::text::DISPLAY_SMALL)
                                     .text_color(theme::text_primary())
                                     .child(summary.playlist.name),
                             )
@@ -322,7 +324,7 @@ impl LibraryView {
                                     .w_full()
                                     .truncate()
                                     .font_family(theme::FONT_SANS)
-                                    .text_size(px(12.))
+                                    .text_size(theme::text::BODY)
                                     .text_color(theme::text_secondary())
                                     .child(meta),
                             )
@@ -332,15 +334,15 @@ impl LibraryView {
                         div()
                             .flex()
                             .items_center()
-                            .gap(px(8.))
+                            .gap(rpx(8.))
                             .child(
                                 div()
                                     .id("play-playlist")
                                     .flex()
                                     .items_center()
                                     .justify_center()
-                                    .size(px(34.))
-                                    .rounded(px(theme::RADIUS_MD))
+                                    .size(rpx(34.))
+                                    .rounded(rpx(theme::RADIUS_MD))
                                     .bg(theme::accent())
                                     .opacity(if entries.is_empty() { 0.45 } else { 1.0 })
                                     .when(!entries.is_empty(), |button| {
@@ -351,7 +353,7 @@ impl LibraryView {
                                     .child(
                                         svg()
                                             .path("icons/play.svg")
-                                            .size(px(15.))
+                                            .size(rpx(15.))
                                             .text_color(theme::bg_inset()),
                                     ),
                             )
@@ -361,8 +363,8 @@ impl LibraryView {
                                     .flex()
                                     .items_center()
                                     .justify_center()
-                                    .size(px(34.))
-                                    .rounded(px(theme::RADIUS_MD))
+                                    .size(rpx(34.))
+                                    .rounded(rpx(theme::RADIUS_MD))
                                     .border_1()
                                     .border_color(theme::border())
                                     .bg(theme::bg_muted())
@@ -377,7 +379,7 @@ impl LibraryView {
                                     .child(
                                         svg()
                                             .path("icons/shuffle.svg")
-                                            .size(px(15.))
+                                            .size(rpx(15.))
                                             .text_color(theme::text_secondary()),
                                     ),
                             )
@@ -387,8 +389,8 @@ impl LibraryView {
                                     .flex()
                                     .items_center()
                                     .justify_center()
-                                    .size(px(34.))
-                                    .rounded(px(theme::RADIUS_MD))
+                                    .size(rpx(34.))
+                                    .rounded(rpx(theme::RADIUS_MD))
                                     .border_1()
                                     .border_color(theme::border())
                                     .bg(theme::bg_muted())
@@ -412,7 +414,7 @@ impl LibraryView {
                                     .child(
                                         svg()
                                             .path("icons/ellipsis.svg")
-                                            .size(px(16.))
+                                            .size(rpx(16.))
                                             .text_color(theme::text_secondary()),
                                     ),
                             ),
@@ -423,21 +425,21 @@ impl LibraryView {
                     .flex()
                     .items_center()
                     .justify_between()
-                    .h(px(43.))
+                    .h(rpx(43.))
                     .flex_none()
-                    .px(px(12.))
+                    .px(rpx(12.))
                     .border_b_1()
                     .border_color(theme::border())
                     .font_family(theme::FONT_DISPLAY)
                     .font_weight(FontWeight::BOLD)
-                    .text_size(px(17.))
+                    .text_size(theme::text::TITLE)
                     .text_color(theme::text_primary())
                     .child("Queue Preview")
                     .child(
                         div()
                             .font_family(theme::FONT_MONO)
                             .font_weight(FontWeight::NORMAL)
-                            .text_size(px(10.))
+                            .text_size(theme::text::CAPTION)
                             .text_color(theme::text_muted())
                             .child(if entries.is_empty() {
                                 "0 entries".to_string()
@@ -453,7 +455,7 @@ impl LibraryView {
                     .items_center()
                     .justify_center()
                     .font_family(theme::FONT_SANS)
-                    .text_size(px(12.))
+                    .text_size(theme::text::BODY)
                     .text_color(theme::text_muted())
                     .child("Add tracks from Albums or Tracks")
                     .into_any_element()
@@ -490,9 +492,9 @@ impl LibraryView {
             .flex()
             .items_center()
             .w_full()
-            .h(px(50.))
+            .h(rpx(50.))
             .flex_none()
-            .px(px(12.))
+            .px(rpx(12.))
             .relative()
             .border_b_1()
             .border_color(theme::border())
@@ -529,12 +531,12 @@ impl LibraryView {
                     .flex_col()
                     .flex_1()
                     .min_w_0()
-                    .gap(px(3.))
+                    .gap(rpx(3.))
                     .child(
                         div()
                             .flex()
                             .items_center()
-                            .gap(px(8.))
+                            .gap(rpx(8.))
                             .w_full()
                             .child(
                                 div()
@@ -542,7 +544,7 @@ impl LibraryView {
                                     .truncate()
                                     .font_family(theme::FONT_SANS)
                                     .font_weight(FontWeight::SEMIBOLD)
-                                    .text_size(px(13.))
+                                    .text_size(theme::text::BODY_LARGE)
                                     .text_color(if playing {
                                         theme::accent()
                                     } else if missing {
@@ -559,25 +561,25 @@ impl LibraryView {
                             .w_full()
                             .truncate()
                             .font_family(theme::FONT_SANS)
-                            .text_size(px(11.))
+                            .text_size(theme::text::SMALL)
                             .text_color(theme::text_muted())
                             .child(track_album(&track).to_string()),
                     ),
             )
             .child(
                 div()
-                    .w(px(150.))
+                    .w(rpx(150.))
                     .truncate()
                     .font_family(theme::FONT_SANS)
-                    .text_size(px(11.))
+                    .text_size(theme::text::SMALL)
                     .text_color(theme::text_secondary())
                     .child(track_artist(&track).to_string()),
             )
             .child(
                 div()
-                    .w(px(52.))
+                    .w(rpx(52.))
                     .font_family(theme::FONT_MONO)
-                    .text_size(px(10.))
+                    .text_size(theme::text::CAPTION)
                     .text_color(theme::text_secondary())
                     .child(format_duration(track.duration_ms)),
             )
@@ -597,9 +599,9 @@ impl LibraryView {
             div()
                 .flex()
                 .flex_col()
-                .w(px(440.))
+                .w(rpx(440.))
                 .overflow_hidden()
-                .rounded(px(theme::RADIUS_LG))
+                .rounded(rpx(theme::RADIUS_LG))
                 .border_1()
                 .border_color(theme::border_strong())
                 .bg(theme::bg_surface())
@@ -608,8 +610,8 @@ impl LibraryView {
                     div()
                         .flex()
                         .flex_col()
-                        .gap(px(14.))
-                        .p(px(22.))
+                        .gap(rpx(14.))
+                        .p(rpx(22.))
                         .child(super::storage_modals::render_field_label("NAME"))
                         .child(super::render_text_input(
                             "playlist-name-input",
@@ -620,7 +622,7 @@ impl LibraryView {
                         .child(
                             div()
                                 .font_family(theme::FONT_SANS)
-                                .text_size(px(11.))
+                                .text_size(theme::text::SMALL)
                                 .text_color(theme::text_muted())
                                 .child("Names do not need to be unique."),
                         ),
@@ -630,10 +632,10 @@ impl LibraryView {
                         .flex()
                         .items_center()
                         .justify_end()
-                        .gap(px(9.))
-                        .h(px(62.))
+                        .gap(rpx(9.))
+                        .h(rpx(62.))
                         .flex_none()
-                        .px(px(22.))
+                        .px(rpx(22.))
                         .border_t_1()
                         .border_color(theme::border())
                         .child(super::storage_modals::render_cancel_modal_button(cx))
@@ -659,20 +661,20 @@ impl LibraryView {
         let body = div()
             .flex()
             .flex_col()
-            .gap(px(9.))
-            .p(px(22.))
+            .gap(rpx(9.))
+            .p(rpx(22.))
             .child(
                 div()
                     .font_family(theme::FONT_DISPLAY)
                     .font_weight(FontWeight::SEMIBOLD)
-                    .text_size(px(17.))
+                    .text_size(theme::text::TITLE)
                     .text_color(theme::text_primary())
                     .child(format!("Delete “{name}”?")),
             )
             .child(
                 div()
                     .font_family(theme::FONT_SANS)
-                    .text_size(px(12.))
+                    .text_size(theme::text::BODY)
                     .text_color(theme::text_secondary())
                     .child(format!(
                         "This removes {entry_count} track {entry_word} from the playlist. Your music files stay in the library."
@@ -698,7 +700,7 @@ fn render_playlist_empty(cx: &mut Context<LibraryView>) -> impl IntoElement {
     ui::EmptyStateCard::new(
         svg()
             .path("icons/list-music.svg")
-            .size(px(25.))
+            .size(rpx(25.))
             .text_color(theme::text_muted()),
         "No playlists yet",
         "Build a collection from tracks in your library.",
@@ -711,10 +713,10 @@ fn render_new_playlist_button(id: &'static str, cx: &mut Context<LibraryView>) -
         .id(id)
         .flex()
         .items_center()
-        .gap(px(7.))
-        .h(px(34.))
-        .px(px(12.))
-        .rounded(px(theme::RADIUS_SM))
+        .gap(rpx(7.))
+        .h(rpx(34.))
+        .px(rpx(12.))
+        .rounded(rpx(theme::RADIUS_SM))
         .border_1()
         .border_color(theme::accent())
         .bg(theme::accent_soft())
@@ -725,14 +727,14 @@ fn render_new_playlist_button(id: &'static str, cx: &mut Context<LibraryView>) -
         .child(
             svg()
                 .path("icons/plus.svg")
-                .size(px(15.))
+                .size(rpx(15.))
                 .text_color(theme::accent()),
         )
         .child(
             div()
                 .font_family(theme::FONT_DISPLAY)
                 .font_weight(FontWeight::SEMIBOLD)
-                .text_size(px(13.))
+                .text_size(theme::text::BODY_LARGE)
                 .text_color(theme::text_primary())
                 .child("New Playlist"),
         )
@@ -754,15 +756,15 @@ fn render_no_playlist_selected() -> AnyElement {
                 .child(
                     svg()
                         .path("icons/list-music.svg")
-                        .size(px(34.))
+                        .size(rpx(34.))
                         .text_color(theme::text_muted()),
                 )
                 .child(
                     div()
-                        .mt(px(13.))
+                        .mt(rpx(13.))
                         .font_family(theme::FONT_DISPLAY)
                         .font_weight(FontWeight::SEMIBOLD)
-                        .text_size(px(18.))
+                        .text_size(theme::text::TITLE_LARGE)
                         .text_color(theme::text_secondary())
                         .child("Select a playlist"),
                 ),
@@ -774,14 +776,14 @@ fn render_manual_badge() -> impl IntoElement {
     div()
         .flex()
         .items_center()
-        .h(px(19.))
-        .w(px(56.))
-        .px(px(7.))
-        .rounded(px(theme::RADIUS_SM))
+        .h(rpx(19.))
+        .w(rpx(56.))
+        .px(rpx(7.))
+        .rounded(rpx(theme::RADIUS_SM))
         .bg(theme::bg_muted())
         .font_family(theme::FONT_MONO)
         .font_weight(FontWeight::BOLD)
-        .text_size(px(9.))
+        .text_size(theme::text::CAPTION_XS)
         .text_color(theme::text_muted())
         .child("MANUAL")
 }

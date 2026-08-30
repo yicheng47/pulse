@@ -1,3 +1,5 @@
+use crate::theme::rpx;
+
 use super::*;
 
 impl Shell {
@@ -28,11 +30,11 @@ impl Shell {
             .id("check-for-updates")
             .flex()
             .items_center()
-            .gap(px(8.))
-            .px(px(14.))
-            .py(px(9.))
+            .gap(rpx(8.))
+            .px(rpx(14.))
+            .py(rpx(9.))
             .flex_none()
-            .rounded(px(theme::RADIUS_MD))
+            .rounded(rpx(theme::RADIUS_MD))
             .border_1()
             .border_color(theme::border())
             .bg(theme::bg_muted())
@@ -48,7 +50,7 @@ impl Shell {
             .child(
                 svg()
                     .path("icons/refresh-cw.svg")
-                    .size(px(16.))
+                    .size(rpx(16.))
                     .flex_none()
                     .text_color(theme::text_secondary()),
             )
@@ -56,7 +58,7 @@ impl Shell {
                 div()
                     .font_family(theme::FONT_SANS)
                     .font_weight(FontWeight::SEMIBOLD)
-                    .text_size(px(13.))
+                    .text_size(theme::text::BODY_LARGE)
                     .text_color(theme::text_primary())
                     .child("Check for Updates"),
             );
@@ -65,9 +67,9 @@ impl Shell {
                 div()
                     .flex()
                     .items_center()
-                    .gap(px(14.))
+                    .gap(rpx(14.))
                     .w_full()
-                    .py(px(15.))
+                    .py(rpx(15.))
                     .child(settings_app_mark())
                     .child(
                         div()
@@ -75,17 +77,17 @@ impl Shell {
                             .flex_1()
                             .min_w_0()
                             .flex_col()
-                            .gap(px(4.))
+                            .gap(rpx(4.))
                             .child(
                                 div()
                                     .flex()
                                     .items_center()
-                                    .gap(px(8.))
+                                    .gap(rpx(8.))
                                     .child(
                                         div()
                                             .font_family(theme::FONT_SANS)
                                             .font_weight(FontWeight::SEMIBOLD)
-                                            .text_size(px(14.))
+                                            .text_size(theme::text::LABEL)
                                             .text_color(theme::text_primary())
                                             .child("Pulse"),
                                     )
@@ -94,14 +96,20 @@ impl Shell {
                             .child(
                                 div()
                                     .font_family(theme::FONT_SANS)
-                                    .text_size(px(12.))
+                                    .text_size(theme::text::BODY)
                                     .text_color(status_color)
                                     .child(status),
                             ),
                     )
                     .child(action),
             )
-            .child(div().w_full().h(px(1.)).flex_none().bg(theme::border()))
+            .child(
+                div()
+                    .w_full()
+                    .h(gpui::px(1.)) // physical
+                    .flex_none()
+                    .bg(theme::border()),
+            )
             .child(ui::SettingsRow::new(
                 "Last checked",
                 last_checked.description,
@@ -109,7 +117,7 @@ impl Shell {
                     .flex_none()
                     .font_family(theme::FONT_MONO)
                     .font_weight(FontWeight::SEMIBOLD)
-                    .text_size(px(11.))
+                    .text_size(theme::text::SMALL)
                     .text_color(theme::text_secondary())
                     .child(last_checked.value),
             ));
@@ -117,9 +125,9 @@ impl Shell {
         div()
             .flex()
             .flex_col()
-            .gap(px(22.))
+            .gap(rpx(22.))
             .w_full()
-            .max_w(px(820.))
+            .max_w(rpx(820.))
             .child(settings_group("VERSION", hero))
             .child(settings_group(
                 "PREFERENCES",

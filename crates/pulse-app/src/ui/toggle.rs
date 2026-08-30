@@ -1,8 +1,10 @@
+use crate::theme::rpx;
+
 use std::rc::Rc;
 
 use gpui::{
     App, ClickEvent, CursorStyle, Div, ElementId, IntoElement, RenderOnce, Rgba, Stateful, Window,
-    div, prelude::*, px,
+    div, prelude::*,
 };
 
 use crate::theme;
@@ -91,11 +93,11 @@ impl RenderOnce for Toggle {
             .id(self.id)
             .flex()
             .items_center()
-            .w(px(TOGGLE_WIDTH))
-            .h(px(TOGGLE_HEIGHT))
+            .w(rpx(TOGGLE_WIDTH))
+            .h(rpx(TOGGLE_HEIGHT))
             .flex_none()
-            .p(px(2.))
-            .rounded(px(TOGGLE_HEIGHT / 2.0))
+            .p(rpx(2.))
+            .rounded(rpx(TOGGLE_HEIGHT / 2.0))
             .bg(appearance.track)
             .opacity(if self.disabled {
                 self.disabled_opacity
@@ -116,7 +118,7 @@ impl RenderOnce for Toggle {
         }
         toggle = toggle.child(
             div()
-                .size(px(TOGGLE_KNOB_SIZE))
+                .size(rpx(TOGGLE_KNOB_SIZE))
                 .flex_none()
                 .rounded_full()
                 .bg(appearance.knob),

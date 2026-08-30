@@ -1,8 +1,10 @@
+use crate::theme::rpx;
+
 use std::rc::Rc;
 
 use gpui::{
     AnyElement, App, ClickEvent, ElementId, FontWeight, IntoElement, RenderOnce, SharedString,
-    Window, div, prelude::*, px, svg,
+    Window, div, prelude::*, svg,
 };
 
 use crate::theme;
@@ -36,24 +38,24 @@ impl RenderOnce for SidebarIsland {
             .flex()
             .flex_col()
             .flex_none()
-            .w(px(SIDEBAR_SLOT_WIDTH))
+            .w(rpx(SIDEBAR_SLOT_WIDTH))
             .h_full()
-            .pt(px(12.))
-            .pb(px(12.))
-            .pl(px(12.))
+            .pt(rpx(12.))
+            .pb(rpx(12.))
+            .pl(rpx(12.))
             .child(
                 div()
                     .flex()
                     .flex_col()
                     .flex_1()
                     .min_h_0()
-                    .w(px(SIDEBAR_ISLAND_WIDTH))
-                    .pt(px(20.))
-                    .pr(px(12.))
-                    .pb(px(16.))
-                    .pl(px(12.))
+                    .w(rpx(SIDEBAR_ISLAND_WIDTH))
+                    .pt(rpx(20.))
+                    .pr(rpx(12.))
+                    .pb(rpx(16.))
+                    .pl(rpx(12.))
                     .overflow_hidden()
-                    .rounded(px(12.))
+                    .rounded(rpx(12.))
                     .border_1()
                     .border_color(theme::border())
                     .bg(theme::bg_surface())
@@ -87,14 +89,14 @@ impl RenderOnce for SidebarSection {
         div()
             .flex()
             .flex_col()
-            .gap(px(10.))
+            .gap(rpx(10.))
             .w_full()
             .child(
-                div().flex().px(px(12.)).w_full().child(
+                div().flex().px(rpx(12.)).w_full().child(
                     div()
                         .font_family(theme::FONT_MONO)
                         .font_weight(FontWeight::BOLD)
-                        .text_size(px(10.))
+                        .text_size(theme::text::CAPTION)
                         .text_color(theme::text_muted())
                         .child(self.header),
                 ),
@@ -103,7 +105,7 @@ impl RenderOnce for SidebarSection {
                 div()
                     .flex()
                     .flex_col()
-                    .gap(px(4.))
+                    .gap(rpx(4.))
                     .w_full()
                     .children(self.children),
             )
@@ -163,11 +165,11 @@ impl RenderOnce for SidebarItem {
             .group(hover_group.clone())
             .flex()
             .items_center()
-            .gap(px(12.))
+            .gap(rpx(12.))
             .w_full()
-            .px(px(12.))
-            .py(px(10.))
-            .rounded(px(theme::RADIUS_MD))
+            .px(rpx(12.))
+            .py(rpx(10.))
+            .rounded(rpx(theme::RADIUS_MD))
             .when(self.selected, |item| item.bg(theme::bg_elevated()))
             .when(!self.selected, |item| {
                 item.hover(|style| style.bg(theme::accent_soft()))
@@ -176,7 +178,7 @@ impl RenderOnce for SidebarItem {
             .child(
                 svg()
                     .path(self.icon)
-                    .size(px(17.))
+                    .size(rpx(17.))
                     .flex_none()
                     .text_color(if self.selected {
                         theme::accent()
@@ -193,7 +195,7 @@ impl RenderOnce for SidebarItem {
                 div()
                     .font_family(theme::FONT_DISPLAY)
                     .font_weight(FontWeight::SEMIBOLD)
-                    .text_size(px(15.))
+                    .text_size(theme::text::LABEL_LARGE)
                     .text_color(if self.selected {
                         theme::text_primary()
                     } else {

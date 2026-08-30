@@ -1,10 +1,16 @@
-use gpui::{AnyElement, Context, FontWeight, IntoElement, div, point, prelude::*, px, svg};
+use crate::theme::rpx;
+
+use gpui::{AnyElement, Context, FontWeight, IntoElement, Window, div, point, prelude::*, svg};
 
 use super::{LibraryView, TrackSurface};
 use crate::{surfaces::TOP_BAR_HEIGHT, theme, ui};
 
 impl LibraryView {
-    pub(super) fn render_track_context_menu(&self, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn render_track_context_menu(
+        &self,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let menu = self
             .track_menu
             .as_ref()
@@ -29,9 +35,9 @@ impl LibraryView {
         let mut items = div()
             .flex()
             .flex_col()
-            .w(px(210.))
-            .py(px(6.))
-            .rounded(px(theme::RADIUS_LG))
+            .w(rpx(210.))
+            .py(rpx(6.))
+            .rounded(rpx(theme::RADIUS_LG))
             .border_1()
             .border_color(theme::border_strong())
             .bg(theme::bg_surface())
@@ -68,7 +74,7 @@ impl LibraryView {
                 .child(
                     svg()
                         .path("icons/chevron-down.svg")
-                        .size(px(13.))
+                        .size(rpx(13.))
                         .text_color(theme::text_muted()),
                 ),
             );
@@ -115,11 +121,11 @@ impl LibraryView {
         let mut wrapper = ui::ContextMenu::new(
             "track-context-menu",
             point(
-                menu.anchor.x - px(ui::SIDEBAR_SLOT_WIDTH),
-                menu.anchor.y - px(TOP_BAR_HEIGHT),
+                menu.anchor.x - rpx(ui::SIDEBAR_SLOT_WIDTH).to_pixels(window.rem_size()),
+                menu.anchor.y - rpx(TOP_BAR_HEIGHT).to_pixels(window.rem_size()),
             ),
         )
-        .width(px(if flyout_open { 412. } else { 210. }))
+        .width(rpx(if flyout_open { 412. } else { 210. }))
         .focus_handle(self.input_focus.clone())
         .on_dismiss(move |_, cx| {
             entity.update(cx, |this, cx| {
@@ -142,11 +148,11 @@ impl LibraryView {
         let mut flyout = div()
             .flex()
             .flex_col()
-            .w(px(200.))
-            .mt(px(32.))
-            .ml(px(2.))
-            .py(px(6.))
-            .rounded(px(theme::RADIUS_LG))
+            .w(rpx(200.))
+            .mt(rpx(32.))
+            .ml(rpx(2.))
+            .py(rpx(6.))
+            .rounded(rpx(theme::RADIUS_LG))
             .border_1()
             .border_color(theme::border_strong())
             .bg(theme::bg_surface());
@@ -157,10 +163,10 @@ impl LibraryView {
                     .id(format!("add-to-playlist-{index}"))
                     .flex()
                     .items_center()
-                    .gap(px(9.))
-                    .h(px(32.))
+                    .gap(rpx(9.))
+                    .h(rpx(32.))
                     .w_full()
-                    .px(px(12.))
+                    .px(rpx(12.))
                     .cursor_pointer()
                     .on_click(cx.listener(move |this, _, _, cx| {
                         this.add_track_to_playlist(playlist_id, track_id, cx);
@@ -168,7 +174,7 @@ impl LibraryView {
                     .child(
                         svg()
                             .path("icons/list-music.svg")
-                            .size(px(14.))
+                            .size(rpx(14.))
                             .text_color(theme::text_muted()),
                     )
                     .child(
@@ -176,7 +182,7 @@ impl LibraryView {
                             .min_w_0()
                             .truncate()
                             .font_family(theme::FONT_SANS)
-                            .text_size(px(11.))
+                            .text_size(theme::text::SMALL)
                             .text_color(theme::text_secondary())
                             .child(summary.playlist.name.clone()),
                     ),
@@ -187,10 +193,10 @@ impl LibraryView {
                 .id("add-to-new-playlist")
                 .flex()
                 .items_center()
-                .gap(px(9.))
-                .h(px(32.))
+                .gap(rpx(9.))
+                .h(rpx(32.))
                 .w_full()
-                .px(px(12.))
+                .px(rpx(12.))
                 .cursor_pointer()
                 .on_click(cx.listener(move |this, _, window, cx| {
                     this.begin_create_playlist(Some(track_id), window, cx);
@@ -198,21 +204,25 @@ impl LibraryView {
                 .child(
                     svg()
                         .path("icons/plus.svg")
-                        .size(px(14.))
+                        .size(rpx(14.))
                         .text_color(theme::accent()),
                 )
                 .child(
                     div()
                         .font_family(theme::FONT_SANS)
                         .font_weight(FontWeight::SEMIBOLD)
-                        .text_size(px(11.))
+                        .text_size(theme::text::SMALL)
                         .text_color(theme::accent())
                         .child("New Playlist…"),
                 ),
         )
     }
 
-    pub(super) fn render_playlist_context_menu(&self, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn render_playlist_context_menu(
+        &self,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let menu = self
             .playlist_menu
             .as_ref()
@@ -223,9 +233,9 @@ impl LibraryView {
         let panel = div()
             .flex()
             .flex_col()
-            .w(px(160.))
-            .py(px(6.))
-            .rounded(px(theme::RADIUS_LG))
+            .w(rpx(160.))
+            .py(rpx(6.))
+            .rounded(rpx(theme::RADIUS_LG))
             .border_1()
             .border_color(theme::border_strong())
             .bg(theme::bg_surface())
@@ -249,11 +259,11 @@ impl LibraryView {
         ui::ContextMenu::new(
             "playlist-context-menu",
             point(
-                menu.anchor.x - px(ui::SIDEBAR_SLOT_WIDTH),
-                menu.anchor.y - px(TOP_BAR_HEIGHT),
+                menu.anchor.x - rpx(ui::SIDEBAR_SLOT_WIDTH).to_pixels(window.rem_size()),
+                menu.anchor.y - rpx(TOP_BAR_HEIGHT).to_pixels(window.rem_size()),
             ),
         )
-        .width(px(160.))
+        .width(rpx(160.))
         .focus_handle(self.input_focus.clone())
         .on_dismiss(move |_, cx| {
             entity.update(cx, |this, cx| {
@@ -299,20 +309,20 @@ fn context_item(
         .id(id)
         .flex()
         .items_center()
-        .gap(px(10.))
-        .h(px(32.))
+        .gap(rpx(10.))
+        .h(rpx(32.))
         .w_full()
-        .px(px(12.))
+        .px(rpx(12.))
         .child(
             svg()
                 .path(icon)
-                .size(px(15.))
+                .size(rpx(15.))
                 .text_color(theme::text_muted()),
         )
         .child(
             div()
                 .font_family(theme::FONT_SANS)
-                .text_size(px(11.))
+                .text_size(theme::text::SMALL)
                 .text_color(theme::text_secondary())
                 .child(label),
         )
@@ -327,16 +337,19 @@ fn context_text_item(
         .id(id)
         .flex()
         .items_center()
-        .h(px(32.))
+        .h(rpx(32.))
         .w_full()
-        .px(px(37.))
+        .px(rpx(37.))
         .opacity(if enabled { 1.0 } else { 0.4 })
         .font_family(theme::FONT_SANS)
-        .text_size(px(11.))
+        .text_size(theme::text::SMALL)
         .text_color(theme::text_secondary())
         .child(label)
 }
 
 fn context_separator() -> impl IntoElement {
-    div().w_full().h(px(1.)).bg(theme::border())
+    div()
+        .w_full()
+        .h(gpui::px(1.)) // physical
+        .bg(theme::border())
 }

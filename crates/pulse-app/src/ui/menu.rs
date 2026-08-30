@@ -1,8 +1,10 @@
+use crate::theme::rpx;
+
 use std::rc::Rc;
 
 use gpui::{
     AnyElement, App, ElementId, FocusHandle, IntoElement, KeyDownEvent, MouseMoveEvent,
-    MouseUpEvent, Pixels, RenderOnce, Window, div, prelude::*, px,
+    MouseUpEvent, Pixels, Rems, RenderOnce, Window, div, prelude::*,
 };
 
 use crate::theme;
@@ -15,12 +17,12 @@ type MouseUpHandler = Rc<dyn Fn(&MouseUpEvent, &mut Window, &mut App)>;
 pub(crate) struct PopoverMenu {
     id: ElementId,
     children: Vec<AnyElement>,
-    left: Option<Pixels>,
-    right: Option<Pixels>,
-    top: Option<Pixels>,
-    bottom: Option<Pixels>,
-    width: Pixels,
-    max_height: Option<Pixels>,
+    left: Option<Rems>,
+    right: Option<Rems>,
+    top: Option<Rems>,
+    bottom: Option<Rems>,
+    width: Rems,
+    max_height: Option<Rems>,
     items_center: bool,
     focus_handle: Option<FocusHandle>,
     on_dismiss: Option<DismissHandler>,
@@ -29,7 +31,7 @@ pub(crate) struct PopoverMenu {
 }
 
 impl PopoverMenu {
-    pub(crate) fn new(id: impl Into<ElementId>, width: Pixels) -> Self {
+    pub(crate) fn new(id: impl Into<ElementId>, width: Rems) -> Self {
         Self {
             id: id.into(),
             children: Vec::new(),
@@ -47,27 +49,27 @@ impl PopoverMenu {
         }
     }
 
-    pub(crate) fn left(mut self, left: Pixels) -> Self {
+    pub(crate) fn left(mut self, left: Rems) -> Self {
         self.left = Some(left);
         self
     }
 
-    pub(crate) fn right(mut self, right: Pixels) -> Self {
+    pub(crate) fn right(mut self, right: Rems) -> Self {
         self.right = Some(right);
         self
     }
 
-    pub(crate) fn top(mut self, top: Pixels) -> Self {
+    pub(crate) fn top(mut self, top: Rems) -> Self {
         self.top = Some(top);
         self
     }
 
-    pub(crate) fn bottom(mut self, bottom: Pixels) -> Self {
+    pub(crate) fn bottom(mut self, bottom: Rems) -> Self {
         self.bottom = Some(bottom);
         self
     }
 
-    pub(crate) fn max_height(mut self, max_height: Pixels) -> Self {
+    pub(crate) fn max_height(mut self, max_height: Rems) -> Self {
         self.max_height = Some(max_height);
         self
     }
@@ -122,11 +124,11 @@ impl RenderOnce for PopoverMenu {
             .flex()
             .flex_col()
             .when(self.items_center, |menu| menu.items_center())
-            .gap(px(11.))
+            .gap(rpx(11.))
             .w(self.width)
             .when_some(self.max_height, |menu, max_height| menu.max_h(max_height))
-            .p(px(14.))
-            .rounded(px(theme::RADIUS_LG))
+            .p(rpx(14.))
+            .rounded(rpx(theme::RADIUS_LG))
             .border_1()
             .border_color(theme::border())
             .bg(theme::bg_surface())
@@ -159,7 +161,7 @@ impl RenderOnce for PopoverMenu {
 pub(crate) struct ContextMenu {
     id: ElementId,
     position: gpui::Point<Pixels>,
-    width: Pixels,
+    width: Rems,
     focus_handle: Option<FocusHandle>,
     children: Vec<AnyElement>,
     on_dismiss: Option<DismissHandler>,
@@ -170,14 +172,14 @@ impl ContextMenu {
         Self {
             id: id.into(),
             position,
-            width: px(160.),
+            width: rpx(160.),
             focus_handle: None,
             children: Vec::new(),
             on_dismiss: None,
         }
     }
 
-    pub(crate) fn width(mut self, width: Pixels) -> Self {
+    pub(crate) fn width(mut self, width: Rems) -> Self {
         self.width = width;
         self
     }

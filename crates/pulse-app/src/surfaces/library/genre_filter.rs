@@ -1,6 +1,8 @@
+use crate::theme::rpx;
+
 use gpui::{
     AnyElement, Context, ElementInputHandler, FontWeight, IntoElement, MouseButton, MouseDownEvent,
-    StatefulInteractiveElement, canvas, deferred, div, prelude::*, px, svg,
+    StatefulInteractiveElement, canvas, deferred, div, prelude::*, svg,
 };
 
 use super::{LibraryView, selected_genre};
@@ -21,11 +23,11 @@ impl LibraryView {
             .relative()
             .flex()
             .items_center()
-            .gap(px(6.))
-            .h(px(29.))
+            .gap(rpx(6.))
+            .h(rpx(29.))
             .flex_none()
-            .px(px(10.))
-            .rounded(px(theme::RADIUS_SM))
+            .px(rpx(10.))
+            .rounded(rpx(theme::RADIUS_SM))
             .bg(if active {
                 theme::accent_soft()
             } else {
@@ -53,10 +55,10 @@ impl LibraryView {
             }))
             .child(
                 div()
-                    .max_w(px(180.))
+                    .max_w(rpx(180.))
                     .truncate()
                     .font_family(theme::FONT_SANS)
-                    .text_size(px(12.))
+                    .text_size(theme::text::BODY)
                     .text_color(if active {
                         theme::accent()
                     } else {
@@ -67,7 +69,7 @@ impl LibraryView {
             .child(
                 svg()
                     .path("icons/chevron-down.svg")
-                    .size(px(12.))
+                    .size(rpx(12.))
                     .text_color(if active {
                         theme::accent()
                     } else {
@@ -87,10 +89,10 @@ impl LibraryView {
             rows = rows.child(
                 div()
                     .w_full()
-                    .px(px(12.))
-                    .py(px(12.))
+                    .px(rpx(12.))
+                    .py(rpx(12.))
                     .font_family(theme::FONT_SANS)
-                    .text_size(px(12.))
+                    .text_size(theme::text::BODY)
                     .text_color(theme::text_muted())
                     .child("No matching genres"),
             );
@@ -105,10 +107,10 @@ impl LibraryView {
                         .id(("genre-filter-option", index))
                         .flex()
                         .items_center()
-                        .gap(px(10.))
+                        .gap(rpx(10.))
                         .w_full()
-                        .px(px(12.))
-                        .py(px(8.))
+                        .px(rpx(12.))
+                        .py(rpx(8.))
                         .when(selected, |row| row.bg(theme::accent_soft()))
                         .cursor_pointer()
                         .on_click(cx.listener(move |this, _, _, cx| {
@@ -120,7 +122,7 @@ impl LibraryView {
                                 .min_w_0()
                                 .truncate()
                                 .font_family(theme::FONT_SANS)
-                                .text_size(px(13.))
+                                .text_size(theme::text::BODY_LARGE)
                                 .text_color(if selected {
                                     theme::accent()
                                 } else {
@@ -132,7 +134,7 @@ impl LibraryView {
                             div()
                                 .font_family(theme::FONT_MONO)
                                 .font_weight(FontWeight::BOLD)
-                                .text_size(px(10.))
+                                .text_size(theme::text::CAPTION)
                                 .text_color(theme::text_muted())
                                 .child(if album_count == 1 {
                                     "1 album".to_string()
@@ -149,13 +151,13 @@ impl LibraryView {
             .id("genre-filter-popover")
             .absolute()
             .left_0()
-            .top(px(37.))
+            .top(rpx(37.))
             .flex()
             .flex_col()
-            .w(px(240.))
-            .max_h(px(420.))
-            .py(px(6.))
-            .rounded(px(theme::RADIUS_LG))
+            .w(rpx(240.))
+            .max_h(rpx(420.))
+            .py(rpx(6.))
+            .rounded(rpx(theme::RADIUS_LG))
             .border_1()
             .border_color(theme::border_strong())
             .bg(theme::bg_surface())
@@ -167,8 +169,8 @@ impl LibraryView {
             .child(
                 div()
                     .w_full()
-                    .px(px(10.))
-                    .py(px(6.))
+                    .px(rpx(10.))
+                    .py(rpx(6.))
                     .child(self.render_genre_search_input(cx)),
             )
             .child(
@@ -181,16 +183,22 @@ impl LibraryView {
             )
             .when(active, |popover| {
                 popover
-                    .child(div().w_full().h(px(1.)).my(px(4.)).bg(theme::border()))
+                    .child(
+                        div()
+                            .w_full()
+                            .h(gpui::px(1.)) // physical
+                            .my(rpx(4.))
+                            .bg(theme::border()),
+                    )
                     .child(
                         div()
                             .id("genre-filter-clear")
                             .flex()
                             .items_center()
-                            .gap(px(10.))
+                            .gap(rpx(10.))
                             .w_full()
-                            .px(px(12.))
-                            .py(px(8.))
+                            .px(rpx(12.))
+                            .py(rpx(8.))
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _, _, cx| {
                                 this.choose_genre_filter(None, cx);
@@ -198,13 +206,13 @@ impl LibraryView {
                             .child(
                                 svg()
                                     .path("icons/x.svg")
-                                    .size(px(14.))
+                                    .size(rpx(14.))
                                     .text_color(theme::text_secondary()),
                             )
                             .child(
                                 div()
                                     .font_family(theme::FONT_SANS)
-                                    .text_size(px(13.))
+                                    .text_size(theme::text::BODY_LARGE)
                                     .text_color(theme::text_secondary())
                                     .child("Clear genre"),
                             ),
@@ -220,12 +228,12 @@ impl LibraryView {
             .relative()
             .flex()
             .items_center()
-            .gap(px(8.))
+            .gap(rpx(8.))
             .cursor_text()
-            .h(px(36.))
+            .h(rpx(36.))
             .w_full()
-            .px(px(10.))
-            .rounded(px(theme::RADIUS_SM))
+            .px(rpx(10.))
+            .rounded(rpx(theme::RADIUS_SM))
             .border_1()
             .border_color(theme::accent())
             .bg(theme::bg_inset())
@@ -236,7 +244,7 @@ impl LibraryView {
             .child(
                 svg()
                     .path("icons/search.svg")
-                    .size(px(14.))
+                    .size(rpx(14.))
                     .text_color(theme::text_muted()),
             )
             .child(
@@ -245,7 +253,7 @@ impl LibraryView {
                     .min_w_0()
                     .truncate()
                     .font_family(theme::FONT_SANS)
-                    .text_size(px(12.))
+                    .text_size(theme::text::BODY)
                     .text_color(if empty {
                         theme::text_muted()
                     } else {

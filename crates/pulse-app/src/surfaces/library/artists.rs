@@ -1,6 +1,8 @@
+use crate::theme::rpx;
+
 use gpui::{
     AnyElement, Context, ElementInputHandler, FontWeight, IntoElement, ObjectFit, Window, canvas,
-    div, img, prelude::*, px, svg,
+    div, img, prelude::*, svg,
 };
 
 use super::{
@@ -38,11 +40,14 @@ impl LibraryView {
             .into_iter()
             .cloned()
             .collect::<Vec<_>>();
-        let columns = artist_grid_columns(f32::from(window.viewport_size().width));
+        let scale = f32::from(window.rem_size()) / 16.;
+        let columns = artist_grid_columns(f32::from(window.viewport_size().width), scale);
         let row_count = visible.len().div_ceil(columns as usize);
         let no_matches = visible.is_empty();
         self.artist_scrollbar.update(cx, |scrollbar, _| {
-            scrollbar.set_estimated_content_height(px(row_count as f32 * 252.));
+            scrollbar.set_estimated_content_height(
+                rpx(row_count as f32 * 252.).to_pixels(window.rem_size()),
+            );
         });
         let meta = if self.artist_index.is_empty() && self.is_library_loading() {
             "Loading…".to_string()
@@ -60,9 +65,9 @@ impl LibraryView {
         let mut grid = div()
             .grid()
             .grid_cols(columns)
-            .gap(px(ARTIST_GRID_GAP))
+            .gap(rpx(ARTIST_GRID_GAP))
             .w_full()
-            .pb(px(24.));
+            .pb(rpx(24.));
         for (index, artist) in visible.into_iter().enumerate() {
             grid = grid.child(self.render_artist_card(index, artist, cx));
         }
@@ -73,17 +78,17 @@ impl LibraryView {
             .flex_1()
             .min_h_0()
             .w_full()
-            .px(px(ARTIST_BODY_HORIZONTAL_PADDING))
-            .pt(px(26.))
-            .pb(px(24.))
+            .px(rpx(ARTIST_BODY_HORIZONTAL_PADDING))
+            .pt(rpx(26.))
+            .pb(rpx(24.))
             .child(
                 div()
                     .flex()
                     .items_start()
                     .justify_between()
                     .w_full()
-                    .min_h(px(63.))
-                    .pb(px(4.))
+                    .min_h(rpx(63.))
+                    .pb(rpx(4.))
                     .flex_none()
                     .child(
                         div()
@@ -93,14 +98,14 @@ impl LibraryView {
                                 div()
                                     .font_family(theme::FONT_DISPLAY)
                                     .font_weight(FontWeight::BOLD)
-                                    .text_size(px(34.))
+                                    .text_size(theme::text::DISPLAY)
                                     .text_color(theme::text_primary())
                                     .child("Artists"),
                             )
                             .child(
                                 div()
                                     .font_family(theme::FONT_SANS)
-                                    .text_size(px(13.))
+                                    .text_size(theme::text::BODY_LARGE)
                                     .text_color(theme::text_secondary())
                                     .child(meta),
                             ),
@@ -108,8 +113,8 @@ impl LibraryView {
             )
             .child(
                 div()
-                    .w(px(280.))
-                    .h(px(47.))
+                    .w(rpx(280.))
+                    .h(rpx(47.))
                     .flex_none()
                     .child(self.render_artist_index_filter(window, cx)),
             )
@@ -156,12 +161,12 @@ impl LibraryView {
             .relative()
             .flex()
             .items_center()
-            .gap(px(8.))
+            .gap(rpx(8.))
             .cursor_text()
-            .h(px(36.))
+            .h(rpx(36.))
             .w_full()
-            .px(px(10.))
-            .rounded(px(theme::RADIUS_SM))
+            .px(rpx(10.))
+            .rounded(rpx(theme::RADIUS_SM))
             .border_1()
             .border_color(if focused {
                 theme::accent()
@@ -179,7 +184,7 @@ impl LibraryView {
             .child(
                 svg()
                     .path("icons/search.svg")
-                    .size(px(14.))
+                    .size(rpx(14.))
                     .text_color(theme::text_muted()),
             )
             .child(
@@ -188,7 +193,7 @@ impl LibraryView {
                     .min_w_0()
                     .truncate()
                     .font_family(theme::FONT_SANS)
-                    .text_size(px(12.))
+                    .text_size(theme::text::BODY)
                     .text_color(if empty {
                         theme::text_muted()
                     } else {
@@ -240,7 +245,7 @@ impl LibraryView {
             .flex()
             .flex_col()
             .items_center()
-            .gap(px(12.))
+            .gap(rpx(12.))
             .w_full()
             .cursor_pointer()
             .on_click(cx.listener(move |this, _, _, cx| {
@@ -258,7 +263,7 @@ impl LibraryView {
                     .flex()
                     .flex_col()
                     .items_center()
-                    .gap(px(4.))
+                    .gap(rpx(4.))
                     .w_full()
                     .child(
                         div()
@@ -267,7 +272,7 @@ impl LibraryView {
                             .text_center()
                             .font_family(theme::FONT_SANS)
                             .font_weight(FontWeight::SEMIBOLD)
-                            .text_size(px(14.))
+                            .text_size(theme::text::LABEL)
                             .text_color(theme::text_primary())
                             .child(name),
                     )
@@ -277,7 +282,7 @@ impl LibraryView {
                             .truncate()
                             .text_center()
                             .font_family(theme::FONT_SANS)
-                            .text_size(px(12.))
+                            .text_size(theme::text::BODY)
                             .text_color(theme::text_secondary())
                             .child(meta),
                     ),
@@ -290,17 +295,17 @@ pub(super) fn render_artist_avatar(artwork: ArtistArtwork<'_>, size: f32) -> gpu
         .flex()
         .items_center()
         .justify_center()
-        .size(px(size))
+        .size(rpx(size))
         .flex_none()
         .overflow_hidden()
-        .rounded(px(size / 2.))
+        .rounded(rpx(size / 2.))
         .border_1();
     match artwork.path() {
         Some(path) => base.border_color(theme::border_strong()).child(
             img(path.to_path_buf())
                 .size_full()
                 .object_fit(ObjectFit::Cover)
-                .rounded(px(size / 2.)),
+                .rounded(rpx(size / 2.)),
         ),
         None => base
             .border_color(theme::border())
@@ -308,7 +313,7 @@ pub(super) fn render_artist_avatar(artwork: ArtistArtwork<'_>, size: f32) -> gpu
             .child(
                 svg()
                     .path("icons/user.svg")
-                    .size(px(size * 0.4))
+                    .size(rpx(size * 0.4))
                     .text_color(theme::text_muted()),
             ),
     }
@@ -320,9 +325,9 @@ fn render_no_artist_matches() -> AnyElement {
         .items_center()
         .justify_center()
         .w_full()
-        .h(px(260.))
+        .h(rpx(260.))
         .font_family(theme::FONT_SANS)
-        .text_size(px(13.))
+        .text_size(theme::text::BODY_LARGE)
         .text_color(theme::text_muted())
         .child("No artists match this filter")
         .into_any_element()

@@ -1,9 +1,11 @@
+use crate::theme::rpx;
+
 use std::{ops::Range, path::Path, time::Duration};
 
 use gpui::{
     AnyElement, Bounds, Context, ElementInputHandler, EntityInputHandler, FontWeight, IntoElement,
     KeyDownEvent, ObjectFit, Pixels, ScrollHandle, UTF16Selection, Window, canvas, deferred, div,
-    img, prelude::*, px, svg,
+    img, prelude::*, svg,
 };
 
 use crate::{
@@ -187,8 +189,8 @@ impl Shell {
         let mut search = div()
             .relative()
             .occlude()
-            .w(px(SEARCH_WIDTH))
-            .h(px(36.))
+            .w(rpx(SEARCH_WIDTH))
+            .h(rpx(36.))
             .flex_none()
             .track_focus(&self.search_focus)
             .on_key_down(cx.listener(|this, event, window, cx| {
@@ -200,11 +202,11 @@ impl Shell {
                     .relative()
                     .flex()
                     .items_center()
-                    .gap(px(10.))
+                    .gap(rpx(10.))
                     .w_full()
-                    .h(px(36.))
-                    .px(px(12.))
-                    .rounded(px(theme::RADIUS_MD))
+                    .h(rpx(36.))
+                    .px(rpx(12.))
+                    .rounded(rpx(theme::RADIUS_MD))
                     .border_1()
                     .border_color(theme::border())
                     .bg(theme::bg_inset())
@@ -217,7 +219,7 @@ impl Shell {
                     .child(
                         svg()
                             .path("icons/search.svg")
-                            .size(px(16.))
+                            .size(rpx(16.))
                             .flex_none()
                             .text_color(theme::text_muted()),
                     )
@@ -236,7 +238,7 @@ impl Shell {
                                         .min_w_0()
                                         .truncate()
                                         .font_family(theme::FONT_SANS)
-                                        .text_size(px(13.))
+                                        .text_size(theme::text::BODY_LARGE)
                                         .text_color(theme::text_muted())
                                         .child("Search library"),
                                 )
@@ -247,7 +249,7 @@ impl Shell {
                                         .min_w_0()
                                         .truncate()
                                         .font_family(theme::FONT_SANS)
-                                        .text_size(px(13.))
+                                        .text_size(theme::text::BODY_LARGE)
                                         .text_color(theme::text_primary())
                                         .child(text_input::render_text(
                                             &self.search_input,
@@ -313,10 +315,10 @@ impl Shell {
             content = content.child(
                 div()
                     .w_full()
-                    .px(px(14.))
-                    .py(px(10.))
+                    .px(rpx(14.))
+                    .py(rpx(10.))
                     .font_family(theme::FONT_SANS)
-                    .text_size(px(11.))
+                    .text_size(theme::text::SMALL)
                     .text_color(theme::text_secondary())
                     .child(format!(
                         "No matches for “{}”",
@@ -330,15 +332,15 @@ impl Shell {
                 .flex()
                 .items_center()
                 .justify_end()
-                .h(px(28.))
+                .h(rpx(28.))
                 .w_full()
                 .flex_none()
-                .px(px(14.))
+                .px(rpx(14.))
                 .border_t_1()
                 .border_color(theme::border())
                 .font_family(theme::FONT_MONO)
                 .font_weight(FontWeight::BOLD)
-                .text_size(px(9.))
+                .text_size(theme::text::CAPTION_XS)
                 .text_color(theme::text_muted())
                 .child("↵ OPEN · ESC DISMISS"),
         );
@@ -347,12 +349,12 @@ impl Shell {
             .id("search-results-popover")
             .absolute()
             .left_0()
-            .top(px(41.))
+            .top(rpx(41.))
             .w_full()
-            .max_h(px(540.))
+            .max_h(rpx(540.))
             .overflow_y_scroll()
             .track_scroll(&self.search_scroll)
-            .rounded(px(theme::RADIUS_LG))
+            .rounded(rpx(theme::RADIUS_LG))
             .border_1()
             .border_color(theme::border_strong())
             .bg(theme::bg_surface())
@@ -385,10 +387,10 @@ impl Shell {
             .id(format!("search-album-{index}"))
             .flex()
             .items_center()
-            .gap(px(10.))
-            .h(px(46.))
+            .gap(rpx(10.))
+            .h(rpx(46.))
             .w_full()
-            .px(px(14.))
+            .px(rpx(14.))
             .relative()
             .when(selected, |row| {
                 row.bg(theme::bg_selected())
@@ -415,10 +417,10 @@ impl Shell {
             .id(format!("search-track-{index}"))
             .flex()
             .items_center()
-            .gap(px(10.))
-            .h(px(44.))
+            .gap(rpx(10.))
+            .h(rpx(44.))
             .w_full()
-            .px(px(14.))
+            .px(rpx(14.))
             .relative()
             .when(selected, |row| {
                 row.bg(theme::bg_selected())
@@ -452,10 +454,10 @@ impl Shell {
             .id(format!("search-playlist-{index}"))
             .flex()
             .items_center()
-            .gap(px(10.))
-            .h(px(44.))
+            .gap(rpx(10.))
+            .h(rpx(44.))
             .w_full()
-            .px(px(14.))
+            .px(rpx(14.))
             .relative()
             .when(selected, |row| {
                 row.bg(theme::bg_selected())
@@ -563,12 +565,12 @@ fn search_group_header(label: &'static str, empty: bool) -> impl IntoElement {
     div()
         .flex()
         .items_center()
-        .h(px(27.))
+        .h(rpx(27.))
         .w_full()
-        .px(px(14.))
+        .px(rpx(14.))
         .font_family(theme::FONT_MONO)
         .font_weight(FontWeight::BOLD)
-        .text_size(px(9.))
+        .text_size(theme::text::CAPTION_XS)
         .text_color(theme::text_muted())
         .child(if empty {
             format!("{label} — NO MATCHES")
@@ -585,7 +587,7 @@ fn search_cover(path: Option<&Path>) -> AnyElement {
             .into_any_element(),
         None => svg()
             .path("icons/list-music.svg")
-            .size(px(14.))
+            .size(rpx(14.))
             .text_color(theme::text_muted())
             .into_any_element(),
     };
@@ -593,10 +595,10 @@ fn search_cover(path: Option<&Path>) -> AnyElement {
         .flex()
         .items_center()
         .justify_center()
-        .size(px(28.))
+        .size(rpx(28.))
         .flex_none()
         .overflow_hidden()
-        .rounded(px(theme::RADIUS_SM))
+        .rounded(rpx(theme::RADIUS_SM))
         .border_1()
         .border_color(theme::border())
         .bg(theme::bg_muted())
@@ -609,14 +611,14 @@ fn search_copy(title: String, meta: String) -> impl IntoElement {
         .flex()
         .flex_col()
         .min_w_0()
-        .gap(px(1.))
+        .gap(rpx(1.))
         .child(
             div()
                 .w_full()
                 .truncate()
                 .font_family(theme::FONT_SANS)
                 .font_weight(FontWeight::SEMIBOLD)
-                .text_size(px(11.))
+                .text_size(theme::text::SMALL)
                 .text_color(theme::text_primary())
                 .child(title),
         )
@@ -625,7 +627,7 @@ fn search_copy(title: String, meta: String) -> impl IntoElement {
                 .w_full()
                 .truncate()
                 .font_family(theme::FONT_SANS)
-                .text_size(px(9.))
+                .text_size(theme::text::CAPTION_XS)
                 .text_color(theme::text_muted())
                 .child(meta),
         )

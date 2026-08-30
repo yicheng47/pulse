@@ -1,6 +1,8 @@
+use crate::theme::rpx;
+
 use gpui::{
     AnyElement, ClickEvent, Context, FontWeight, IntoElement, MouseButton, MouseDownEvent,
-    StatefulInteractiveElement, Window, div, prelude::*, px, svg,
+    StatefulInteractiveElement, Window, div, prelude::*, svg,
 };
 
 use super::{
@@ -13,15 +15,15 @@ use super::{
 };
 use crate::{backend::Track, theme, ui};
 
-const TRACK_ROW_HEIGHT_PX: f32 = 58.;
+const TRACK_ROW_HEIGHT: f32 = 58.;
 
 impl LibraryView {
     pub(super) fn render_tracks(
         &mut self,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        if self.should_load_more_tracks() && self.load_more_tracks() {
+        if self.should_load_more_tracks(window.rem_size()) && self.load_more_tracks() {
             cx.notify();
         }
         let now_ms = current_time_ms();
@@ -46,8 +48,9 @@ impl LibraryView {
             rows = rows.child(self.render_track_row(index, track, now_ms, cx));
         }
         self.track_scrollbar.update(cx, |scrollbar, _| {
-            scrollbar
-                .set_estimated_content_height(px(self.tracks.len() as f32 * TRACK_ROW_HEIGHT_PX));
+            scrollbar.set_estimated_content_height(
+                rpx(self.tracks.len() as f32 * TRACK_ROW_HEIGHT).to_pixels(window.rem_size()),
+            );
         });
 
         div()
@@ -56,16 +59,16 @@ impl LibraryView {
             .flex_1()
             .min_h_0()
             .w_full()
-            .px(px(28.))
-            .pt(px(26.))
-            .pb(px(24.))
+            .px(rpx(28.))
+            .pt(rpx(26.))
+            .pb(rpx(24.))
             .child(
                 div()
                     .flex()
                     .justify_between()
                     .w_full()
-                    .min_h(px(63.))
-                    .pb(px(10.))
+                    .min_h(rpx(63.))
+                    .pb(rpx(10.))
                     .flex_none()
                     .child(
                         div()
@@ -75,14 +78,14 @@ impl LibraryView {
                                 div()
                                     .font_family(theme::FONT_DISPLAY)
                                     .font_weight(FontWeight::BOLD)
-                                    .text_size(px(34.))
+                                    .text_size(theme::text::DISPLAY)
                                     .text_color(theme::text_primary())
                                     .child("Tracks"),
                             )
                             .child(
                                 div()
                                     .font_family(theme::FONT_SANS)
-                                    .text_size(px(13.))
+                                    .text_size(theme::text::BODY_LARGE)
                                     .text_color(theme::text_secondary())
                                     .child(meta),
                             ),
@@ -95,7 +98,7 @@ impl LibraryView {
                     .items_center()
                     .justify_between()
                     .w_full()
-                    .h(px(47.))
+                    .h(rpx(47.))
                     .flex_none()
                     .child(self.render_track_filters(cx))
                     .child(self.render_artist_filter_hint(cx)),
@@ -127,9 +130,9 @@ impl LibraryView {
                                             .flex()
                                             .items_center()
                                             .justify_center()
-                                            .h(px(220.))
+                                            .h(rpx(220.))
                                             .font_family(theme::FONT_SANS)
-                                            .text_size(px(13.))
+                                            .text_size(theme::text::BODY_LARGE)
                                             .text_color(theme::text_muted())
                                             .child(if self.is_library_loading() {
                                                 "Loading tracks…"
@@ -154,7 +157,7 @@ impl LibraryView {
             .id("track-filter-scroll")
             .flex()
             .items_center()
-            .gap(px(8.));
+            .gap(rpx(8.));
         for chip in [
             FilterChip::All,
             FilterChip::HiRes,
@@ -177,10 +180,10 @@ impl LibraryView {
             .id(format!("track-filter-{label}"))
             .flex()
             .items_center()
-            .h(px(29.))
+            .h(rpx(29.))
             .flex_none()
-            .px(px(10.))
-            .rounded(px(theme::RADIUS_SM))
+            .px(rpx(10.))
+            .rounded(rpx(theme::RADIUS_SM))
             .bg(if selected {
                 theme::accent_soft()
             } else {
@@ -191,7 +194,7 @@ impl LibraryView {
                 this.set_track_filter(chip.clone(), cx);
             }))
             .font_family(theme::FONT_SANS)
-            .text_size(px(12.))
+            .text_size(theme::text::BODY)
             .text_color(if selected {
                 theme::accent()
             } else {
@@ -205,11 +208,11 @@ impl LibraryView {
             .id("track-sort")
             .flex()
             .items_center()
-            .gap(px(8.))
-            .mt(px(17.5))
-            .h(px(28.))
-            .px(px(10.))
-            .rounded(px(theme::RADIUS_SM))
+            .gap(rpx(8.))
+            .mt(rpx(17.5))
+            .h(rpx(28.))
+            .px(rpx(10.))
+            .rounded(rpx(theme::RADIUS_SM))
             .bg(theme::bg_muted())
             .cursor_pointer()
             .on_click(cx.listener(|this, _, _, cx| this.cycle_track_sort(cx)))
@@ -217,14 +220,14 @@ impl LibraryView {
                 div()
                     .font_family(theme::FONT_MONO)
                     .font_weight(FontWeight::BOLD)
-                    .text_size(px(11.))
+                    .text_size(theme::text::SMALL)
                     .text_color(theme::text_muted())
                     .child(track_sort_label(self.track_sort)),
             )
             .child(
                 svg()
                     .path("icons/arrow-up-down.svg")
-                    .size(px(14.))
+                    .size(rpx(14.))
                     .text_color(theme::text_muted()),
             )
     }
@@ -240,10 +243,10 @@ impl LibraryView {
             .relative()
             .flex()
             .items_center()
-            .gap(px(8.))
-            .h(px(28.))
-            .px(px(10.))
-            .rounded(px(theme::RADIUS_SM))
+            .gap(rpx(8.))
+            .h(rpx(28.))
+            .px(rpx(10.))
+            .rounded(rpx(theme::RADIUS_SM))
             .bg(if active {
                 theme::primary_soft()
             } else {
@@ -273,7 +276,7 @@ impl LibraryView {
             .child(
                 svg()
                     .path("icons/user-round-search.svg")
-                    .size(px(14.))
+                    .size(rpx(14.))
                     .text_color(if active {
                         theme::primary()
                     } else {
@@ -282,11 +285,11 @@ impl LibraryView {
             )
             .child(
                 div()
-                    .max_w(px(170.))
+                    .max_w(rpx(170.))
                     .truncate()
                     .font_family(theme::FONT_MONO)
                     .font_weight(FontWeight::BOLD)
-                    .text_size(px(11.))
+                    .text_size(theme::text::SMALL)
                     .text_color(if active {
                         theme::primary()
                     } else {
@@ -315,10 +318,10 @@ impl LibraryView {
                     .id(("artist-filter-option", index))
                     .flex()
                     .items_center()
-                    .gap(px(10.))
+                    .gap(rpx(10.))
                     .w_full()
-                    .px(px(12.))
-                    .py(px(8.))
+                    .px(rpx(12.))
+                    .py(rpx(8.))
                     .when(selected, |row| row.bg(theme::accent_soft()))
                     .cursor_pointer()
                     .on_click(cx.listener(move |this, _, _, cx| {
@@ -330,7 +333,7 @@ impl LibraryView {
                             .min_w_0()
                             .truncate()
                             .font_family(theme::FONT_SANS)
-                            .text_size(px(13.))
+                            .text_size(theme::text::BODY_LARGE)
                             .text_color(if selected {
                                 theme::accent()
                             } else {
@@ -342,7 +345,7 @@ impl LibraryView {
                         div()
                             .font_family(theme::FONT_MONO)
                             .font_weight(FontWeight::BOLD)
-                            .text_size(px(10.))
+                            .text_size(theme::text::CAPTION)
                             .text_color(theme::text_muted())
                             .child(track_count.to_string()),
                     ),
@@ -353,13 +356,13 @@ impl LibraryView {
             .id("artist-filter-popover")
             .absolute()
             .right_0()
-            .top(px(36.))
+            .top(rpx(36.))
             .flex()
             .flex_col()
-            .w(px(240.))
-            .max_h(px(420.))
-            .py(px(6.))
-            .rounded(px(theme::RADIUS_LG))
+            .w(rpx(240.))
+            .max_h(rpx(420.))
+            .py(rpx(6.))
+            .rounded(rpx(theme::RADIUS_LG))
             .border_1()
             .border_color(theme::border_strong())
             .bg(theme::bg_surface())
@@ -371,8 +374,8 @@ impl LibraryView {
             .child(
                 div()
                     .w_full()
-                    .px(px(10.))
-                    .py(px(6.))
+                    .px(rpx(10.))
+                    .py(rpx(6.))
                     .child(super::render_text_input(
                         "artist-search-input",
                         &self.text_input,
@@ -388,16 +391,22 @@ impl LibraryView {
                     .overflow_y_scroll()
                     .child(rows),
             )
-            .child(div().w_full().h(px(1.)).my(px(4.)).bg(theme::border()))
+            .child(
+                div()
+                    .w_full()
+                    .h(gpui::px(1.)) // physical
+                    .my(rpx(4.))
+                    .bg(theme::border()),
+            )
             .child(
                 div()
                     .id("artist-filter-clear")
                     .flex()
                     .items_center()
-                    .gap(px(10.))
+                    .gap(rpx(10.))
                     .w_full()
-                    .px(px(12.))
-                    .py(px(8.))
+                    .px(rpx(12.))
+                    .py(rpx(8.))
                     .cursor_pointer()
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.choose_artist_filter(None, cx);
@@ -405,13 +414,13 @@ impl LibraryView {
                     .child(
                         svg()
                             .path("icons/x.svg")
-                            .size(px(14.))
+                            .size(rpx(14.))
                             .text_color(theme::text_secondary()),
                     )
                     .child(
                         div()
                             .font_family(theme::FONT_SANS)
-                            .text_size(px(13.))
+                            .text_size(theme::text::BODY_LARGE)
                             .text_color(theme::text_secondary())
                             .child("Clear filter"),
                     ),
@@ -442,7 +451,7 @@ impl LibraryView {
             .flex()
             .items_center()
             .w_full()
-            .h(px(TRACK_ROW_HEIGHT_PX))
+            .h(rpx(TRACK_ROW_HEIGHT))
             .flex_none()
             .relative()
             .border_t_1()
@@ -475,9 +484,9 @@ impl LibraryView {
                 div()
                     .flex()
                     .items_center()
-                    .w(px(456.))
+                    .w(rpx(456.))
                     .h_full()
-                    .pl(px(14.))
+                    .pl(rpx(14.))
                     .child(super::albums::render_cover(
                         track.cover_art_path.as_deref(),
                         42.,
@@ -489,13 +498,13 @@ impl LibraryView {
                         div()
                             .flex()
                             .flex_col()
-                            .ml(px(12.))
+                            .ml(rpx(12.))
                             .min_w_0()
                             .child(
                                 div()
                                     .flex()
                                     .items_center()
-                                    .gap(px(8.))
+                                    .gap(rpx(8.))
                                     .w_full()
                                     .child(
                                         div()
@@ -503,7 +512,7 @@ impl LibraryView {
                                             .truncate()
                                             .font_family(theme::FONT_SANS)
                                             .font_weight(FontWeight::SEMIBOLD)
-                                            .text_size(px(15.))
+                                            .text_size(theme::text::LABEL_LARGE)
                                             .text_color(if playing {
                                                 theme::accent()
                                             } else if missing {
@@ -522,7 +531,7 @@ impl LibraryView {
                                     .w_full()
                                     .truncate()
                                     .font_family(theme::FONT_SANS)
-                                    .text_size(px(12.))
+                                    .text_size(theme::text::BODY)
                                     .text_color(theme::text_secondary())
                                     .child(artist.clone()),
                             ),
@@ -531,40 +540,40 @@ impl LibraryView {
             .child(
                 div()
                     .id(format!("track-artist-{index}"))
-                    .w(px(162.))
+                    .w(rpx(162.))
                     .truncate()
                     .cursor_pointer()
                     .on_click(cx.listener(move |this, _, _, cx| {
                         this.set_artist_filter(Some(artist_for_filter.clone()), cx);
                     }))
                     .font_family(theme::FONT_SANS)
-                    .text_size(px(12.))
+                    .text_size(theme::text::BODY)
                     .text_color(theme::text_secondary())
                     .child(artist),
             )
             .child(
                 div()
-                    .w(px(232.))
+                    .w(rpx(232.))
                     .truncate()
                     .font_family(theme::FONT_SANS)
-                    .text_size(px(12.))
+                    .text_size(theme::text::BODY)
                     .text_color(theme::text_secondary())
                     .child(track_album(&track).to_string()),
             )
             .child(
                 div()
-                    .w(px(70.))
+                    .w(rpx(70.))
                     .font_family(theme::FONT_MONO)
-                    .text_size(px(11.))
+                    .text_size(theme::text::SMALL)
                     .text_color(theme::text_primary())
                     .child(format_duration(track.duration_ms)),
             )
             .child(
                 div()
-                    .w(px(132.))
+                    .w(rpx(132.))
                     .truncate()
                     .font_family(theme::FONT_MONO)
-                    .text_size(px(11.))
+                    .text_size(theme::text::SMALL)
                     .text_color(if is_hi_res(track.bit_depth, track.sample_rate_hz) {
                         theme::primary()
                     } else {
@@ -574,10 +583,10 @@ impl LibraryView {
             )
             .child(
                 div()
-                    .w(px(82.))
+                    .w(rpx(82.))
                     .truncate()
                     .font_family(theme::FONT_MONO)
-                    .text_size(px(11.))
+                    .text_size(theme::text::SMALL)
                     .text_color(theme::text_secondary())
                     .child(added),
             )
@@ -589,7 +598,7 @@ fn render_track_table_header() -> impl IntoElement {
         .flex()
         .items_center()
         .w_full()
-        .h(px(33.))
+        .h(rpx(33.))
         .flex_none()
         .child(header_cell("TRACK", 456., 14.))
         .child(header_cell("ARTIST", 162., 0.))
@@ -601,11 +610,11 @@ fn render_track_table_header() -> impl IntoElement {
 
 fn header_cell(label: &'static str, width: f32, left_padding: f32) -> impl IntoElement {
     div()
-        .w(px(width))
-        .pl(px(left_padding))
+        .w(rpx(width))
+        .pl(rpx(left_padding))
         .font_family(theme::FONT_MONO)
         .font_weight(FontWeight::BOLD)
-        .text_size(px(10.))
+        .text_size(theme::text::CAPTION)
         .text_color(theme::text_muted())
         .child(label)
 }

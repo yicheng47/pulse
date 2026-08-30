@@ -4,7 +4,36 @@
 // Neon"). Magenta is interactive/action, purple is navigation/informational,
 // lime is signal/quality readouts, greys are everything else.
 
-use gpui::{Rgba, rgb, rgba};
+use gpui::{Rems, Rgba, rems, rgb, rgba};
+
+pub const fn rpx(n: f32) -> Rems {
+    rems(n / 16.)
+}
+
+pub mod text {
+    use gpui::Rems;
+
+    use super::rpx;
+
+    pub const CAPTION_XS: Rems = rpx(9.);
+    pub const CAPTION: Rems = rpx(10.);
+    pub const SMALL: Rems = rpx(11.);
+    pub const BODY: Rems = rpx(12.);
+    pub const BODY_LARGE: Rems = rpx(13.);
+    pub const LABEL: Rems = rpx(14.);
+    pub const LABEL_LARGE: Rems = rpx(15.);
+    pub const TITLE_SMALL: Rems = rpx(16.);
+    pub const TITLE: Rems = rpx(17.);
+    pub const TITLE_LARGE: Rems = rpx(18.);
+    pub const HEADING_SMALL: Rems = rpx(20.);
+    pub const HEADING: Rems = rpx(22.);
+    pub const HEADING_LARGE: Rems = rpx(24.);
+    pub const PAGE_TITLE: Rems = rpx(28.);
+    pub const DISPLAY_SMALL: Rems = rpx(30.);
+    pub const DISPLAY_MEDIUM: Rems = rpx(32.);
+    pub const DISPLAY: Rems = rpx(34.);
+    pub const DISPLAY_LARGE: Rems = rpx(38.);
+}
 
 pub fn bg_inset() -> Rgba {
     rgb(0x0a0a0a)

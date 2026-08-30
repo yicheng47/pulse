@@ -1,8 +1,10 @@
+use crate::theme::rpx;
+
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, ClickEvent, ElementId, FontWeight, IntoElement, Pixels, RenderOnce,
-    SharedString, Window, div, prelude::*, px,
+    AnyElement, App, ClickEvent, ElementId, FontWeight, IntoElement, Rems, RenderOnce,
+    SharedString, Window, div, prelude::*,
 };
 
 use crate::{
@@ -18,7 +20,7 @@ pub(crate) struct Modal {
     title: SharedString,
     body: AnyElement,
     footer: Option<AnyElement>,
-    width: Pixels,
+    width: Rems,
     busy: bool,
     close_id: ElementId,
     on_close: Option<ClickHandler>,
@@ -37,7 +39,7 @@ impl Modal {
             title: title.into(),
             body: body.into_any_element(),
             footer: None,
-            width: px(500.),
+            width: rpx(500.),
             busy: false,
             on_close: None,
         }
@@ -48,7 +50,7 @@ impl Modal {
         self
     }
 
-    pub(crate) fn width(mut self, width: Pixels) -> Self {
+    pub(crate) fn width(mut self, width: Rems) -> Self {
         self.width = width;
         self
     }
@@ -91,7 +93,7 @@ impl RenderOnce for Modal {
                     .flex_col()
                     .w(self.width)
                     .overflow_hidden()
-                    .rounded(px(theme::RADIUS_LG))
+                    .rounded(rpx(theme::RADIUS_LG))
                     .border_1()
                     .border_color(theme::border_strong())
                     .bg(theme::bg_surface())
@@ -100,16 +102,16 @@ impl RenderOnce for Modal {
                             .flex()
                             .items_center()
                             .justify_between()
-                            .h(px(58.))
+                            .h(rpx(58.))
                             .flex_none()
-                            .px(px(22.))
+                            .px(rpx(22.))
                             .border_b_1()
                             .border_color(theme::border())
                             .child(
                                 div()
                                     .font_family(theme::FONT_DISPLAY)
                                     .font_weight(FontWeight::BOLD)
-                                    .text_size(px(20.))
+                                    .text_size(theme::text::HEADING_SMALL)
                                     .text_color(theme::text_primary())
                                     .child(self.title),
                             )
@@ -131,10 +133,10 @@ impl RenderOnce for Modal {
                             .flex()
                             .items_center()
                             .justify_end()
-                            .gap(px(9.))
-                            .h(px(62.))
+                            .gap(rpx(9.))
+                            .h(rpx(62.))
                             .flex_none()
-                            .px(px(22.))
+                            .px(rpx(22.))
                             .border_t_1()
                             .border_color(theme::border())
                             .child(footer)
@@ -148,7 +150,7 @@ pub(crate) struct ConfirmDialog {
     id: ElementId,
     title: SharedString,
     body: AnyElement,
-    width: Pixels,
+    width: Rems,
     busy: bool,
     confirm_label: SharedString,
     busy_label: SharedString,
@@ -173,7 +175,7 @@ impl ConfirmDialog {
             id,
             title: title.into(),
             body: body.into_any_element(),
-            width: px(500.),
+            width: rpx(500.),
             busy: false,
             confirm_label: "Confirm".into(),
             busy_label: "Working…".into(),
@@ -182,7 +184,7 @@ impl ConfirmDialog {
         }
     }
 
-    pub(crate) fn width(mut self, width: Pixels) -> Self {
+    pub(crate) fn width(mut self, width: Rems) -> Self {
         self.width = width;
         self
     }
@@ -262,7 +264,7 @@ impl RenderOnce for ConfirmDialog {
         let footer = div()
             .flex()
             .items_center()
-            .gap(px(9.))
+            .gap(rpx(9.))
             .child(cancel_button)
             .child(confirm_button);
         let modal = Modal::new(self.id, self.title, self.body)

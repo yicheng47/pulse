@@ -1,5 +1,7 @@
+use crate::theme::rpx;
+
 use gpui::{
-    AnyElement, FontWeight, IntoElement, RenderOnce, SharedString, Window, div, prelude::*, px,
+    AnyElement, FontWeight, IntoElement, RenderOnce, SharedString, Window, div, prelude::*,
 };
 
 use crate::theme;
@@ -36,36 +38,36 @@ impl RenderOnce for EmptyStateCard {
             .flex_1()
             .items_center()
             .justify_center()
-            .px(px(28.))
+            .px(rpx(28.))
             .child(
                 div()
                     .flex()
                     .items_center()
                     .justify_center()
-                    .size(px(54.))
+                    .size(rpx(54.))
                     .rounded_full()
                     .bg(theme::bg_muted())
                     .child(self.icon),
             )
             .child(
                 div()
-                    .mt(px(15.))
+                    .mt(rpx(15.))
                     .font_family(theme::FONT_DISPLAY)
                     .font_weight(FontWeight::SEMIBOLD)
-                    .text_size(px(18.))
+                    .text_size(theme::text::TITLE_LARGE)
                     .text_color(theme::text_primary())
                     .child(self.title),
             )
             .child(
                 div()
-                    .mt(px(5.))
-                    .max_w(px(250.))
+                    .mt(rpx(5.))
+                    .max_w(rpx(250.))
                     .text_center()
                     .font_family(theme::FONT_SANS)
-                    .text_size(px(12.))
+                    .text_size(theme::text::BODY)
                     .text_color(theme::text_muted())
                     .child(self.description),
             )
-            .child(div().mt(px(18.)).child(self.action))
+            .child(div().mt(rpx(18.)).child(self.action))
     }
 }

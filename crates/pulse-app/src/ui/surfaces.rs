@@ -1,6 +1,8 @@
+use crate::theme::rpx;
+
 use gpui::{
     AnyElement, Div, ElementId, FontWeight, IntoElement, RenderOnce, Rgba, SharedString, Stateful,
-    Window, div, linear_color_stop, linear_gradient, prelude::*, px,
+    Window, div, linear_color_stop, linear_gradient, prelude::*,
 };
 
 use crate::theme;
@@ -38,16 +40,17 @@ impl RenderOnce for Badge {
         div()
             .flex()
             .items_center()
-            .h(px(if large { 21. } else { 18. }))
-            .px(px(if large { 7. } else { 6. }))
+            .h(rpx(if large { 21. } else { 18. }))
+            .px(rpx(if large { 7. } else { 6. }))
             .when(!large, |badge| badge.flex_none())
-            .rounded(px(theme::RADIUS_SM))
+            .rounded(rpx(theme::RADIUS_SM))
             .border_1()
             .border_color(theme::quality_border())
             .bg(theme::quality_soft())
             .font_family(theme::FONT_MONO)
             .font_weight(FontWeight::BOLD)
-            .text_size(px(if large { 10. } else { 9. }))
+            .text_size(theme::text::CAPTION_XS)
+            .when(large, |badge| badge.text_size(theme::text::CAPTION))
             .text_color(theme::quality())
             .child(self.label)
     }
@@ -57,10 +60,10 @@ pub(crate) fn pill(label: impl Into<SharedString>, active: bool) -> impl IntoEle
     div()
         .flex()
         .items_center()
-        .gap(px(6.))
-        .px(px(9.))
-        .py(px(5.))
-        .rounded(px(theme::RADIUS_SM))
+        .gap(rpx(6.))
+        .px(rpx(9.))
+        .py(rpx(5.))
+        .rounded(rpx(theme::RADIUS_SM))
         .border_1()
         .border_color(if active {
             theme::accent()
@@ -73,13 +76,13 @@ pub(crate) fn pill(label: impl Into<SharedString>, active: bool) -> impl IntoEle
             theme::bg_elevated()
         })
         .when(active, |pill| {
-            pill.child(div().size(px(6.)).rounded_full().bg(theme::accent()))
+            pill.child(div().size(rpx(6.)).rounded_full().bg(theme::accent()))
         })
         .child(
             div()
                 .font_family(theme::FONT_MONO)
                 .font_weight(FontWeight::SEMIBOLD)
-                .text_size(px(11.))
+                .text_size(theme::text::SMALL)
                 .text_color(if active {
                     theme::accent()
                 } else {
@@ -92,11 +95,11 @@ pub(crate) fn pill(label: impl Into<SharedString>, active: bool) -> impl IntoEle
 pub(crate) fn exclusive_mode_reset_link(id: impl Into<ElementId>) -> Stateful<Div> {
     div()
         .id(id)
-        .ml(px(8.))
+        .ml(rpx(8.))
         .cursor_pointer()
         .font_family(theme::FONT_SANS)
         .font_weight(FontWeight::SEMIBOLD)
-        .text_size(px(11.))
+        .text_size(theme::text::SMALL)
         .text_color(theme::accent())
         .child("Reset to Auto")
 }
@@ -114,22 +117,22 @@ pub(crate) fn exclusive_mode_control(
             div()
                 .font_family(theme::FONT_SANS)
                 .font_weight(FontWeight::SEMIBOLD)
-                .text_size(px(12.))
+                .text_size(theme::text::BODY)
                 .text_color(theme::text_primary())
                 .child("Exclusive mode"),
         )
         .child(if automatic {
             div()
-                .ml(px(8.))
-                .px(px(5.))
-                .py(px(2.))
-                .rounded(px(theme::RADIUS_SM))
+                .ml(rpx(8.))
+                .px(rpx(5.))
+                .py(rpx(2.))
+                .rounded(rpx(theme::RADIUS_SM))
                 .border_1()
                 .border_color(theme::border_strong())
                 .bg(theme::bg_elevated())
                 .font_family(theme::FONT_MONO)
                 .font_weight(FontWeight::BOLD)
-                .text_size(px(9.))
+                .text_size(theme::text::CAPTION_XS)
                 .text_color(theme::text_secondary())
                 .child("AUTO")
                 .into_any_element()
@@ -166,15 +169,15 @@ pub(crate) fn playing_row_bar() -> AnyElement {
         .left_0()
         .top_0()
         .bottom_0()
-        .w(px(4.))
+        .w(rpx(4.))
         .bg(theme::accent())
         .into_any_element()
 }
 
 pub(crate) fn input_caret() -> AnyElement {
     div()
-        .w(px(1.5))
-        .h(px(14.))
+        .w(rpx(1.5))
+        .h(rpx(14.))
         .flex_none()
         .bg(theme::accent())
         .into_any_element()

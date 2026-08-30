@@ -1,8 +1,10 @@
+use crate::theme::rpx;
+
 use std::collections::BTreeSet;
 
 use gpui::{
     AnyElement, Context, FontWeight, IntoElement, Rgba, StatefulInteractiveElement, Window, div,
-    prelude::*, px, svg,
+    prelude::*, svg,
 };
 
 use super::{
@@ -36,17 +38,17 @@ impl LibraryView {
             .flex_1()
             .min_h_0()
             .w_full()
-            .px(px(28.))
-            .pt(px(26.))
-            .pb(px(24.))
+            .px(rpx(28.))
+            .pt(rpx(26.))
+            .pb(rpx(24.))
             .child(
                 div()
                     .flex()
                     .items_start()
                     .justify_between()
                     .w_full()
-                    .min_h(px(63.))
-                    .pb(px(10.))
+                    .min_h(rpx(63.))
+                    .pb(rpx(10.))
                     .flex_none()
                     .child(
                         div()
@@ -56,14 +58,14 @@ impl LibraryView {
                                 div()
                                     .font_family(theme::FONT_DISPLAY)
                                     .font_weight(FontWeight::BOLD)
-                                    .text_size(px(34.))
+                                    .text_size(theme::text::DISPLAY)
                                     .text_color(theme::text_primary())
                                     .child("Storage"),
                             )
                             .child(
                                 div()
                                     .font_family(theme::FONT_SANS)
-                                    .text_size(px(13.))
+                                    .text_size(theme::text::BODY_LARGE)
                                     .text_color(theme::text_secondary())
                                     .child("Manage library folders and network mounts"),
                             ),
@@ -73,10 +75,10 @@ impl LibraryView {
                             .id("add-storage")
                             .flex()
                             .items_center()
-                            .gap(px(7.))
-                            .h(px(34.))
-                            .px(px(12.))
-                            .rounded(px(theme::RADIUS_SM))
+                            .gap(rpx(7.))
+                            .h(rpx(34.))
+                            .px(rpx(12.))
+                            .rounded(rpx(theme::RADIUS_SM))
                             .border_1()
                             .border_color(if scanning {
                                 theme::border()
@@ -99,7 +101,7 @@ impl LibraryView {
                             .child(
                                 svg()
                                     .path("icons/folder-plus.svg")
-                                    .size(px(15.))
+                                    .size(rpx(15.))
                                     .text_color(if scanning {
                                         theme::text_muted()
                                     } else {
@@ -110,7 +112,7 @@ impl LibraryView {
                                 div()
                                     .font_family(theme::FONT_DISPLAY)
                                     .font_weight(FontWeight::SEMIBOLD)
-                                    .text_size(px(13.))
+                                    .text_size(theme::text::BODY_LARGE)
                                     .text_color(if scanning {
                                         theme::text_muted()
                                     } else {
@@ -171,10 +173,10 @@ impl LibraryView {
         div()
             .flex()
             .w_full()
-            .h(px(92.))
+            .h(rpx(92.))
             .flex_none()
-            .gap(px(14.))
-            .mb(px(18.))
+            .gap(rpx(14.))
+            .mb(rpx(18.))
             .child(render_summary_card(
                 "LIBRARY",
                 format!("{} albums", self.catalog_summary.album_count),
@@ -213,38 +215,38 @@ impl LibraryView {
                     .flex()
                     .flex_col()
                     .items_center()
-                    .max_w(px(410.))
+                    .max_w(rpx(410.))
                     .child(
                         div()
                             .flex()
                             .items_center()
                             .justify_center()
-                            .size(px(64.))
+                            .size(rpx(64.))
                             .rounded_full()
                             .bg(theme::bg_muted())
                             .child(
                                 svg()
                                     .path("icons/database.svg")
-                                    .size(px(29.))
+                                    .size(rpx(29.))
                                     .text_color(theme::primary()),
                             ),
                     )
                     .child(
                         div()
-                            .mt(px(18.))
+                            .mt(rpx(18.))
                             .font_family(theme::FONT_DISPLAY)
                             .font_weight(FontWeight::BOLD)
-                            .text_size(px(23.))
+                            .text_size(theme::text::HEADING_LARGE)
                             .text_color(theme::text_primary())
                             .child("Add your music folder"),
                     )
                     .child(
                         div()
-                            .mt(px(7.))
+                            .mt(rpx(7.))
                             .text_center()
                             .font_family(theme::FONT_SANS)
-                            .text_size(px(13.))
-                            .line_height(px(20.))
+                            .text_size(theme::text::BODY_LARGE)
+                            .line_height(rpx(20.))
                             .text_color(theme::text_secondary())
                             .child("Pulse scans local folders and mounted NAS volumes without moving your files."),
                     )
@@ -253,11 +255,11 @@ impl LibraryView {
                             .id("empty-add-storage")
                             .flex()
                             .items_center()
-                            .gap(px(8.))
-                            .mt(px(20.))
-                            .h(px(36.))
-                            .px(px(14.))
-                            .rounded(px(theme::RADIUS_SM))
+                            .gap(rpx(8.))
+                            .mt(rpx(20.))
+                            .h(rpx(36.))
+                            .px(rpx(14.))
+                            .rounded(rpx(theme::RADIUS_SM))
                             .border_1()
                             .border_color(theme::accent())
                             .bg(theme::accent_soft())
@@ -268,24 +270,24 @@ impl LibraryView {
                             .child(
                                 svg()
                                     .path("icons/folder-plus.svg")
-                                    .size(px(16.))
+                                    .size(rpx(16.))
                                     .text_color(theme::accent()),
                             )
                             .child(
                                 div()
                                     .font_family(theme::FONT_DISPLAY)
                                     .font_weight(FontWeight::SEMIBOLD)
-                                    .text_size(px(14.))
+                                    .text_size(theme::text::LABEL)
                                     .text_color(theme::text_primary())
                                     .child("Add Storage"),
                             ),
                     )
                     .child(
                         div()
-                            .mt(px(14.))
+                            .mt(rpx(14.))
                             .font_family(theme::FONT_MONO)
                             .font_weight(FontWeight::BOLD)
-                            .text_size(px(10.))
+                            .text_size(theme::text::CAPTION)
                             .text_color(theme::text_muted())
                             .child("LOCAL FOLDERS AND NAS MOUNTS SUPPORTED"),
                     ),
@@ -299,7 +301,7 @@ impl LibraryView {
             .flex_1()
             .min_h_0()
             .w_full()
-            .gap(px(18.))
+            .gap(rpx(18.))
             .child(self.render_roots_table(cx))
             .child(self.render_root_detail(cx))
             .into_any_element()
@@ -322,17 +324,17 @@ impl LibraryView {
                     .flex()
                     .items_center()
                     .w_full()
-                    .h(px(43.))
+                    .h(rpx(43.))
                     .flex_none()
-                    .px(px(14.))
+                    .px(rpx(14.))
                     .font_family(theme::FONT_MONO)
                     .font_weight(FontWeight::BOLD)
-                    .text_size(px(10.))
+                    .text_size(theme::text::CAPTION)
                     .text_color(theme::text_muted())
-                    .child(div().w(px(248.)).child("NAME"))
-                    .child(div().w(px(120.)).child("STATUS"))
-                    .child(div().w(px(112.)).child("ALBUMS"))
-                    .child(div().w(px(112.)).child("TRACKS"))
+                    .child(div().w(rpx(248.)).child("NAME"))
+                    .child(div().w(rpx(120.)).child("STATUS"))
+                    .child(div().w(rpx(112.)).child("ALBUMS"))
+                    .child(div().w(rpx(112.)).child("TRACKS"))
                     .child(div().flex_1().child("LAST SCAN")),
             )
             .child(
@@ -373,9 +375,9 @@ impl LibraryView {
             .flex()
             .items_center()
             .w_full()
-            .h(px(if failure.is_some() { 68. } else { 58. }))
+            .h(rpx(if failure.is_some() { 68. } else { 58. }))
             .flex_none()
-            .px(px(14.))
+            .px(rpx(14.))
             .relative()
             .border_t_1()
             .border_color(theme::border())
@@ -392,21 +394,21 @@ impl LibraryView {
                 div()
                     .flex()
                     .items_center()
-                    .w(px(248.))
+                    .w(rpx(248.))
                     .min_w_0()
                     .child(
                         div()
                             .flex()
                             .items_center()
                             .justify_center()
-                            .size(px(32.))
+                            .size(rpx(32.))
                             .flex_none()
-                            .rounded(px(theme::RADIUS_SM))
+                            .rounded(rpx(theme::RADIUS_SM))
                             .bg(theme::bg_muted())
                             .child(
                                 svg()
                                     .path("icons/folder.svg")
-                                    .size(px(16.))
+                                    .size(rpx(16.))
                                     .text_color(foreground),
                             ),
                     )
@@ -414,7 +416,7 @@ impl LibraryView {
                         div()
                             .flex()
                             .flex_col()
-                            .ml(px(10.))
+                            .ml(rpx(10.))
                             .min_w_0()
                             .child(
                                 div()
@@ -422,7 +424,7 @@ impl LibraryView {
                                     .truncate()
                                     .font_family(theme::FONT_SANS)
                                     .font_weight(FontWeight::SEMIBOLD)
-                                    .text_size(px(13.))
+                                    .text_size(theme::text::BODY_LARGE)
                                     .text_color(theme::text_primary())
                                     .child(root.root.display_name.clone()),
                             )
@@ -431,7 +433,7 @@ impl LibraryView {
                                     .w_full()
                                     .truncate()
                                     .font_family(theme::FONT_MONO)
-                                    .text_size(px(9.))
+                                    .text_size(theme::text::CAPTION_XS)
                                     .text_color(theme::text_muted())
                                     .child(root.root.path.display().to_string()),
                             ),
@@ -442,16 +444,16 @@ impl LibraryView {
                     .flex()
                     .flex_col()
                     .items_start()
-                    .w(px(120.))
+                    .w(rpx(120.))
                     .child(render_status_pill(status, foreground, background))
                     .when_some(failure, |column, failure| {
                         column.child(
                             div()
-                                .mt(px(3.))
-                                .max_w(px(112.))
+                                .mt(rpx(3.))
+                                .max_w(rpx(112.))
                                 .truncate()
                                 .font_family(theme::FONT_SANS)
-                                .text_size(px(9.))
+                                .text_size(theme::text::CAPTION_XS)
                                 .text_color(if matches!(&state, RootRowState::Failed { .. }) {
                                     theme::danger()
                                 } else {
@@ -463,19 +465,19 @@ impl LibraryView {
             )
             .child(
                 div()
-                    .w(px(112.))
+                    .w(rpx(112.))
                     .font_family(theme::FONT_MONO)
                     .font_weight(FontWeight::BOLD)
-                    .text_size(px(12.))
+                    .text_size(theme::text::BODY)
                     .text_color(theme::text_secondary())
                     .child(root.summary.album_count.to_string()),
             )
             .child(
                 div()
-                    .w(px(112.))
+                    .w(rpx(112.))
                     .font_family(theme::FONT_MONO)
                     .font_weight(FontWeight::BOLD)
-                    .text_size(px(12.))
+                    .text_size(theme::text::BODY)
                     .text_color(theme::text_secondary())
                     .child(root.summary.track_count.to_string()),
             )
@@ -489,7 +491,7 @@ impl LibraryView {
                         div()
                             .truncate()
                             .font_family(theme::FONT_SANS)
-                            .text_size(px(11.))
+                            .text_size(theme::text::SMALL)
                             .text_color(theme::text_muted())
                             .child(last_scan),
                     )
@@ -497,9 +499,9 @@ impl LibraryView {
                         cell.child(div().flex_1()).child(
                             div()
                                 .id(format!("retry-root-{root_id}"))
-                                .px(px(8.))
-                                .py(px(4.))
-                                .rounded(px(theme::RADIUS_SM))
+                                .px(rpx(8.))
+                                .py(rpx(4.))
+                                .rounded(rpx(theme::RADIUS_SM))
                                 .border_1()
                                 .border_color(theme::danger())
                                 .when(!scanning_elsewhere, |button| {
@@ -510,7 +512,7 @@ impl LibraryView {
                                 .opacity(if scanning_elsewhere { 0.5 } else { 1.0 })
                                 .font_family(theme::FONT_MONO)
                                 .font_weight(FontWeight::BOLD)
-                                .text_size(px(9.))
+                                .text_size(theme::text::CAPTION_XS)
                                 .text_color(theme::danger())
                                 .child("RETRY"),
                         )
@@ -558,7 +560,7 @@ impl LibraryView {
         div()
             .flex()
             .flex_col()
-            .w(px(338.))
+            .w(rpx(338.))
             .h_full()
             .flex_none()
             .overflow_hidden()
@@ -568,7 +570,7 @@ impl LibraryView {
                 div()
                     .flex()
                     .flex_col()
-                    .p(px(18.))
+                    .p(rpx(18.))
                     .border_b_1()
                     .border_color(theme::border())
                     .child(
@@ -580,7 +582,7 @@ impl LibraryView {
                                 div()
                                     .font_family(theme::FONT_MONO)
                                     .font_weight(FontWeight::BOLD)
-                                    .text_size(px(10.))
+                                    .text_size(theme::text::CAPTION)
                                     .text_color(theme::text_muted())
                                     .child("STORAGE DETAIL"),
                             )
@@ -591,23 +593,23 @@ impl LibraryView {
                     )
                     .child(
                         div()
-                            .mt(px(17.))
+                            .mt(rpx(17.))
                             .flex()
                             .items_center()
-                            .gap(px(11.))
+                            .gap(rpx(11.))
                             .child(
                                 div()
                                     .flex()
                                     .items_center()
                                     .justify_center()
-                                    .size(px(40.))
+                                    .size(rpx(40.))
                                     .flex_none()
-                                    .rounded(px(theme::RADIUS_SM))
+                                    .rounded(rpx(theme::RADIUS_SM))
                                     .bg(theme::bg_muted())
                                     .child(
                                         svg()
                                             .path("icons/database.svg")
-                                            .size(px(20.))
+                                            .size(rpx(20.))
                                             .text_color(status_style(&root_state).1),
                                     ),
                             )
@@ -622,17 +624,17 @@ impl LibraryView {
                                             .truncate()
                                             .font_family(theme::FONT_DISPLAY)
                                             .font_weight(FontWeight::BOLD)
-                                            .text_size(px(18.))
+                                            .text_size(theme::text::TITLE_LARGE)
                                             .text_color(theme::text_primary())
                                             .child(root_name),
                                     )
                                     .child(
                                         div()
-                                            .mt(px(2.))
+                                            .mt(rpx(2.))
                                             .w_full()
                                             .truncate()
                                             .font_family(theme::FONT_MONO)
-                                            .text_size(px(9.))
+                                            .text_size(theme::text::CAPTION_XS)
                                             .text_color(theme::text_muted())
                                             .child(root_path),
                                     ),
@@ -647,8 +649,8 @@ impl LibraryView {
                 div()
                     .flex()
                     .flex_col()
-                    .gap(px(13.))
-                    .p(px(18.))
+                    .gap(rpx(13.))
+                    .p(rpx(18.))
                     .child(render_detail_line(
                         "Albums",
                         root.summary.album_count.to_string(),
@@ -687,9 +689,9 @@ impl LibraryView {
         div()
             .flex()
             .flex_col()
-            .gap(px(8.))
-            .px(px(18.))
-            .pt(px(14.))
+            .gap(rpx(8.))
+            .px(rpx(18.))
+            .pt(rpx(14.))
             .child(super::render_text_input(
                 "rename-storage-input",
                 &self.text_input,
@@ -700,12 +702,12 @@ impl LibraryView {
                 div()
                     .flex()
                     .justify_end()
-                    .gap(px(8.))
+                    .gap(rpx(8.))
                     .child(
                         div()
                             .id("cancel-rename-storage")
-                            .px(px(9.))
-                            .py(px(5.))
+                            .px(rpx(9.))
+                            .py(rpx(5.))
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _, _, cx| {
                                 this.rename_draft = None;
@@ -713,16 +715,16 @@ impl LibraryView {
                             }))
                             .font_family(theme::FONT_MONO)
                             .font_weight(FontWeight::BOLD)
-                            .text_size(px(9.))
+                            .text_size(theme::text::CAPTION_XS)
                             .text_color(theme::text_muted())
                             .child("CANCEL"),
                     )
                     .child(
                         div()
                             .id("save-rename-storage")
-                            .px(px(9.))
-                            .py(px(5.))
-                            .rounded(px(theme::RADIUS_SM))
+                            .px(rpx(9.))
+                            .py(rpx(5.))
+                            .rounded(rpx(theme::RADIUS_SM))
                             .bg(theme::accent_soft())
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _, _, cx| {
@@ -730,7 +732,7 @@ impl LibraryView {
                             }))
                             .font_family(theme::FONT_MONO)
                             .font_weight(FontWeight::BOLD)
-                            .text_size(px(9.))
+                            .text_size(theme::text::CAPTION_XS)
                             .text_color(theme::accent())
                             .child("SAVE"),
                     ),
@@ -762,8 +764,8 @@ impl LibraryView {
         div()
             .flex()
             .flex_col()
-            .gap(px(8.))
-            .p(px(18.))
+            .gap(rpx(8.))
+            .p(rpx(18.))
             .border_t_1()
             .border_color(theme::border())
             .child(if active_scan {
@@ -772,9 +774,9 @@ impl LibraryView {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .h(px(34.))
+                    .h(rpx(34.))
                     .w_full()
-                    .rounded(px(theme::RADIUS_SM))
+                    .rounded(rpx(theme::RADIUS_SM))
                     .border_1()
                     .border_color(theme::danger())
                     .bg(theme::danger_soft())
@@ -782,7 +784,7 @@ impl LibraryView {
                     .on_click(cx.listener(|this, _, _, cx| this.cancel_scan(cx)))
                     .font_family(theme::FONT_DISPLAY)
                     .font_weight(FontWeight::SEMIBOLD)
-                    .text_size(px(13.))
+                    .text_size(theme::text::BODY_LARGE)
                     .text_color(theme::danger())
                     .child("Cancel Scan")
                     .into_any_element()
@@ -792,10 +794,10 @@ impl LibraryView {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .gap(px(7.))
-                    .h(px(34.))
+                    .gap(rpx(7.))
+                    .h(rpx(34.))
                     .w_full()
-                    .rounded(px(theme::RADIUS_SM))
+                    .rounded(rpx(theme::RADIUS_SM))
                     .border_1()
                     .border_color(if scan_blocked {
                         theme::border()
@@ -813,18 +815,21 @@ impl LibraryView {
                         )
                     })
                     .opacity(if scan_blocked { 0.5 } else { 1.0 })
-                    .child(svg().path("icons/refresh-cw.svg").size(px(14.)).text_color(
-                        if scan_blocked {
-                            theme::text_muted()
-                        } else {
-                            theme::accent()
-                        },
-                    ))
+                    .child(
+                        svg()
+                            .path("icons/refresh-cw.svg")
+                            .size(rpx(14.))
+                            .text_color(if scan_blocked {
+                                theme::text_muted()
+                            } else {
+                                theme::accent()
+                            }),
+                    )
                     .child(
                         div()
                             .font_family(theme::FONT_DISPLAY)
                             .font_weight(FontWeight::SEMIBOLD)
-                            .text_size(px(13.))
+                            .text_size(theme::text::BODY_LARGE)
                             .text_color(if scan_blocked {
                                 theme::text_muted()
                             } else {
@@ -837,16 +842,16 @@ impl LibraryView {
             .child(
                 div()
                     .flex()
-                    .gap(px(8.))
+                    .gap(rpx(8.))
                     .child(
                         div()
                             .id("edit-storage-root")
                             .flex()
                             .items_center()
                             .justify_center()
-                            .h(px(32.))
+                            .h(rpx(32.))
                             .flex_1()
-                            .rounded(px(theme::RADIUS_SM))
+                            .rounded(rpx(theme::RADIUS_SM))
                             .border_1()
                             .border_color(theme::border())
                             .bg(theme::bg_muted())
@@ -861,7 +866,7 @@ impl LibraryView {
                             .opacity(if mutations_blocked { 0.5 } else { 1.0 })
                             .font_family(theme::FONT_DISPLAY)
                             .font_weight(FontWeight::SEMIBOLD)
-                            .text_size(px(12.))
+                            .text_size(theme::text::BODY)
                             .text_color(theme::text_secondary())
                             .child("Edit"),
                     )
@@ -871,9 +876,9 @@ impl LibraryView {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .h(px(32.))
+                            .h(rpx(32.))
                             .flex_1()
-                            .rounded(px(theme::RADIUS_SM))
+                            .rounded(rpx(theme::RADIUS_SM))
                             .border_1()
                             .border_color(theme::border())
                             .when(!mutations_blocked, |button| {
@@ -886,7 +891,7 @@ impl LibraryView {
                             .opacity(if mutations_blocked { 0.5 } else { 1.0 })
                             .font_family(theme::FONT_DISPLAY)
                             .font_weight(FontWeight::SEMIBOLD)
-                            .text_size(px(12.))
+                            .text_size(theme::text::BODY)
                             .text_color(theme::danger())
                             .child("Remove"),
                     ),
@@ -939,8 +944,8 @@ fn render_summary_card(
         .flex_1()
         .min_w_0()
         .justify_center()
-        .px(px(16.))
-        .rounded(px(theme::RADIUS_MD))
+        .px(rpx(16.))
+        .rounded(rpx(theme::RADIUS_MD))
         .border_1()
         .border_color(theme::border())
         .bg(theme::bg_surface())
@@ -948,26 +953,26 @@ fn render_summary_card(
             div()
                 .font_family(theme::FONT_MONO)
                 .font_weight(FontWeight::BOLD)
-                .text_size(px(9.))
+                .text_size(theme::text::CAPTION_XS)
                 .text_color(theme::text_muted())
                 .child(label),
         )
         .child(
             div()
-                .mt(px(5.))
+                .mt(rpx(5.))
                 .truncate()
                 .font_family(theme::FONT_DISPLAY)
                 .font_weight(FontWeight::BOLD)
-                .text_size(px(20.))
+                .text_size(theme::text::HEADING_SMALL)
                 .text_color(tone)
                 .child(title),
         )
         .child(
             div()
-                .mt(px(2.))
+                .mt(rpx(2.))
                 .truncate()
                 .font_family(theme::FONT_SANS)
-                .text_size(px(10.))
+                .text_size(theme::text::CAPTION)
                 .text_color(theme::text_muted())
                 .child(subtitle),
         )
@@ -977,13 +982,13 @@ fn render_status_pill(label: &'static str, foreground: Rgba, background: Rgba) -
     div()
         .flex()
         .items_center()
-        .h(px(20.))
-        .px(px(7.))
-        .rounded(px(theme::RADIUS_SM))
+        .h(rpx(20.))
+        .px(rpx(7.))
+        .rounded(rpx(theme::RADIUS_SM))
         .bg(background)
         .font_family(theme::FONT_MONO)
         .font_weight(FontWeight::BOLD)
-        .text_size(px(9.))
+        .text_size(theme::text::CAPTION_XS)
         .text_color(foreground)
         .child(label)
 }
@@ -1005,22 +1010,22 @@ fn render_detail_line(label: &'static str, value: String) -> impl IntoElement {
         .flex()
         .items_start()
         .justify_between()
-        .gap(px(12.))
+        .gap(rpx(12.))
         .w_full()
         .child(
             div()
                 .font_family(theme::FONT_SANS)
-                .text_size(px(11.))
+                .text_size(theme::text::SMALL)
                 .text_color(theme::text_muted())
                 .child(label),
         )
         .child(
             div()
-                .max_w(px(205.))
+                .max_w(rpx(205.))
                 .text_right()
                 .font_family(theme::FONT_MONO)
                 .font_weight(FontWeight::BOLD)
-                .text_size(px(10.))
+                .text_size(theme::text::CAPTION)
                 .text_color(if label == "Issues" && value != "None" {
                     theme::warning()
                 } else {
@@ -1035,11 +1040,11 @@ fn render_scan_progress(progress: ScanProgressView) -> impl IntoElement {
     div()
         .flex()
         .flex_col()
-        .gap(px(8.))
-        .mx(px(18.))
-        .mt(px(16.))
-        .p(px(12.))
-        .rounded(px(theme::RADIUS_SM))
+        .gap(rpx(8.))
+        .mx(rpx(18.))
+        .mt(rpx(16.))
+        .p(rpx(12.))
+        .rounded(rpx(theme::RADIUS_SM))
         .border_1()
         .border_color(theme::border())
         .bg(theme::bg_muted())
@@ -1049,7 +1054,7 @@ fn render_scan_progress(progress: ScanProgressView) -> impl IntoElement {
                 .justify_between()
                 .font_family(theme::FONT_MONO)
                 .font_weight(FontWeight::BOLD)
-                .text_size(px(10.))
+                .text_size(theme::text::CAPTION)
                 .text_color(theme::text_secondary())
                 .child("SCANNING")
                 .child(
@@ -1063,24 +1068,24 @@ fn render_scan_progress(progress: ScanProgressView) -> impl IntoElement {
             div()
                 .relative()
                 .w_full()
-                .h(px(4.))
-                .rounded(px(2.))
+                .h(rpx(4.))
+                .rounded(rpx(2.))
                 .bg(theme::bg_inset())
                 .child(
                     div()
                         .absolute()
                         .left_0()
                         .top_0()
-                        .h(px(4.))
-                        .w(px(2.78 * percent as f32))
-                        .rounded(px(2.))
+                        .h(rpx(4.))
+                        .w(rpx(2.78 * percent as f32))
+                        .rounded(rpx(2.))
                         .bg(theme::accent()),
                 ),
         )
         .child(
             div()
                 .font_family(theme::FONT_SANS)
-                .text_size(px(10.))
+                .text_size(theme::text::CAPTION)
                 .text_color(theme::text_muted())
                 .child(progress.count_line),
         )

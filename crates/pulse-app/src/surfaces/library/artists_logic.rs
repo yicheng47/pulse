@@ -69,10 +69,13 @@ pub(super) fn filter_artist_index<'a>(artists: &'a [Artist], search: &str) -> Ve
         .collect()
 }
 
-pub(super) fn artist_grid_columns(viewport_width: f32) -> u16 {
+pub(super) fn artist_grid_columns(viewport_width: f32, scale: f32) -> u16 {
     let content_width =
-        (viewport_width - SIDEBAR_SLOT_WIDTH - ARTIST_BODY_HORIZONTAL_PADDING * 2.).max(0.);
-    (((content_width + ARTIST_GRID_GAP) / (ARTIST_CARD_MIN_WIDTH + ARTIST_GRID_GAP)).floor() as u16)
+        (viewport_width - SIDEBAR_SLOT_WIDTH * scale - ARTIST_BODY_HORIZONTAL_PADDING * 2. * scale)
+            .max(0.);
+    (((content_width + ARTIST_GRID_GAP * scale)
+        / ((ARTIST_CARD_MIN_WIDTH + ARTIST_GRID_GAP) * scale))
+        .floor() as u16)
         .max(1)
 }
 
@@ -200,10 +203,12 @@ mod tests {
 
     #[test]
     fn artist_grid_is_five_columns_at_the_approved_canvas_width() {
-        assert_eq!(artist_grid_columns(1440.), 5);
-        assert_eq!(artist_grid_columns(1663.), 5);
-        assert_eq!(artist_grid_columns(1664.), 6);
-        assert_eq!(artist_grid_columns(0.), 1);
+        let default_scale = 1.0; // 16 px rem size divided by the 16 px baseline.
+        assert_eq!(artist_grid_columns(1440., default_scale), 5);
+        assert_eq!(artist_grid_columns(1663., default_scale), 5);
+        assert_eq!(artist_grid_columns(1664., default_scale), 6);
+        assert_eq!(artist_grid_columns(0., default_scale), 1);
+        assert_eq!(artist_grid_columns(1440., 1.25), 3);
     }
 
     #[test]

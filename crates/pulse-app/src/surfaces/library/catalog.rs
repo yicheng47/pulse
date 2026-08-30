@@ -1,3 +1,5 @@
+use crate::theme::rpx;
+
 use super::*;
 
 impl LibraryView {
@@ -44,14 +46,14 @@ impl LibraryView {
 
     /// The album grid loads more when scrolled within a prefetch margin of
     /// the bottom (or when the loaded set does not fill the viewport yet).
-    pub(super) fn should_load_more_albums(&self) -> bool {
+    pub(super) fn should_load_more_albums(&self, rem_size: Pixels) -> bool {
         if self.store.is_none() || self.album_load_stalled || self.albums.len() >= self.album_total
         {
             return false;
         }
         let offset = self.albums_scroll.offset();
         let max_offset = self.albums_scroll.max_offset();
-        -offset.y >= max_offset.y - px(ALBUM_PREFETCH_PX)
+        -offset.y >= max_offset.y - rpx(ALBUM_PREFETCH).to_pixels(rem_size)
     }
 
     /// Returns true when a page was appended; false on failure (which latches
@@ -145,14 +147,14 @@ impl LibraryView {
         self.set_artist_filter(artist, cx);
     }
 
-    pub(super) fn should_load_more_tracks(&self) -> bool {
+    pub(super) fn should_load_more_tracks(&self, rem_size: Pixels) -> bool {
         if self.store.is_none() || self.track_load_stalled || self.tracks.len() >= self.track_total
         {
             return false;
         }
         let offset = self.tracks_scroll.offset();
         let max_offset = self.tracks_scroll.max_offset();
-        -offset.y >= max_offset.y - px(TRACK_PREFETCH_PX)
+        -offset.y >= max_offset.y - rpx(TRACK_PREFETCH).to_pixels(rem_size)
     }
 
     pub(super) fn load_more_tracks(&mut self) -> bool {

@@ -1,6 +1,8 @@
+use crate::theme::rpx;
+
 use gpui::{
     AnyElement, App, ElementId, FontWeight, IntoElement, Render, RenderOnce, SharedString, Window,
-    div, prelude::*, px,
+    div, prelude::*,
 };
 
 use crate::theme;
@@ -56,16 +58,16 @@ impl RenderOnce for Tooltip {
 
 fn tooltip_content(content: SharedString) -> impl IntoElement {
     div()
-        .max_w(px(320.))
-        .px(px(8.))
-        .py(px(4.))
-        .rounded(px(theme::RADIUS_SM))
+        .max_w(rpx(320.))
+        .px(rpx(8.))
+        .py(rpx(4.))
+        .rounded(rpx(theme::RADIUS_SM))
         .border_1()
         .border_color(theme::border_strong())
         .bg(theme::bg_elevated())
         .font_family(theme::FONT_SANS)
         .font_weight(FontWeight::NORMAL)
-        .text_size(px(11.))
+        .text_size(theme::text::SMALL)
         .text_color(theme::text_secondary())
         .child(content)
 }

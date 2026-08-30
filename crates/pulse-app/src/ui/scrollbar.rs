@@ -1,12 +1,14 @@
+use crate::theme::rpx;
+
 use gpui::{
     Context, DragMoveEvent, ElementId, IntoElement, MouseButton, MouseDownEvent, Pixels, Render,
-    ScrollHandle, Window, canvas, div, point, prelude::*, px,
+    ScrollHandle, Window, canvas, div, point, prelude::*,
 };
 
 use crate::theme;
 
-const SCROLLBAR_INSET_PX: f32 = 4.;
-const SCROLLBAR_MIN_THUMB_PX: f32 = 36.;
+const SCROLLBAR_INSET: f32 = 4.;
+const SCROLLBAR_MIN_THUMB: f32 = 36.;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct ScrollbarMetrics {
@@ -19,19 +21,22 @@ pub(crate) fn scrollbar_metrics(
     viewport_height: Pixels,
     max_scroll: Pixels,
     offset: Pixels,
+    rem_size: Pixels,
 ) -> Option<ScrollbarMetrics> {
-    if viewport_height <= px(0.) || max_scroll <= px(0.) {
+    if viewport_height <= Pixels::ZERO || max_scroll <= Pixels::ZERO {
         return None;
     }
-    let rail_height = viewport_height - px(SCROLLBAR_INSET_PX * 2.);
-    if rail_height <= px(SCROLLBAR_MIN_THUMB_PX) {
+    let inset = rpx(SCROLLBAR_INSET).to_pixels(rem_size);
+    let min_thumb = rpx(SCROLLBAR_MIN_THUMB).to_pixels(rem_size);
+    let rail_height = viewport_height - inset * 2.;
+    if rail_height <= min_thumb {
         return None;
     }
     let content_height = viewport_height + max_scroll;
-    let thumb_height = (rail_height * (viewport_height / content_height))
-        .clamp(px(SCROLLBAR_MIN_THUMB_PX), rail_height);
+    let thumb_height =
+        (rail_height * (viewport_height / content_height)).clamp(min_thumb, rail_height);
     let travel = rail_height - thumb_height;
-    if travel <= px(0.) {
+    if travel <= Pixels::ZERO {
         return None;
     }
     let progress = (-offset / max_scroll).clamp(0., 1.);
@@ -47,7 +52,7 @@ struct ScrollbarDrag;
 
 impl Render for ScrollbarDrag {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        div().size(px(1.))
+        div().size(rpx(1.))
     }
 }
 
@@ -79,7 +84,7 @@ impl Scrollbar {
     }
 
     pub(crate) fn set_estimated_content_height(&mut self, height: Pixels) {
-        self.estimated_content_height = Some(height.max(px(0.)));
+        self.estimated_content_height = Some(height.max(Pixels::ZERO));
     }
 
     pub(crate) fn set_scroll_handle(&mut self, scroll: ScrollHandle) {
@@ -94,23 +99,32 @@ impl Scrollbar {
         let estimated = self
             .estimated_content_height
             .map(|height| height - viewport_height)
-            .unwrap_or(px(0.));
-        measured.max(estimated).max(px(0.))
+            .unwrap_or(Pixels::ZERO);
+        measured.max(estimated).max(Pixels::ZERO)
     }
 
-    fn current_metrics(&self) -> Option<ScrollbarMetrics> {
+    fn current_metrics(&self, rem_size: Pixels) -> Option<ScrollbarMetrics> {
         scrollbar_metrics(
             self.scroll.bounds().size.height,
             self.max_scroll(),
             self.scroll.offset().y,
+            rem_size,
         )
     }
 
-    fn on_mouse_down(&mut self, event: &MouseDownEvent, _: &mut Window, cx: &mut Context<Self>) {
-        let Some(metrics) = self.current_metrics() else {
+    fn on_mouse_down(
+        &mut self,
+        event: &MouseDownEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let rem_size = window.rem_size();
+        let Some(metrics) = self.current_metrics(rem_size) else {
             return;
         };
-        let local = event.position.y - self.scroll.bounds().top() - px(SCROLLBAR_INSET_PX);
+        let local = event.position.y
+            - self.scroll.bounds().top()
+            - rpx(SCROLLBAR_INSET).to_pixels(rem_size);
         self.drag_offset = Some(
             if local >= metrics.thumb_top && local <= metrics.thumb_top + metrics.thumb_height {
                 local - metrics.thumb_top
@@ -118,7 +132,7 @@ impl Scrollbar {
                 metrics.thumb_height / 2.
             },
         );
-        self.scroll_for_pointer(event.position.y);
+        self.scroll_for_pointer(event.position.y, rem_size);
         cx.stop_propagation();
         cx.notify();
     }
@@ -126,29 +140,29 @@ impl Scrollbar {
     fn on_drag_move(
         &mut self,
         event: &DragMoveEvent<ScrollbarDrag>,
-        _: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         if self.drag_offset.is_some() {
-            self.scroll_for_pointer(event.event.position.y);
+            self.scroll_for_pointer(event.event.position.y, window.rem_size());
             cx.stop_propagation();
             cx.notify();
         }
     }
 
-    fn scroll_for_pointer(&self, pointer_y: Pixels) {
-        let Some(metrics) = self.current_metrics() else {
+    fn scroll_for_pointer(&self, pointer_y: Pixels, rem_size: Pixels) {
+        let Some(metrics) = self.current_metrics(rem_size) else {
             return;
         };
         let target_top = (pointer_y
             - self.scroll.bounds().top()
-            - px(SCROLLBAR_INSET_PX)
+            - rpx(SCROLLBAR_INSET).to_pixels(rem_size)
             - self.drag_offset.unwrap_or(metrics.thumb_height / 2.))
-        .clamp(px(0.), metrics.travel);
+        .clamp(Pixels::ZERO, metrics.travel);
         let progress = target_top / metrics.travel;
         let max_scroll = self.max_scroll();
         self.scroll
-            .set_offset(point(px(0.), -(max_scroll * progress)));
+            .set_offset(point(Pixels::ZERO, -(max_scroll * progress)));
     }
 
     fn finish_drag(&mut self, cx: &mut Context<Self>) {
@@ -159,18 +173,19 @@ impl Scrollbar {
 }
 
 impl Render for Scrollbar {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let metrics = self.current_metrics();
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let rem_size = window.rem_size();
+        let metrics = self.current_metrics(rem_size);
         let dragging = self.drag_offset.is_some();
         let entity = cx.entity();
         div()
             .id(self.id.clone())
             .absolute()
-            .top(px(SCROLLBAR_INSET_PX))
-            .right(px(2.))
-            .bottom(px(SCROLLBAR_INSET_PX))
-            .w(px(4.))
-            .rounded(px(2.))
+            .top(rpx(SCROLLBAR_INSET))
+            .right(rpx(2.))
+            .bottom(rpx(SCROLLBAR_INSET))
+            .w(rpx(4.))
+            .rounded(rpx(2.))
             .when(metrics.is_some(), |scrollbar| {
                 scrollbar
                     .bg(theme::bg_muted())
@@ -192,7 +207,7 @@ impl Render for Scrollbar {
                     |_, _, _| {},
                     move |_, _, _, cx| {
                         entity.update(cx, |scrollbar, cx| {
-                            let metrics = scrollbar.current_metrics();
+                            let metrics = scrollbar.current_metrics(rem_size);
                             if scrollbar.last_metrics != metrics {
                                 scrollbar.last_metrics = metrics;
                                 cx.notify();
@@ -211,7 +226,7 @@ impl Render for Scrollbar {
                     .left_0()
                     .w_full()
                     .h(metrics.thumb_height)
-                    .rounded(px(2.))
+                    .rounded(rpx(2.))
                     .bg(if dragging {
                         theme::text_secondary()
                     } else {
@@ -229,17 +244,40 @@ mod tests {
 
     #[test]
     fn metrics_follow_the_scroll_range() {
-        assert_eq!(scrollbar_metrics(px(500.), px(0.), px(0.)), None);
-        assert_eq!(scrollbar_metrics(px(40.), px(1_000.), px(0.)), None);
-        assert_eq!(scrollbar_metrics(px(500.), px(f32::EPSILON), px(0.)), None);
+        let rem_size = gpui::px(16.); // physical
+        let pixels = |value| rpx(value).to_pixels(rem_size);
+        assert_eq!(
+            scrollbar_metrics(pixels(500.), pixels(0.), pixels(0.), rem_size),
+            None
+        );
+        assert_eq!(
+            scrollbar_metrics(pixels(40.), pixels(1_000.), pixels(0.), rem_size),
+            None
+        );
+        assert_eq!(
+            scrollbar_metrics(pixels(500.), pixels(f32::EPSILON), pixels(0.), rem_size),
+            None
+        );
 
-        let top = scrollbar_metrics(px(500.), px(1_000.), px(0.)).unwrap();
-        assert_eq!(top.thumb_top, px(0.));
+        let top = scrollbar_metrics(pixels(500.), pixels(1_000.), pixels(0.), rem_size).unwrap();
+        assert_eq!(top.thumb_top, pixels(0.));
 
-        let bottom = scrollbar_metrics(px(500.), px(1_000.), px(-1_000.)).unwrap();
+        let bottom =
+            scrollbar_metrics(pixels(500.), pixels(1_000.), pixels(-1_000.), rem_size).unwrap();
         assert_eq!(bottom.thumb_top, bottom.travel);
 
-        let deep = scrollbar_metrics(px(500.), px(100_000.), px(0.)).unwrap();
-        assert_eq!(deep.thumb_height, px(SCROLLBAR_MIN_THUMB_PX));
+        let deep = scrollbar_metrics(pixels(500.), pixels(100_000.), pixels(0.), rem_size).unwrap();
+        assert_eq!(deep.thumb_height, pixels(SCROLLBAR_MIN_THUMB));
+
+        let scaled_rem_size = rem_size * 1.25;
+        let scaled_pixels = |value| rpx(value).to_pixels(scaled_rem_size);
+        let scaled = scrollbar_metrics(
+            scaled_pixels(500.),
+            scaled_pixels(100_000.),
+            scaled_pixels(0.),
+            scaled_rem_size,
+        )
+        .unwrap();
+        assert_eq!(scaled.thumb_height, scaled_pixels(SCROLLBAR_MIN_THUMB));
     }
 }

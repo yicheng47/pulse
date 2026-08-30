@@ -3,11 +3,13 @@ mod general;
 mod update;
 mod update_logic;
 
+use crate::theme::rpx;
+
 use std::time::Duration;
 
 use gpui::{
     AnyElement, Context, FontWeight, IntoElement, MouseButton, MouseDownEvent, div,
-    linear_color_stop, linear_gradient, prelude::*, px, svg,
+    linear_color_stop, linear_gradient, prelude::*, svg,
 };
 
 use crate::{
@@ -120,7 +122,7 @@ impl Shell {
         model: &SettingsViewModel,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let mut navigation = div().flex().flex_col().gap(px(32.)).w_full().child(
+        let mut navigation = div().flex().flex_col().gap(rpx(32.)).w_full().child(
             ui::SidebarItem::new(
                 "back-to-library",
                 "Back to library",
@@ -191,18 +193,18 @@ impl Shell {
             .min_w_0()
             .h_full()
             .items_center()
-            .gap(px(22.))
-            .pt(px(30.))
-            .pr(px(36.))
-            .pb(px(24.))
-            .pl(px(36.))
+            .gap(rpx(22.))
+            .pt(rpx(30.))
+            .pr(rpx(36.))
+            .pb(rpx(24.))
+            .pl(rpx(36.))
             .child(
                 div()
                     .w_full()
-                    .max_w(px(820.))
+                    .max_w(rpx(820.))
                     .font_family(theme::FONT_DISPLAY)
                     .font_weight(FontWeight::BOLD)
-                    .text_size(px(28.))
+                    .text_size(theme::text::PAGE_TITLE)
                     .text_color(theme::text_primary())
                     .child(model.section.label()),
             )
@@ -215,13 +217,13 @@ pub(super) fn settings_group(label: &'static str, card: impl IntoElement) -> gpu
     div()
         .flex()
         .flex_col()
-        .gap(px(9.))
+        .gap(rpx(9.))
         .w_full()
         .child(
             div()
                 .font_family(theme::FONT_MONO)
                 .font_weight(FontWeight::BOLD)
-                .text_size(px(11.))
+                .text_size(theme::text::SMALL)
                 .text_color(theme::text_muted())
                 .child(label),
         )
@@ -233,9 +235,9 @@ pub(super) fn settings_app_mark() -> impl IntoElement {
         .flex()
         .items_center()
         .justify_center()
-        .size(px(32.))
+        .size(rpx(32.))
         .flex_none()
-        .rounded(px(7.))
+        .rounded(rpx(7.))
         .overflow_hidden()
         .border_1()
         .border_color(theme::border())
@@ -247,7 +249,7 @@ pub(super) fn settings_app_mark() -> impl IntoElement {
         .child(
             svg()
                 .path("icons/activity.svg")
-                .size(px(22.))
+                .size(rpx(22.))
                 .text_color(theme::accent()),
         )
 }
@@ -256,16 +258,16 @@ pub(super) fn version_chip() -> impl IntoElement {
     div()
         .flex()
         .items_center()
-        .px(px(7.))
-        .py(px(3.))
+        .px(rpx(7.))
+        .py(rpx(3.))
         .flex_none()
-        .rounded(px(theme::RADIUS_SM))
+        .rounded(rpx(theme::RADIUS_SM))
         .border_1()
         .border_color(theme::border())
         .bg(theme::bg_muted())
         .font_family(theme::FONT_MONO)
         .font_weight(FontWeight::SEMIBOLD)
-        .text_size(px(11.))
+        .text_size(theme::text::SMALL)
         .text_color(theme::text_secondary())
         .child(format!("v{}", env!("CARGO_PKG_VERSION")))
 }

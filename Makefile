@@ -12,7 +12,7 @@ SPARKLE_VERSION_ROOT := $(SPARKLE_FRAMEWORK)/Versions/B
 # Ad-hoc signatures have no Team ID, so hardened-runtime library validation would reject Sparkle.
 CODESIGN_OPTIONS = $(if $(filter -,$(APPLE_SIGNING_IDENTITY)),--timestamp=none,--options runtime --timestamp)
 
-.PHONY: build release run check test clippy fmt fmt-check verify clean-rust-stale bundle sign sign-dmg notarize notarize-app dmg release-macos check-version check-sign-credentials check-notarize-credentials
+.PHONY: build release run check test clippy fmt fmt-check check-units verify clean-rust-stale bundle sign sign-dmg notarize notarize-app dmg release-macos check-version check-sign-credentials check-notarize-credentials
 
 build:
 	cargo build --workspace
@@ -39,7 +39,11 @@ fmt:
 fmt-check:
 	cargo fmt --all --check
 
-verify: check test clippy fmt-check
+check-units:
+	@! grep -rnE '(^|[^[:alnum:]_.])px\(' crates/pulse-app/src | grep -v 'src/theme.rs' | grep -v '// physical'
+	@! grep -rn 'text_size(' crates/pulse-app/src | grep -v 'src/theme.rs' | grep -v 'theme::text::'
+
+verify: check test clippy fmt-check check-units
 
 check-version:
 	@test -n "$(VERSION)" || { echo "error: could not derive workspace version from ./script/bundle-mac --print-version" >&2; exit 1; }

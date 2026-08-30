@@ -1,8 +1,10 @@
+use crate::theme::rpx;
+
 use std::rc::Rc;
 
 use gpui::{
     AnyElement, App, ClickEvent, ElementId, FontWeight, IntoElement, RenderOnce, SharedString,
-    Window, div, prelude::*, px,
+    Window, div, prelude::*,
 };
 
 use crate::theme;
@@ -33,8 +35,8 @@ impl RenderOnce for SettingsCard {
             .flex()
             .flex_col()
             .w_full()
-            .px(px(16.))
-            .rounded(px(theme::RADIUS_LG))
+            .px(rpx(16.))
+            .rounded(rpx(theme::RADIUS_LG))
             .border_1()
             .border_color(theme::border())
             .bg(theme::bg_surface())
@@ -92,9 +94,9 @@ impl RenderOnce for SettingsRow {
         let row = div()
             .flex()
             .items_center()
-            .gap(px(16.))
+            .gap(rpx(16.))
             .w_full()
-            .py(px(13.))
+            .py(rpx(13.))
             .when(self.divider, |row| {
                 row.border_b_1().border_color(theme::border())
             })
@@ -104,19 +106,19 @@ impl RenderOnce for SettingsRow {
                     .flex_col()
                     .flex_1()
                     .min_w_0()
-                    .gap(px(4.))
+                    .gap(rpx(4.))
                     .child(
                         div()
                             .font_family(theme::FONT_SANS)
                             .font_weight(FontWeight::SEMIBOLD)
-                            .text_size(px(14.))
+                            .text_size(theme::text::LABEL)
                             .text_color(theme::text_primary())
                             .child(self.title),
                     )
                     .child(
                         div()
                             .font_family(theme::FONT_SANS)
-                            .text_size(px(12.))
+                            .text_size(theme::text::BODY)
                             .text_color(theme::text_muted())
                             .child(self.description),
                     ),

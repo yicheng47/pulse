@@ -1,3 +1,5 @@
+use crate::theme::rpx;
+
 use super::*;
 
 impl Shell {
@@ -11,8 +13,8 @@ impl Shell {
             .relative()
             .flex()
             .items_center()
-            .gap(px(8.))
-            .max_w(px(360.))
+            .gap(rpx(8.))
+            .max_w(rpx(360.))
             .cursor_pointer()
             .capture_any_mouse_down(cx.listener(|this, event: &MouseDownEvent, _, cx| {
                 if event.button == MouseButton::Left {
@@ -35,14 +37,14 @@ impl Shell {
                     .truncate()
                     .font_family(theme::FONT_SANS)
                     .font_weight(FontWeight::SEMIBOLD)
-                    .text_size(px(13.))
+                    .text_size(theme::text::BODY_LARGE)
                     .text_color(theme::text_secondary())
                     .child(model.output_device_name.clone()),
             )
             .child(
                 svg()
                     .path("icons/chevron-right.svg")
-                    .size(px(16.))
+                    .size(rpx(16.))
                     .flex_none()
                     .text_color(theme::text_muted()),
             )
@@ -56,7 +58,7 @@ impl Shell {
                 output_picker,
             )),
         )
-        .max_w(px(820.))
+        .max_w(rpx(820.))
         .into_any_element()
     }
 }

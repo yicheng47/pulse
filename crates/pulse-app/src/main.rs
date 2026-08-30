@@ -98,13 +98,13 @@ fn main() {
             })
             .detach();
 
-            let bounds = Bounds::centered(None, size(px(1440.), px(900.)), cx);
+            let bounds = Bounds::centered(None, size(px(1440.), px(900.)), cx); // physical
             cx.open_window(
                 WindowOptions {
                     titlebar: Some(TitlebarOptions {
                         title: None,
                         appears_transparent: true,
-                        traffic_light_position: Some(point(px(24.), px(30.))),
+                        traffic_light_position: Some(point(px(24.), px(30.))), // physical
                     }),
                     window_bounds: Some(WindowBounds::Windowed(bounds)),
                     ..Default::default()

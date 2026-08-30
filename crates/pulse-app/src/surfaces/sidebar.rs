@@ -1,4 +1,6 @@
-use gpui::{Context, FontWeight, IntoElement, div, prelude::*, px};
+use crate::theme::rpx;
+
+use gpui::{Context, FontWeight, IntoElement, div, prelude::*};
 
 use crate::{
     surfaces::{Destination, NAV_GROUPS, Shell},
@@ -13,7 +15,7 @@ impl Shell {
     }
 
     fn render_navigation(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let mut navigation = div().flex().flex_col().gap(px(32.)).w_full();
+        let mut navigation = div().flex().flex_col().gap(rpx(32.)).w_full();
 
         for (header, destinations) in NAV_GROUPS {
             let mut section = ui::SidebarSection::new(*header);
@@ -52,9 +54,9 @@ fn render_storage_badge(count: usize) -> impl IntoElement {
         .items_center()
         .justify_center()
         .flex_none()
-        .px(px(6.))
-        .py(px(2.))
-        .rounded(px(theme::RADIUS_SM))
+        .px(rpx(6.))
+        .py(rpx(2.))
+        .rounded(rpx(theme::RADIUS_SM))
         .border_1()
         .border_color(theme::border())
         .bg(theme::bg_muted())
@@ -62,7 +64,7 @@ fn render_storage_badge(count: usize) -> impl IntoElement {
             div()
                 .font_family(theme::FONT_MONO)
                 .font_weight(FontWeight::BOLD)
-                .text_size(px(10.))
+                .text_size(theme::text::CAPTION)
                 .text_color(theme::text_muted())
                 .child(count.to_string()),
         )

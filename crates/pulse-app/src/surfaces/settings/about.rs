@@ -1,3 +1,5 @@
+use crate::theme::rpx;
+
 use super::*;
 
 impl Shell {
@@ -6,26 +8,26 @@ impl Shell {
             div()
                 .flex()
                 .items_center()
-                .gap(px(14.))
+                .gap(rpx(14.))
                 .w_full()
-                .py(px(16.))
+                .py(rpx(16.))
                 .child(settings_app_mark())
                 .child(
                     div()
                         .flex()
                         .flex_col()
-                        .gap(px(4.))
+                        .gap(rpx(4.))
                         .min_w_0()
                         .child(
                             div()
                                 .flex()
                                 .items_center()
-                                .gap(px(8.))
+                                .gap(rpx(8.))
                                 .child(
                                     div()
                                         .font_family(theme::FONT_DISPLAY)
                                         .font_weight(FontWeight::BOLD)
-                                        .text_size(px(18.))
+                                        .text_size(theme::text::TITLE_LARGE)
                                         .text_color(theme::text_primary())
                                         .child("Pulse"),
                                 )
@@ -34,7 +36,7 @@ impl Shell {
                         .child(
                             div()
                                 .font_family(theme::FONT_SANS)
-                                .text_size(px(12.))
+                                .text_size(theme::text::BODY)
                                 .text_color(theme::text_muted())
                                 .child("Local music player for macOS."),
                         ),
@@ -49,7 +51,7 @@ impl Shell {
                     link.description(),
                     svg()
                         .path("icons/external-link.svg")
-                        .size(px(15.))
+                        .size(rpx(15.))
                         .flex_none()
                         .text_color(theme::text_muted()),
                 )
@@ -62,9 +64,9 @@ impl Shell {
         div()
             .flex()
             .flex_col()
-            .gap(px(22.))
+            .gap(rpx(22.))
             .w_full()
-            .max_w(px(820.))
+            .max_w(rpx(820.))
             .child(settings_group("APPLICATION", application))
             .child(settings_group("LINKS", links))
             .into_any_element()

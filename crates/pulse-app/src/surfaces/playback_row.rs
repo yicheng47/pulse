@@ -1,9 +1,11 @@
+use crate::theme::rpx;
+
 use std::{cell::Cell, rc::Rc};
 
 use gpui::{
     Bounds, Context, Entity, FocusHandle, FontWeight, IntoElement, MouseButton, MouseDownEvent,
     MouseMoveEvent, MouseUpEvent, ObjectFit, Pixels, Render, Subscription, Window, canvas, div,
-    img, prelude::*, px, relative, svg,
+    img, prelude::*, relative, svg,
 };
 use pulse_engine::{PlaybackState, device};
 
@@ -375,15 +377,15 @@ impl PlaybackRow {
                 .into_any_element(),
             None => svg()
                 .path("icons/list-music.svg")
-                .size(px(22.))
+                .size(rpx(22.))
                 .text_color(theme::text_muted())
                 .into_any_element(),
         };
         div()
             .flex()
             .items_center()
-            .gap(px(16.))
-            .w(px(317.))
+            .gap(rpx(16.))
+            .w(rpx(317.))
             .flex_none()
             .child(
                 div()
@@ -391,16 +393,16 @@ impl PlaybackRow {
                     .flex_1()
                     .min_w_0()
                     .items_center()
-                    .gap(px(12.))
+                    .gap(rpx(12.))
                     .child(
                         div()
                             .flex()
                             .items_center()
                             .justify_center()
-                            .size(px(60.))
+                            .size(rpx(60.))
                             .flex_none()
                             .overflow_hidden()
-                            .rounded(px(theme::RADIUS_SM))
+                            .rounded(rpx(theme::RADIUS_SM))
                             .border_1()
                             .border_color(theme::border_strong())
                             .bg(theme::bg_elevated())
@@ -412,13 +414,13 @@ impl PlaybackRow {
                             .flex_1()
                             .flex_col()
                             .min_w_0()
-                            .gap(px(4.))
+                            .gap(rpx(4.))
                             .child(
                                 div()
                                     .w_full()
                                     .font_family(theme::FONT_DISPLAY)
                                     .font_weight(FontWeight::BOLD)
-                                    .text_size(px(15.))
+                                    .text_size(theme::text::LABEL_LARGE)
                                     .text_color(theme::text_primary())
                                     .overflow_hidden()
                                     .whitespace_nowrap()
@@ -428,7 +430,7 @@ impl PlaybackRow {
                                 div()
                                     .w_full()
                                     .font_family(theme::FONT_SANS)
-                                    .text_size(px(12.))
+                                    .text_size(theme::text::BODY)
                                     .text_color(theme::text_secondary())
                                     .overflow_hidden()
                                     .whitespace_nowrap()
@@ -436,7 +438,13 @@ impl PlaybackRow {
                             ),
                     ),
             )
-            .child(div().w(px(1.)).h(px(44.)).flex_none().bg(theme::border()))
+            .child(
+                div()
+                    .w(gpui::px(1.)) // physical
+                    .h(rpx(44.))
+                    .flex_none()
+                    .bg(theme::border()),
+            )
     }
 
     fn render_progress_strip(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -447,7 +455,7 @@ impl PlaybackRow {
         div()
             .relative()
             .w_full()
-            .h(px(3.))
+            .h(rpx(3.))
             .flex_none()
             .bg(theme::bg_elevated())
             .child(
@@ -478,7 +486,7 @@ impl PlaybackRow {
                     .top_0()
                     .right_0()
                     .left_0()
-                    .h(px(12.))
+                    .h(rpx(12.))
                     .cursor_pointer()
                     .on_mouse_down(
                         MouseButton::Left,
@@ -489,15 +497,15 @@ impl PlaybackRow {
                             .absolute()
                             .top_0()
                             .left_0()
-                            .h(px(10.))
+                            .h(rpx(10.))
                             .w(relative(progress))
                             .child(
                                 div()
                                     .absolute()
-                                    .top(px(-3.5))
-                                    .right(px(-5.))
-                                    .size(px(10.))
-                                    .rounded(px(5.))
+                                    .top(rpx(-3.5))
+                                    .right(rpx(-5.))
+                                    .size(rpx(10.))
+                                    .rounded(rpx(5.))
                                     .bg(theme::accent())
                                     .opacity(if scrubbing { 1.0 } else { 0.0 })
                                     .when(!scrubbing, |thumb| {
@@ -536,18 +544,18 @@ impl PlaybackRow {
             .min_w_0()
             .items_center()
             .justify_center()
-            .gap(px(28.))
+            .gap(rpx(28.))
             .child(
                 div()
                     .flex()
                     .items_center()
                     .justify_end()
-                    .w(px(44.))
+                    .w(rpx(44.))
                     .flex_none()
                     .child(
                         div()
                             .font_family(theme::FONT_MONO)
-                            .text_size(px(10.))
+                            .text_size(theme::text::CAPTION)
                             .text_color(theme::text_secondary())
                             .child(format_time(self.displayed_position_ms())),
                     ),
@@ -557,7 +565,7 @@ impl PlaybackRow {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .gap(px(16.))
+                    .gap(rpx(16.))
                     .child(
                         ui::IconButton::new("playback-shuffle", "icons/shuffle.svg")
                             .variant(if shuffle_enabled {
@@ -612,10 +620,10 @@ impl PlaybackRow {
                     ),
             )
             .child(
-                div().flex().items_center().w(px(44.)).flex_none().child(
+                div().flex().items_center().w(rpx(44.)).flex_none().child(
                     div()
                         .font_family(theme::FONT_MONO)
-                        .text_size(px(10.))
+                        .text_size(theme::text::CAPTION)
                         .text_color(theme::text_muted())
                         .child(
                             self.snapshot
@@ -652,13 +660,13 @@ impl PlaybackRow {
         let mut output_details = div()
             .flex()
             .flex_col()
-            .gap(px(3.))
-            .w(px(132.))
+            .gap(rpx(3.))
+            .w(rpx(132.))
             .child(
                 div()
                     .font_family(theme::FONT_MONO)
                     .font_weight(FontWeight::BOLD)
-                    .text_size(px(12.))
+                    .text_size(theme::text::BODY)
                     .text_color(quality_color)
                     .whitespace_nowrap()
                     .child(quality),
@@ -667,7 +675,7 @@ impl PlaybackRow {
                 div()
                     .w_full()
                     .font_family(theme::FONT_SANS)
-                    .text_size(px(12.))
+                    .text_size(theme::text::BODY)
                     .text_color(theme::text_secondary())
                     .overflow_hidden()
                     .whitespace_nowrap()
@@ -678,7 +686,7 @@ impl PlaybackRow {
                 div()
                     .w_full()
                     .font_family(theme::FONT_SANS)
-                    .text_size(px(10.))
+                    .text_size(theme::text::CAPTION)
                     .text_color(if message.is_error {
                         theme::danger()
                     } else {
@@ -696,7 +704,7 @@ impl PlaybackRow {
             .flex()
             .items_center()
             .justify_center()
-            .size(px(17.))
+            .size(rpx(17.))
             .flex_none()
             .cursor_pointer()
             .capture_any_mouse_down(cx.listener(|this, event: &MouseDownEvent, _, _| {
@@ -711,7 +719,7 @@ impl PlaybackRow {
                 }
                 this.toggle_volume_popover(window, cx);
             }))
-            .child(svg().path(volume_icon.path()).size(px(17.)).text_color(
+            .child(svg().path(volume_icon.path()).size(rpx(17.)).text_color(
                 if volume_icon == VolumeIconState::Muted {
                     theme::text_muted()
                 } else if self.volume_popover_open {
@@ -730,7 +738,7 @@ impl PlaybackRow {
             .flex()
             .items_center()
             .justify_center()
-            .size(px(17.))
+            .size(rpx(17.))
             .flex_none()
             .cursor_pointer()
             .capture_any_mouse_down(cx.listener(|this, event: &MouseDownEvent, _, _| {
@@ -746,7 +754,7 @@ impl PlaybackRow {
                 this.toggle_output_popover(cx);
             }))
             .child(
-                svg().path("icons/speaker.svg").size(px(17.)).text_color(
+                svg().path("icons/speaker.svg").size(rpx(17.)).text_color(
                     if self
                         .displayed_device_message()
                         .is_some_and(|message| message.is_error)
@@ -766,8 +774,8 @@ impl PlaybackRow {
         let mut queue_button = div()
             .id("queue-toggle")
             .relative()
-            .w(px(38.))
-            .h(px(34.))
+            .w(rpx(38.))
+            .h(rpx(34.))
             .cursor_pointer()
             // Same press-closed guard as the output picker and artist filter:
             // clicking the open trigger closes rather than closes-then-reopens.
@@ -788,8 +796,8 @@ impl PlaybackRow {
                     .path("icons/list-music.svg")
                     .absolute()
                     .left_0()
-                    .top(px(8.))
-                    .size(px(17.))
+                    .top(rpx(8.))
+                    .size(rpx(17.))
                     .text_color(if self.queue_popover_open {
                         theme::accent()
                     } else {
@@ -804,41 +812,59 @@ impl PlaybackRow {
             .flex()
             .items_center()
             .justify_end()
-            .gap(px(14.))
-            .w(px(300.))
+            .gap(rpx(14.))
+            .w(rpx(300.))
             .child(output_details)
-            .child(div().w(px(1.)).h(px(24.)).flex_none().bg(theme::border()))
+            .child(
+                div()
+                    .w(gpui::px(1.)) // physical
+                    .h(rpx(24.))
+                    .flex_none()
+                    .bg(theme::border()),
+            )
             .child(volume)
-            .child(div().w(px(1.)).h(px(24.)).flex_none().bg(theme::border()))
+            .child(
+                div()
+                    .w(gpui::px(1.)) // physical
+                    .h(rpx(24.))
+                    .flex_none()
+                    .bg(theme::border()),
+            )
             .child(speaker)
-            .child(div().w(px(1.)).h(px(24.)).flex_none().bg(theme::border()))
+            .child(
+                div()
+                    .w(gpui::px(1.)) // physical
+                    .h(rpx(24.))
+                    .flex_none()
+                    .bg(theme::border()),
+            )
             .child(queue_button.when(remaining > 0, |button| {
                 button.child(
                     div()
                         .absolute()
-                        .top(px(-2.))
-                        .right(px(-2.))
+                        .top(rpx(-2.))
+                        .right(rpx(-2.))
                         .flex()
                         .items_center()
                         .justify_center()
-                        .h(px(20.))
-                        .min_w(px(20.))
-                        .px(px(2.))
-                        .rounded(px(10.))
+                        .h(rpx(20.))
+                        .min_w(rpx(20.))
+                        .px(rpx(2.))
+                        .rounded(rpx(10.))
                         .bg(theme::bg_surface())
                         .child(
                             div()
                                 .flex()
                                 .items_center()
                                 .justify_center()
-                                .h(px(16.))
-                                .min_w(px(16.))
-                                .px(px(3.))
-                                .rounded(px(8.))
+                                .h(rpx(16.))
+                                .min_w(rpx(16.))
+                                .px(rpx(3.))
+                                .rounded(rpx(8.))
                                 .bg(theme::accent())
                                 .font_family(theme::FONT_MONO)
                                 .font_weight(FontWeight::BOLD)
-                                .text_size(px(10.))
+                                .text_size(theme::text::CAPTION)
                                 .text_color(theme::bg_inset())
                                 .child(remaining.to_string()),
                         ),
@@ -852,7 +878,7 @@ impl Render for PlaybackRow {
         if self.surface == PlaybackSurface::SettingsOutputPicker {
             return div()
                 .relative()
-                .size(px(0.))
+                .size(rpx(0.))
                 .when(self.output_popover_open, |anchor| {
                     anchor.child(self.render_output_popover(cx))
                 });
@@ -871,7 +897,7 @@ impl Render for PlaybackRow {
                     .flex()
                     .flex_col()
                     .w_full()
-                    .h(px(92.))
+                    .h(rpx(92.))
                     .flex_none()
                     .bg(theme::bg_surface())
                     .child(self.render_progress_strip(cx))
@@ -880,10 +906,10 @@ impl Render for PlaybackRow {
                             .flex()
                             .flex_1()
                             .items_center()
-                            .gap(px(22.))
+                            .gap(rpx(22.))
                             .w_full()
-                            .px(px(20.))
-                            .py(px(12.))
+                            .px(rpx(20.))
+                            .py(rpx(12.))
                             .child(self.render_now_playing())
                             .child(self.render_transport(cx))
                             .child(
@@ -891,11 +917,15 @@ impl Render for PlaybackRow {
                                     .flex()
                                     .items_center()
                                     .justify_end()
-                                    .gap(px(16.))
-                                    .w(px(317.))
+                                    .gap(rpx(16.))
+                                    .w(rpx(317.))
                                     .flex_none()
                                     .child(
-                                        div().w(px(1.)).h(px(44.)).flex_none().bg(theme::border()),
+                                        div()
+                                            .w(gpui::px(1.)) // physical
+                                            .h(rpx(44.))
+                                            .flex_none()
+                                            .bg(theme::border()),
                                     )
                                     .child(self.render_output(cx)),
                             ),
@@ -916,10 +946,10 @@ impl PlaybackRow {
         div()
             .flex()
             .items_center()
-            .gap(px(12.))
+            .gap(rpx(12.))
             .w_full()
-            .px(px(20.))
-            .py(px(7.))
+            .px(rpx(20.))
+            .py(rpx(7.))
             .border_t_1()
             .border_color(theme::border())
             .bg(theme::bg_surface())
@@ -929,7 +959,7 @@ impl PlaybackRow {
                     .min_w_0()
                     .truncate()
                     .font_family(theme::FONT_SANS)
-                    .text_size(px(12.))
+                    .text_size(theme::text::BODY)
                     .text_color(color)
                     .child(text),
             )
@@ -952,14 +982,14 @@ impl PlaybackRow {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .size(px(20.))
+                    .size(rpx(20.))
                     .flex_none()
                     .cursor_pointer()
                     .on_click(cx.listener(|this, _, _, cx| this.dismiss_notice(cx)))
                     .child(
                         svg()
                             .path("icons/x.svg")
-                            .size(px(13.))
+                            .size(rpx(13.))
                             .text_color(theme::text_muted()),
                     ),
             )

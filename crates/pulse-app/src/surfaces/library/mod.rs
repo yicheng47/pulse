@@ -21,6 +21,8 @@ mod storage_modals;
 mod tracks;
 mod tracks_logic;
 
+use crate::theme::rpx;
+
 use std::{
     collections::HashSet,
     fs, io,
@@ -39,7 +41,7 @@ use std::{
 use gpui::{
     AnyElement, Bounds, Context, ElementInputHandler, Entity, EntityInputHandler, FocusHandle,
     IntoElement, KeyDownEvent, PathPromptOptions, Pixels, Point, Render, ScrollHandle,
-    Subscription, UTF16Selection, Window, canvas, div, prelude::*, px,
+    Subscription, UTF16Selection, Window, canvas, div, prelude::*,
 };
 use pulse_engine::PlaybackState;
 
@@ -67,9 +69,9 @@ use logic::{self as view_model, FilterChip};
 const SCAN_POLL_INTERVAL: Duration = Duration::from_millis(50);
 const LIST_PAGE_SIZE: usize = 20;
 /// Distance from the album grid's bottom edge that triggers the next page.
-const ALBUM_PREFETCH_PX: f32 = 600.;
+const ALBUM_PREFETCH: f32 = 600.;
 /// Distance from the track list's bottom edge that triggers the next page.
-const TRACK_PREFETCH_PX: f32 = 600.;
+const TRACK_PREFETCH: f32 = 600.;
 
 #[derive(Clone)]
 struct StorageRootView {
@@ -512,10 +514,10 @@ impl Render for LibraryView {
             .w_full()
             .child(content)
             .when(self.track_menu.is_some(), |view| {
-                view.child(self.render_track_context_menu(cx))
+                view.child(self.render_track_context_menu(window, cx))
             })
             .when(self.playlist_menu.is_some(), |view| {
-                view.child(self.render_playlist_context_menu(cx))
+                view.child(self.render_playlist_context_menu(window, cx))
             })
             .when_some(self.error.clone(), |view, error| {
                 view.child(
@@ -523,15 +525,15 @@ impl Render for LibraryView {
                         .absolute()
                         .right_4()
                         .bottom_4()
-                        .max_w(px(520.))
-                        .px(px(12.))
-                        .py(px(9.))
-                        .rounded(px(theme::RADIUS_MD))
+                        .max_w(rpx(520.))
+                        .px(rpx(12.))
+                        .py(rpx(9.))
+                        .rounded(rpx(theme::RADIUS_MD))
                         .border_1()
                         .border_color(theme::danger())
                         .bg(theme::danger_soft())
                         .font_family(theme::FONT_SANS)
-                        .text_size(px(12.))
+                        .text_size(theme::text::BODY)
                         .text_color(theme::danger())
                         .child(error),
                 )
@@ -555,30 +557,30 @@ fn render_library_opening(progress: BackfillProgress) -> AnyElement {
         .min_h_0()
         .items_center()
         .justify_center()
-        .gap(px(10.))
+        .gap(rpx(10.))
         .w_full()
         .child(
             div()
                 .font_family(theme::FONT_DISPLAY)
                 .font_weight(gpui::FontWeight::BOLD)
-                .text_size(px(20.))
+                .text_size(theme::text::HEADING_SMALL)
                 .text_color(theme::text_primary())
                 .child("Updating your library"),
         )
         .child(
             div()
                 .font_family(theme::FONT_SANS)
-                .text_size(px(13.))
+                .text_size(theme::text::BODY_LARGE)
                 .text_color(theme::text_secondary())
                 .child("Rebuilding track details — this runs once after an update."),
         )
         .child(
             div()
                 .relative()
-                .w(px(320.))
-                .h(px(4.))
-                .mt(px(6.))
-                .rounded(px(2.))
+                .w(rpx(320.))
+                .h(rpx(4.))
+                .mt(rpx(6.))
+                .rounded(rpx(2.))
                 .bg(theme::bg_inset())
                 .child(
                     div()
@@ -587,14 +589,14 @@ fn render_library_opening(progress: BackfillProgress) -> AnyElement {
                         .top_0()
                         .bottom_0()
                         .w(gpui::relative(fraction))
-                        .rounded(px(2.))
+                        .rounded(rpx(2.))
                         .bg(theme::accent()),
                 ),
         )
         .child(
             div()
                 .font_family(theme::FONT_MONO)
-                .text_size(px(11.))
+                .text_size(theme::text::SMALL)
                 .text_color(theme::text_muted())
                 .child(format!(
                     "{} of {} files",
@@ -619,10 +621,10 @@ fn render_text_input(
         .flex()
         .items_center()
         .cursor_text()
-        .h(px(36.))
+        .h(rpx(36.))
         .w_full()
-        .px(px(10.))
-        .rounded(px(theme::RADIUS_SM))
+        .px(rpx(10.))
+        .rounded(rpx(theme::RADIUS_SM))
         .border_1()
         .border_color(theme::accent())
         .bg(theme::bg_inset())
@@ -631,7 +633,7 @@ fn render_text_input(
             this.handle_text_input(event, cx);
         }))
         .font_family(theme::FONT_SANS)
-        .text_size(px(12.))
+        .text_size(theme::text::BODY)
         .text_color(theme::text_primary())
         .child(text_input::render_text(input, true))
         .child(
@@ -665,7 +667,7 @@ fn list_loading_placeholder(label: &'static str) -> AnyElement {
         .justify_center()
         .w_full()
         .font_family(theme::FONT_SANS)
-        .text_size(px(13.))
+        .text_size(theme::text::BODY_LARGE)
         .text_color(theme::text_muted())
         .child(label)
         .into_any_element()
@@ -678,7 +680,7 @@ fn missing_file_badge() -> impl IntoElement {
         .flex_none()
         .font_family(theme::FONT_MONO)
         .font_weight(gpui::FontWeight::BOLD)
-        .text_size(px(9.))
+        .text_size(theme::text::CAPTION_XS)
         .text_color(theme::warning())
         .child("FILE MISSING")
 }

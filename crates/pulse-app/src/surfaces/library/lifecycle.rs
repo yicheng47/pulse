@@ -1,3 +1,5 @@
+use crate::theme::rpx;
+
 use super::*;
 
 impl LibraryView {
@@ -464,27 +466,27 @@ impl LibraryView {
             .min_h_0()
             .items_center()
             .justify_center()
-            .gap(px(10.))
+            .gap(rpx(10.))
             .w_full()
             .child(
                 div()
                     .font_family(theme::FONT_DISPLAY)
                     .font_weight(gpui::FontWeight::BOLD)
-                    .text_size(px(20.))
+                    .text_size(theme::text::HEADING_SMALL)
                     .text_color(theme::text_primary())
                     .child("Could not open your library"),
             )
             .child(
                 div()
-                    .max_w(px(560.))
+                    .max_w(rpx(560.))
                     .font_family(theme::FONT_SANS)
-                    .text_size(px(12.))
+                    .text_size(theme::text::BODY)
                     .text_color(theme::danger())
                     .child(message),
             )
             .child(
                 div()
-                    .mt(px(6.))
+                    .mt(rpx(6.))
                     .child(
                         Button::new("library-open-retry", "Retry").on_click(cx.listener(
                             |this, _, _, cx| {
