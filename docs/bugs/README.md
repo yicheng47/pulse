@@ -4,10 +4,11 @@ One note per open bug, written with the `bug` skill's template (description, exp
 
 ## Open
 
-- [`builtin-speakers-exclusive-volume.md`](builtin-speakers-exclusive-volume.md) - P2. Hogged devices: Pulse now drives the hardware volume control (`38734b8`); awaiting hardware validation.
+None.
 
 ## Fixed
 
+- [`archive/builtin-speakers-exclusive-volume.md`](archive/builtin-speakers-exclusive-volume.md) - P2. Hogged devices: Pulse drives the hardware volume and mute controls, adopting the device level once per session; `38734b8`, validated on hardware 2026-08-30.
 - [`archive/seek-lands-early.md`](archive/seek-lands-early.md) - P2. Decode-forward after the seek; `a9dbef5`.
 - [`archive/flaky-stall-watchdog-test.md`](archive/flaky-stall-watchdog-test.md) - P2. Injected clock for the engine worker; `a9dbef5`.
 - [`archive/stale-row-selection-after-advance.md`](archive/stale-row-selection-after-advance.md) - P2. Library row selection follows playback; `cf02027`.

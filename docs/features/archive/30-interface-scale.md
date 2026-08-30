@@ -1,6 +1,6 @@
 # Interface Scale
 
-> Feature 30 · P2. A Settings ▸ General control that scales the whole window (80–150%), replacing the redundant "Default output device" row now that Settings ▸ Output exists. Requested by Jason 2026-08-30; design approved the same day ("Let's deliver this feature and the bug fix before 0.2.0") and pulled into M2. Depends on moving the app from `px` to `rems` units, which also delivers feature 29.
+> Feature 30 · P2. A Settings ▸ General control that scales the whole window (80–150%), replacing the redundant "Default output device" row now that Settings ▸ Output exists. Requested by Jason 2026-08-30; design approved the same day and pulled into M2. **Merged** 2026-08-30 in two phases — `05b9d08` (`px` → `rems` through `theme::rpx`, `theme::text` type scale, `check-units` gate; feature 29) and `56a120e` (`interface_scale` setting snapped to 80–150%, the General row stepper, View menu with `Cmd-=`/`Cmd--`/`Cmd-0`, Default output row and the settings output picker removed); smoke-tested by Jason. Depends on moving the app from `px` to `rems` units, which also delivers feature 29.
 
 ## Motivation
 

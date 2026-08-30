@@ -25,11 +25,11 @@ The audio path first, then session state, then the shell overhaul and the interf
 | [Feature 16 — gapless playback](features/archive/16-gapless-playback.md) | P1 | done | `4ae4fe4` engine, `7d61a32` app; validated on the Matrix DAC 2026-08-30. |
 | [Bug — seek lands early](bugs/archive/seek-lands-early.md) | P2 | done | `a9dbef5`: accurate seek + decode-forward; FLAC fixture. |
 | [Bug — flaky stall watchdog test](bugs/archive/flaky-stall-watchdog-test.md) | P2 | done | `a9dbef5`: injected clock, no sleep-paced stall tests. |
-| [Bug — built-in speakers exclusive mode freezes volume](bugs/builtin-speakers-exclusive-volume.md) | P2 | review | `38734b8`: hardware volume while hogged, adopt-once-per-session; Jason to validate on the speakers and the Matrix DAC. |
+| [Bug — built-in speakers exclusive mode freezes volume](bugs/archive/builtin-speakers-exclusive-volume.md) | P2 | done | `38734b8`: hardware volume while hogged, adopt-once-per-session; validated by Jason on hardware 2026-08-30. |
 | [Feature 17 — playback dropout reporting](features/archive/17-playback-dropout-reporting.md) | P2 | done | `5952c95`: underrun read path, `Dropout` events, sustained-dropout notice; diagnostic count surface deferred to a design pass. |
 | [Bug — stale row selection after advance](bugs/archive/stale-row-selection-after-advance.md) | P2 | done | `cf02027`: selection cleared (playlist: re-anchored) when playback moves to another track. |
 | [Feature 28 — app shell overhaul](features/archive/28-app-shell-overhaul.md) | P1 | done | `3edc358` (header, bands, player width), `d213219` (island sidebars, Settings sections with Output); both smoke-tested by Jason 2026-08-30. |
-| [Feature 30 — interface scale](features/30-interface-scale.md) | P2 | in progress | Pulled into M2 by Jason 2026-08-30. Phase 1 (`px` → `rems` via `theme::rpx`, type scale, `check-units`) merged 05b9d08 on my review — behavior-preserving, identity by exact arithmetic; phase 2 (setting, General row, `Cmd-=`/`Cmd--`/`Cmd-0`) running, Jason smoke-tests before merge. |
+| [Feature 30 — interface scale](features/archive/30-interface-scale.md) | P2 | done | `05b9d08` (px → rems, type scale), `56a120e` (setting, General stepper, View menu shortcuts); smoke-tested by Jason 2026-08-30. |
 | [Feature 29 — type scale](features/archive/29-type-scale.md) | P3 | done | 05b9d08, with feature 30 phase 1. |
 | [Feature 21 — launch state restore](features/archive/21-launch-state-restore.md) | P2 | done | `1c7880f`: session blob in `settings.json`, engine `Load` (paused, no sink), route restore; smoke: quit mid-album and relaunch. |
 

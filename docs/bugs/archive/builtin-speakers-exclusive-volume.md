@@ -1,6 +1,6 @@
 # Exclusive mode on the built-in speakers disables the macOS volume control and freezes the hardware level
 
-> Bug · P2 · filed 2026-08-22 as GitHub issue #59 (closed when tracking moved to docs, 2026-08-29). **Fixed in code** 2026-08-30, commit `38734b8` — awaiting Jason's hardware check on the built-in speakers and the Matrix DAC before archiving. Note: the "release the hog while paused" item was already true (pause releases the backend since the click-free work); the hardware level Pulse writes does not survive hog release on the speakers, so the device level is adopted only on the first hog per session and Pulse's slider is the source of truth afterwards.
+> Bug · P2 · filed 2026-08-22 as GitHub issue #59 (closed when tracking moved to docs, 2026-08-29). **Fixed** 2026-08-30, commit `38734b8` — validated by Jason on hardware in the v0.2.0 smoke pass. Note: the "release the hog while paused" item was already true (pause releases the backend since the click-free work); the hardware level Pulse writes does not survive hog release on the speakers, so the device level is adopted only on the first hog per session and Pulse's slider is the source of truth afterwards.
 
 ## Description
 
