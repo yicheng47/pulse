@@ -1,5 +1,3 @@
-use pulse_engine::device::Device;
-
 pub(crate) const GITHUB_URL: &str = "https://github.com/yicheng47/pulse";
 pub(crate) const LICENSE_URL: &str = "https://github.com/yicheng47/pulse/blob/main/LICENSE";
 pub(crate) const ACKNOWLEDGEMENTS_URL: &str =
@@ -41,20 +39,53 @@ pub(crate) const SETTINGS_GROUPS: &[(&str, &[SettingsSection])] = &[
     ("APP", &[SettingsSection::Update, SettingsSection::About]),
 ];
 
+pub(crate) const INTERFACE_SCALE_STEPS: [f32; 6] = [0.8, 0.9, 1.0, 1.1, 1.25, 1.5];
+const DEFAULT_INTERFACE_SCALE_INDEX: usize = 2;
+pub(crate) const DEFAULT_INTERFACE_SCALE: f32 =
+    INTERFACE_SCALE_STEPS[DEFAULT_INTERFACE_SCALE_INDEX];
+
+fn interface_scale_index(scale: f32) -> usize {
+    if !scale.is_finite() {
+        return DEFAULT_INTERFACE_SCALE_INDEX;
+    }
+
+    INTERFACE_SCALE_STEPS
+        .iter()
+        .enumerate()
+        .fold(0, |nearest, (index, step)| {
+            if (*step - scale).abs() < (INTERFACE_SCALE_STEPS[nearest] - scale).abs() {
+                index
+            } else {
+                nearest
+            }
+        })
+}
+
+pub(crate) fn snap_interface_scale(scale: f32) -> f32 {
+    INTERFACE_SCALE_STEPS[interface_scale_index(scale)]
+}
+
+pub(crate) fn next_interface_scale(scale: f32) -> f32 {
+    let index = (interface_scale_index(scale) + 1).min(INTERFACE_SCALE_STEPS.len() - 1);
+    INTERFACE_SCALE_STEPS[index]
+}
+
+pub(crate) fn previous_interface_scale(scale: f32) -> f32 {
+    INTERFACE_SCALE_STEPS[interface_scale_index(scale).saturating_sub(1)]
+}
+
+pub(crate) fn interface_scale_label(scale: f32) -> String {
+    format!("{:.0}%", snap_interface_scale(scale) * 100.)
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct SettingsViewModel {
     pub(crate) section: SettingsSection,
-    pub(crate) output_device_name: String,
 }
 
 impl SettingsViewModel {
-    pub(crate) fn new(section: SettingsSection, active_device: Option<&Device>) -> Self {
-        Self {
-            section,
-            output_device_name: active_device
-                .map(|device| device.name.clone())
-                .unwrap_or_else(|| "No active output".to_string()),
-        }
+    pub(crate) fn new(section: SettingsSection) -> Self {
+        Self { section }
     }
 
     pub(crate) fn is_selected(&self, section: SettingsSection) -> bool {
@@ -103,7 +134,7 @@ mod tests {
 
     #[test]
     fn section_selection_marks_only_the_current_section() {
-        let model = SettingsViewModel::new(SettingsSection::Update, None);
+        let model = SettingsViewModel::new(SettingsSection::Update);
 
         let selected: Vec<bool> = SETTINGS_GROUPS
             .iter()
@@ -151,20 +182,41 @@ mod tests {
     }
 
     #[test]
-    fn output_row_resolves_the_current_device_name() {
-        let device = Device {
-            id: 7,
-            uid: "matrix-mini-i".to_string(),
-            name: "Matrix mini-i Pro 4".to_string(),
-        };
-
+    fn settings_view_model_only_tracks_the_selected_section() {
         assert_eq!(
-            SettingsViewModel::new(SettingsSection::General, Some(&device)).output_device_name,
-            "Matrix mini-i Pro 4"
+            SettingsViewModel::new(SettingsSection::General),
+            SettingsViewModel {
+                section: SettingsSection::General,
+            }
+        );
+    }
+
+    #[test]
+    fn interface_scale_steps_move_without_wrapping() {
+        assert_eq!(
+            INTERFACE_SCALE_STEPS.map(previous_interface_scale),
+            [0.8, 0.8, 0.9, 1.0, 1.1, 1.25]
         );
         assert_eq!(
-            SettingsViewModel::new(SettingsSection::General, None).output_device_name,
-            "No active output"
+            INTERFACE_SCALE_STEPS.map(next_interface_scale),
+            [0.9, 1.0, 1.1, 1.25, 1.5, 1.5]
+        );
+    }
+
+    #[test]
+    fn interface_scale_snaps_to_the_nearest_step() {
+        assert_eq!(snap_interface_scale(1.2), 1.25);
+        assert_eq!(snap_interface_scale(0.1), 0.8);
+        assert_eq!(snap_interface_scale(2.0), 1.5);
+        assert_eq!(snap_interface_scale(f32::NAN), 1.0);
+        assert_eq!(snap_interface_scale(1.375), 1.25);
+    }
+
+    #[test]
+    fn interface_scale_labels_use_percentages() {
+        assert_eq!(
+            INTERFACE_SCALE_STEPS.map(interface_scale_label),
+            ["80%", "90%", "100%", "110%", "125%", "150%"]
         );
     }
 }

@@ -4,10 +4,16 @@
 // Neon"). Magenta is interactive/action, purple is navigation/informational,
 // lime is signal/quality readouts, greys are everything else.
 
-use gpui::{Rems, Rgba, rems, rgb, rgba};
+use gpui::{Pixels, Rems, Rgba, rems, rgb, rgba};
+
+pub const REM_BASE_PX: f32 = 16.;
 
 pub const fn rpx(n: f32) -> Rems {
-    rems(n / 16.)
+    rems(n / REM_BASE_PX)
+}
+
+pub fn ui_scale(rem_size: Pixels) -> f32 {
+    f32::from(rem_size) / REM_BASE_PX
 }
 
 pub mod text {

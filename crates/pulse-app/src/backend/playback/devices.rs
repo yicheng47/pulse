@@ -185,10 +185,6 @@ impl Playback {
         }
     }
 
-    pub(crate) fn active_output_device(&self) -> Option<&device::Device> {
-        self.active_device.as_ref()
-    }
-
     pub(crate) fn managed_device_groups(&self) -> ManagedDeviceGroups {
         let mut groups = merge_managed_devices(
             &self.devices,

@@ -106,7 +106,7 @@ impl LibraryView {
             render_no_filter_matches("No albums match this filter").into_any_element()
         } else {
             let visible = self.albums.clone();
-            let scale = f32::from(window.rem_size()) / 16.;
+            let scale = theme::ui_scale(window.rem_size());
             let columns = album_grid_columns(f32::from(window.viewport_size().width), scale);
             let mut grid = div()
                 .grid()

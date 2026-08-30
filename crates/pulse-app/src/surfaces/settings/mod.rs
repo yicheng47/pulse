@@ -8,8 +8,8 @@ use crate::theme::rpx;
 use std::time::Duration;
 
 use gpui::{
-    AnyElement, Context, FontWeight, IntoElement, MouseButton, MouseDownEvent, div,
-    linear_color_stop, linear_gradient, prelude::*, svg,
+    AnyElement, Context, FontWeight, IntoElement, div, linear_color_stop, linear_gradient,
+    prelude::*, svg,
 };
 
 use crate::{
@@ -30,8 +30,6 @@ impl Shell {
         self.search_open = false;
         self.search_input.unmark_text();
         self.row.update(cx, |row, cx| row.enter_settings(cx));
-        self.settings_output_picker
-            .update(cx, |picker, cx| picker.close_output_popover(cx));
         if section == SettingsSection::Output {
             global_app_store(cx).update(cx, |store, store_cx| {
                 store.send_command(PlaybackAction::RefreshOutputDevices, store_cx);
@@ -48,16 +46,12 @@ impl Shell {
     fn close_settings(&mut self, cx: &mut Context<Self>) {
         self.settings_section = None;
         self.row.update(cx, |row, cx| row.leave_settings(cx));
-        self.settings_output_picker
-            .update(cx, |picker, cx| picker.close_output_popover(cx));
         self.sync_update_check_polling(cx);
         cx.notify();
     }
 
     fn select_settings_section(&mut self, section: SettingsSection, cx: &mut Context<Self>) {
         self.settings_section = Some(section);
-        self.settings_output_picker
-            .update(cx, |picker, cx| picker.close_output_popover(cx));
         if section == SettingsSection::Output {
             global_app_store(cx).update(cx, |store, store_cx| {
                 store.send_command(PlaybackAction::RefreshOutputDevices, store_cx);
@@ -102,11 +96,7 @@ impl Shell {
         let section = self
             .settings_section
             .expect("settings shell is only rendered for a settings section");
-        let active_output = global_app_store(cx)
-            .read(cx)
-            .active_output_device()
-            .cloned();
-        let model = SettingsViewModel::new(section, active_output.as_ref());
+        let model = SettingsViewModel::new(section);
 
         div()
             .flex()
@@ -170,7 +160,7 @@ impl Shell {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let content = match model.section {
-            SettingsSection::General => self.render_general_settings(model, cx),
+            SettingsSection::General => self.render_general_settings(cx),
             SettingsSection::Output => {
                 return div()
                     .flex()

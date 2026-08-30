@@ -24,17 +24,10 @@ use super::playback_row_logic::{
     PendingToggle, begin_pending_toggle, reconcile_pending_toggle, transport_presentation,
 };
 
-#[derive(Clone, Copy, Eq, PartialEq)]
-pub(crate) enum PlaybackSurface {
-    Transport,
-    SettingsOutputPicker,
-}
-
 pub(crate) struct PlaybackRow {
     pub(super) app_store: Entity<AppStore>,
     pub(super) store_revisions: StoreRevisions,
     pub(super) snapshot: PlaybackSnapshot,
-    pub(super) surface: PlaybackSurface,
     pub(super) volume_popover_open: bool,
     pub(super) volume_toggle_press_closed_popover: bool,
     pub(super) output_popover_open: bool,
@@ -62,7 +55,6 @@ impl PlaybackRow {
             app_store: app_store.clone(),
             store_revisions,
             snapshot,
-            surface: PlaybackSurface::Transport,
             volume_popover_open: false,
             volume_toggle_press_closed_popover: false,
             output_popover_open: false,
@@ -84,12 +76,6 @@ impl PlaybackRow {
         }
     }
 
-    pub(crate) fn new_settings_output_picker(cx: &mut Context<Self>) -> Self {
-        let mut row = Self::new(cx);
-        row.surface = PlaybackSurface::SettingsOutputPicker;
-        row
-    }
-
     fn handle_store_update(&mut self, cx: &mut Context<Self>) {
         let revisions = self.app_store.read(cx).revisions;
         let reactions = revisions.reactions_since(self.store_revisions);
@@ -109,10 +95,6 @@ impl PlaybackRow {
             .update(cx, |store, store_cx| store.send_command(command, store_cx))
     }
 
-    pub(crate) fn output_popover_open(&self) -> bool {
-        self.output_popover_open
-    }
-
     pub(crate) fn enter_settings(&mut self, cx: &mut Context<Self>) {
         self.volume_popover_open = false;
         self.output_popover_open = false;
@@ -125,17 +107,6 @@ impl PlaybackRow {
         self.output_popover_open = false;
         self.queue_popover_open = false;
         cx.notify();
-    }
-
-    pub(crate) fn close_output_popover(&mut self, cx: &mut Context<Self>) {
-        if self.output_popover_open {
-            self.output_popover_open = false;
-            cx.notify();
-        }
-    }
-
-    pub(crate) fn toggle_settings_output_popover(&mut self, cx: &mut Context<Self>) {
-        self.toggle_output_popover(cx);
     }
 
     pub(super) fn toggle_volume_mute(&mut self, cx: &mut Context<Self>) {
@@ -875,15 +846,6 @@ impl PlaybackRow {
 
 impl Render for PlaybackRow {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        if self.surface == PlaybackSurface::SettingsOutputPicker {
-            return div()
-                .relative()
-                .size(rpx(0.))
-                .when(self.output_popover_open, |anchor| {
-                    anchor.child(self.render_output_popover(cx))
-                });
-        }
-
         div()
             .flex()
             .flex_col()

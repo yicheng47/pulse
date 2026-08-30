@@ -145,6 +145,21 @@ impl AppStore {
         self.playback.launch_session()
     }
 
+    pub(crate) fn interface_scale(&self) -> f32 {
+        self.playback.settings().interface_scale
+    }
+
+    pub(crate) fn set_interface_scale(
+        &mut self,
+        interface_scale: f32,
+        cx: &mut Context<Self>,
+    ) -> Option<f32> {
+        let changed = self.playback.set_interface_scale(interface_scale);
+        let interface_scale = self.interface_scale();
+        self.finish_update(cx);
+        changed.then_some(interface_scale)
+    }
+
     pub(crate) fn restore_session(
         &mut self,
         session: &SessionState,
@@ -171,10 +186,6 @@ impl AppStore {
 
     pub(crate) fn device_management_messages(&self) -> Vec<(String, bool)> {
         self.playback.device_management_messages()
-    }
-
-    pub(crate) fn active_output_device(&self) -> Option<&device::Device> {
-        self.playback.active_output_device()
     }
 
     pub(crate) fn send_command(&mut self, command: PlaybackAction, cx: &mut Context<Self>) -> bool {

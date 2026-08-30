@@ -226,6 +226,7 @@ pub(crate) struct IconButton {
     icon_size: f32,
     corner_radius: f32,
     horizontal_margin: f32,
+    framed: bool,
     selected: bool,
     disabled: bool,
     disabled_opacity: f32,
@@ -243,6 +244,7 @@ impl IconButton {
             icon_size: 16.,
             corner_radius: theme::RADIUS_SM,
             horizontal_margin: 0.,
+            framed: false,
             selected: false,
             disabled: false,
             disabled_opacity: 0.5,
@@ -273,6 +275,11 @@ impl IconButton {
 
     pub(crate) fn horizontal_margin(mut self, horizontal_margin: f32) -> Self {
         self.horizontal_margin = horizontal_margin;
+        self
+    }
+
+    pub(crate) fn framed(mut self, framed: bool) -> Self {
+        self.framed = framed;
         self
     }
 
@@ -310,6 +317,7 @@ impl RenderOnce for IconButton {
     fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
         let tooltip_id = (self.id.clone(), "tooltip");
         let variant = self.variant;
+        let framed = self.framed;
         let selected = self.selected;
         let disabled = self.disabled;
         let foreground = if self.selected {
@@ -336,6 +344,12 @@ impl RenderOnce for IconButton {
             })
             .when(self.variant == IconButtonVariant::AccentSoft, |button| {
                 button.bg(theme::accent_soft())
+            })
+            .when(self.framed, |button| {
+                button
+                    .bg(theme::bg_muted())
+                    .border_1()
+                    .border_color(theme::border())
             })
             .when(self.selected, |button| button.bg(theme::bg_elevated()))
             .opacity(if self.disabled {
@@ -368,6 +382,9 @@ impl RenderOnce for IconButton {
                     (true, _) => style.bg(theme::bg_elevated()),
                     (false, IconButtonVariant::Primary) => style.bg(theme::accent_bright()),
                     (false, IconButtonVariant::AccentSoft) => style.bg(theme::accent()),
+                    (false, IconButtonVariant::Secondary) if framed => {
+                        style.bg(theme::bg_elevated())
+                    }
                     (false, IconButtonVariant::Muted)
                     | (false, IconButtonVariant::Secondary)
                     | (false, IconButtonVariant::Accent) => style.bg(theme::bg_muted()),
@@ -409,6 +426,7 @@ mod tests {
         assert_eq!(default.variant, IconButtonVariant::Muted);
         assert_eq!(default.button_size, 28.);
         assert_eq!(default.icon_size, 16.);
+        assert!(!default.framed);
         assert_eq!(default.corner_radius, theme::RADIUS_SM);
         assert_eq!(default.horizontal_margin, 0.);
         assert!(!default.selected);

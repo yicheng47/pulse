@@ -43,12 +43,15 @@ const ASSETS: &[(&str, &[u8])] = assets![
     "icons/disc-3.svg",
     "icons/folder.svg",
     "icons/folder-plus.svg",
+    "icons/minus.svg",
     "icons/plus.svg",
     "icons/refresh-cw.svg",
     "icons/arrow-down.svg",
     "icons/loader.svg",
     "icons/user-round-search.svg",
     "icons/user.svg",
+    "icons/trash-2.svg",
+    "icons/triangle-alert.svg",
     "icons/x.svg",
     "icons/chevron-left.svg",
     "icons/chevron-right.svg",
@@ -82,4 +85,29 @@ pub fn fonts() -> Vec<Cow<'static, [u8]>> {
         .filter(|(path, _)| path.ends_with(".ttf"))
         .map(|(_, bytes)| Cow::Borrowed(*bytes))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_svg_icon_is_embedded() {
+        let icons_directory = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/icons");
+
+        for entry in std::fs::read_dir(icons_directory).unwrap() {
+            let path = entry.unwrap().path();
+            if path.extension().and_then(|extension| extension.to_str()) != Some("svg") {
+                continue;
+            }
+            let asset_path = format!("icons/{}", path.file_name().unwrap().to_string_lossy());
+
+            assert!(
+                ASSETS
+                    .iter()
+                    .any(|(registered_path, _)| *registered_path == asset_path),
+                "{asset_path} is missing from ASSETS"
+            );
+        }
+    }
 }

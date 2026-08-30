@@ -33,8 +33,6 @@ pub struct Shell {
     pub(super) search_scroll: ScrollHandle,
     pub(super) search_focus: FocusHandle,
     pub(super) settings_section: Option<SettingsSection>,
-    pub(super) settings_output_toggle_press_closed: bool,
-    pub(super) settings_output_picker: Entity<PlaybackRow>,
     pub(super) updater: Entity<UpdaterBridge>,
     pub(super) update_check_poll_generation: u64,
     pub(super) titlebar_drag_armed: bool,
@@ -52,7 +50,6 @@ impl Shell {
         let launch_settings_section = launch_settings_section(launch_session.as_ref());
         let restore_output = launch_settings_section == Some(SettingsSection::Output);
         let row = cx.new(PlaybackRow::new);
-        let settings_output_picker = cx.new(PlaybackRow::new_settings_output_picker);
         let devices = cx.new(DeviceManagementPage::new);
         let library = cx.new(LibraryView::new);
         let updater = cx.new(UpdaterBridge::new);
@@ -82,8 +79,6 @@ impl Shell {
             search_scroll: ScrollHandle::new(),
             search_focus: cx.focus_handle(),
             settings_section: launch_settings_section,
-            settings_output_toggle_press_closed: false,
-            settings_output_picker,
             updater,
             update_check_poll_generation: 0,
             titlebar_drag_armed: false,

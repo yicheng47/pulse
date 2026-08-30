@@ -20,7 +20,7 @@ impl LibraryView {
         let artist = detail.artist.clone();
         let albums = detail.albums.clone();
         let has_tracks = !detail.tracks.is_empty();
-        let scale = f32::from(window.rem_size()) / 16.;
+        let scale = theme::ui_scale(window.rem_size());
         let columns = album_grid_columns(f32::from(window.viewport_size().width), scale);
         let count_meta = format!(
             "{} · {}",

@@ -91,6 +91,7 @@ fn main() {
                 AppSettings::default()
             });
             let app_store = cx.new(|cx| AppStore::new(settings_path, settings, cx));
+            let interface_scale = app_store.read(cx).interface_scale();
             cx.set_global(GlobalAppStore(app_store.clone()));
             cx.on_app_quit(move |cx| {
                 app_store.update(cx, |store, _| store.shutdown());
@@ -109,7 +110,10 @@ fn main() {
                     window_bounds: Some(WindowBounds::Windowed(bounds)),
                     ..Default::default()
                 },
-                |window, cx| cx.new(|cx| Shell::new(window, cx)),
+                |window, cx| {
+                    window.set_rem_size(px(theme::REM_BASE_PX * interface_scale)); // physical
+                    cx.new(|cx| Shell::new(window, cx))
+                },
             )
             .expect("failed to open window");
             #[cfg(target_os = "macos")]

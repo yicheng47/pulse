@@ -40,7 +40,7 @@ impl LibraryView {
             .into_iter()
             .cloned()
             .collect::<Vec<_>>();
-        let scale = f32::from(window.rem_size()) / 16.;
+        let scale = theme::ui_scale(window.rem_size());
         let columns = artist_grid_columns(f32::from(window.viewport_size().width), scale);
         let row_count = visible.len().div_ceil(columns as usize);
         let no_matches = visible.is_empty();

@@ -148,6 +148,7 @@ fn migrate_legacy_preferences(
         legacy_exclusive_mode_disabled,
         volume_level,
         volume_muted,
+        interface_scale: 1.0,
         session: None,
     })
 }

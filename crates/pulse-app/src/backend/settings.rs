@@ -9,9 +9,15 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use crate::settings::{DEFAULT_INTERFACE_SCALE, snap_interface_scale};
+
 use super::{PlaylistId, TrackId, queue::RepeatMode};
 
 pub(crate) const SESSION_STATE_VERSION: u32 = 1;
+
+fn default_interface_scale() -> f32 {
+    DEFAULT_INTERFACE_SCALE
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -224,6 +230,8 @@ pub struct AppSettings {
     pub(crate) legacy_exclusive_mode_disabled: Option<bool>,
     pub volume_level: f32,
     pub volume_muted: bool,
+    #[serde(default = "default_interface_scale")]
+    pub interface_scale: f32,
     #[serde(
         default,
         deserialize_with = "deserialize_session",
@@ -240,6 +248,7 @@ impl Default for AppSettings {
             legacy_exclusive_mode_disabled: None,
             volume_level: 1.0,
             volume_muted: false,
+            interface_scale: default_interface_scale(),
             session: None,
         }
     }
@@ -299,6 +308,7 @@ impl AppSettings {
         if !self.volume_level.is_finite() || !(0.0..=1.0).contains(&self.volume_level) {
             self.volume_level = 1.0;
         }
+        self.interface_scale = snap_interface_scale(self.interface_scale);
         if self
             .session
             .as_ref()
@@ -521,6 +531,7 @@ mod tests {
             saved_output_device_uid: Some("matrix".to_string()),
             volume_level: 0.42,
             volume_muted: true,
+            interface_scale: 1.25,
             session: Some(SessionState {
                 version: SESSION_STATE_VERSION,
                 queue_track_ids: vec![11, 22, 11],
@@ -553,6 +564,7 @@ mod tests {
         assert_eq!(AppSettings::load(&path).unwrap(), settings);
         let contents = fs::read_to_string(path).unwrap();
         assert!(contents.contains("\n  \"savedOutputDeviceUid\""));
+        assert!(contents.contains("\"interfaceScale\": 1.25"));
         assert!(contents.contains("\"queueTrackIds\""));
         assert!(contents.contains("\"queueOriginalPositions\""));
         assert!(contents.contains("\"destination\": \"playlists\""));
@@ -574,6 +586,7 @@ mod tests {
         assert_eq!(loaded.saved_output_device_uid.as_deref(), Some("matrix"));
         assert_eq!(loaded.volume_level, 0.25);
         assert!(loaded.volume_muted);
+        assert_eq!(loaded.interface_scale, 1.0);
         assert_eq!(loaded.session, None);
     }
 
@@ -749,6 +762,16 @@ mod tests {
         assert_eq!(loaded.saved_output_device_uid, None);
         assert_eq!(loaded.volume_level, 1.0);
         assert!(loaded.volume_muted);
+        assert_eq!(loaded.interface_scale, 1.0);
+    }
+
+    #[test]
+    fn persisted_interface_scale_snaps_to_the_nearest_step() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = settings_path(directory.path());
+        fs::write(&path, r#"{"interfaceScale":1.2}"#).unwrap();
+
+        assert_eq!(AppSettings::load(&path).unwrap().interface_scale, 1.25);
     }
 
     #[test]

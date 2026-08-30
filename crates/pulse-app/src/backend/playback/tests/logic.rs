@@ -16,6 +16,19 @@ fn no_op_settings_update_does_not_save() {
 }
 
 #[test]
+fn interface_scale_uses_the_existing_atomic_settings_path() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("settings.json");
+    let mut playback = Playback::initial();
+    playback.settings_path = path.clone();
+
+    assert!(playback.set_interface_scale(1.25));
+    assert_eq!(playback.settings().interface_scale, 1.25);
+    assert_eq!(AppSettings::load(&path).unwrap().interface_scale, 1.25);
+    assert!(!playback.set_interface_scale(1.25));
+}
+
+#[test]
 fn legacy_disabled_marker_becomes_one_active_device_override() {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("settings.json");

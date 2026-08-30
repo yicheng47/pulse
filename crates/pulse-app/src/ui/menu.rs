@@ -19,7 +19,6 @@ pub(crate) struct PopoverMenu {
     children: Vec<AnyElement>,
     left: Option<Rems>,
     right: Option<Rems>,
-    top: Option<Rems>,
     bottom: Option<Rems>,
     width: Rems,
     max_height: Option<Rems>,
@@ -37,7 +36,6 @@ impl PopoverMenu {
             children: Vec::new(),
             left: None,
             right: None,
-            top: None,
             bottom: None,
             width,
             max_height: None,
@@ -56,11 +54,6 @@ impl PopoverMenu {
 
     pub(crate) fn right(mut self, right: Rems) -> Self {
         self.right = Some(right);
-        self
-    }
-
-    pub(crate) fn top(mut self, top: Rems) -> Self {
-        self.top = Some(top);
         self
     }
 
@@ -119,7 +112,6 @@ impl RenderOnce for PopoverMenu {
             .absolute()
             .when_some(self.left, |menu, left| menu.left(left))
             .when_some(self.right, |menu, right| menu.right(right))
-            .when_some(self.top, |menu, top| menu.top(top))
             .when_some(self.bottom, |menu, bottom| menu.bottom(bottom))
             .flex()
             .flex_col()

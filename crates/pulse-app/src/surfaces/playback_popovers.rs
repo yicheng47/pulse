@@ -13,7 +13,7 @@ use crate::{
         TrackRef, displayed_volume_level, format_device_capabilities, format_queue_meta,
         format_queue_time, format_volume_percent,
     },
-    surfaces::{PlaybackRow, PlaybackSurface},
+    surfaces::PlaybackRow,
     theme, ui,
 };
 
@@ -166,18 +166,15 @@ impl PlaybackRow {
         }
 
         let entity = cx.entity();
-        let mut popover =
-            ui::PopoverMenu::new("output-device-popover", rpx(360.)).on_dismiss(move |_, cx| {
+        let mut popover = ui::PopoverMenu::new("output-device-popover", rpx(360.))
+            .right(rpx(-52.))
+            .bottom(rpx(54.))
+            .on_dismiss(move |_, cx| {
                 entity.update(cx, |this, cx| {
                     this.output_popover_open = false;
                     cx.notify();
                 });
             });
-        popover = if self.surface == PlaybackSurface::SettingsOutputPicker {
-            popover.right(rpx(0.)).top(rpx(30.))
-        } else {
-            popover.right(rpx(-52.)).bottom(rpx(54.))
-        };
         popover = popover
             .child(
                 div()

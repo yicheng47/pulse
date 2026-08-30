@@ -451,6 +451,16 @@ impl Playback {
         &self.settings
     }
 
+    pub(crate) fn set_interface_scale(&mut self, interface_scale: f32) -> bool {
+        match self.update_settings(|settings| settings.interface_scale = interface_scale) {
+            Ok(changed) => changed,
+            Err(error) => {
+                self.error = Some(format!("Could not save the interface scale: {error}"));
+                false
+            }
+        }
+    }
+
     pub(crate) fn snapshot(&self) -> PlaybackSnapshot {
         PlaybackSnapshot {
             playback_state: self.playback_state,

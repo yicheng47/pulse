@@ -16,6 +16,9 @@ actions!(
         Minimize,
         CloseWindow,
         FocusSearch,
+        ZoomIn,
+        ZoomOut,
+        ActualSize,
         CheckForUpdates,
         OpenSettings,
         Quit
@@ -90,6 +93,51 @@ pub fn install(cx: &mut App) {
             }
         });
     });
+    cx.on_action(|_: &ZoomIn, cx| {
+        let Some(window) = cx
+            .active_window()
+            .and_then(|window| window.downcast::<Shell>())
+        else {
+            return;
+        };
+        cx.defer(move |cx| {
+            if let Err(error) = window.update(cx, |shell, window, cx| {
+                shell.increase_interface_scale(window, cx);
+            }) {
+                eprintln!("Pulse zoom in failed: {error:#}");
+            }
+        });
+    });
+    cx.on_action(|_: &ZoomOut, cx| {
+        let Some(window) = cx
+            .active_window()
+            .and_then(|window| window.downcast::<Shell>())
+        else {
+            return;
+        };
+        cx.defer(move |cx| {
+            if let Err(error) = window.update(cx, |shell, window, cx| {
+                shell.decrease_interface_scale(window, cx);
+            }) {
+                eprintln!("Pulse zoom out failed: {error:#}");
+            }
+        });
+    });
+    cx.on_action(|_: &ActualSize, cx| {
+        let Some(window) = cx
+            .active_window()
+            .and_then(|window| window.downcast::<Shell>())
+        else {
+            return;
+        };
+        cx.defer(move |cx| {
+            if let Err(error) = window.update(cx, |shell, window, cx| {
+                shell.reset_interface_scale(window, cx);
+            }) {
+                eprintln!("Pulse actual size failed: {error:#}");
+            }
+        });
+    });
     cx.on_action(|_: &Minimize, cx| {
         if let Some(window) = cx.active_window() {
             cx.defer(move |cx| {
@@ -117,6 +165,9 @@ pub fn install(cx: &mut App) {
         KeyBinding::new("cmd-w", CloseWindow, None),
         KeyBinding::new("cmd-f", FocusSearch, None),
         KeyBinding::new("cmd-,", OpenSettings, None),
+        KeyBinding::new("cmd-=", ZoomIn, None),
+        KeyBinding::new("cmd--", ZoomOut, None),
+        KeyBinding::new("cmd-0", ActualSize, None),
     ]);
 
     cx.set_menus([
@@ -134,6 +185,11 @@ pub fn install(cx: &mut App) {
             MenuItem::action("Quit Pulse", Quit),
         ]),
         Menu::new("Edit").items([MenuItem::action("Search", FocusSearch)]),
+        Menu::new("View").items([
+            MenuItem::action("Zoom In", ZoomIn),
+            MenuItem::action("Zoom Out", ZoomOut),
+            MenuItem::action("Actual Size", ActualSize),
+        ]),
         Menu::new("Window").items([
             MenuItem::action("Minimize", Minimize),
             MenuItem::action("Close Window", CloseWindow),
