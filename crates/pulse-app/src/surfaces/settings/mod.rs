@@ -13,7 +13,7 @@ use gpui::{
 use crate::{
     app_store::global_app_store,
     settings::{AboutLink, SettingsSection, SettingsViewModel},
-    surfaces::{SIDEBAR_TOP_PADDING, SIDEBAR_WIDTH, Shell},
+    surfaces::{SIDEBAR_WIDTH, Shell},
     theme, ui,
 };
 
@@ -27,6 +27,8 @@ impl Shell {
         self.search_open = false;
         self.search_input.unmark_text();
         self.row.update(cx, |row, cx| row.enter_settings(cx));
+        self.settings_output_picker
+            .update(cx, |picker, cx| picker.close_output_popover(cx));
         self.sync_update_check_polling(cx);
         cx.notify();
     }
@@ -38,13 +40,16 @@ impl Shell {
     fn close_settings(&mut self, cx: &mut Context<Self>) {
         self.settings_section = None;
         self.row.update(cx, |row, cx| row.leave_settings(cx));
+        self.settings_output_picker
+            .update(cx, |picker, cx| picker.close_output_popover(cx));
         self.sync_update_check_polling(cx);
         cx.notify();
     }
 
     fn select_settings_section(&mut self, section: SettingsSection, cx: &mut Context<Self>) {
         self.settings_section = Some(section);
-        self.row.update(cx, |row, cx| row.close_output_popover(cx));
+        self.settings_output_picker
+            .update(cx, |picker, cx| picker.close_output_popover(cx));
         self.sync_update_check_polling(cx);
         cx.notify();
     }
@@ -92,7 +97,9 @@ impl Shell {
 
         div()
             .flex()
-            .size_full()
+            .flex_1()
+            .min_h_0()
+            .w_full()
             .child(self.render_settings_sidebar(&model, cx))
             .child(self.render_settings_content(&model, cx))
     }
@@ -108,14 +115,13 @@ impl Shell {
         }
 
         div()
-            .relative()
             .flex()
             .flex_col()
             .flex_none()
             .w(px(SIDEBAR_WIDTH))
             .h_full()
             .gap(px(22.))
-            .pt(px(SIDEBAR_TOP_PADDING))
+            .pt(px(20.))
             .pr(px(14.))
             .pb(px(16.))
             .pl(px(14.))
@@ -180,11 +186,6 @@ impl Shell {
                     .child(navigation),
             )
             .child(div().flex_1())
-            .child(self.render_titlebar_drag_area(
-                "settings-sidebar-titlebar-drag",
-                div().absolute().top_0().left_0().w_full().h(px(20.)),
-                cx,
-            ))
     }
 
     fn render_settings_nav_item(
@@ -287,11 +288,6 @@ impl Shell {
                     .child(model.section.label()),
             )
             .child(content)
-            .child(self.render_titlebar_drag_area(
-                "settings-content-titlebar-drag",
-                div().absolute().top_0().left_0().w_full().h(px(20.)),
-                cx,
-            ))
     }
 }
 

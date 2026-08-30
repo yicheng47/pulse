@@ -2,8 +2,8 @@ use std::{ops::Range, path::Path, time::Duration};
 
 use gpui::{
     AnyElement, Bounds, Context, ElementInputHandler, EntityInputHandler, FontWeight, IntoElement,
-    KeyDownEvent, ObjectFit, Pixels, ScrollHandle, UTF16Selection, Window, canvas, div, img,
-    prelude::*, px, svg,
+    KeyDownEvent, ObjectFit, Pixels, ScrollHandle, UTF16Selection, Window, canvas, deferred, div,
+    img, prelude::*, px, svg,
 };
 
 use crate::{
@@ -176,16 +176,20 @@ impl Shell {
         cx.notify();
     }
 
-    pub(super) fn render_search(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn render_search_input(
+        &self,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let query = self.search_input.text().to_string();
         let focused = self.search_focus.is_focused(window);
         let input_entity = cx.entity();
         let mut search = div()
-            .absolute()
+            .relative()
             .occlude()
-            .left(px(28.))
-            .top(px(19.))
             .w(px(SEARCH_WIDTH))
+            .h(px(36.))
+            .flex_none()
             .track_focus(&self.search_focus)
             .on_key_down(cx.listener(|this, event, window, cx| {
                 this.handle_search_input(event, window, cx);
@@ -206,7 +210,9 @@ impl Shell {
                     .bg(theme::bg_inset())
                     .cursor_text()
                     .on_click(cx.listener(|this, _, window, cx| {
-                        this.focus_search(window, cx);
+                        if this.can_focus_search() {
+                            this.focus_search(window, cx);
+                        }
                     }))
                     .child(
                         svg()
@@ -270,7 +276,7 @@ impl Shell {
                     ),
             );
         if self.search_open {
-            search = search.child(self.render_search_popover(cx));
+            search = search.child(deferred(self.render_search_popover(cx)).with_priority(1));
         }
         search.into_any_element()
     }

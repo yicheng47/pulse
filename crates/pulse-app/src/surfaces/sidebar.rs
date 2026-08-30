@@ -3,46 +3,28 @@ use gpui::{Context, FontWeight, IntoElement, SharedString, div, prelude::*, px, 
 use crate::{
     app_store::global_app_store,
     backend::PlaybackAction,
-    settings::SettingsSection,
-    surfaces::{
-        Destination, NAV_GROUPS, SIDEBAR_TOP_PADDING, SIDEBAR_WIDTH, Shell, TOP_BAR_HEIGHT,
-    },
-    theme, ui,
+    surfaces::{Destination, NAV_GROUPS, SIDEBAR_WIDTH, Shell},
+    theme,
 };
 
 impl Shell {
     pub(super) fn render_sidebar(&self, cx: &mut Context<Self>) -> impl IntoElement {
         div()
-            .relative()
             .flex()
             .flex_col()
             .flex_none()
             .w(px(SIDEBAR_WIDTH))
             .h_full()
             .gap(px(22.))
-            .pt(px(SIDEBAR_TOP_PADDING))
+            .pt(px(20.))
             .pr(px(14.))
             .pb(px(16.))
             .pl(px(14.))
             .bg(theme::bg_surface())
             .border_r_1()
             .border_color(theme::border())
-            .child(render_brand())
             .child(self.render_navigation(cx))
             .child(div().flex_1())
-            .child(self.render_settings_footer(cx))
-            .child(
-                self.render_titlebar_drag_area(
-                    "sidebar-titlebar-drag",
-                    div()
-                        .absolute()
-                        .top_0()
-                        .left_0()
-                        .w_full()
-                        .h(px(TOP_BAR_HEIGHT)),
-                    cx,
-                ),
-            )
     }
 
     fn render_navigation(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -150,123 +132,6 @@ impl Shell {
                 ))
             })
     }
-
-    fn render_settings_footer(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let updater = self.updater.clone();
-        let update_version = updater
-            .read(cx)
-            .available()
-            .map(|update| update.version().to_owned());
-        let update_hint = update_version.map(|version| {
-            let click_updater = updater.clone();
-            let tooltip = SharedString::from(format!("Pulse {version} is ready to install"));
-            let trigger = div()
-                .id("sidebar-update")
-                .flex()
-                .items_center()
-                .justify_center()
-                .size(px(36.))
-                .flex_none()
-                .rounded(px(theme::RADIUS_MD))
-                .cursor_pointer()
-                .hover(|style| style.bg(theme::accent_soft()))
-                .on_click(move |_, _, cx| {
-                    click_updater.read(cx).check_for_updates();
-                })
-                .child(
-                    svg()
-                        .path("icons/circle-arrow-down.svg")
-                        .size(px(16.))
-                        .flex_none()
-                        .text_color(theme::accent()),
-                );
-            ui::Tooltip::new("sidebar-update-tooltip", tooltip, trigger)
-        });
-
-        div()
-            .w_full()
-            .pt(px(12.))
-            .border_t_1()
-            .border_color(theme::border())
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(px(4.))
-                    .w_full()
-                    .child(
-                        div()
-                            .id("open-settings")
-                            .group("sidebar-settings")
-                            .flex()
-                            .items_center()
-                            .gap(px(10.))
-                            .min_w_0()
-                            .flex_1()
-                            .px(px(10.))
-                            .py(px(9.))
-                            .rounded(px(theme::RADIUS_MD))
-                            .cursor_pointer()
-                            .hover(|style| style.bg(theme::accent_soft()))
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                window.blur();
-                                this.open_settings(SettingsSection::General, cx);
-                            }))
-                            .child(
-                                svg()
-                                    .path("icons/settings.svg")
-                                    .size(px(18.))
-                                    .flex_none()
-                                    .text_color(theme::text_muted())
-                                    .group_hover("sidebar-settings", |style| {
-                                        style.text_color(theme::accent())
-                                    }),
-                            )
-                            .child(
-                                div()
-                                    .font_family(theme::FONT_DISPLAY)
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .text_size(px(14.))
-                                    .text_color(theme::text_secondary())
-                                    .group_hover("sidebar-settings", |style| {
-                                        style.text_color(theme::text_primary())
-                                    })
-                                    .child("Settings"),
-                            ),
-                    )
-                    .children(update_hint),
-            )
-    }
-}
-
-fn render_brand() -> impl IntoElement {
-    div()
-        .flex()
-        .items_center()
-        .gap(px(10.))
-        .w_full()
-        .child(
-            div()
-                .flex()
-                .items_center()
-                .justify_center()
-                .size(px(32.))
-                .flex_none()
-                .child(
-                    svg()
-                        .path("icons/activity.svg")
-                        .size(px(24.))
-                        .text_color(theme::accent()),
-                ),
-        )
-        .child(
-            div()
-                .font_family(theme::FONT_DISPLAY)
-                .font_weight(FontWeight::BOLD)
-                .text_size(px(22.))
-                .text_color(theme::text_primary())
-                .child("Pulse"),
-        )
 }
 
 fn render_storage_badge(count: usize) -> impl IntoElement {

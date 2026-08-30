@@ -17,16 +17,18 @@ impl Shell {
             .capture_any_mouse_down(cx.listener(|this, event: &MouseDownEvent, _, cx| {
                 if event.button == MouseButton::Left {
                     this.settings_output_toggle_press_closed =
-                        this.row.read(cx).output_popover_open();
+                        this.settings_output_picker.read(cx).output_popover_open();
                 }
             }))
             .on_click(cx.listener(|this, _, _, cx| {
                 if std::mem::take(&mut this.settings_output_toggle_press_closed) {
-                    this.row.update(cx, |row, cx| row.close_output_popover(cx));
+                    this.settings_output_picker
+                        .update(cx, |picker, cx| picker.close_output_popover(cx));
                     return;
                 }
-                this.row
-                    .update(cx, |row, cx| row.toggle_settings_output_popover(cx));
+                this.row.update(cx, |row, cx| row.close_output_popover(cx));
+                this.settings_output_picker
+                    .update(cx, |picker, cx| picker.toggle_settings_output_popover(cx));
             }))
             .child(
                 div()
@@ -44,7 +46,7 @@ impl Shell {
                     .flex_none()
                     .text_color(theme::text_muted()),
             )
-            .child(self.row.clone());
+            .child(self.settings_output_picker.clone());
 
         settings_group(
             "PLAYBACK",

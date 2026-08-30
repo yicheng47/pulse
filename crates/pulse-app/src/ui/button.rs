@@ -210,6 +210,7 @@ pub(crate) enum IconButtonVariant {
     Muted,
     Secondary,
     Accent,
+    AccentSoft,
     Primary,
 }
 
@@ -222,6 +223,7 @@ pub(crate) struct IconButton {
     icon_size: f32,
     corner_radius: f32,
     horizontal_margin: f32,
+    selected: bool,
     disabled: bool,
     disabled_opacity: f32,
     tooltip: Option<SharedString>,
@@ -238,6 +240,7 @@ impl IconButton {
             icon_size: 16.,
             corner_radius: theme::RADIUS_SM,
             horizontal_margin: 0.,
+            selected: false,
             disabled: false,
             disabled_opacity: 0.5,
             tooltip: None,
@@ -270,6 +273,11 @@ impl IconButton {
         self
     }
 
+    pub(crate) fn selected(mut self, selected: bool) -> Self {
+        self.selected = selected;
+        self
+    }
+
     pub(crate) fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
@@ -298,14 +306,22 @@ impl IconButton {
 impl RenderOnce for IconButton {
     fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
         let tooltip_id = (self.id.clone(), "tooltip");
-        let foreground = match self.variant {
-            IconButtonVariant::Muted => theme::text_muted(),
-            IconButtonVariant::Secondary => theme::text_secondary(),
-            IconButtonVariant::Accent => theme::accent(),
-            IconButtonVariant::Primary => theme::bg_inset(),
+        let variant = self.variant;
+        let selected = self.selected;
+        let disabled = self.disabled;
+        let foreground = if self.selected {
+            theme::accent()
+        } else {
+            match self.variant {
+                IconButtonVariant::Muted => theme::text_muted(),
+                IconButtonVariant::Secondary => theme::text_secondary(),
+                IconButtonVariant::Accent | IconButtonVariant::AccentSoft => theme::accent(),
+                IconButtonVariant::Primary => theme::bg_inset(),
+            }
         };
         let mut button = div()
             .id(self.id)
+            .group("icon-button")
             .flex()
             .items_center()
             .justify_center()
@@ -315,6 +331,10 @@ impl RenderOnce for IconButton {
             .when(self.variant == IconButtonVariant::Primary, |button| {
                 button.bg(theme::accent())
             })
+            .when(self.variant == IconButtonVariant::AccentSoft, |button| {
+                button.bg(theme::accent_soft())
+            })
+            .when(self.selected, |button| button.bg(theme::bg_elevated()))
             .opacity(if self.disabled {
                 self.disabled_opacity
             } else {
@@ -329,21 +349,32 @@ impl RenderOnce for IconButton {
                 svg()
                     .path(self.icon)
                     .size(px(self.icon_size))
-                    .text_color(foreground),
+                    .text_color(foreground)
+                    .when(
+                        variant == IconButtonVariant::AccentSoft && !selected && !disabled,
+                        |icon| {
+                            icon.group_hover("icon-button", |style| {
+                                style.text_color(theme::bg_inset())
+                            })
+                        },
+                    ),
             );
         if !self.disabled {
             button = button
-                .hover(|style| match self.variant {
-                    IconButtonVariant::Primary => style.bg(theme::accent_bright()),
-                    IconButtonVariant::Muted
-                    | IconButtonVariant::Secondary
-                    | IconButtonVariant::Accent => style.bg(theme::bg_muted()),
+                .hover(|style| match (self.selected, self.variant) {
+                    (true, _) => style.bg(theme::bg_elevated()),
+                    (false, IconButtonVariant::Primary) => style.bg(theme::accent_bright()),
+                    (false, IconButtonVariant::AccentSoft) => style.bg(theme::accent()),
+                    (false, IconButtonVariant::Muted)
+                    | (false, IconButtonVariant::Secondary)
+                    | (false, IconButtonVariant::Accent) => style.bg(theme::bg_muted()),
                 })
                 .active(|style| match self.variant {
                     IconButtonVariant::Primary => style.bg(theme::accent()),
                     IconButtonVariant::Muted
                     | IconButtonVariant::Secondary
                     | IconButtonVariant::Accent => style.bg(theme::bg_elevated()),
+                    IconButtonVariant::AccentSoft => style.bg(theme::accent_bright()),
                 });
         }
         if !self.disabled
@@ -377,6 +408,7 @@ mod tests {
         assert_eq!(default.icon_size, 16.);
         assert_eq!(default.corner_radius, theme::RADIUS_SM);
         assert_eq!(default.horizontal_margin, 0.);
+        assert!(!default.selected);
         assert_eq!(default.disabled_opacity, 0.5);
 
         let transport = IconButton::new("transport", "icons/skip-forward.svg")

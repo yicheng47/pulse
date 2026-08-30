@@ -82,6 +82,12 @@ impl PlaybackRow {
         }
     }
 
+    pub(crate) fn new_settings_output_picker(cx: &mut Context<Self>) -> Self {
+        let mut row = Self::new(cx);
+        row.surface = PlaybackSurface::SettingsOutputPicker;
+        row
+    }
+
     fn handle_store_update(&mut self, cx: &mut Context<Self>) {
         let revisions = self.app_store.read(cx).revisions;
         let reactions = revisions.reactions_since(self.store_revisions);
@@ -106,7 +112,6 @@ impl PlaybackRow {
     }
 
     pub(crate) fn enter_settings(&mut self, cx: &mut Context<Self>) {
-        self.surface = PlaybackSurface::SettingsOutputPicker;
         self.volume_popover_open = false;
         self.output_popover_open = false;
         self.queue_popover_open = false;
@@ -114,9 +119,9 @@ impl PlaybackRow {
     }
 
     pub(crate) fn leave_settings(&mut self, cx: &mut Context<Self>) {
-        self.surface = PlaybackSurface::Transport;
         self.volume_popover_open = false;
         self.output_popover_open = false;
+        self.queue_popover_open = false;
         cx.notify();
     }
 

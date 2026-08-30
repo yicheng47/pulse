@@ -31,6 +31,46 @@ fn install_app_icon() {
     }
 }
 
+#[cfg(target_os = "macos")]
+fn install_titlebar_toolbar() {
+    use objc2::{MainThreadMarker, MainThreadOnly};
+    use objc2_app_kit::{NSApplication, NSTitlebarSeparatorStyle, NSToolbar, NSWindowToolbarStyle};
+    use objc2_foundation::NSString;
+
+    let main_thread = MainThreadMarker::new().expect("Pulse must start on the main thread");
+    let app = NSApplication::sharedApplication(main_thread);
+    let window = app.windows().firstObject().expect("Pulse window not found");
+    let identifier = NSString::from_str("pulse-titlebar");
+    let toolbar = NSToolbar::initWithIdentifier(NSToolbar::alloc(main_thread), &identifier);
+
+    // The native band must contain the traffic lights for them to remain clickable.
+    window.setToolbar(Some(&toolbar));
+    window.setToolbarStyle(NSWindowToolbarStyle::Unified);
+    window.setTitlebarSeparatorStyle(NSTitlebarSeparatorStyle::None);
+}
+
+#[cfg(target_os = "macos")]
+fn update_titlebar_toolbar_for_fullscreen(is_fullscreen: bool) {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSApplication, NSWindowButton};
+
+    let main_thread = MainThreadMarker::new().expect("Pulse must run on the main thread");
+    let app = NSApplication::sharedApplication(main_thread);
+    let window = app.windows().firstObject().expect("Pulse window not found");
+    let toolbar = window.toolbar().expect("Pulse titlebar toolbar not found");
+    if toolbar.isVisible() == is_fullscreen {
+        toolbar.setVisible(!is_fullscreen);
+    }
+
+    if !is_fullscreen
+        && let Some(button_group) = window
+            .standardWindowButton(NSWindowButton::CloseButton)
+            .and_then(|button| unsafe { button.superview() })
+    {
+        button_group.updateTrackingAreas();
+    }
+}
+
 fn main() {
     gpui_platform::application()
         .with_assets(Assets)
@@ -64,14 +104,19 @@ fn main() {
                     titlebar: Some(TitlebarOptions {
                         title: None,
                         appears_transparent: true,
-                        traffic_light_position: Some(point(px(18.), px(24.))),
+                        traffic_light_position: Some(point(px(24.), px(30.))),
                     }),
                     window_bounds: Some(WindowBounds::Windowed(bounds)),
                     ..Default::default()
                 },
-                |_, cx| cx.new(Shell::new),
+                |window, cx| cx.new(|cx| Shell::new(window, cx)),
             )
             .expect("failed to open window");
+            #[cfg(target_os = "macos")]
+            {
+                install_titlebar_toolbar();
+                cx.defer(|_| update_titlebar_toolbar_for_fullscreen(false));
+            }
             cx.activate(true);
         });
 }

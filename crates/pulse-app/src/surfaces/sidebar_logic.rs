@@ -1,5 +1,4 @@
 pub(crate) const SIDEBAR_WIDTH: f32 = 236.0;
-pub(crate) const SIDEBAR_TOP_PADDING: f32 = 56.0;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub(crate) enum Destination {

@@ -45,6 +45,7 @@ const ASSETS: &[(&str, &[u8])] = assets![
     "icons/folder-plus.svg",
     "icons/plus.svg",
     "icons/refresh-cw.svg",
+    "icons/arrow-down.svg",
     "icons/circle-arrow-down.svg",
     "icons/loader.svg",
     "icons/user-round-search.svg",

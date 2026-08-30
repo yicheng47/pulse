@@ -1,7 +1,6 @@
 use gpui::{
     AnyElement, Context, Entity, ExternalPaths, FocusHandle, IntoElement, MouseButton,
     MouseMoveEvent, MouseUpEvent, Render, ScrollHandle, Window, WindowControlArea, div, prelude::*,
-    px,
 };
 
 use crate::{
@@ -29,14 +28,22 @@ pub struct Shell {
     pub(super) search_focus: FocusHandle,
     pub(super) settings_section: Option<SettingsSection>,
     pub(super) settings_output_toggle_press_closed: bool,
+    pub(super) settings_output_picker: Entity<PlaybackRow>,
     pub(super) updater: Entity<UpdaterBridge>,
     pub(super) update_check_poll_generation: u64,
     pub(super) titlebar_drag_armed: bool,
 }
 
 impl Shell {
-    pub fn new(cx: &mut Context<Self>) -> Self {
+    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
+        #[cfg(target_os = "macos")]
+        cx.observe_window_bounds(window, |_, window, _| {
+            crate::update_titlebar_toolbar_for_fullscreen(window.is_fullscreen());
+        })
+        .detach();
+
         let row = cx.new(PlaybackRow::new);
+        let settings_output_picker = cx.new(PlaybackRow::new_settings_output_picker);
         let devices = cx.new(DeviceManagementPage::new);
         let library = cx.new(LibraryView::new);
         let updater = cx.new(UpdaterBridge::new);
@@ -61,6 +68,7 @@ impl Shell {
             search_focus: cx.focus_handle(),
             settings_section: None,
             settings_output_toggle_press_closed: false,
+            settings_output_picker,
             updater,
             update_check_poll_generation: 0,
             titlebar_drag_armed: false,
@@ -115,7 +123,9 @@ impl Render for Shell {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let root = div()
             .id("window-drop-target")
+            .relative()
             .flex()
+            .flex_col()
             .size_full()
             .bg(theme::bg_page())
             .drag_over::<ExternalPaths>(|style, _, _, _| style.bg(theme::accent_soft()))
@@ -143,35 +153,29 @@ impl Render for Shell {
                 }),
             );
 
-        if self.settings_section.is_some() {
-            return root.child(self.render_settings_shell(cx));
-        }
-
-        root.child(self.render_sidebar(cx)).child(
+        let body = if self.settings_section.is_some() {
+            self.render_settings_shell(cx).into_any_element()
+        } else {
             div()
-                .relative()
                 .flex()
-                .flex_col()
                 .flex_1()
-                .min_w_0()
-                .h_full()
-                .child(self.render_titlebar_drag_area("main-titlebar-drag", render_top_bar(), cx))
-                .child(self.render_body(cx))
-                .child(self.row.clone())
-                .child(self.render_search(window, cx)),
-        )
-    }
-}
+                .min_h_0()
+                .w_full()
+                .child(self.render_sidebar(cx))
+                .child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .flex_1()
+                        .min_w_0()
+                        .h_full()
+                        .child(self.render_body(cx)),
+                )
+                .into_any_element()
+        };
 
-fn render_top_bar() -> gpui::Div {
-    div()
-        .flex()
-        .items_center()
-        .justify_between()
-        .w_full()
-        .h(px(TOP_BAR_HEIGHT))
-        .flex_none()
-        .px(px(28.))
-        .border_b_1()
-        .border_color(theme::border())
+        root.child(self.render_header(window, cx))
+            .child(body)
+            .child(self.row.clone())
+    }
 }
