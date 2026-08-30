@@ -23,6 +23,7 @@ type BackendFactory =
     Arc<dyn Fn(DeviceId, bool) -> Result<Box<dyn PlaybackBackend>, EngineError> + Send + Sync>;
 type DecoderFactory =
     Arc<dyn Fn(&Path) -> Result<Box<dyn SourceDecoder>, EngineError> + Send + Sync>;
+type Clock = Box<dyn Fn() -> Instant + Send>;
 
 pub struct PlaybackController {
     command_tx: Sender<PlaybackCommand>,
@@ -41,6 +42,7 @@ impl PlaybackController {
             }),
             Arc::new(|path| Ok(Box::new(PcmDecoder::open(path)?))),
             OUTPUT_STALL_TIMEOUT,
+            Box::new(Instant::now),
         )
     }
 
@@ -63,6 +65,7 @@ impl PlaybackController {
         backend_factory: BackendFactory,
         decoder_factory: DecoderFactory,
         output_stall_timeout: Duration,
+        now: Clock,
     ) -> Self {
         let (command_tx, command_rx) = mpsc::channel();
         let subscribers = Arc::new(Mutex::new(Vec::new()));
@@ -80,6 +83,7 @@ impl PlaybackController {
                             output_device,
                             exclusive_mode,
                             output_stall_timeout,
+                            now,
                         },
                         command_rx,
                         worker_subscribers,
@@ -230,6 +234,7 @@ struct WorkerSettings {
     output_device: DeviceId,
     exclusive_mode: bool,
     output_stall_timeout: Duration,
+    now: Clock,
 }
 
 struct Worker {
@@ -254,6 +259,7 @@ struct Worker {
     backend_factory: BackendFactory,
     decoder_factory: DecoderFactory,
     output_stall_timeout: Duration,
+    now: Clock,
     shutdown: Arc<AtomicBool>,
 }
 
@@ -285,6 +291,7 @@ impl Worker {
             backend_factory,
             decoder_factory,
             output_stall_timeout: settings.output_stall_timeout,
+            now: settings.now,
             shutdown,
         }
     }
@@ -760,7 +767,7 @@ impl Worker {
             }
         }
 
-        let now = Instant::now();
+        let now = (self.now)();
         let output_stalled = self.active.as_mut().is_some_and(|active| {
             if backend_position != active.last_backend_position {
                 active.last_backend_position = backend_position;
@@ -1114,7 +1121,7 @@ mod tests {
     use std::{
         collections::{HashMap, HashSet},
         path::PathBuf,
-        sync::mpsc::RecvTimeoutError,
+        sync::{Condvar, mpsc::RecvTimeoutError},
         time::{Duration, Instant},
     };
 
@@ -1138,6 +1145,7 @@ mod tests {
         unreadable_paths: HashSet<PathBuf>,
         decoder_opens: Vec<PathBuf>,
         decoder_eofs: Vec<PathBuf>,
+        prepared_pcm_drains: Vec<PathBuf>,
     }
 
     impl Default for FakeLog {
@@ -1160,6 +1168,7 @@ mod tests {
                 unreadable_paths: HashSet::new(),
                 decoder_opens: Vec::new(),
                 decoder_eofs: Vec::new(),
+                prepared_pcm_drains: Vec::new(),
             }
         }
     }
@@ -1169,6 +1178,7 @@ mod tests {
         format: PcmFormat,
         duration_ms: Option<u64>,
         frames: u64,
+        seek_pending_frames: u64,
     }
 
     impl Default for FakeDecoderSpec {
@@ -1177,6 +1187,7 @@ mod tests {
                 format: TEST_FORMAT,
                 duration_ms: Some(10_000),
                 frames: 2_000,
+                seek_pending_frames: 0,
             }
         }
     }
@@ -1244,6 +1255,8 @@ mod tests {
         frames: u64,
         emitted: bool,
         seek_offset_ms: u64,
+        seek_pending_frames: u64,
+        pending_frames: u64,
     }
 
     impl SourceDecoder for FakeDecoder {
@@ -1257,10 +1270,22 @@ mod tests {
 
         fn seek(&mut self, position_ms: u64) -> Result<u64, EngineError> {
             self.log.lock().unwrap().seek_positions.push(position_ms);
+            self.pending_frames = self.seek_pending_frames;
             Ok(position_ms.saturating_sub(self.seek_offset_ms))
         }
 
         fn next_pcm(&mut self, pcm: &mut Vec<u8>) -> Result<Option<u64>, EngineError> {
+            if self.pending_frames > 0 {
+                let frames = self.pending_frames;
+                self.pending_frames = 0;
+                pcm.resize(frames as usize * self.format.bytes_per_frame(), 1);
+                self.log
+                    .lock()
+                    .unwrap()
+                    .prepared_pcm_drains
+                    .push(self.path.clone());
+                return Ok(Some(frames));
+            }
             if self.emitted {
                 if self.log.lock().unwrap().decoder_starved_after_first_chunk {
                     pcm.clear();
@@ -1291,9 +1316,64 @@ mod tests {
     };
     const TEST_STALL_TIMEOUT: Duration = Duration::from_millis(100);
 
+    #[derive(Clone)]
+    struct FakeClock {
+        state: Arc<(Mutex<FakeClockState>, Condvar)>,
+    }
+
+    struct FakeClockState {
+        now: Instant,
+        reads: u64,
+    }
+
+    impl FakeClock {
+        fn new() -> Self {
+            Self {
+                state: Arc::new((
+                    Mutex::new(FakeClockState {
+                        now: Instant::now(),
+                        reads: 0,
+                    }),
+                    Condvar::new(),
+                )),
+            }
+        }
+
+        fn now(&self) -> Instant {
+            let (state, read) = &*self.state;
+            let mut state = state.lock().unwrap();
+            state.reads += 1;
+            read.notify_all();
+            state.now
+        }
+
+        fn advance(&self, duration: Duration) {
+            self.state.0.lock().unwrap().now += duration;
+        }
+
+        fn reads(&self) -> u64 {
+            self.state.0.lock().unwrap().reads
+        }
+
+        fn wait_for_read_after(&self, reads: u64) {
+            let deadline = Instant::now() + Duration::from_secs(2);
+            let (state, read) = &*self.state;
+            let mut state = state.lock().unwrap();
+            while state.reads <= reads {
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                let (next_state, timeout) = read.wait_timeout(state, remaining).unwrap();
+                state = next_state;
+                assert!(
+                    !timeout.timed_out(),
+                    "timed out waiting for worker clock read"
+                );
+            }
+        }
+    }
+
     #[test]
     fn stalled_output_emits_device_error_and_engine_remains_reusable() {
-        let (controller, log) = fake_controller_with_stall_timeout(TEST_STALL_TIMEOUT);
+        let (controller, log, clock) = fake_controller_with_stall_timeout(TEST_STALL_TIMEOUT);
         log.lock().unwrap().position_limit = 0;
         let events = controller.subscribe();
         let commands = controller.command_sender();
@@ -1305,7 +1385,9 @@ mod tests {
         wait_for(&events, |event| {
             *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
         });
-        assert_no_error_for(&events, TEST_STALL_TIMEOUT * 2);
+        clock.advance(TEST_STALL_TIMEOUT * 2);
+        wait_for_worker_pumps(&clock, 2);
+        assert_no_error_pending(&events);
 
         log.lock().unwrap().position_limit = 1_000;
         wait_for(&events, |event| {
@@ -1317,6 +1399,8 @@ mod tests {
                 }
             )
         });
+        wait_for_worker_pumps(&clock, 2);
+        clock.advance(TEST_STALL_TIMEOUT);
 
         assert_eq!(
             wait_for(&events, |event| matches!(
@@ -1352,7 +1436,7 @@ mod tests {
 
     #[test]
     fn paused_playback_does_not_trigger_stall_watchdog() {
-        let (controller, _) = fake_controller_with_stall_timeout(TEST_STALL_TIMEOUT);
+        let (controller, _, clock) = fake_controller_with_stall_timeout(TEST_STALL_TIMEOUT);
         let events = controller.subscribe();
         let commands = controller.command_sender();
         commands
@@ -1374,12 +1458,15 @@ mod tests {
         wait_for(&events, |event| {
             *event == PlaybackEvent::StateChanged(PlaybackState::Paused)
         });
-        assert_no_error_for(&events, TEST_STALL_TIMEOUT * 2);
+        clock.advance(TEST_STALL_TIMEOUT * 2);
+        assert_no_matching_event(&events, TEST_STALL_TIMEOUT * 2, |event| {
+            matches!(event, PlaybackEvent::Error { .. })
+        });
     }
 
     #[test]
     fn decoder_underrun_does_not_trigger_stall_watchdog() {
-        let (controller, log) = fake_controller_with_stall_timeout(TEST_STALL_TIMEOUT);
+        let (controller, log, clock) = fake_controller_with_stall_timeout(TEST_STALL_TIMEOUT);
         {
             let mut log = log.lock().unwrap();
             log.position_limit = u64::MAX;
@@ -1402,7 +1489,9 @@ mod tests {
             )
         });
 
-        assert_no_error_for(&events, TEST_STALL_TIMEOUT * 2);
+        clock.advance(TEST_STALL_TIMEOUT * 2);
+        wait_for_worker_pumps(&clock, 2);
+        assert_no_error_pending(&events);
 
         commands.send(PlaybackCommand::Stop).unwrap();
         wait_for(&events, |event| {
@@ -1554,6 +1643,68 @@ mod tests {
         });
 
         assert_eq!(log.lock().unwrap().seek_positions, [5_000]);
+    }
+
+    #[test]
+    fn paused_seek_resume_drains_pending_pcm_from_the_prepared_decoder() {
+        let (controller, log) = fake_controller();
+        configure_decoder(&log, "track.flac", TEST_FORMAT, 10_000, 2_000);
+        log.lock()
+            .unwrap()
+            .decoder_specs
+            .get_mut(Path::new("track.flac"))
+            .unwrap()
+            .seek_pending_frames = 37;
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            matches!(
+                event,
+                PlaybackEvent::Position {
+                    position_ms: 1_000,
+                    ..
+                }
+            )
+        });
+        commands.send(PlaybackCommand::Pause).unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Paused)
+        });
+
+        commands
+            .send(PlaybackCommand::Seek { position_ms: 5_000 })
+            .unwrap();
+        wait_for(&events, |event| {
+            matches!(
+                event,
+                PlaybackEvent::Position {
+                    position_ms: 5_000,
+                    ..
+                }
+            )
+        });
+        commands.send(PlaybackCommand::Resume).unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+        wait_for_log(&log, |log| {
+            log.prepared_pcm_drains == [PathBuf::from("track.flac")]
+        });
+
+        let log = log.lock().unwrap();
+        assert_eq!(
+            log.decoder_opens
+                .iter()
+                .filter(|path| path.as_path() == Path::new("track.flac"))
+                .count(),
+            2
+        );
+        assert_eq!(log.seek_positions, [5_000]);
     }
 
     #[test]
@@ -2148,7 +2299,7 @@ mod tests {
 
     #[test]
     fn continuous_progress_across_seamless_boundary_does_not_stall() {
-        let (controller, log) = fake_controller_with_stall_timeout(TEST_STALL_TIMEOUT);
+        let (controller, log, clock) = fake_controller_with_stall_timeout(TEST_STALL_TIMEOUT);
         configure_decoder(&log, "a.flac", TEST_FORMAT, 2_000, 2_000);
         configure_decoder(&log, "b.flac", TEST_FORMAT, 10_000, 10_000);
         log.lock().unwrap().position_limit = 0;
@@ -2169,13 +2320,13 @@ mod tests {
             .unwrap();
         wait_for_log(&log, |log| log.backend_fed_frames == 12_000);
 
-        let deadline = Instant::now() + TEST_STALL_TIMEOUT * 2;
         let mut position = 0;
         let mut advanced = false;
-        while Instant::now() < deadline {
+        for _ in 0..8 {
             position += 500;
             log.lock().unwrap().position_limit = position;
-            std::thread::sleep(TEST_STALL_TIMEOUT / 4);
+            wait_for_worker_pumps(&clock, 2);
+            clock.advance(TEST_STALL_TIMEOUT / 4);
             while let Ok(event) = events.try_recv() {
                 match event {
                     PlaybackEvent::Advanced { .. } => advanced = true,
@@ -2186,6 +2337,8 @@ mod tests {
                 }
             }
         }
+        wait_for_worker_pumps(&clock, 2);
+        assert_no_error_pending(&events);
         assert!(advanced, "test progress never crossed the audible boundary");
 
         commands.send(PlaybackCommand::Stop).unwrap();
@@ -2196,7 +2349,7 @@ mod tests {
 
     #[test]
     fn stalled_output_at_seamless_boundary_still_times_out() {
-        let (controller, log) = fake_controller_with_stall_timeout(TEST_STALL_TIMEOUT);
+        let (controller, log, clock) = fake_controller_with_stall_timeout(TEST_STALL_TIMEOUT);
         configure_decoder(&log, "a.flac", TEST_FORMAT, 2_000, 2_000);
         configure_decoder(&log, "b.flac", TEST_FORMAT, 10_000, 10_000);
         log.lock().unwrap().position_limit = 0;
@@ -2221,6 +2374,8 @@ mod tests {
         wait_for(&events, |event| {
             matches!(event, PlaybackEvent::Advanced { .. })
         });
+        wait_for_worker_pumps(&clock, 2);
+        clock.advance(TEST_STALL_TIMEOUT);
         assert_eq!(
             wait_for(&events, |event| matches!(
                 event,
@@ -3193,6 +3348,7 @@ mod tests {
             }),
             Arc::new(|_| panic!("decoder factory exploded")),
             Duration::MAX,
+            Box::new(Instant::now),
         );
         let events = controller.subscribe();
         let commands = controller.command_sender();
@@ -3231,8 +3387,16 @@ mod tests {
 
     fn fake_controller_with_stall_timeout(
         output_stall_timeout: Duration,
-    ) -> (PlaybackController, Arc<Mutex<FakeLog>>) {
-        fake_controller_with_options(true, 0, output_stall_timeout)
+    ) -> (PlaybackController, Arc<Mutex<FakeLog>>, FakeClock) {
+        let clock = FakeClock::new();
+        let worker_clock = clock.clone();
+        let (controller, log) = fake_controller_with_options_and_clock(
+            true,
+            0,
+            output_stall_timeout,
+            Box::new(move || worker_clock.now()),
+        );
+        (controller, log, clock)
     }
 
     fn fake_controller_with_exclusive_mode_and_seek_offset(
@@ -3246,6 +3410,20 @@ mod tests {
         exclusive_mode: bool,
         seek_offset_ms: u64,
         output_stall_timeout: Duration,
+    ) -> (PlaybackController, Arc<Mutex<FakeLog>>) {
+        fake_controller_with_options_and_clock(
+            exclusive_mode,
+            seek_offset_ms,
+            output_stall_timeout,
+            Box::new(Instant::now),
+        )
+    }
+
+    fn fake_controller_with_options_and_clock(
+        exclusive_mode: bool,
+        seek_offset_ms: u64,
+        output_stall_timeout: Duration,
+        now: Clock,
     ) -> (PlaybackController, Arc<Mutex<FakeLog>>) {
         let log = Arc::new(Mutex::new(FakeLog::default()));
         let backend_log = Arc::clone(&log);
@@ -3295,9 +3473,12 @@ mod tests {
                     frames: spec.frames,
                     emitted: false,
                     seek_offset_ms,
+                    seek_pending_frames: spec.seek_pending_frames,
+                    pending_frames: 0,
                 }))
             }),
             output_stall_timeout,
+            now,
         );
         (controller, log)
     }
@@ -3333,6 +3514,7 @@ mod tests {
                 format,
                 duration_ms: Some(duration_ms),
                 frames,
+                seek_pending_frames: 0,
             },
         );
     }
@@ -3345,6 +3527,13 @@ mod tests {
             }
             assert!(Instant::now() < deadline, "timed out waiting for fake log");
             std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+
+    fn wait_for_worker_pumps(clock: &FakeClock, count: usize) {
+        for _ in 0..count {
+            let reads = clock.reads();
+            clock.wait_for_read_after(reads);
         }
     }
 
@@ -3366,19 +3555,10 @@ mod tests {
         }
     }
 
-    fn assert_no_error_for(events: &Receiver<PlaybackEvent>, duration: Duration) {
-        let deadline = Instant::now() + duration;
-        loop {
-            let remaining = deadline.saturating_duration_since(Instant::now());
-            match events.recv_timeout(remaining) {
-                Ok(PlaybackEvent::Error { message, .. }) => {
-                    panic!("unexpected playback error: {message}")
-                }
-                Ok(_) => {}
-                Err(RecvTimeoutError::Timeout) => return,
-                Err(RecvTimeoutError::Disconnected) => {
-                    panic!("playback event channel disconnected")
-                }
+    fn assert_no_error_pending(events: &Receiver<PlaybackEvent>) {
+        while let Ok(event) = events.try_recv() {
+            if let PlaybackEvent::Error { message, .. } = event {
+                panic!("unexpected playback error: {message}");
             }
         }
     }

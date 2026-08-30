@@ -29,6 +29,9 @@ pub(crate) struct PcmDecoder {
     track_id: u32,
     stream: DecodedStream,
     time_base: TimeBase,
+    pending_pcm: Vec<u8>,
+    pending_pcm_offset: usize,
+    at_eof: bool,
 }
 
 impl PcmDecoder {
@@ -53,6 +56,9 @@ impl PcmDecoder {
             track_id,
             stream,
             time_base,
+            pending_pcm: Vec::new(),
+            pending_pcm_offset: 0,
+            at_eof: false,
         })
     }
 
@@ -67,22 +73,94 @@ impl PcmDecoder {
     }
 
     pub(crate) fn seek(&mut self, position_ms: u64) -> Result<u64, EngineError> {
-        let time = Time::new(position_ms / 1_000, (position_ms % 1_000) as f64 / 1_000.0);
+        self.pending_pcm.clear();
+        self.pending_pcm_offset = 0;
+        if let Some(duration_ms) = self.duration_ms()
+            && position_ms >= duration_ms
+        {
+            self.at_eof = true;
+            return Ok(duration_ms);
+        }
+        self.at_eof = false;
+        let requested_ts = ms_to_timestamp_ceil(position_ms, self.time_base);
+        let target_ts = self.stream.frames.map_or(requested_ts, |frames| {
+            requested_ts.min(frames.saturating_sub(1))
+        });
         let seeked = self
             .format_reader
             .seek(
-                SeekMode::Coarse,
-                SeekTo::Time {
-                    time,
-                    track_id: Some(self.track_id),
+                SeekMode::Accurate,
+                SeekTo::TimeStamp {
+                    ts: target_ts,
+                    track_id: self.track_id,
                 },
             )
             .map_err(decode_error)?;
         self.decoder.reset();
-        Ok(time_to_ms(self.time_base.calc_time(seeked.actual_ts)))
+
+        let mut end_ts = seeked.actual_ts;
+        loop {
+            let packet = match self.format_reader.next_packet() {
+                Ok(packet) => packet,
+                Err(SymphoniaError::IoError(err)) if err.kind() == ErrorKind::UnexpectedEof => {
+                    return Ok(self
+                        .duration_ms()
+                        .unwrap_or_else(|| time_to_ms(self.time_base.calc_time(end_ts))));
+                }
+                Err(err) => return Err(decode_error(err)),
+            };
+            if packet.track_id() != self.track_id {
+                continue;
+            }
+
+            let packet_ts = packet.ts();
+            let packet_end_ts = packet_ts.saturating_add(packet.dur());
+            let audio_buf = self.decoder.decode(&packet).map_err(decode_error)?;
+            let decoded_frames = audio_buf.frames();
+            end_ts = end_ts.max(packet_end_ts);
+            if packet_end_ts <= target_ts || decoded_frames == 0 {
+                continue;
+            }
+
+            let frames_to_drop = usize::try_from(frames_for_timestamp_delta_ceil(
+                target_ts.saturating_sub(packet_ts),
+                self.time_base,
+                self.stream.format.sample_rate,
+            ))
+            .unwrap_or(usize::MAX)
+            .min(decoded_frames);
+            if frames_to_drop == decoded_frames {
+                continue;
+            }
+
+            self.pending_pcm.clear();
+            write_interleaved_bytes(audio_buf, self.stream.format, &mut |bytes| {
+                self.pending_pcm.extend_from_slice(bytes);
+                Ok(())
+            })?;
+            self.pending_pcm_offset = frames_to_drop * self.stream.format.bytes_per_frame();
+            return Ok(frame_position_ms(
+                packet_ts,
+                frames_to_drop,
+                self.time_base,
+                self.stream.format.sample_rate,
+            ));
+        }
     }
 
     pub(crate) fn next_pcm(&mut self, pcm: &mut Vec<u8>) -> Result<Option<u64>, EngineError> {
+        if self.at_eof {
+            return Ok(None);
+        }
+        if self.pending_pcm_offset < self.pending_pcm.len() {
+            pcm.clear();
+            pcm.extend_from_slice(&self.pending_pcm[self.pending_pcm_offset..]);
+            let frames = pcm.len() / self.stream.format.bytes_per_frame();
+            self.pending_pcm.clear();
+            self.pending_pcm_offset = 0;
+            return Ok(Some(frames as u64));
+        }
+
         loop {
             let packet = match self.format_reader.next_packet() {
                 Ok(packet) => packet,
@@ -323,13 +401,51 @@ fn time_to_ms(time: Time) -> u64 {
         .saturating_add((time.frac * 1_000.0) as u64)
 }
 
+fn ms_to_timestamp_ceil(position_ms: u64, time_base: TimeBase) -> u64 {
+    let numerator = u128::from(position_ms) * u128::from(time_base.denom);
+    let denominator = 1_000 * u128::from(time_base.numer);
+    u64::try_from(numerator.div_ceil(denominator)).unwrap_or(u64::MAX)
+}
+
+fn frames_for_timestamp_delta_ceil(
+    timestamp_delta: u64,
+    time_base: TimeBase,
+    sample_rate: u32,
+) -> u64 {
+    let numerator =
+        u128::from(timestamp_delta) * u128::from(time_base.numer) * u128::from(sample_rate);
+    u64::try_from(numerator.div_ceil(u128::from(time_base.denom))).unwrap_or(u64::MAX)
+}
+
+fn frame_position_ms(
+    packet_ts: u64,
+    frame_offset: usize,
+    time_base: TimeBase,
+    sample_rate: u32,
+) -> u64 {
+    let timestamp_units =
+        u128::from(packet_ts) * u128::from(time_base.numer) * u128::from(sample_rate);
+    let frame_units = frame_offset as u128 * u128::from(time_base.denom);
+    let milliseconds = (timestamp_units + frame_units) * 1_000
+        / (u128::from(time_base.denom) * u128::from(sample_rate));
+    u64::try_from(milliseconds).unwrap_or(u64::MAX)
+}
+
 #[cfg(test)]
 mod tests {
-    use std::borrow::Cow;
+    use std::{
+        borrow::Cow,
+        path::{Path, PathBuf},
+        sync::atomic::{AtomicU64, Ordering},
+    };
 
     use symphonia::core::audio::{AudioBuffer, AudioBufferRef, Layout, Signal, SignalSpec};
 
     use super::*;
+
+    static NEXT_TEST_FILE: AtomicU64 = AtomicU64::new(0);
+    // Generated once with FLAC 1.5.0 from an 800 ms, 8 kHz stereo i16 ramp using 576-frame blocks, no seek table, and no padding.
+    const RAMP_FLAC: &[u8] = include_bytes!("../tests/fixtures/ramp-800ms.flac");
 
     #[test]
     fn write_interleaved_bytes_unpacks_promoted_s32_to_s16() {
@@ -394,5 +510,137 @@ mod tests {
             expected.extend_from_slice(&i24::from(sample).to_ne_bytes());
         }
         assert_eq!(bytes, expected);
+    }
+
+    #[test]
+    fn seek_between_packet_boundaries_starts_pcm_at_the_target_frame() {
+        for bits_per_sample in [16, 24, 32] {
+            let file = ramp_wav(4_000, bits_per_sample);
+            let mut decoder = PcmDecoder::open(file.path()).unwrap();
+
+            let actual_ms = decoder.seek(1_500).unwrap();
+            let mut pcm = Vec::new();
+            let decoded_frames = decoder.next_pcm(&mut pcm).unwrap().unwrap();
+
+            assert!(actual_ms.abs_diff(1_500) <= 1);
+            assert_eq!(first_sample(&pcm, bits_per_sample), 1_500);
+            assert_eq!(
+                pcm.len(),
+                decoded_frames as usize * decoder.format().bytes_per_frame()
+            );
+            let mut next_pcm = Vec::new();
+            decoder.next_pcm(&mut next_pcm).unwrap().unwrap();
+            assert_eq!(
+                first_sample(&next_pcm, bits_per_sample),
+                1_500 + decoded_frames as i32
+            );
+        }
+    }
+
+    #[test]
+    fn seek_to_packet_boundary_returns_that_boundary() {
+        let file = ramp_wav(4_000, 16);
+        let mut decoder = PcmDecoder::open(file.path()).unwrap();
+
+        let actual_ms = decoder.seek(2_304).unwrap();
+        let mut pcm = Vec::new();
+        decoder.next_pcm(&mut pcm).unwrap().unwrap();
+
+        assert_eq!(actual_ms, 2_304);
+        assert_eq!(first_sample(&pcm, 16), 2_304);
+    }
+
+    #[test]
+    fn seek_past_eof_clamps_to_the_file_end() {
+        let file = ramp_wav(4_000, 16);
+        let mut decoder = PcmDecoder::open(file.path()).unwrap();
+
+        assert_eq!(decoder.seek(10_000).unwrap(), 4_000);
+        assert_eq!(decoder.next_pcm(&mut Vec::new()).unwrap(), None);
+    }
+
+    #[test]
+    fn flac_seek_between_packet_boundaries_starts_at_the_target_frame() {
+        let file = TestAudioFile::new("flac", RAMP_FLAC);
+        let mut decoder = PcmDecoder::open(file.path()).unwrap();
+
+        let actual_ms = decoder.seek(333).unwrap();
+        let mut pcm = Vec::new();
+        decoder.next_pcm(&mut pcm).unwrap().unwrap();
+
+        assert!(actual_ms.abs_diff(333) <= 1);
+        assert_eq!(first_sample(&pcm, 16), 2_664);
+    }
+
+    #[test]
+    fn flac_seek_to_exact_duration_returns_eof() {
+        let file = TestAudioFile::new("flac", RAMP_FLAC);
+        let mut decoder = PcmDecoder::open(file.path()).unwrap();
+
+        assert_eq!(decoder.duration_ms(), Some(800));
+        assert_eq!(decoder.seek(800).unwrap(), 800);
+        assert_eq!(decoder.next_pcm(&mut Vec::new()).unwrap(), None);
+    }
+
+    fn ramp_wav(frames: u32, bits_per_sample: u16) -> TestAudioFile {
+        const CHANNELS: u16 = 2;
+        const SAMPLE_RATE: u32 = 1_000;
+        let block_align = CHANNELS * (bits_per_sample / 8);
+        let data_len = frames * u32::from(block_align);
+        let mut wav = Vec::with_capacity(44 + data_len as usize);
+        wav.extend_from_slice(b"RIFF");
+        wav.extend_from_slice(&(36 + data_len).to_le_bytes());
+        wav.extend_from_slice(b"WAVEfmt ");
+        wav.extend_from_slice(&16_u32.to_le_bytes());
+        wav.extend_from_slice(&1_u16.to_le_bytes());
+        wav.extend_from_slice(&CHANNELS.to_le_bytes());
+        wav.extend_from_slice(&SAMPLE_RATE.to_le_bytes());
+        wav.extend_from_slice(&(SAMPLE_RATE * u32::from(block_align)).to_le_bytes());
+        wav.extend_from_slice(&block_align.to_le_bytes());
+        wav.extend_from_slice(&bits_per_sample.to_le_bytes());
+        wav.extend_from_slice(b"data");
+        wav.extend_from_slice(&data_len.to_le_bytes());
+        for frame in 0..frames {
+            for _ in 0..CHANNELS {
+                let sample = (frame as i32).to_le_bytes();
+                wav.extend_from_slice(&sample[..usize::from(bits_per_sample / 8)]);
+            }
+        }
+        TestAudioFile::new("wav", &wav)
+    }
+
+    fn first_sample(pcm: &[u8], bits_per_sample: u16) -> i32 {
+        match bits_per_sample {
+            16 => i32::from(i16::from_ne_bytes(pcm[..2].try_into().unwrap())),
+            24 => i32::from_ne_bytes([pcm[0], pcm[1], pcm[2], 0]),
+            32 => i32::from_ne_bytes(pcm[..4].try_into().unwrap()),
+            _ => unreachable!(),
+        }
+    }
+
+    struct TestAudioFile {
+        path: PathBuf,
+    }
+
+    impl TestAudioFile {
+        fn new(extension: &str, bytes: &[u8]) -> Self {
+            let sequence = NEXT_TEST_FILE.fetch_add(1, Ordering::Relaxed);
+            let path = std::env::temp_dir().join(format!(
+                "pulse-engine-{}-{sequence}.{extension}",
+                std::process::id()
+            ));
+            std::fs::write(&path, bytes).unwrap();
+            Self { path }
+        }
+
+        fn path(&self) -> &Path {
+            &self.path
+        }
+    }
+
+    impl Drop for TestAudioFile {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_file(&self.path);
+        }
     }
 }
