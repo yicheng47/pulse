@@ -1,6 +1,6 @@
 # Flaky engine test: stall watchdog test races the CI runner's clock
 
-> Bug · P2 · filed 2026-08-30 from CI (runs 33285256407, 33285876602, 33285937067 on `main`). Local note only — no GitHub issue.
+> Bug · P2 · filed 2026-08-30 from CI (runs 33285256407, 33285876602, 33285937067 on `main`). Local note only — no GitHub issue. **Fixed** 2026-08-30, commit `a9dbef5` — the worker takes an injected clock and the stall tests drive fake time.
 
 ## Description
 

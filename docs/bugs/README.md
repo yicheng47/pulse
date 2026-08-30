@@ -4,12 +4,12 @@ One note per open bug, written with the `bug` skill's template (description, exp
 
 ## Open
 
-- [`flaky-stall-watchdog-test.md`](flaky-stall-watchdog-test.md) - P2. The gapless stall-watchdog test races the CI runner's clock; inject a clock into the worker and drive fake time in the tests. Folded into the seek-lands-early mission.
 - [`builtin-speakers-exclusive-volume.md`](builtin-speakers-exclusive-volume.md) - P2. Exclusive mode on the built-in speakers disables the macOS volume control and freezes the hardware level.
-- [`seek-lands-early.md`](seek-lands-early.md) - P2. Seek lands earlier than the requested position (coarse seek, no decode-forward).
 
 ## Fixed
 
+- [`archive/seek-lands-early.md`](archive/seek-lands-early.md) - P2. Decode-forward after the seek; `a9dbef5`.
+- [`archive/flaky-stall-watchdog-test.md`](archive/flaky-stall-watchdog-test.md) - P2. Injected clock for the engine worker; `a9dbef5`.
 - [`archive/stale-row-selection-after-advance.md`](archive/stale-row-selection-after-advance.md) - P2. Library row selection follows playback; `cf02027`.
 - [`archive/macos-deployment-target.md`](archive/macos-deployment-target.md) - P2. Floor raised to macOS 13.0 instead of validating 12; `84cf129`.
 - [`archive/album-card-image-clipping.md`](archive/album-card-image-clipping.md) - P3. Radius on the cover `img`; `84cf129`.

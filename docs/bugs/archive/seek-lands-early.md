@@ -1,6 +1,6 @@
 # Seek lands earlier than the requested position (coarse seek, no decode-forward)
 
-> Bug · P2 · filed 2026-08-16 as GitHub issue #49 (closed when tracking moved to docs, 2026-08-29)
+> Bug · P2 · filed 2026-08-16 as GitHub issue #49 (closed when tracking moved to docs, 2026-08-29). **Fixed** 2026-08-30, commit `a9dbef5` — accurate seek plus decode-forward to the requested frame; seek-to-end is EOF without touching the demuxer.
 
 ## Description
 `PcmDecoder::seek` uses Symphonia's `SeekMode::Coarse`, which lands on the nearest seek point at or before the target, and Pulse never decodes forward to the requested frame. The controller is honest about it — it reports the actual landing position, and the requested/actual bookkeeping prevents the error from compounding across pause/seek cycles — but the user experience is scrubbing to 1:30 and hearing playback start at, say, 1:27. The error magnitude depends on the file's seek-point spacing.
