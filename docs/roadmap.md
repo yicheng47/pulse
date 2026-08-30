@@ -29,8 +29,8 @@ The audio path first, then session state, then the shell overhaul and the interf
 | [Feature 17 — playback dropout reporting](features/archive/17-playback-dropout-reporting.md) | P2 | done | `5952c95`: underrun read path, `Dropout` events, sustained-dropout notice; diagnostic count surface deferred to a design pass. |
 | [Bug — stale row selection after advance](bugs/archive/stale-row-selection-after-advance.md) | P2 | done | `cf02027`: selection cleared (playlist: re-anchored) when playback moves to another track. |
 | [Feature 28 — app shell overhaul](features/archive/28-app-shell-overhaul.md) | P1 | done | `3edc358` (header, bands, player width), `d213219` (island sidebars, Settings sections with Output); both smoke-tested by Jason 2026-08-30. |
-| [Feature 30 — interface scale](features/30-interface-scale.md) | P2 | in progress | Pulled into M2 by Jason 2026-08-30 ("deliver this feature before 0.2.0"); design approved and committed. Phase 1: `px` → `rems` migration + type scale (closes 29); phase 2: setting, General row, `Cmd-=`/`Cmd--`/`Cmd-0`. |
-| [Feature 29 — type scale](features/29-type-scale.md) | P3 | in progress | Delivered by 30's phase 1. |
+| [Feature 30 — interface scale](features/30-interface-scale.md) | P2 | in progress | Pulled into M2 by Jason 2026-08-30. Phase 1 (`px` → `rems` via `theme::rpx`, type scale, `check-units`) merged 05b9d08 on my review — behavior-preserving, identity by exact arithmetic; phase 2 (setting, General row, `Cmd-=`/`Cmd--`/`Cmd-0`) running, Jason smoke-tests before merge. |
+| [Feature 29 — type scale](features/archive/29-type-scale.md) | P3 | done | 05b9d08, with feature 30 phase 1. |
 | [Feature 21 — launch state restore](features/archive/21-launch-state-restore.md) | P2 | done | `1c7880f`: session blob in `settings.json`, engine `Load` (paused, no sink), route restore; smoke: quit mid-album and relaunch. |
 
 ## M3 — Metadata, now playing, integrations → v0.3.0

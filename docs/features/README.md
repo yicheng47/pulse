@@ -9,10 +9,10 @@ Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phase
 - [`20-now-playing-page.md`](20-now-playing-page.md) - P2, issue #56. Click the playback row's track cluster to open an immersive now-playing view: full-size album art, track identity, quality badge; playback row stays as the transport. Lyrics land here later.
 - [`19-mcp-server.md`](19-mcp-server.md) - P2, issue #55. `pulse mcp` stdio server on the app binary, Quill-style: library reads always on; playlist CRUD and rescan behind a Settings write gate; WAL for cross-process safety.
 - [`30-interface-scale.md`](30-interface-scale.md) - P2. Settings ▸ General gets an Interface scale stepper (80–150%) in place of the redundant Default output row; needs the `px` → `rems` migration, which also closes 29. Design approved 2026-08-30; in M2.
-- [`29-type-scale.md`](29-type-scale.md) - P3, refactor. Named type scale in `theme.rs` from the design's text styles; replace the ~218 literal `text_size(px(N))` calls and add a grep gate, as colors already have. Delivered by feature 30's phase 1.
 
 ## Implemented
 
+- [`29-type-scale.md`](archive/29-type-scale.md) - P3, refactor. `theme::text` named sizes in rems from the design's text styles; every `text_size` goes through them; `check-units` gate. Landed with feature 30 phase 1, 05b9d08.
 - [`28-app-shell-overhaul.md`](archive/28-app-shell-overhaul.md) - P1. Full-width header (brand │ search … update · gear), library and Settings sidebars as floating islands on a shared `ui::Sidebar*` kit, flat page, window-wide playback row, Settings grouped SETTINGS (General, Output) / APP (Update, About) with the device page under Output. `3edc358`, `d213219`; design `06f83d9`.
 - [`21-launch-state-restore.md`](archive/21-launch-state-restore.md) - P2, issue #57. Relaunch reopens the last page with the last queue and track loaded paused at its position (engine `Load`); shuffle/repeat restored; missing files surface only on play. `1c7880f`.
 - [`17-playback-dropout-reporting.md`](archive/17-playback-dropout-reporting.md) - P2, issue #50. The render callback's underrun counter gets a read side; the controller counts dropouts only while data is owed and reports `Dropout` events plus `Position.dropout_frames`; the app shows a sustained-dropout notice. `5952c95`.
