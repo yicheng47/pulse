@@ -21,6 +21,14 @@ fn advanced(path: &Path, attempt: u64) -> PlaybackEvent {
     }
 }
 
+fn dropout(attempt: u64, cumulative_frames: u64) -> PlaybackEvent {
+    PlaybackEvent::Dropout {
+        attempt,
+        frames: 1,
+        cumulative_frames,
+    }
+}
+
 fn start_scripted_queue_play(
     row: &mut Playback,
     command_rx: &std::sync::mpsc::Receiver<PlaybackCommand>,
@@ -611,6 +619,7 @@ fn stale_position_events_do_not_move_an_unconfirmed_attempt() {
     let _ = row.handle_event(PlaybackEvent::Position {
         position_ms: 42_000,
         duration_ms: Some(268_000),
+        dropout_frames: 0,
     });
     let _ = row.handle_event(PlaybackEvent::StateChanged(PlaybackState::Loading));
     let _ = row.handle_event(PlaybackEvent::Error {
@@ -638,6 +647,7 @@ fn losing_the_active_device_mid_playback_stops_with_a_recovery_notice() {
     let _ = row.handle_event(PlaybackEvent::Position {
         position_ms: 10_000,
         duration_ms: Some(268_000),
+        dropout_frames: 0,
     });
 
     let still_attached = vec![
@@ -868,6 +878,7 @@ fn position_events_keep_cached_collection_snapshots_shared() {
     row.handle_event(PlaybackEvent::Position {
         position_ms: 42_000,
         duration_ms: Some(84_000),
+        dropout_frames: 0,
     });
 
     let after = row.snapshot();
@@ -877,6 +888,115 @@ fn position_events_keep_cached_collection_snapshots_shared() {
         &before.missing_track_ids,
         &after.missing_track_ids
     ));
+}
+
+#[test]
+fn sustained_dropouts_show_the_existing_notice_after_three_events_in_ten_seconds() {
+    let mut row = Playback::initial();
+    row.dispatched_plays = 1;
+    let started = std::time::Instant::now();
+
+    row.handle_event_at(dropout(1, 1), started);
+    row.handle_event_at(dropout(1, 2), started + Duration::from_secs(5));
+    assert!(row.notice.is_none());
+    row.handle_event_at(dropout(1, 3), started + Duration::from_secs(10));
+
+    assert_eq!(row.dropout_frames, 3);
+    assert_eq!(
+        row.notice,
+        Some(PlaybackNotice::Dropouts {
+            text: "Playback is dropping out — the source can't keep up.".to_string(),
+        })
+    );
+}
+
+#[test]
+fn dropout_notice_clears_after_thirty_seconds_without_another_dropout() {
+    let mut row = Playback::initial();
+    row.dispatched_plays = 1;
+    let started = std::time::Instant::now();
+    row.handle_event_at(dropout(1, 1), started);
+    row.handle_event_at(dropout(1, 2), started + Duration::from_secs(1));
+    row.handle_event_at(dropout(1, 3), started + Duration::from_secs(2));
+
+    assert!(!row.clear_expired_dropout_notice_at(started + Duration::from_secs(31)));
+    assert!(matches!(row.notice, Some(PlaybackNotice::Dropouts { .. })));
+    assert!(row.clear_expired_dropout_notice_at(started + Duration::from_secs(32)));
+    assert!(row.notice.is_none());
+}
+
+#[test]
+fn spread_out_dropouts_do_not_show_a_notice() {
+    let mut row = Playback::initial();
+    row.dispatched_plays = 1;
+    let started = std::time::Instant::now();
+
+    row.handle_event_at(dropout(1, 1), started);
+    row.handle_event_at(dropout(1, 2), started + Duration::from_secs(11));
+    row.handle_event_at(dropout(1, 3), started + Duration::from_secs(22));
+
+    assert!(row.notice.is_none());
+    assert_eq!(row.recent_dropouts.len(), 1);
+}
+
+#[test]
+fn dropout_window_prunes_old_events_before_counting_a_fresh_burst() {
+    let mut row = Playback::initial();
+    row.dispatched_plays = 1;
+    let started = std::time::Instant::now();
+
+    row.handle_event_at(dropout(1, 1), started);
+    row.handle_event_at(dropout(1, 2), started + Duration::from_secs(1));
+    row.handle_event_at(dropout(1, 3), started + Duration::from_secs(12));
+    assert_eq!(row.recent_dropouts.len(), 1);
+    assert!(row.notice.is_none());
+
+    row.handle_event_at(dropout(1, 4), started + Duration::from_secs(13));
+    row.handle_event_at(dropout(1, 5), started + Duration::from_secs(14));
+    assert!(matches!(row.notice, Some(PlaybackNotice::Dropouts { .. })));
+}
+
+#[test]
+fn audible_track_change_clears_dropout_notice_and_counter() {
+    let mut row = Playback::initial();
+    row.dispatched_plays = 1;
+    let started = std::time::Instant::now();
+    row.handle_event_at(dropout(1, 1), started);
+    row.handle_event_at(dropout(1, 2), started + Duration::from_secs(1));
+    row.handle_event_at(dropout(1, 3), started + Duration::from_secs(2));
+
+    row.handle_event_at(
+        advanced(Path::new("/Music/next.flac"), 1),
+        started + Duration::from_secs(3),
+    );
+
+    assert_eq!(row.dropout_frames, 0);
+    assert!(row.notice.is_none());
+    assert!(row.recent_dropouts.is_empty());
+}
+
+#[test]
+fn stopping_and_dismissing_reset_dropout_notice_tracking() {
+    let mut row = Playback::initial();
+    row.dispatched_plays = 1;
+    let started = std::time::Instant::now();
+    row.handle_event_at(dropout(1, 1), started);
+    row.handle_event_at(dropout(1, 2), started + Duration::from_secs(1));
+    row.handle_event_at(dropout(1, 3), started + Duration::from_secs(2));
+
+    row.dismiss_notice();
+    row.handle_event_at(dropout(1, 4), started + Duration::from_secs(3));
+    assert!(row.notice.is_none());
+
+    row.handle_event_at(dropout(1, 5), started + Duration::from_secs(4));
+    row.handle_event_at(dropout(1, 6), started + Duration::from_secs(5));
+    assert!(matches!(row.notice, Some(PlaybackNotice::Dropouts { .. })));
+    row.handle_event_at(
+        PlaybackEvent::StateChanged(PlaybackState::Idle),
+        started + Duration::from_secs(6),
+    );
+    assert!(row.notice.is_none());
+    assert!(row.recent_dropouts.is_empty());
 }
 
 #[test]

@@ -31,6 +31,8 @@ const DEFAULT_BUFFER_FRAMES: u32 = 512;
 pub(crate) struct AuhalSink {
     audio_unit: AudioUnit,
     position_frames: Arc<AtomicU64>,
+    underrun_bytes: Arc<AtomicU64>,
+    bytes_per_frame: usize,
     transition_wait_timeout: Duration,
     running: bool,
 }
@@ -109,6 +111,8 @@ impl AuhalSink {
         Ok(Self {
             audio_unit,
             position_frames,
+            underrun_bytes,
+            bytes_per_frame,
             transition_wait_timeout,
             running: true,
         })
@@ -116,6 +120,10 @@ impl AuhalSink {
 
     pub(crate) fn position_frames(&self) -> u64 {
         self.position_frames.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn underrun_frames(&self) -> u64 {
+        self.underrun_bytes.load(Ordering::Relaxed) / self.bytes_per_frame as u64
     }
 
     pub(crate) fn transition_wait_timeout(&self) -> Duration {

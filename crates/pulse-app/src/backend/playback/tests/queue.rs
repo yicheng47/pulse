@@ -215,6 +215,7 @@ fn a_hogged_device_reports_plain_language_with_a_retry_target() {
     let _ = row.handle_event(PlaybackEvent::Position {
         position_ms: 42_000,
         duration_ms: Some(268_000),
+        dropout_frames: 0,
     });
 
     let outcome = row.handle_event(PlaybackEvent::Error {
@@ -288,6 +289,7 @@ fn a_device_failure_during_auto_advance_retries_the_next_track_from_zero() {
     let _ = row.handle_event(PlaybackEvent::Position {
         position_ms: 180_000,
         duration_ms: Some(180_000),
+        dropout_frames: 0,
     });
 
     let next = row
@@ -370,6 +372,7 @@ fn replaying_an_ended_track_restarts_the_attempt_from_zero() {
     let _ = row.handle_event(PlaybackEvent::Position {
         position_ms: 268_000,
         duration_ms: Some(268_000),
+        dropout_frames: 0,
     });
     let _ = row.handle_event(PlaybackEvent::Ended { attempt: 0 });
 

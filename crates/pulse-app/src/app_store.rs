@@ -400,6 +400,7 @@ fn playback_changed(before: &PlaybackSnapshot, after: &PlaybackSnapshot) -> bool
         volume_muted: before_volume_muted,
         position_ms: before_position_ms,
         duration_ms: before_duration_ms,
+        dropout_frames: before_dropout_frames,
         error: before_error,
         notice: before_notice,
         missing_track_ids: before_missing_track_ids,
@@ -424,6 +425,7 @@ fn playback_changed(before: &PlaybackSnapshot, after: &PlaybackSnapshot) -> bool
         volume_muted: after_volume_muted,
         position_ms: after_position_ms,
         duration_ms: after_duration_ms,
+        dropout_frames: after_dropout_frames,
         error: after_error,
         notice: after_notice,
         missing_track_ids: after_missing_track_ids,
@@ -442,6 +444,7 @@ fn playback_changed(before: &PlaybackSnapshot, after: &PlaybackSnapshot) -> bool
         || before_volume_muted != after_volume_muted
         || before_position_ms != after_position_ms
         || before_duration_ms != after_duration_ms
+        || before_dropout_frames != after_dropout_frames
         || before_error != after_error
         || before_notice != after_notice
         || !Arc::ptr_eq(before_missing_track_ids, after_missing_track_ids)

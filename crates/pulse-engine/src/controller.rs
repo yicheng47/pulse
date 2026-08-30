@@ -128,6 +128,7 @@ trait PlaybackBackend {
     fn start(&mut self, format: PcmFormat) -> Result<(), EngineError>;
     fn feed(&mut self, pcm: &[u8]) -> usize;
     fn position(&self) -> u64;
+    fn underrun_frames(&self) -> u64;
     fn take_hardware_volume(&mut self) -> Option<(f32, bool)>;
     fn set_volume(&mut self, level: f32, muted: bool) -> Result<(), EngineError>;
     fn stop(&mut self) -> Result<(), EngineError>;
@@ -157,6 +158,10 @@ impl PlaybackBackend for EngineBackend {
 
     fn position(&self) -> u64 {
         self.engine.position()
+    }
+
+    fn underrun_frames(&self) -> u64 {
+        self.engine.underrun_frames()
     }
 
     fn take_hardware_volume(&mut self) -> Option<(f32, bool)> {
@@ -202,6 +207,8 @@ struct CurrentTrack {
     format: PcmFormat,
     position_ms: u64,
     resume_position_ms: u64,
+    dropout_frames: u64,
+    last_reported_dropout_frames: u64,
 }
 
 struct ActivePlayback {
@@ -213,6 +220,7 @@ struct ActivePlayback {
     fed_frames: u64,
     decoder_finished: bool,
     last_reported_position_ms: u64,
+    last_underrun_frames: Option<u64>,
     last_backend_position: u64,
     backend_has_progressed: bool,
     stalled_since: Option<Instant>,
@@ -718,11 +726,20 @@ impl Worker {
             path: path.to_path_buf(),
             duration_ms,
         };
+        let (dropout_frames, last_reported_dropout_frames) = if emit_now_playing {
+            (0, 0)
+        } else {
+            self.current.as_ref().map_or((0, 0), |current| {
+                (current.dropout_frames, current.last_reported_dropout_frames)
+            })
+        };
         self.current = Some(CurrentTrack {
             source: source.clone(),
             format,
             position_ms: actual_position_ms,
             resume_position_ms: actual_position_ms,
+            dropout_frames,
+            last_reported_dropout_frames,
         });
         self.active = Some(ActivePlayback {
             decoder,
@@ -733,6 +750,7 @@ impl Worker {
             fed_frames: 0,
             decoder_finished: false,
             last_reported_position_ms: actual_position_ms,
+            last_underrun_frames: None,
             last_backend_position: 0,
             backend_has_progressed: false,
             stalled_since: None,
@@ -789,6 +807,7 @@ impl Worker {
             .expect("active playback must have a backend")
             .2
             .position();
+        self.update_dropout_accounting(backend_position);
         let advanced = self.advance_transition_if_audible(backend_position);
         if advanced {
             made_progress = true;
@@ -893,6 +912,8 @@ impl Worker {
                 format: next.format,
                 position_ms: 0,
                 resume_position_ms: 0,
+                dropout_frames: 0,
+                last_reported_dropout_frames: 0,
             },
         });
     }
@@ -904,6 +925,17 @@ impl Worker {
         else {
             return false;
         };
+        let outgoing_position_ms = self.logical_position_ms_at(backend_position);
+        let has_pending_dropout = self
+            .current
+            .as_ref()
+            .is_some_and(|current| current.last_reported_dropout_frames != current.dropout_frames);
+        if has_pending_dropout {
+            if let Some(current) = &mut self.current {
+                current.position_ms = outgoing_position_ms;
+            }
+            self.emit_position(outgoing_position_ms);
+        }
         let source = transition.incoming.source.clone();
         let format = transition.incoming.format;
         self.current = Some(transition.incoming);
@@ -930,6 +962,8 @@ impl Worker {
             format: next.format,
             position_ms: 0,
             resume_position_ms: 0,
+            dropout_frames: 0,
+            last_reported_dropout_frames: 0,
         });
         self.active = Some(ActivePlayback {
             decoder: next.decoder,
@@ -940,6 +974,7 @@ impl Worker {
             fed_frames: 0,
             decoder_finished: false,
             last_reported_position_ms: 0,
+            last_underrun_frames: None,
             last_backend_position: 0,
             backend_has_progressed: false,
             stalled_since: None,
@@ -958,7 +993,10 @@ impl Worker {
         let should_emit_position = self
             .active
             .as_ref()
-            .is_none_or(|active| active.last_reported_position_ms != position_ms);
+            .is_none_or(|active| active.last_reported_position_ms != position_ms)
+            || self.current.as_ref().is_some_and(|current| {
+                current.last_reported_dropout_frames != current.dropout_frames
+            });
         if let Some(current) = &mut self.current {
             current.position_ms = position_ms;
             current.resume_position_ms = position_ms;
@@ -1127,13 +1165,71 @@ impl Worker {
             .ok_or_else(|| EngineError::Decode("no current source".to_string()))
     }
 
-    fn emit_position(&self, position_ms: u64) {
+    fn update_dropout_accounting(&mut self, backend_position: u64) {
+        let has_following_source = self.transition.is_some() || self.next_source.is_some();
+        let underrun_frames = self
+            .backend
+            .as_ref()
+            .expect("active playback must have a backend")
+            .2
+            .underrun_frames();
+        let active = self
+            .active
+            .as_mut()
+            .expect("dropout accounting requires active playback");
+
+        let Some(previous_underrun_frames) = active.last_underrun_frames else {
+            if active.fed_frames > 0 && backend_position > 0 {
+                active.last_underrun_frames = Some(underrun_frames);
+            }
+            return;
+        };
+
+        let decoder_drained = active.decoder_finished
+            && active.pcm_offset == active.pcm.len()
+            && backend_position >= active.fed_frames
+            && !has_following_source;
+        active.last_underrun_frames = Some(underrun_frames);
+        if decoder_drained {
+            return;
+        }
+        let new_dropout_frames = underrun_frames.saturating_sub(previous_underrun_frames);
+        let current = self
+            .current
+            .as_mut()
+            .expect("dropout accounting requires a current track");
+        current.dropout_frames = current.dropout_frames.saturating_add(new_dropout_frames);
+    }
+
+    fn emit_position(&mut self, position_ms: u64) {
+        let dropout_report = self.current.as_mut().and_then(|current| {
+            let frames = current
+                .dropout_frames
+                .saturating_sub(current.last_reported_dropout_frames);
+            if frames == 0 {
+                return None;
+            }
+            current.last_reported_dropout_frames = current.dropout_frames;
+            Some((frames, current.dropout_frames))
+        });
+        if let Some((frames, cumulative_frames)) = dropout_report {
+            self.broadcast(PlaybackEvent::Dropout {
+                attempt: self.attempt,
+                frames,
+                cumulative_frames,
+            });
+        }
+        let dropout_frames = self
+            .current
+            .as_ref()
+            .map_or(0, |current| current.dropout_frames);
         self.broadcast(PlaybackEvent::Position {
             position_ms,
             duration_ms: self
                 .current
                 .as_ref()
                 .and_then(|current| current.source.duration_ms),
+            dropout_frames,
         });
     }
 
@@ -1211,6 +1307,7 @@ mod tests {
         stop_error: bool,
         position_limit: u64,
         decoder_starved_after_first_chunk: bool,
+        underrun_frames: u64,
         decoder_specs: HashMap<PathBuf, FakeDecoderSpec>,
         unreadable_paths: HashSet<PathBuf>,
         decoder_opens: Vec<PathBuf>,
@@ -1240,6 +1337,7 @@ mod tests {
                 stop_error: false,
                 position_limit: 1_000,
                 decoder_starved_after_first_chunk: false,
+                underrun_frames: 0,
                 decoder_specs: HashMap::new(),
                 unreadable_paths: HashSet::new(),
                 decoder_opens: Vec::new(),
@@ -1309,6 +1407,10 @@ mod tests {
 
         fn position(&self) -> u64 {
             self.fed_frames.min(self.log.lock().unwrap().position_limit)
+        }
+
+        fn underrun_frames(&self) -> u64 {
+            self.log.lock().unwrap().underrun_frames
         }
 
         fn take_hardware_volume(&mut self) -> Option<(f32, bool)> {
@@ -1472,6 +1574,541 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn priming_and_drain_tail_underruns_are_not_counted() {
+        let (controller, log) = fake_controller();
+        {
+            let mut log = log.lock().unwrap();
+            log.position_limit = 0;
+            log.underrun_frames = 100;
+        }
+        let events = controller.subscribe();
+        controller
+            .command_sender()
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+        wait_for_log(&log, |log| {
+            log.backend_fed_frames == 2_000
+                && log.decoder_eofs.contains(&PathBuf::from("track.flac"))
+        });
+
+        log.lock().unwrap().position_limit = 100;
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::Position {
+                    position_ms: 100,
+                    ..
+                }
+            )),
+            PlaybackEvent::Position {
+                position_ms: 100,
+                duration_ms: Some(10_000),
+                dropout_frames: 0,
+            }
+        );
+
+        {
+            let mut log = log.lock().unwrap();
+            log.underrun_frames = 107;
+            log.position_limit = 200;
+        }
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::Dropout { .. }
+            )),
+            PlaybackEvent::Dropout {
+                attempt: 1,
+                frames: 7,
+                cumulative_frames: 7,
+            }
+        );
+        assert_eq!(
+            events.recv_timeout(Duration::from_secs(1)).unwrap(),
+            PlaybackEvent::Position {
+                position_ms: 200,
+                duration_ms: Some(10_000),
+                dropout_frames: 7,
+            }
+        );
+
+        {
+            let mut log = log.lock().unwrap();
+            log.underrun_frames = 111;
+            log.position_limit = 2_000;
+        }
+        wait_for(&events, |event| {
+            matches!(event, PlaybackEvent::Ended { .. })
+        });
+        assert_no_matching_event(&events, Duration::from_millis(20), |event| {
+            matches!(event, PlaybackEvent::Dropout { .. })
+        });
+    }
+
+    #[test]
+    fn steady_state_underruns_report_deltas_and_track_cumulative_frames() {
+        let (controller, log) = fake_controller();
+        log.lock().unwrap().position_limit = 0;
+        let events = controller.subscribe();
+        controller
+            .command_sender()
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+        wait_for_log(&log, |log| log.backend_fed_frames == 2_000);
+        {
+            let mut log = log.lock().unwrap();
+            log.underrun_frames = 5;
+            log.position_limit = 100;
+        }
+        wait_for(&events, |event| {
+            matches!(
+                event,
+                PlaybackEvent::Position {
+                    position_ms: 100,
+                    ..
+                }
+            )
+        });
+
+        {
+            let mut log = log.lock().unwrap();
+            log.underrun_frames = 12;
+            log.position_limit = 200;
+        }
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::Dropout { .. }
+            )),
+            PlaybackEvent::Dropout {
+                attempt: 1,
+                frames: 7,
+                cumulative_frames: 7,
+            }
+        );
+        assert_eq!(
+            events.recv_timeout(Duration::from_secs(1)).unwrap(),
+            PlaybackEvent::Position {
+                position_ms: 200,
+                duration_ms: Some(10_000),
+                dropout_frames: 7,
+            }
+        );
+
+        {
+            let mut log = log.lock().unwrap();
+            log.underrun_frames = 15;
+            log.position_limit = 300;
+        }
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::Dropout { .. }
+            )),
+            PlaybackEvent::Dropout {
+                attempt: 1,
+                frames: 3,
+                cumulative_frames: 10,
+            }
+        );
+        assert_eq!(
+            events.recv_timeout(Duration::from_secs(1)).unwrap(),
+            PlaybackEvent::Position {
+                position_ms: 300,
+                duration_ms: Some(10_000),
+                dropout_frames: 10,
+            }
+        );
+    }
+
+    #[test]
+    fn underrun_free_playback_emits_no_dropout_event() {
+        let (controller, log) = fake_controller();
+        log.lock().unwrap().position_limit = 0;
+        let events = controller.subscribe();
+        controller
+            .command_sender()
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+        wait_for_log(&log, |log| log.backend_fed_frames == 2_000);
+        log.lock().unwrap().position_limit = 200;
+
+        loop {
+            match events.recv_timeout(Duration::from_secs(1)).unwrap() {
+                PlaybackEvent::Dropout { .. } => {
+                    panic!("underrun-free playback reported a dropout")
+                }
+                PlaybackEvent::Position {
+                    position_ms: 200,
+                    dropout_frames,
+                    ..
+                } => {
+                    assert_eq!(dropout_frames, 0);
+                    break;
+                }
+                _ => {}
+            }
+        }
+    }
+
+    #[test]
+    fn seamless_transition_keeps_the_underrun_baseline_and_resets_track_total() {
+        let (controller, log) = fake_controller();
+        configure_decoder(&log, "a.flac", TEST_FORMAT, 2_000, 2_000);
+        configure_decoder(&log, "b.flac", TEST_FORMAT, 2_000, 2_000);
+        log.lock().unwrap().position_limit = 0;
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("a.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+        commands
+            .send(PlaybackCommand::SetNext {
+                path: PathBuf::from("b.flac"),
+            })
+            .unwrap();
+        wait_for_log(&log, |log| log.backend_fed_frames == 4_000);
+        {
+            let mut log = log.lock().unwrap();
+            log.underrun_frames = 5;
+            log.position_limit = 100;
+        }
+        wait_for(&events, |event| {
+            matches!(
+                event,
+                PlaybackEvent::Position {
+                    position_ms: 100,
+                    ..
+                }
+            )
+        });
+        {
+            let mut log = log.lock().unwrap();
+            log.underrun_frames = 7;
+            log.position_limit = 200;
+        }
+        wait_for(&events, |event| {
+            matches!(event, PlaybackEvent::Dropout { .. })
+        });
+        let _ = events.recv_timeout(Duration::from_secs(1)).unwrap();
+
+        log.lock().unwrap().position_limit = 2_000;
+        loop {
+            match events.recv_timeout(Duration::from_secs(1)).unwrap() {
+                PlaybackEvent::Dropout { .. } => {
+                    panic!("gapless boundary emitted a spurious dropout")
+                }
+                PlaybackEvent::Advanced { .. } => break,
+                _ => {}
+            }
+        }
+        assert_eq!(
+            events.recv_timeout(Duration::from_secs(1)).unwrap(),
+            PlaybackEvent::Position {
+                position_ms: 0,
+                duration_ms: Some(2_000),
+                dropout_frames: 0,
+            }
+        );
+
+        {
+            let mut log = log.lock().unwrap();
+            log.underrun_frames = 10;
+            log.position_limit = 2_100;
+        }
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::Dropout { .. }
+            )),
+            PlaybackEvent::Dropout {
+                attempt: 1,
+                frames: 3,
+                cumulative_frames: 3,
+            }
+        );
+        assert_eq!(
+            events.recv_timeout(Duration::from_secs(1)).unwrap(),
+            PlaybackEvent::Position {
+                position_ms: 100,
+                duration_ms: Some(2_000),
+                dropout_frames: 3,
+            }
+        );
+    }
+
+    #[test]
+    fn pause_resume_preserves_the_track_tally_and_rebaselines_the_new_sink() {
+        let (controller, log) = fake_controller();
+        log.lock().unwrap().position_limit = 0;
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+        wait_for_log(&log, |log| log.backend_fed_frames == 2_000);
+        {
+            let mut log = log.lock().unwrap();
+            log.underrun_frames = 5;
+            log.position_limit = 100;
+        }
+        wait_for(&events, |event| {
+            matches!(
+                event,
+                PlaybackEvent::Position {
+                    position_ms: 100,
+                    ..
+                }
+            )
+        });
+        {
+            let mut log = log.lock().unwrap();
+            log.underrun_frames = 12;
+            log.position_limit = 200;
+        }
+        wait_for(&events, |event| {
+            matches!(event, PlaybackEvent::Dropout { .. })
+        });
+        let _ = events.recv_timeout(Duration::from_secs(1)).unwrap();
+
+        commands.send(PlaybackCommand::Pause).unwrap();
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::Position {
+                    position_ms: 200,
+                    ..
+                }
+            )),
+            PlaybackEvent::Position {
+                position_ms: 200,
+                duration_ms: Some(10_000),
+                dropout_frames: 7,
+            }
+        );
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Paused)
+        });
+
+        commands.send(PlaybackCommand::Resume).unwrap();
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::Position {
+                    position_ms: 200,
+                    ..
+                }
+            )),
+            PlaybackEvent::Position {
+                position_ms: 200,
+                duration_ms: Some(10_000),
+                dropout_frames: 7,
+            }
+        );
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+        wait_for(&events, |event| {
+            matches!(
+                event,
+                PlaybackEvent::Position {
+                    position_ms: 400,
+                    ..
+                }
+            )
+        });
+
+        {
+            let mut log = log.lock().unwrap();
+            log.underrun_frames = 15;
+            log.position_limit = 300;
+        }
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::Dropout { .. }
+            )),
+            PlaybackEvent::Dropout {
+                attempt: 1,
+                frames: 3,
+                cumulative_frames: 10,
+            }
+        );
+        assert_eq!(
+            events.recv_timeout(Duration::from_secs(1)).unwrap(),
+            PlaybackEvent::Position {
+                position_ms: 500,
+                duration_ms: Some(10_000),
+                dropout_frames: 10,
+            }
+        );
+    }
+
+    #[test]
+    fn gapless_boundary_flushes_pending_dropout_before_resetting_the_incoming_track() {
+        let (controller, log, clock) = fake_controller_with_stall_timeout(Duration::MAX);
+        configure_decoder(&log, "a.flac", TEST_FORMAT, 2_000, 2_000);
+        configure_decoder(&log, "b.flac", TEST_FORMAT, 2_000, 2_000);
+        log.lock().unwrap().position_limit = 0;
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("a.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+        commands
+            .send(PlaybackCommand::SetNext {
+                path: PathBuf::from("b.flac"),
+            })
+            .unwrap();
+        wait_for_log(&log, |log| log.backend_fed_frames == 4_000);
+        {
+            let mut log = log.lock().unwrap();
+            log.underrun_frames = 5;
+            log.position_limit = 100;
+        }
+        wait_for(&events, |event| {
+            matches!(
+                event,
+                PlaybackEvent::Position {
+                    position_ms: 100,
+                    ..
+                }
+            )
+        });
+
+        {
+            let mut log = log.lock().unwrap();
+            log.underrun_frames = 8;
+            log.position_limit = 150;
+        }
+        wait_for_worker_pumps(&clock, 2);
+        log.lock().unwrap().position_limit = 2_000;
+
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::Dropout { .. }
+            )),
+            PlaybackEvent::Dropout {
+                attempt: 1,
+                frames: 3,
+                cumulative_frames: 3,
+            }
+        );
+        assert_eq!(
+            events.recv_timeout(Duration::from_secs(1)).unwrap(),
+            PlaybackEvent::Position {
+                position_ms: 2_000,
+                duration_ms: Some(2_000),
+                dropout_frames: 3,
+            }
+        );
+        assert!(matches!(
+            events.recv_timeout(Duration::from_secs(1)).unwrap(),
+            PlaybackEvent::Advanced { .. }
+        ));
+        assert_eq!(
+            events.recv_timeout(Duration::from_secs(1)).unwrap(),
+            PlaybackEvent::Position {
+                position_ms: 0,
+                duration_ms: Some(2_000),
+                dropout_frames: 0,
+            }
+        );
+    }
+
+    #[test]
+    fn finish_flushes_pending_dropout_when_the_position_did_not_move() {
+        let (controller, log, clock) = fake_controller_with_stall_timeout(Duration::MAX);
+        {
+            let mut log = log.lock().unwrap();
+            log.position_limit = 0;
+            log.decoder_starved_after_first_chunk = true;
+        }
+        let events = controller.subscribe();
+        controller
+            .command_sender()
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+        wait_for_log(&log, |log| log.backend_fed_frames == 2_000);
+        {
+            let mut log = log.lock().unwrap();
+            log.underrun_frames = 5;
+            log.position_limit = 100;
+        }
+        wait_for(&events, |event| {
+            matches!(
+                event,
+                PlaybackEvent::Position {
+                    position_ms: 100,
+                    ..
+                }
+            )
+        });
+        log.lock().unwrap().position_limit = 2_000;
+        wait_for(&events, |event| {
+            matches!(
+                event,
+                PlaybackEvent::Position {
+                    position_ms: 2_000,
+                    ..
+                }
+            )
+        });
+
+        log.lock().unwrap().underrun_frames = 12;
+        wait_for_worker_pumps(&clock, 2);
+        log.lock().unwrap().decoder_starved_after_first_chunk = false;
+
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::Dropout { .. }
+            )),
+            PlaybackEvent::Dropout {
+                attempt: 1,
+                frames: 7,
+                cumulative_frames: 7,
+            }
+        );
+        assert_eq!(
+            events.recv_timeout(Duration::from_secs(1)).unwrap(),
+            PlaybackEvent::Position {
+                position_ms: 2_000,
+                duration_ms: Some(10_000),
+                dropout_frames: 7,
+            }
+        );
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::Ended { .. }
+            )),
+            PlaybackEvent::Ended { attempt: 1 }
+        );
     }
 
     #[test]
@@ -2479,6 +3116,7 @@ mod tests {
                 PlaybackEvent::Position {
                     position_ms: 2_000,
                     duration_ms: Some(10_000),
+                    dropout_frames: 0,
                 },
                 PlaybackEvent::StateChanged(PlaybackState::Ended),
                 PlaybackEvent::Ended { attempt: 1 },
@@ -2737,6 +3375,7 @@ mod tests {
             PlaybackEvent::Position {
                 position_ms: 1_999,
                 duration_ms: Some(2_000),
+                dropout_frames: 0,
             }
         );
         assert_no_matching_event(&events, Duration::from_millis(20), |event| {
@@ -2763,6 +3402,7 @@ mod tests {
             PlaybackEvent::Position {
                 position_ms: 0,
                 duration_ms: Some(4_000),
+                dropout_frames: 0,
             }
         );
 
@@ -2778,6 +3418,7 @@ mod tests {
             PlaybackEvent::Position {
                 position_ms: 500,
                 duration_ms: Some(4_000),
+                dropout_frames: 0,
             }
         );
         let log = log.lock().unwrap();
@@ -2920,6 +3561,7 @@ mod tests {
             PlaybackEvent::Position {
                 position_ms: 0,
                 duration_ms: Some(1_000),
+                dropout_frames: 0,
             }
         );
         let log = log.lock().unwrap();
@@ -3357,6 +3999,7 @@ mod tests {
             PlaybackEvent::Position {
                 position_ms: 500,
                 duration_ms: Some(3_000),
+                dropout_frames: 0,
             }
         );
         wait_for(&events, |event| {

@@ -6,14 +6,14 @@ mod queue_control;
 pub(crate) use logic::*;
 
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, HashSet, VecDeque},
     io,
     path::{Path, PathBuf},
     sync::{
         Arc,
         mpsc::{Receiver, Sender, TryRecvError},
     },
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use pulse_engine::{
@@ -61,13 +61,13 @@ pub(crate) struct DeviceMessage {
     pub(crate) is_error: bool,
 }
 
-/// A visible report shown above the playback row. `Skip` means playback
-/// continued past an unplayable queue entry; `Stopped` and `DeviceFailure`
-/// mean it stopped.
+/// A visible report shown above the playback row. `Skip`, `ExclusiveFallback`, and `Dropouts`
+/// leave playback running; `Stopped` and `DeviceFailure` mean it stopped.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum PlaybackNotice {
     Skip { text: String },
     ExclusiveFallback { text: String },
+    Dropouts { text: String },
     Stopped { text: String },
     DeviceFailure { text: String },
 }
@@ -144,6 +144,7 @@ pub(crate) struct PlaybackSnapshot {
     pub(crate) volume_muted: bool,
     pub(crate) position_ms: u64,
     pub(crate) duration_ms: Option<u64>,
+    pub(crate) dropout_frames: u64,
     pub(crate) error: Option<String>,
     pub(crate) notice: Option<PlaybackNotice>,
     pub(crate) missing_track_ids: Arc<HashSet<TrackId>>,
@@ -260,6 +261,7 @@ pub(crate) struct Playback {
     pub(crate) volume_muted: bool,
     pub(crate) position_ms: u64,
     pub(crate) duration_ms: Option<u64>,
+    pub(crate) dropout_frames: u64,
     pub(crate) error: Option<String>,
     pub(crate) notice: Option<PlaybackNotice>,
     pub(crate) missing_track_ids: HashSet<TrackId>,
@@ -271,6 +273,8 @@ pub(crate) struct Playback {
     current_play: Option<PlayAttempt>,
     retry: Option<RetryTarget>,
     pending_seek_ms: Option<u64>,
+    recent_dropouts: VecDeque<Instant>,
+    last_dropout_at: Option<Instant>,
     settings: AppSettings,
     settings_path: PathBuf,
 }
@@ -305,6 +309,7 @@ impl Playback {
             volume_muted: settings.volume_muted,
             position_ms: 0,
             duration_ms: None,
+            dropout_frames: 0,
             error: None,
             notice: None,
             missing_track_ids: HashSet::new(),
@@ -315,6 +320,8 @@ impl Playback {
             current_play: None,
             retry: None,
             pending_seek_ms: None,
+            recent_dropouts: VecDeque::new(),
+            last_dropout_at: None,
             settings,
             settings_path,
         };
@@ -352,6 +359,7 @@ impl Playback {
             volume_muted: false,
             position_ms: 0,
             duration_ms: None,
+            dropout_frames: 0,
             error: None,
             notice: None,
             missing_track_ids: HashSet::new(),
@@ -362,6 +370,8 @@ impl Playback {
             current_play: None,
             retry: None,
             pending_seek_ms: None,
+            recent_dropouts: VecDeque::new(),
+            last_dropout_at: None,
             settings: AppSettings::default(),
             settings_path: PathBuf::new(),
         }
@@ -410,6 +420,7 @@ impl Playback {
             volume_muted: self.volume_muted,
             position_ms: self.position_ms,
             duration_ms: self.duration_ms,
+            dropout_frames: self.dropout_frames,
             error: self.error.clone(),
             notice: self.notice.clone(),
             missing_track_ids: self.missing_track_ids_snapshot.clone(),

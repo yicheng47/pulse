@@ -174,6 +174,13 @@ impl Engine {
             .map_or(0, auhal::AuhalSink::position_frames)
     }
 
+    /// Cumulative output underrun frames since `play`.
+    pub fn underrun_frames(&self) -> u64 {
+        self.sink
+            .as_ref()
+            .map_or(0, auhal::AuhalSink::underrun_frames)
+    }
+
     pub fn set_volume(&mut self, level: f32, muted: bool) -> Result<(), EngineError> {
         if let Some(hardware_volume) = &mut self.hardware_volume {
             self.gain_control.set_volume(UNITY_GAIN, false);

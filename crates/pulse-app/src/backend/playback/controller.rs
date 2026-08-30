@@ -1,5 +1,9 @@
 use super::*;
 
+const DROPOUT_NOTICE_THRESHOLD: usize = 3;
+const DROPOUT_NOTICE_WINDOW: Duration = Duration::from_secs(10);
+const DROPOUT_NOTICE_CLEAR_AFTER: Duration = Duration::from_secs(30);
+
 impl Playback {
     pub(crate) fn install_controller(&mut self, device_id: device::DeviceId, exclusive_mode: bool) {
         let controller = PlaybackController::spawn(device_id, exclusive_mode);
@@ -186,7 +190,9 @@ impl Playback {
     }
 
     pub(crate) fn drain_events(&mut self) -> bool {
-        let mut changed = self.pending_saved_output_device_uid.is_some();
+        let now = Instant::now();
+        let dropout_notice_changed = self.clear_expired_dropout_notice_at(now);
+        let mut changed = self.pending_saved_output_device_uid.is_some() || dropout_notice_changed;
         loop {
             let event = match self.event_rx.as_ref().map(Receiver::try_recv) {
                 Some(Ok(event)) => event,
@@ -199,7 +205,7 @@ impl Playback {
                 }
             };
             changed = true;
-            if let Some(track) = self.handle_event(event) {
+            if let Some(track) = self.handle_event_at(event, now) {
                 self.play_queue_track(track);
             }
             if self.playback_state == PlaybackState::Playing
@@ -214,10 +220,22 @@ impl Playback {
 
     /// Applies one controller event; returns the next queue entry to play
     /// when the event calls for an advance (track ended or failed).
+    #[cfg(test)]
     pub(crate) fn handle_event(&mut self, event: PlaybackEvent) -> Option<TrackRef> {
+        self.handle_event_at(event, Instant::now())
+    }
+
+    pub(super) fn handle_event_at(
+        &mut self,
+        event: PlaybackEvent,
+        now: Instant,
+    ) -> Option<TrackRef> {
         match event {
             PlaybackEvent::StateChanged(state) => {
                 self.playback_state = state;
+                if state == PlaybackState::Idle {
+                    self.clear_dropout_notice_tracking();
+                }
                 if matches!(
                     state,
                     PlaybackState::Idle | PlaybackState::Ended | PlaybackState::Error
@@ -247,6 +265,7 @@ impl Playback {
                         });
                     }
                 }
+                self.start_dropout_track();
                 self.apply_playing_source(source, format);
                 self.sync_next_source();
             }
@@ -258,6 +277,7 @@ impl Playback {
                 if attempt != self.dispatched_plays {
                     return None;
                 }
+                self.start_dropout_track();
                 self.sent_next = None;
                 let expected_next = self.effective_next_track().map(|track| track.path.clone());
                 if expected_next.as_ref() == Some(&source.path) {
@@ -286,14 +306,27 @@ impl Playback {
             PlaybackEvent::Position {
                 position_ms,
                 duration_ms,
+                dropout_frames,
             } => {
                 self.position_ms = position_ms;
                 self.duration_ms = duration_ms;
+                self.dropout_frames = dropout_frames;
                 if let Some(attempt) = &mut self.current_play
                     && attempt.confirmed
                 {
                     attempt.target.position_ms = position_ms;
                 }
+            }
+            PlaybackEvent::Dropout {
+                attempt,
+                frames: _,
+                cumulative_frames,
+            } => {
+                if attempt != self.dispatched_plays {
+                    return None;
+                }
+                self.dropout_frames = cumulative_frames;
+                self.record_dropout_at(now);
             }
             PlaybackEvent::OutputDeviceChanged {
                 device_id,
@@ -442,6 +475,48 @@ impl Playback {
             }
         }
         None
+    }
+
+    fn record_dropout_at(&mut self, now: Instant) {
+        while self
+            .recent_dropouts
+            .front()
+            .is_some_and(|dropout| now.duration_since(*dropout) > DROPOUT_NOTICE_WINDOW)
+        {
+            self.recent_dropouts.pop_front();
+        }
+        self.recent_dropouts.push_back(now);
+        self.last_dropout_at = Some(now);
+        if self.recent_dropouts.len() >= DROPOUT_NOTICE_THRESHOLD {
+            self.notice = Some(PlaybackNotice::Dropouts {
+                text: "Playback is dropping out — the source can't keep up.".to_string(),
+            });
+        }
+    }
+
+    pub(super) fn clear_expired_dropout_notice_at(&mut self, now: Instant) -> bool {
+        let Some(last_dropout_at) = self.last_dropout_at else {
+            return false;
+        };
+        if now.duration_since(last_dropout_at) < DROPOUT_NOTICE_CLEAR_AFTER {
+            return false;
+        }
+        let had_dropout_notice = matches!(self.notice, Some(PlaybackNotice::Dropouts { .. }));
+        self.clear_dropout_notice_tracking();
+        had_dropout_notice
+    }
+
+    fn start_dropout_track(&mut self) {
+        self.dropout_frames = 0;
+        self.clear_dropout_notice_tracking();
+    }
+
+    fn clear_dropout_notice_tracking(&mut self) {
+        self.recent_dropouts.clear();
+        self.last_dropout_at = None;
+        if matches!(self.notice, Some(PlaybackNotice::Dropouts { .. })) {
+            self.notice = None;
+        }
     }
 
     pub(crate) fn complete_output_device_change(

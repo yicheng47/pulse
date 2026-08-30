@@ -232,6 +232,7 @@ fn derives_row_state_from_playback_events() {
     row.handle_event(PlaybackEvent::Position {
         position_ms: 134_000,
         duration_ms: Some(268_000),
+        dropout_frames: 0,
     });
 
     assert_eq!(row.title, "Nights");

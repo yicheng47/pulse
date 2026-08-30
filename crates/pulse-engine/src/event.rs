@@ -46,9 +46,24 @@ pub enum PlaybackEvent {
         source: PlayableSource,
         format: PcmFormat,
     },
+    /// Periodic audible-track position and its cumulative attributed output underruns.
     Position {
         position_ms: u64,
         duration_ms: Option<u64>,
+        /// Cumulative output underrun frames attributed to the audible track. Pause, resume,
+        /// paused seek, and output restart preserve the tally; a new track resets it at its
+        /// audible boundary.
+        dropout_frames: u64,
+    },
+    /// New output underruns attributed to the audible track, emitted with the periodic position
+    /// report at most once per position-report interval.
+    Dropout {
+        /// The current `PlayFile` ordinal, matching [`PlaybackEvent::Advanced::attempt`].
+        attempt: u64,
+        /// Newly observed underrun frames since the previous dropout report.
+        frames: u64,
+        /// Cumulative underrun frames attributed to the audible track.
+        cumulative_frames: u64,
     },
     OutputDeviceChanged {
         device_id: crate::device::DeviceId,

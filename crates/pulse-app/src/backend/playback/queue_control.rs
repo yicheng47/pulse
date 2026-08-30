@@ -29,6 +29,8 @@ impl Playback {
     pub(crate) fn dismiss_notice(&mut self) {
         self.notice = None;
         self.retry = None;
+        self.recent_dropouts.clear();
+        self.last_dropout_at = None;
     }
 
     pub(crate) fn play_library_tracks(&mut self, tracks: &[Track], start_index: usize) {
