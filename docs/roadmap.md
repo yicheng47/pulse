@@ -41,7 +41,8 @@ Artist metadata first, then the now-playing page, then integrations and polish. 
 | [Feature 20 — now playing page](features/20-now-playing-page.md) | P2 | planned | Design pinned. |
 | [Feature 19 — MCP server](features/19-mcp-server.md) | P2 | planned | Needs 25's ops layer; the trigger for splitting `backend/` into a crate. |
 | [Feature 09 — collapsible library sidebar](features/09-collapsible-library-sidebar.md) | P3 | planned | |
-| [Feature 29 — type scale](features/29-type-scale.md) | P3 | planned | Refactor: named text sizes in `theme.rs` from the design's type styles, literal `text_size(px(N))` replaced, grep gate. Not urgent. |
+| [Feature 30 — interface scale](features/30-interface-scale.md) | P2 | designing | Settings ▸ General: Interface scale stepper 80–150% replacing the Default output row; phase 1 is the `px` → `rems` migration (folds in 29), phase 2 the setting + control + `Cmd-=`/`Cmd--`/`Cmd-0`. Design in Pencil awaiting Jason's approval. |
+| [Feature 29 — type scale](features/29-type-scale.md) | P3 | planned | Refactor: named text sizes in `theme.rs` from the design's type styles, literal `text_size(px(N))` replaced, grep gate. Not urgent; delivered by 30's phase 1. |
 
 ## Parking lot
 

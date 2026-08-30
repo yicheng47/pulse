@@ -1,6 +1,6 @@
 # Type Scale
 
-> Feature 29 · P3 · refactor. Give `theme.rs` a named type scale and replace the literal `text_size(px(N))` calls across `pulse-app` with it, the way colors, radii, and font families already go through tokens. Filed 2026-08-30 after Jason asked whether sizes were centralized; not urgent.
+> Feature 29 · P3 · refactor. Give `theme.rs` a named type scale and replace the literal `text_size(px(N))` calls across `pulse-app` with it, the way colors, radii, and font families already go through tokens. Filed 2026-08-30 after Jason asked whether sizes were centralized; not urgent. Delivered by [feature 30](30-interface-scale.md) phase 1, where the scale is expressed in rems.
 
 ## Motivation
 
