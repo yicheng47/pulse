@@ -4,6 +4,7 @@ One note per open bug, written with the `bug` skill's template (description, exp
 
 ## Open
 
+- [`stale-row-selection-after-advance.md`](stale-row-selection-after-advance.md) - P2. A clicked track row stays highlighted beside the now-playing row after playback advances; clear the page selection when the playing track changes to one the user did not click.
 - [`builtin-speakers-exclusive-volume.md`](builtin-speakers-exclusive-volume.md) - P2. Exclusive mode on the built-in speakers disables the macOS volume control and freezes the hardware level.
 - [`seek-lands-early.md`](seek-lands-early.md) - P2. Seek lands earlier than the requested position (coarse seek, no decode-forward).
 
