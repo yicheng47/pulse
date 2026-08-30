@@ -2,6 +2,8 @@
 
 > Feature 17 · P2 · GitHub issue [#50](https://github.com/yicheng47/pulse-src/issues/50). The realtime callback counts underrun bytes but nothing reads them; audible dropouts are invisible to the controller, the UI, and diagnostics.
 
+**Merged** 2026-08-30 in `5952c95` (phases 1–3; the diagnostic-count surface is deferred to a design pass — `dropout_frames` is on the playback snapshot for it).
+
 ## Motivation
 
 When decode can't keep up with the device — NAS hiccup, slow disk, contended CPU — the render callback fills the shortfall with silence and increments `underrun_bytes` in `auhal.rs`. That atomic is write-only today: the user hears a stutter and the app has no record that anything happened. With the library living on a NAS, decode falling behind is the most likely real-world audio failure, and it is currently undiagnosable.
