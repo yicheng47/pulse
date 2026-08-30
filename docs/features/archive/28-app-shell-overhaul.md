@@ -1,6 +1,6 @@
 # App Shell Overhaul
 
-> Feature 28 · P1. Rebuild the window shell to the approved design: a full-width header (brand │ search … update · settings), the library sidebar as a floating island, the page flat beside it, the playback row spanning the whole window, and Settings restructured into sections with the Devices page folded in as Settings ▸ Output. Design approved by Jason on 2026-08-30; design commit `06f83d9`.
+> Feature 28 · P1. Rebuild the window shell to the approved design: a full-width header (brand │ search … update · settings), the library sidebar as a floating island, the page flat beside it, the playback row spanning the whole window, and Settings restructured into sections with the Devices page folded in as Settings ▸ Output. Design approved by Jason on 2026-08-30; design commit `06f83d9`. **Merged** 2026-08-30 in two phases, each after Jason's in-app smoke test — `3edc358` (bands, header, window-wide player, traffic lights in the header) and `d213219` (island sidebars through a shared `ui::Sidebar*` kit, Settings sections with Output, `Destination::Devices` removed). Decisions made in phase 2: a saved `Devices` session route restores the library to Albums and opens Settings ▸ Output on top; the device page keeps its own "Devices" heading under Settings ▸ Output.
 
 ## Motivation
 

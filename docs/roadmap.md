@@ -16,9 +16,9 @@ The active-development tracker for Pulse. Since 2026-08-29 this file — not Git
 - **v0.1.6** (2026-08-28) — Device management page ([22](features/archive/22-device-management-page.md)); updater parity with Runner ([23](features/archive/23-updater-parity.md)); click-free transport transitions; stalled-output detection.
 - v0.1.0–v0.1.5 — MVP and hardening; see [`docs/impls/ROADMAP.md`](impls/ROADMAP.md) and the archived specs.
 
-## M2 — Playback, metadata, session, integrations → v0.2.0
+## M2 — Playback, session, app shell → v0.2.0
 
-Everything after the backend foundations, in build order: the audio path first, then artist metadata, then session state and the now-playing page, then integrations and polish.
+The audio path first, then session state, then the shell overhaul. Closed at feature 28 on 2026-08-30 (Jason: release 0.2.0 after the overhaul); metadata, now playing, and integrations moved to M3.
 
 | Item | Priority | Status | Notes |
 |---|---|---|---|
@@ -28,12 +28,20 @@ Everything after the backend foundations, in build order: the audio path first, 
 | [Bug — built-in speakers exclusive mode freezes volume](bugs/builtin-speakers-exclusive-volume.md) | P2 | review | `38734b8`: hardware volume while hogged, adopt-once-per-session; Jason to validate on the speakers and the Matrix DAC. |
 | [Feature 17 — playback dropout reporting](features/archive/17-playback-dropout-reporting.md) | P2 | done | `5952c95`: underrun read path, `Dropout` events, sustained-dropout notice; diagnostic count surface deferred to a design pass. |
 | [Bug — stale row selection after advance](bugs/archive/stale-row-selection-after-advance.md) | P2 | done | `cf02027`: selection cleared (playlist: re-anchored) when playback moves to another track. |
-| [Feature 28 — app shell overhaul](features/28-app-shell-overhaul.md) | P1 | in progress | Design approved 2026-08-30 (`06f83d9`). Phase 1 (full-width header, window-wide player, sidebar nav-only) merged `3edc358` after Jason's smoke test on 2026-08-30; phase 2 (island sidebars, Settings sections with Output, `Destination::Devices` removed) running. |
-| Feature 26 — metadata enrichment (spec to write) | P2 | planned | `artist_metadata` keyed by MBID (Lidarr's Artist/ArtistMetadata split), a `MetadataProvider` trait with a MusicBrainz + fanart.tv implementation, opt-in, cached, off the render path; artist photos fill the Artists grid/detail avatars; unidentified artists stay visible. Reference: [`docs/reference/lidarr-library-model.md`](reference/lidarr-library-model.md). Chromaprint/AcoustID is a licensing decision before any fingerprinting. |
+| [Feature 28 — app shell overhaul](features/archive/28-app-shell-overhaul.md) | P1 | done | `3edc358` (header, bands, player width), `d213219` (island sidebars, Settings sections with Output); both smoke-tested by Jason 2026-08-30. |
 | [Feature 21 — launch state restore](features/archive/21-launch-state-restore.md) | P2 | done | `1c7880f`: session blob in `settings.json`, engine `Load` (paused, no sink), route restore; smoke: quit mid-album and relaunch. |
+
+## M3 — Metadata, now playing, integrations → v0.3.0
+
+Artist metadata first, then the now-playing page, then integrations and polish. Build order below.
+
+| Item | Priority | Status | Notes |
+|---|---|---|---|
+| Feature 26 — metadata enrichment (spec to write) | P2 | planned | `artist_metadata` keyed by MBID (Lidarr's Artist/ArtistMetadata split), a `MetadataProvider` trait with a MusicBrainz + fanart.tv implementation, opt-in, cached, off the render path; artist photos fill the Artists grid/detail avatars; unidentified artists stay visible. Reference: [`docs/reference/lidarr-library-model.md`](reference/lidarr-library-model.md). Chromaprint/AcoustID is a licensing decision before any fingerprinting. |
 | [Feature 20 — now playing page](features/20-now-playing-page.md) | P2 | planned | Design pinned. |
 | [Feature 19 — MCP server](features/19-mcp-server.md) | P2 | planned | Needs 25's ops layer; the trigger for splitting `backend/` into a crate. |
 | [Feature 09 — collapsible library sidebar](features/09-collapsible-library-sidebar.md) | P3 | planned | |
+| [Feature 29 — type scale](features/29-type-scale.md) | P3 | planned | Refactor: named text sizes in `theme.rs` from the design's type styles, literal `text_size(px(N))` replaced, grep gate. Not urgent. |
 
 ## Parking lot
 
