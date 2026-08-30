@@ -2500,6 +2500,42 @@
                               "fontWeight": "600"
                             }
                           ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "sU7Ok",
+                          "name": "Nav / Metadata",
+                          "width": "fill_container",
+                          "fill": "#00000000",
+                          "cornerRadius": "$radius-md",
+                          "gap": 12,
+                          "padding": [
+                            10,
+                            12
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "bB2RA",
+                              "name": "Icon",
+                              "width": 17,
+                              "height": 17,
+                              "icon": "globe",
+                              "library": "lucide",
+                              "fill": "$text-muted"
+                            },
+                            {
+                              "type": "text",
+                              "id": "J9rkQ",
+                              "name": "Label",
+                              "fill": "$text-secondary",
+                              "content": "Metadata",
+                              "fontFamily": "$font-display",
+                              "fontSize": 15,
+                              "fontWeight": "600"
+                            }
+                          ]
                         }
                       ]
                     }
@@ -2629,8 +2665,8 @@
     {
       "type": "frame",
       "id": "vH78z",
-      "x": 993,
-      "y": -342,
+      "x": 1669,
+      "y": -269,
       "name": "Output Device Popover",
       "width": 360,
       "fill": "$bg-surface",
@@ -41101,7 +41137,7 @@
       "type": "frame",
       "id": "IAPbC",
       "x": 993,
-      "y": -947,
+      "y": -811,
       "name": "Spec — Volume States",
       "clip": true,
       "width": 640,
@@ -41309,8 +41345,8 @@
     {
       "type": "frame",
       "id": "IChZh",
-      "x": 1673,
-      "y": -947,
+      "x": 1669,
+      "y": -767,
       "name": "Volume Popover",
       "width": 56,
       "fill": "$bg-surface",
@@ -41371,8 +41407,8 @@
     {
       "type": "frame",
       "id": "r85ht",
-      "x": 1433,
-      "y": -342,
+      "x": 1249,
+      "y": -287,
       "name": "Spec — Exclusive Mode Control",
       "fill": "$bg-page",
       "cornerRadius": "$radius-lg",
@@ -46967,6 +47003,583 @@
           "fill": "$accent",
           "width": 10,
           "height": 10
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "s5Q1ti",
+      "x": 4317,
+      "y": 8036,
+      "name": "Settings / Metadata",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$bg-page",
+      "cornerRadius": "$radius-lg",
+      "stroke": "$border",
+      "strokeWidth": {
+        "top": 1,
+        "right": 1,
+        "left": 1
+      },
+      "strokeAlignment": "inner",
+      "strokeLinejoin": "round",
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "bkOJi",
+          "name": "Shell",
+          "width": 1440,
+          "height": 900,
+          "fill": "$bg-page",
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "szk2z",
+              "type": "ref",
+              "ref": "Y0hrAW",
+              "name": "Top Bar / App",
+              "width": "fill_container",
+              "descendants": {
+                "Q7kyI": {
+                  "fill": "$bg-elevated"
+                },
+                "dmZlZ": {
+                  "fill": "$accent"
+                }
+              }
+            },
+            {
+              "type": "frame",
+              "id": "kqSpQ",
+              "name": "Upper",
+              "width": "fill_container",
+              "height": "fill_container",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Bv7Es",
+                  "name": "Sidebar Island Slot",
+                  "height": "fill_container",
+                  "layout": "vertical",
+                  "padding": [
+                    12,
+                    0,
+                    12,
+                    12
+                  ],
+                  "children": [
+                    {
+                      "id": "LEld1",
+                      "type": "ref",
+                      "ref": "qPd6E",
+                      "name": "Sidebar / Settings",
+                      "width": 236,
+                      "height": "fill_container",
+                      "descendants": {
+                        "Ypt3M": {
+                          "fill": "#00000000"
+                        },
+                        "zBy3g": {
+                          "fill": "$text-muted"
+                        },
+                        "z1o88O": {
+                          "fill": "$text-secondary"
+                        },
+                        "sU7Ok": {
+                          "fill": "$bg-elevated"
+                        },
+                        "bB2RA": {
+                          "fill": "$accent"
+                        },
+                        "J9rkQ": {
+                          "fill": "$text-primary"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "I3Ppl",
+                  "name": "Main",
+                  "clip": true,
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "fill": "$bg-page",
+                  "layout": "vertical",
+                  "gap": 22,
+                  "padding": [
+                    30,
+                    36,
+                    24,
+                    36
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "UujaM",
+                      "name": "Page Title",
+                      "fill": "$text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": 820,
+                      "content": "Metadata",
+                      "fontFamily": "$font-display",
+                      "fontSize": 28,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ssaSe",
+                      "name": "Column",
+                      "width": 820,
+                      "layout": "vertical",
+                      "gap": 22,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "bctYx",
+                          "name": "Group / Online Sources",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 9,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "u89bB",
+                              "name": "Label",
+                              "fill": "$text-muted",
+                              "content": "ONLINE SOURCES",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 11,
+                              "fontWeight": "700",
+                              "letterSpacing": 1
+                            },
+                            {
+                              "type": "frame",
+                              "id": "sWbc9",
+                              "name": "Card",
+                              "width": "fill_container",
+                              "fill": "$bg-surface",
+                              "cornerRadius": "$radius-lg",
+                              "stroke": "$border",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner",
+                              "layout": "vertical",
+                              "padding": [
+                                0,
+                                16
+                              ],
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "Y801zQ",
+                                  "name": "Row / Enrich artists",
+                                  "width": "fill_container",
+                                  "gap": 16,
+                                  "padding": [
+                                    13,
+                                    0
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "KjHPw",
+                                      "name": "Copy",
+                                      "width": "fill_container",
+                                      "layout": "vertical",
+                                      "gap": 4,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "kqz50",
+                                          "name": "Title",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Enrich artists from MusicBrainz",
+                                          "fontFamily": "$font-sans",
+                                          "fontSize": 14,
+                                          "fontWeight": "600"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "FFvHG",
+                                          "name": "Description",
+                                          "fill": "$text-muted",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Looks up each artist's identity and photo online. Off by default — nothing leaves this Mac until you turn it on.",
+                                          "fontFamily": "$font-sans",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "id": "EcuYx",
+                                      "type": "ref",
+                                      "ref": "SK7jO",
+                                      "name": "Toggle"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "qCkzS",
+                                  "name": "Row / fanart.tv API key",
+                                  "width": "fill_container",
+                                  "gap": 16,
+                                  "padding": [
+                                    13,
+                                    0
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "jreDm",
+                                      "name": "Copy",
+                                      "width": "fill_container",
+                                      "layout": "vertical",
+                                      "gap": 4,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "Y42c6V",
+                                          "name": "Title",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "fanart.tv API key",
+                                          "fontFamily": "$font-sans",
+                                          "fontSize": 14,
+                                          "fontWeight": "600"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "E17oUS",
+                                          "name": "Description",
+                                          "fill": "$text-muted",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Needed for artist photos. Get a personal key at fanart.tv/get-an-api-key; identity still works without one.",
+                                          "fontFamily": "$font-sans",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "P5Yp8G",
+                                      "name": "Key Field",
+                                      "width": 300,
+                                      "height": 36,
+                                      "fill": "$bg-inset",
+                                      "cornerRadius": "$radius-md",
+                                      "stroke": "$border",
+                                      "strokeWidth": 1,
+                                      "gap": 8,
+                                      "padding": [
+                                        0,
+                                        12
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "yAO9s",
+                                          "name": "Icon",
+                                          "width": 16,
+                                          "height": 16,
+                                          "icon": "key-round",
+                                          "library": "lucide",
+                                          "fill": "$text-muted"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "aLgVD",
+                                          "name": "Value",
+                                          "fill": "$text-secondary",
+                                          "content": "••••••••••••••••••••••",
+                                          "fontFamily": "$font-mono",
+                                          "fontSize": 13,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "R5WLp",
+                          "name": "Group / Enrichment",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 9,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "e115mO",
+                              "name": "Label",
+                              "fill": "$text-muted",
+                              "content": "ENRICHMENT",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 11,
+                              "fontWeight": "700",
+                              "letterSpacing": 1
+                            },
+                            {
+                              "type": "frame",
+                              "id": "hPcm4",
+                              "name": "Card",
+                              "width": "fill_container",
+                              "fill": "$bg-surface",
+                              "cornerRadius": "$radius-lg",
+                              "stroke": "$border",
+                              "strokeWidth": 1,
+                              "layout": "vertical",
+                              "padding": [
+                                0,
+                                16
+                              ],
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "h6XeQ2",
+                                  "name": "Row / After scans",
+                                  "width": "fill_container",
+                                  "gap": 16,
+                                  "padding": [
+                                    13,
+                                    0
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "BmUtn",
+                                      "name": "Copy",
+                                      "width": "fill_container",
+                                      "layout": "vertical",
+                                      "gap": 4,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "KI3h1",
+                                          "name": "Title",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Run after library scans",
+                                          "fontFamily": "$font-sans",
+                                          "fontSize": 14,
+                                          "fontWeight": "600"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "rhKtw",
+                                          "name": "Description",
+                                          "fill": "$text-muted",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Identifies artists added or changed by a scan as soon as the scan finishes.",
+                                          "fontFamily": "$font-sans",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "id": "dSUsB",
+                                      "type": "ref",
+                                      "ref": "SK7jO",
+                                      "name": "Toggle"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "VPwVF",
+                                  "name": "Row / Refresh",
+                                  "width": "fill_container",
+                                  "gap": 16,
+                                  "padding": [
+                                    13,
+                                    0
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "J6jbY",
+                                      "name": "Copy",
+                                      "width": "fill_container",
+                                      "layout": "vertical",
+                                      "gap": 4,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "XNelw",
+                                          "name": "Title",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Refresh cached facts",
+                                          "fontFamily": "$font-sans",
+                                          "fontSize": 14,
+                                          "fontWeight": "600"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "QARdX",
+                                          "name": "Description",
+                                          "fill": "$text-muted",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Identity and photos are checked again after 30 days; a rescan never re-fetches metadata.",
+                                          "fontFamily": "$font-sans",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "LM8xc",
+                                      "name": "Value",
+                                      "fill": "$text-secondary",
+                                      "content": "30 days",
+                                      "fontFamily": "$font-mono",
+                                      "fontSize": 13,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "waqpX",
+                                  "name": "Row / Status",
+                                  "width": "fill_container",
+                                  "gap": 16,
+                                  "padding": [
+                                    13,
+                                    0
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "JNVQ1",
+                                      "name": "Copy",
+                                      "width": "fill_container",
+                                      "layout": "vertical",
+                                      "gap": 4,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "PMHi2",
+                                          "name": "Title",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Status",
+                                          "fontFamily": "$font-sans",
+                                          "fontSize": 14,
+                                          "fontWeight": "600"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "HUj0H",
+                                          "name": "Description",
+                                          "fill": "$text-muted",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "142 of 160 artists identified · 12 unmapped · 6 waiting · last run 2 h ago",
+                                          "fontFamily": "$font-sans",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "yjvXO",
+                                      "name": "Actions",
+                                      "gap": 8,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "id": "eqXa1",
+                                          "type": "ref",
+                                          "ref": "b4MNr8",
+                                          "name": "Button / Clear cache",
+                                          "descendants": {
+                                            "jQ5Ha": {
+                                              "icon": "trash-2"
+                                            },
+                                            "ezvDc": {
+                                              "content": "Clear cache"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "id": "rYGXB",
+                                          "type": "ref",
+                                          "ref": "V8kVG",
+                                          "name": "Button / Enrich now",
+                                          "descendants": {
+                                            "rcmkZ": {
+                                              "icon": "sparkles"
+                                            },
+                                            "t5fRGs": {
+                                              "content": "Enrich now"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "sB8dt",
+                          "name": "Attribution",
+                          "fill": "$text-muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Artist data from MusicBrainz (CC0). Photos from fanart.tv, used under its API terms.",
+                          "fontFamily": "$font-sans",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "bX57w",
+              "type": "ref",
+              "ref": "l6NrTs",
+              "name": "Bottom Player",
+              "width": "fill_container"
+            }
+          ]
         }
       ]
     }
