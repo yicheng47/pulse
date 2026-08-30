@@ -24,6 +24,7 @@ Everything after the backend foundations, in build order: the audio path first, 
 |---|---|---|---|
 | [Feature 16 — gapless playback](features/archive/16-gapless-playback.md) | P1 | done | `4ae4fe4` engine, `7d61a32` app; validated on the Matrix DAC 2026-08-30. |
 | [Bug — seek lands early](bugs/seek-lands-early.md) | P2 | in progress | Decode-forward after the coarse seek; mission running since 2026-08-30. |
+| [Bug — flaky stall watchdog test](bugs/flaky-stall-watchdog-test.md) | P2 | in progress | CI red on `main` since `d2c2948`; injected clock for the engine worker, folded into the seek mission. |
 | [Bug — built-in speakers exclusive mode freezes volume](bugs/builtin-speakers-exclusive-volume.md) | P2 | planned | Probably: never take exclusive on the built-in output, or restore the hardware level on release. |
 | [Feature 17 — playback dropout reporting](features/17-playback-dropout-reporting.md) | P2 | planned | Read side of the underrun counter. |
 | [Bug — stale row selection after advance](bugs/archive/stale-row-selection-after-advance.md) | P2 | done | `cf02027`: selection cleared (playlist: re-anchored) when playback moves to another track. |

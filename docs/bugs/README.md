@@ -4,6 +4,7 @@ One note per open bug, written with the `bug` skill's template (description, exp
 
 ## Open
 
+- [`flaky-stall-watchdog-test.md`](flaky-stall-watchdog-test.md) - P2. The gapless stall-watchdog test races the CI runner's clock; inject a clock into the worker and drive fake time in the tests. Folded into the seek-lands-early mission.
 - [`builtin-speakers-exclusive-volume.md`](builtin-speakers-exclusive-volume.md) - P2. Exclusive mode on the built-in speakers disables the macOS volume control and freezes the hardware level.
 - [`seek-lands-early.md`](seek-lands-early.md) - P2. Seek lands earlier than the requested position (coarse seek, no decode-forward).
 
