@@ -1,6 +1,6 @@
 # Clicked track row stays highlighted after playback advances to the next track
 
-> Bug · P2 · filed 2026-08-30 from Jason's in-app report (screenshot: Beethoven 5, row 2 still highlighted while row 4 plays). Local note only — no GitHub issue.
+> Bug · P2 · filed 2026-08-30 from Jason's in-app report (screenshot: Beethoven 5, row 2 still highlighted while row 4 plays). Local note only — no GitHub issue. **Fixed** 2026-08-30, commit `cf02027` — `reconcile_selection_for_playback` in `surfaces/library/lifecycle.rs`; the playlist selection re-anchors to the playing entry.
 
 ## Description
 
