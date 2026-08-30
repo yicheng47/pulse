@@ -6,6 +6,7 @@ Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phase
 
 ## Active
 
+- [`26-metadata-enrichment.md`](26-metadata-enrichment.md) - P2. Artists identified against MusicBrainz with fanart.tv photos; opt-in Settings ▸ Metadata page owning the switch, API key, triggers (Enrich now, after scans, launch refresh, enabling, key paste) and status; `artist_metadata` keyed by mbid; unmapped stays visible. Design drafted 2026-08-30, awaiting approval.
 - [`20-now-playing-page.md`](20-now-playing-page.md) - P2, issue #56. Click the playback row's track cluster to open an immersive now-playing view: full-size album art, track identity, quality badge; playback row stays as the transport. Lyrics land here later.
 - [`19-mcp-server.md`](19-mcp-server.md) - P2, issue #55. `pulse mcp` stdio server on the app binary, Quill-style: library reads always on; playlist CRUD and rescan behind a Settings write gate; WAL for cross-process safety.
 
