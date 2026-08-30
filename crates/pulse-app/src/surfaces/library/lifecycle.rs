@@ -393,6 +393,54 @@ impl LibraryView {
             )
     }
 
+    pub(super) fn reconcile_selection_for_playback(&mut self, new_source_path: Option<&Path>) {
+        let selected_album_track_path = self.selected_album_track_id.and_then(|id| {
+            self.album_detail
+                .as_ref()?
+                .tracks
+                .iter()
+                .find(|track| track.id == id)
+                .map(|track| track.path.as_path())
+        });
+        if !view_model::selection_survives_new_playing_track(
+            new_source_path,
+            selected_album_track_path,
+        ) {
+            self.selected_album_track_id = None;
+        }
+
+        let selected_track_path = self.selected_track_id.and_then(|id| {
+            self.tracks
+                .iter()
+                .find(|track| track.id == id)
+                .map(|track| track.path.as_path())
+        });
+        if !view_model::selection_survives_new_playing_track(new_source_path, selected_track_path) {
+            self.selected_track_id = None;
+        }
+
+        let selected_playlist_track_path = self.selected_playlist_position.and_then(|position| {
+            self.playlist_detail
+                .as_ref()?
+                .entries
+                .iter()
+                .find(|entry| entry.position == position)
+                .map(|entry| entry.track.path.as_path())
+        });
+        if !view_model::selection_survives_new_playing_track(
+            new_source_path,
+            selected_playlist_track_path,
+        ) {
+            self.selected_playlist_position = self.playlist_detail.as_ref().and_then(|detail| {
+                view_model::playlist_position_for_playing_track(
+                    &detail.entries,
+                    self.selected_playlist_position,
+                    new_source_path,
+                )
+            });
+        }
+    }
+
     pub(super) fn render_library_failed(
         &self,
         message: String,

@@ -359,6 +359,9 @@ impl LibraryView {
                 this.store_revisions = revisions;
                 if reactions.playback {
                     let playback = this.app_store.read(cx).playback_snapshot();
+                    if this.playback_source_path != playback.source_path {
+                        this.reconcile_selection_for_playback(playback.source_path.as_deref());
+                    }
                     this.playback_source_path = playback.source_path;
                     this.playback_state = playback.playback_state;
                     this.missing_track_ids = playback.missing_track_ids;

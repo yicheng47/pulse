@@ -1,8 +1,8 @@
 use std::path::Path;
 
 use crate::backend::{
-    AlbumQueryFilter, LibrarySearchResults, ScanHistoryEntry, ScanOutcome, ScanProgress,
-    StorageRoot, Track, TrackQueryFilter, UNKNOWN_ALBUM, UNKNOWN_ARTIST,
+    AlbumQueryFilter, LibrarySearchResults, PlaylistTrack, ScanHistoryEntry, ScanOutcome,
+    ScanProgress, StorageRoot, Track, TrackQueryFilter, UNKNOWN_ALBUM, UNKNOWN_ARTIST,
 };
 
 const RECENTLY_ADDED_WINDOW_MS: i64 = 30 * 24 * 60 * 60 * 1_000;
@@ -84,6 +84,31 @@ impl SearchViewModel {
     pub fn playlist_index(&self, index: usize) -> usize {
         self.results.albums.len() + self.results.tracks.len() + index
     }
+}
+
+pub fn selection_survives_new_playing_track(
+    new_playing_path: Option<&Path>,
+    selected_track_path: Option<&Path>,
+) -> bool {
+    selected_track_path.is_some_and(|path| Some(path) == new_playing_path)
+}
+
+pub fn playlist_position_for_playing_track(
+    entries: &[PlaylistTrack],
+    previous_position: Option<usize>,
+    new_playing_path: Option<&Path>,
+) -> Option<usize> {
+    let new_playing_path = new_playing_path?;
+    let matches_path = |entry: &&PlaylistTrack| entry.track.path == new_playing_path;
+    previous_position
+        .and_then(|position| {
+            entries
+                .iter()
+                .filter(matches_path)
+                .find(|entry| entry.position >= position)
+        })
+        .or_else(|| entries.iter().find(matches_path))
+        .map(|entry| entry.position)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -709,5 +734,88 @@ mod tests {
 
         assert_eq!(model.result_count(), 0);
         assert_eq!(model.selected(), None);
+    }
+
+    #[test]
+    fn selection_survives_when_new_playing_path_matches_selected_track() {
+        let track_a = Path::new("/music/a.flac");
+
+        assert!(selection_survives_new_playing_track(
+            Some(track_a),
+            Some(track_a)
+        ));
+    }
+
+    #[test]
+    fn selection_clears_when_new_playing_path_differs() {
+        let track_a = Path::new("/music/a.flac");
+        let track_b = Path::new("/music/b.flac");
+
+        assert!(!selection_survives_new_playing_track(
+            Some(track_b),
+            Some(track_a)
+        ));
+    }
+
+    #[test]
+    fn selection_clears_when_selected_track_cannot_be_resolved() {
+        let track_b = Path::new("/music/b.flac");
+
+        assert!(!selection_survives_new_playing_track(Some(track_b), None));
+    }
+
+    #[test]
+    fn selection_clears_when_playback_has_no_source_path() {
+        let track_a = Path::new("/music/a.flac");
+
+        assert!(!selection_survives_new_playing_track(None, Some(track_a)));
+    }
+
+    #[test]
+    fn playlist_position_reanchors_to_matching_entry_at_or_after_previous_position() {
+        let mut track_a = track(1, "Artist", None, 16, 44_100, 1);
+        track_a.path = PathBuf::from("/music/a.flac");
+        let mut track_b = track(2, "Artist", None, 16, 44_100, 1);
+        track_b.path = PathBuf::from("/music/b.flac");
+        let entries = vec![
+            PlaylistTrack {
+                position: 2,
+                track: track_b.clone(),
+            },
+            PlaylistTrack {
+                position: 8,
+                track: track_a,
+            },
+            PlaylistTrack {
+                position: 9,
+                track: track_b,
+            },
+        ];
+
+        assert_eq!(
+            playlist_position_for_playing_track(
+                &entries,
+                Some(8),
+                Some(Path::new("/music/b.flac"))
+            ),
+            Some(9)
+        );
+    }
+
+    #[test]
+    fn playlist_position_clears_when_playing_track_is_not_in_playlist() {
+        let entries = vec![PlaylistTrack {
+            position: 1,
+            track: track(1, "Artist", None, 16, 44_100, 1),
+        }];
+
+        assert_eq!(
+            playlist_position_for_playing_track(
+                &entries,
+                Some(1),
+                Some(Path::new("/music/missing.flac"))
+            ),
+            None
+        );
     }
 }
