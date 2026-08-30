@@ -2,7 +2,7 @@
 
 Product features that are not part of a numbered roadmap stage. Roadmap stages live in [`docs/impls/`](../impls/); this folder is for features discovered outside that sequence — usually during acceptance passes.
 
-Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phases, and verification. Numbering is global and never reused; implemented specs move to [`archive/`](archive/).
+Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phases, and verification. Numbering is global and never reused; implemented specs move to [`archive/`](archive/). Dropped: 09 collapsible library sidebar (Jason, 2026-08-30 — not needed).
 
 ## Active
 
@@ -10,7 +10,6 @@ Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phase
 - [`19-mcp-server.md`](19-mcp-server.md) - P2, issue #55. `pulse mcp` stdio server on the app binary, Quill-style: library reads always on; playlist CRUD and rescan behind a Settings write gate; WAL for cross-process safety.
 - [`30-interface-scale.md`](30-interface-scale.md) - P2. Settings ▸ General gets an Interface scale stepper (80–150%) in place of the redundant Default output row; needs the `px` → `rems` migration, which also closes 29. Design approved 2026-08-30; in M2.
 - [`29-type-scale.md`](29-type-scale.md) - P3, refactor. Named type scale in `theme.rs` from the design's text styles; replace the ~218 literal `text_size(px(N))` calls and add a grep gate, as colors already have. Delivered by feature 30's phase 1.
-- [`09-collapsible-library-sidebar.md`](09-collapsible-library-sidebar.md) - P3, issue #34. Design and implement the compact state behind the library sidebar's existing Pencil collapse affordance.
 
 ## Implemented
 

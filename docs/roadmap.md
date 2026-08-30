@@ -42,7 +42,6 @@ Artist metadata first, then the now-playing page, then integrations and polish. 
 | Feature 26 — metadata enrichment (spec to write) | P2 | planned | `artist_metadata` keyed by MBID (Lidarr's Artist/ArtistMetadata split), a `MetadataProvider` trait with a MusicBrainz + fanart.tv implementation, opt-in, cached, off the render path; artist photos fill the Artists grid/detail avatars; unidentified artists stay visible. Reference: [`docs/reference/lidarr-library-model.md`](reference/lidarr-library-model.md). Chromaprint/AcoustID is a licensing decision before any fingerprinting. |
 | [Feature 20 — now playing page](features/20-now-playing-page.md) | P2 | planned | Design pinned. |
 | [Feature 19 — MCP server](features/19-mcp-server.md) | P2 | planned | Needs 25's ops layer; the trigger for splitting `backend/` into a crate. |
-| [Feature 09 — collapsible library sidebar](features/09-collapsible-library-sidebar.md) | P3 | planned | |
 
 ## Parking lot
 
