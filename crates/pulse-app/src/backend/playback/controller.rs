@@ -82,6 +82,7 @@ impl Playback {
                 position_ms: self.pending_seek_ms.unwrap_or(0),
             },
             confirmed: false,
+            load: false,
         });
     }
 
@@ -137,6 +138,7 @@ impl Playback {
         let reset_next = matches!(
             &command,
             PlaybackCommand::PlayFile { .. }
+                | PlaybackCommand::Load { .. }
                 | PlaybackCommand::Stop
                 | PlaybackCommand::SetOutputDevice { .. }
                 | PlaybackCommand::SetExclusiveMode { .. }
@@ -150,12 +152,16 @@ impl Playback {
         let Some(command_tx) = &self.command_tx else {
             return false;
         };
-        let is_play = matches!(command, PlaybackCommand::PlayFile { .. });
+        let is_attempt = matches!(
+            command,
+            PlaybackCommand::PlayFile { .. } | PlaybackCommand::Load { .. }
+        );
         if command_tx.send(command).is_err() {
             self.error = Some("Playback engine disconnected.".to_string());
             return false;
         }
-        if is_play {
+        if is_attempt {
+            self.open_launch_session_save_gate();
             self.dispatched_plays += 1;
         }
         if resync_next {
@@ -192,7 +198,10 @@ impl Playback {
     pub(crate) fn drain_events(&mut self) -> bool {
         let now = Instant::now();
         let dropout_notice_changed = self.clear_expired_dropout_notice_at(now);
-        let mut changed = self.pending_saved_output_device_uid.is_some() || dropout_notice_changed;
+        let settings_write_finished = self.apply_settings_write_results();
+        let mut changed = self.pending_saved_output_device_uid.is_some()
+            || dropout_notice_changed
+            || settings_write_finished;
         loop {
             let event = match self.event_rx.as_ref().map(Receiver::try_recv) {
                 Some(Ok(event)) => event,
@@ -233,6 +242,11 @@ impl Playback {
         match event {
             PlaybackEvent::StateChanged(state) => {
                 self.playback_state = state;
+                if state == PlaybackState::Playing
+                    && let Some(attempt) = &mut self.current_play
+                {
+                    attempt.load = false;
+                }
                 if state == PlaybackState::Idle {
                     self.clear_dropout_notice_tracking();
                 }
@@ -244,8 +258,15 @@ impl Playback {
                 } else if state == PlaybackState::Playing {
                     self.sync_next_source();
                 }
+                if state == PlaybackState::Paused {
+                    self.persist_session_or_record_error();
+                }
             }
             PlaybackEvent::NowPlaying { source, format } => {
+                let loaded_for_restore = self
+                    .current_play
+                    .as_ref()
+                    .is_some_and(|attempt| attempt.load);
                 match &mut self.current_play {
                     Some(attempt) if attempt.target.path == source.path => {
                         attempt.confirmed = true;
@@ -262,12 +283,16 @@ impl Playback {
                                 position_ms: 0,
                             },
                             confirmed: true,
+                            load: false,
                         });
                     }
                 }
                 self.start_dropout_track();
-                self.apply_playing_source(source, format);
-                self.sync_next_source();
+                self.apply_playing_source(source, format, !loaded_for_restore);
+                if !loaded_for_restore {
+                    self.sync_next_source();
+                    self.persist_session_or_record_error();
+                }
             }
             PlaybackEvent::Advanced {
                 attempt,
@@ -298,10 +323,12 @@ impl Playback {
                         position_ms: 0,
                     },
                     confirmed: true,
+                    load: false,
                 });
                 self.playback_state = PlaybackState::Playing;
-                self.apply_playing_source(source, format);
+                self.apply_playing_source(source, format, true);
                 self.sync_next_source();
+                self.persist_session_or_record_error();
             }
             PlaybackEvent::Position {
                 position_ms,
@@ -316,6 +343,7 @@ impl Playback {
                 {
                     attempt.target.position_ms = position_ms;
                 }
+                self.persist_position_if_due(position_ms);
             }
             PlaybackEvent::Dropout {
                 attempt,
@@ -437,6 +465,15 @@ impl Playback {
                     return None;
                 }
                 if attempt != self.dispatched_plays {
+                    return None;
+                }
+                if self.playback_state == PlaybackState::Idle
+                    && self
+                        .current_play
+                        .as_ref()
+                        .is_some_and(|attempt| attempt.load && !attempt.confirmed)
+                {
+                    self.error = None;
                     return None;
                 }
                 // Advisory: teardown already reached Idle/Ended, playback is
@@ -590,13 +627,27 @@ impl Playback {
     }
 
     pub(crate) fn shutdown(&mut self) {
+        if let Err(error) = self.flush_settings_writer() {
+            self.record_settings_error(error);
+        }
+        self.apply_settings_write_results();
+        self.persist_session_or_record_error();
+        if let Err(error) = self.flush_settings_writer() {
+            self.record_settings_error(error);
+        }
+        self.apply_settings_write_results();
         self.sent_next = None;
         self.event_rx = None;
         self.command_tx = None;
         self.controller = None;
     }
 
-    fn apply_playing_source(&mut self, source: PlayableSource, format: PcmFormat) {
+    fn apply_playing_source(
+        &mut self,
+        source: PlayableSource,
+        format: PcmFormat,
+        mark_started: bool,
+    ) {
         if let Some(track) = self
             .queue
             .current()
@@ -604,7 +655,9 @@ impl Playback {
             .cloned()
         {
             self.apply_track_context(&track);
-            self.queue.mark_started();
+            if mark_started {
+                self.queue.mark_started();
+            }
             self.refresh_queue_snapshot();
             self.missing_track_ids.remove(&track.id);
             self.rejected_next_track_ids.remove(&track.id);

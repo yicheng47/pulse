@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use serde::{Deserialize, Serialize};
+
 use super::{Track, TrackId, UNKNOWN_ALBUM, UNKNOWN_ARTIST};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -57,7 +59,8 @@ pub(crate) enum PreviousAction {
     PlayPrevious(TrackRef),
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) enum RepeatMode {
     #[default]
     Off,
@@ -110,6 +113,33 @@ impl QueueState {
     pub(crate) fn rebuild_shuffled(&mut self, tracks: &[Track]) {
         let mut rng = fastrand::Rng::new();
         self.rebuild_shuffled_with_rng(tracks, &mut rng);
+    }
+
+    pub(crate) fn restore(
+        &mut self,
+        tracks: &[Track],
+        original_positions: &[usize],
+        current_index: usize,
+        shuffle_enabled: bool,
+        repeat_mode: RepeatMode,
+    ) {
+        assert_eq!(tracks.len(), original_positions.len());
+        self.entries = tracks
+            .iter()
+            .zip(original_positions)
+            .map(|(track, original_position)| QueueEntry {
+                original_position: *original_position,
+                track: TrackRef::from(track),
+            })
+            .collect();
+        self.index = (current_index < self.entries.len()).then_some(current_index);
+        self.started = false;
+        self.skipped = 0;
+        self.consecutive_failures = 0;
+        self.shuffle_enabled = shuffle_enabled;
+        self.repeat_mode = repeat_mode;
+        self.history.clear();
+        self.true_history = false;
     }
 
     fn rebuild_shuffled_with_rng(&mut self, tracks: &[Track], rng: &mut fastrand::Rng) {
@@ -227,6 +257,21 @@ impl QueueState {
         self.index
             .and_then(|index| self.entries.get(index))
             .map(|entry| &entry.track)
+    }
+
+    pub(crate) fn current_index(&self) -> Option<usize> {
+        self.index
+    }
+
+    pub(crate) fn track_ids(&self) -> Vec<TrackId> {
+        self.entries.iter().map(|entry| entry.track.id).collect()
+    }
+
+    pub(crate) fn original_positions(&self) -> Vec<usize> {
+        self.entries
+            .iter()
+            .map(|entry| entry.original_position)
+            .collect()
     }
 
     pub(crate) fn remaining_count(&self) -> usize {
@@ -551,6 +596,37 @@ mod tests {
 
         assert_eq!(queue.paths(), ["/recent.flac", "/older.flac"]);
         assert_eq!(queue.current().unwrap().title, "older");
+    }
+
+    #[test]
+    fn restored_queue_walks_the_saved_order_with_shuffle_and_repeat_preserved() {
+        let tracks = [track(1, "first"), track(3, "third"), track(2, "second")];
+        let mut queue = QueueState::default();
+        queue.restore(&tracks, &[0, 2, 1], 1, true, RepeatMode::All);
+
+        assert!(queue.shuffle_enabled());
+        assert_eq!(queue.repeat_mode(), RepeatMode::All);
+        assert_eq!(queue.current().unwrap().title, "third");
+        assert_eq!(
+            queue.previous(0),
+            Some(PreviousAction::PlayPrevious(TrackRef::from(&tracks[0])))
+        );
+        assert_eq!(queue.advance().unwrap().title, "third");
+        assert_eq!(queue.advance().unwrap().title, "second");
+    }
+
+    #[test]
+    fn restored_shuffle_off_recovers_the_original_order() {
+        let tracks = [track(1, "first"), track(3, "third"), track(2, "second")];
+        let mut queue = QueueState::default();
+        queue.restore(&tracks, &[0, 2, 1], 0, true, RepeatMode::Off);
+
+        queue.toggle_shuffle();
+
+        assert_eq!(
+            queue.paths(),
+            ["/first.flac", "/second.flac", "/third.flac"]
+        );
     }
 
     #[test]

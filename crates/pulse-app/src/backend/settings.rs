@@ -1,11 +1,132 @@
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashSet},
     fs::{self, File, OpenOptions},
     io::{self, Write as _},
     path::{Path, PathBuf},
+    sync::mpsc::{self, Receiver, Sender, SyncSender},
+    thread::{self, JoinHandle},
 };
 
 use serde::{Deserialize, Serialize};
+
+use super::{PlaylistId, TrackId, queue::RepeatMode};
+
+pub(crate) const SESSION_STATE_VERSION: u32 = 1;
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SessionAlbumKey {
+    pub(crate) artist: String,
+    pub(crate) title: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(
+    tag = "destination",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub(crate) enum SessionRoute {
+    Albums {
+        album: Option<SessionAlbumKey>,
+    },
+    Artists {
+        artist: Option<String>,
+        album: Option<SessionAlbumKey>,
+    },
+    Tracks,
+    Playlists {
+        playlist_id: Option<PlaylistId>,
+    },
+    Storage,
+    Devices,
+}
+
+impl Default for SessionRoute {
+    fn default() -> Self {
+        Self::Albums { album: None }
+    }
+}
+
+impl SessionRoute {
+    fn is_valid(&self) -> bool {
+        let valid_text = |text: &str| !text.trim().is_empty();
+        let valid_album =
+            |album: &SessionAlbumKey| valid_text(&album.artist) && valid_text(&album.title);
+        match self {
+            Self::Albums { album } => album.as_ref().is_none_or(valid_album),
+            Self::Artists { artist, album } => {
+                artist.as_deref().is_none_or(valid_text)
+                    && album.as_ref().is_none_or(valid_album)
+                    && match (artist, album) {
+                        (None, None) => true,
+                        (Some(_), None) => true,
+                        (Some(artist), Some(album)) => artist == &album.artist,
+                        (None, Some(_)) => false,
+                    }
+            }
+            Self::Playlists { playlist_id } => playlist_id.is_none_or(|id| id > 0),
+            Self::Tracks | Self::Storage | Self::Devices => true,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SessionState {
+    pub(crate) version: u32,
+    pub(crate) queue_track_ids: Vec<TrackId>,
+    pub(crate) queue_original_positions: Vec<usize>,
+    pub(crate) current_index: Option<usize>,
+    pub(crate) position_ms: u64,
+    pub(crate) shuffle_enabled: bool,
+    pub(crate) repeat_mode: RepeatMode,
+    pub(crate) route: SessionRoute,
+}
+
+impl Default for SessionState {
+    fn default() -> Self {
+        Self {
+            version: SESSION_STATE_VERSION,
+            queue_track_ids: Vec::new(),
+            queue_original_positions: Vec::new(),
+            current_index: None,
+            position_ms: 0,
+            shuffle_enabled: false,
+            repeat_mode: RepeatMode::Off,
+            route: SessionRoute::default(),
+        }
+    }
+}
+
+impl SessionState {
+    fn is_valid(&self) -> bool {
+        let mut original_positions = HashSet::new();
+        self.version == SESSION_STATE_VERSION
+            && self.queue_track_ids.iter().all(|id| *id > 0)
+            && self.queue_original_positions.len() == self.queue_track_ids.len()
+            && self
+                .queue_original_positions
+                .iter()
+                .all(|position| original_positions.insert(*position))
+            && match (self.queue_track_ids.is_empty(), self.current_index) {
+                (true, None) => self.position_ms == 0,
+                (false, Some(index)) => index < self.queue_track_ids.len(),
+                _ => false,
+            }
+            && self.route.is_valid()
+    }
+}
+
+fn deserialize_session<'de, D>(deserializer: D) -> Result<Option<SessionState>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(value
+        .and_then(|value| serde_json::from_value::<SessionState>(value).ok())
+        .filter(SessionState::is_valid))
+}
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -103,6 +224,12 @@ pub struct AppSettings {
     pub(crate) legacy_exclusive_mode_disabled: Option<bool>,
     pub volume_level: f32,
     pub volume_muted: bool,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_session",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) session: Option<SessionState>,
 }
 
 impl Default for AppSettings {
@@ -113,6 +240,7 @@ impl Default for AppSettings {
             legacy_exclusive_mode_disabled: None,
             volume_level: 1.0,
             volume_muted: false,
+            session: None,
         }
     }
 }
@@ -171,7 +299,138 @@ impl AppSettings {
         if !self.volume_level.is_finite() || !(0.0..=1.0).contains(&self.volume_level) {
             self.volume_level = 1.0;
         }
+        if self
+            .session
+            .as_ref()
+            .is_some_and(|session| !session.is_valid())
+        {
+            self.session = None;
+        }
     }
+}
+
+enum SettingsWrite {
+    Save {
+        settings: Box<AppSettings>,
+        generation: Option<u64>,
+        completion: Option<SyncSender<io::Result<()>>>,
+    },
+    Flush(SyncSender<()>),
+    Stop,
+}
+
+pub(crate) struct SettingsWriteResult {
+    pub(crate) generation: u64,
+    pub(crate) settings: AppSettings,
+    pub(crate) result: io::Result<()>,
+}
+
+pub(crate) struct SettingsWriter {
+    write_tx: Sender<SettingsWrite>,
+    result_rx: Receiver<SettingsWriteResult>,
+    worker: Option<JoinHandle<()>>,
+}
+
+impl SettingsWriter {
+    pub(crate) fn spawn(path: PathBuf) -> io::Result<Self> {
+        let (write_tx, write_rx) = mpsc::channel();
+        let (result_tx, result_rx) = mpsc::channel();
+        let worker = thread::Builder::new()
+            .name("pulse-settings".to_string())
+            .spawn(move || settings_writer_loop(path, write_rx, result_tx))?;
+        Ok(Self {
+            write_tx,
+            result_rx,
+            worker: Some(worker),
+        })
+    }
+
+    pub(crate) fn save(&self, settings: AppSettings) -> io::Result<()> {
+        let (completion_tx, completion_rx) = mpsc::sync_channel(1);
+        self.send(SettingsWrite::Save {
+            settings: Box::new(settings),
+            generation: None,
+            completion: Some(completion_tx),
+        })?;
+        completion_rx
+            .recv()
+            .map_err(|_| settings_writer_stopped())?
+    }
+
+    pub(crate) fn save_in_background(
+        &self,
+        generation: u64,
+        settings: AppSettings,
+    ) -> io::Result<()> {
+        self.send(SettingsWrite::Save {
+            settings: Box::new(settings),
+            generation: Some(generation),
+            completion: None,
+        })
+    }
+
+    pub(crate) fn flush(&self) -> io::Result<()> {
+        let (completion_tx, completion_rx) = mpsc::sync_channel(1);
+        self.send(SettingsWrite::Flush(completion_tx))?;
+        completion_rx
+            .recv()
+            .map_err(|_| settings_writer_stopped())?;
+        Ok(())
+    }
+
+    pub(crate) fn take_results(&self) -> Vec<SettingsWriteResult> {
+        self.result_rx.try_iter().collect()
+    }
+
+    fn send(&self, write: SettingsWrite) -> io::Result<()> {
+        self.write_tx
+            .send(write)
+            .map_err(|_| settings_writer_stopped())
+    }
+}
+
+impl Drop for SettingsWriter {
+    fn drop(&mut self) {
+        let _ = self.write_tx.send(SettingsWrite::Stop);
+        if let Some(worker) = self.worker.take() {
+            let _ = worker.join();
+        }
+    }
+}
+
+fn settings_writer_loop(
+    path: PathBuf,
+    write_rx: Receiver<SettingsWrite>,
+    result_tx: Sender<SettingsWriteResult>,
+) {
+    while let Ok(write) = write_rx.recv() {
+        match write {
+            SettingsWrite::Save {
+                settings,
+                generation,
+                completion,
+            } => {
+                let result = settings.save(&path);
+                if let Some(completion) = completion {
+                    let _ = completion.send(result);
+                } else if let Some(generation) = generation {
+                    let _ = result_tx.send(SettingsWriteResult {
+                        generation,
+                        settings: *settings,
+                        result,
+                    });
+                }
+            }
+            SettingsWrite::Flush(completion) => {
+                let _ = completion.send(());
+            }
+            SettingsWrite::Stop => break,
+        }
+    }
+}
+
+fn settings_writer_stopped() -> io::Error {
+    io::Error::new(io::ErrorKind::BrokenPipe, "settings writer stopped")
 }
 
 pub fn settings_path(app_data_dir: &Path) -> PathBuf {
@@ -262,6 +521,18 @@ mod tests {
             saved_output_device_uid: Some("matrix".to_string()),
             volume_level: 0.42,
             volume_muted: true,
+            session: Some(SessionState {
+                version: SESSION_STATE_VERSION,
+                queue_track_ids: vec![11, 22, 11],
+                queue_original_positions: vec![0, 2, 1],
+                current_index: Some(1),
+                position_ms: 42_500,
+                shuffle_enabled: true,
+                repeat_mode: RepeatMode::All,
+                route: SessionRoute::Playlists {
+                    playlist_id: Some(7),
+                },
+            }),
             ..AppSettings::default()
         };
         settings.exclusive_mode_preferences.record_sighting(
@@ -282,7 +553,57 @@ mod tests {
         assert_eq!(AppSettings::load(&path).unwrap(), settings);
         let contents = fs::read_to_string(path).unwrap();
         assert!(contents.contains("\n  \"savedOutputDeviceUid\""));
+        assert!(contents.contains("\"queueTrackIds\""));
+        assert!(contents.contains("\"queueOriginalPositions\""));
+        assert!(contents.contains("\"destination\": \"playlists\""));
         assert!(contents.ends_with('\n'));
+    }
+
+    #[test]
+    fn old_settings_without_a_session_load_unchanged() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = settings_path(directory.path());
+        fs::write(
+            &path,
+            r#"{"savedOutputDeviceUid":"matrix","volumeLevel":0.25,"volumeMuted":true}"#,
+        )
+        .unwrap();
+
+        let loaded = AppSettings::load(&path).unwrap();
+
+        assert_eq!(loaded.saved_output_device_uid.as_deref(), Some("matrix"));
+        assert_eq!(loaded.volume_level, 0.25);
+        assert!(loaded.volume_muted);
+        assert_eq!(loaded.session, None);
+    }
+
+    #[test]
+    fn unparseable_partial_or_unknown_session_blobs_start_cold_without_losing_preferences() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = settings_path(directory.path());
+        for session in [
+            r#"{"version":1,"queueTrackIds":"broken"}"#,
+            r#"{"version":1,"queueTrackIds":[1]}"#,
+            r#"{"version":1,"queueTrackIds":[1,2],"queueOriginalPositions":[0,0],"currentIndex":0,"positionMs":0,"shuffleEnabled":false,"repeatMode":"off","route":{"destination":"albums","album":null}}"#,
+            r#"{"version":2,"queueTrackIds":[],"queueOriginalPositions":[],"currentIndex":null,"positionMs":0,"shuffleEnabled":false,"repeatMode":"off","route":{"destination":"albums","album":null}}"#,
+        ] {
+            fs::write(
+                &path,
+                format!(
+                    r#"{{"savedOutputDeviceUid":"matrix","volumeLevel":0.25,"volumeMuted":true,"session":{session}}}"#
+                ),
+            )
+            .unwrap();
+
+            let loaded = AppSettings::load(&path).unwrap();
+
+            assert_eq!(loaded.saved_output_device_uid.as_deref(), Some("matrix"));
+            assert_eq!(loaded.volume_level, 0.25);
+            assert!(loaded.volume_muted);
+            assert_eq!(loaded.session, None);
+            assert!(path.exists());
+            assert!(!directory.path().join("settings.corrupt.json").exists());
+        }
     }
 
     #[test]

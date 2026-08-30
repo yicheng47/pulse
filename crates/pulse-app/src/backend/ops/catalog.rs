@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
 use super::super::{
     AlbumPage, AlbumQueryFilter, AlbumSortOrder, Artist, ArtistDetail, LibraryError,
-    LibrarySearchResults, LibraryStore, LibrarySummary, Track, TrackPage, TrackQueryFilter,
-    TrackSortOrder,
+    LibrarySearchResults, LibraryStore, LibrarySummary, Track, TrackId, TrackPage,
+    TrackQueryFilter, TrackSortOrder,
     repo::{albums, artists, search as search_repo, tracks},
 };
 
@@ -36,12 +38,34 @@ pub fn matching_tracks(
     tracks::matching(store, sort_order, filter, artist_filter)
 }
 
+pub fn tracks_by_ids(
+    store: &LibraryStore,
+    track_ids: &[TrackId],
+) -> Result<Vec<Option<Track>>, LibraryError> {
+    let tracks_by_id = tracks::by_ids(store, track_ids)?
+        .into_iter()
+        .map(|track| (track.id, track))
+        .collect::<HashMap<_, _>>();
+    Ok(track_ids
+        .iter()
+        .map(|track_id| tracks_by_id.get(track_id).cloned())
+        .collect())
+}
+
 pub fn album_tracks(
     store: &LibraryStore,
     artist: &str,
     title: &str,
 ) -> Result<Vec<Track>, LibraryError> {
     tracks::for_album(store, artist, title)
+}
+
+pub fn album_by_key(
+    store: &LibraryStore,
+    artist: &str,
+    title: &str,
+) -> Result<Option<super::super::Album>, LibraryError> {
+    albums::get(store, artist, title)
 }
 
 pub fn artist_index(store: &LibraryStore) -> Result<Vec<Artist>, LibraryError> {
@@ -228,6 +252,14 @@ mod tests {
             album_tracks(&store, "Artist A", "Hi Album").unwrap().len(),
             1
         );
+        assert_eq!(
+            album_by_key(&store, "Artist A", "Hi Album")
+                .unwrap()
+                .unwrap()
+                .title,
+            "Hi Album"
+        );
+        assert!(album_by_key(&store, "Artist A", "Gone").unwrap().is_none());
 
         let artists = artist_index(&store).unwrap();
         let artist = artists
@@ -249,5 +281,35 @@ mod tests {
         let results = search(&store, "Hi Album").unwrap();
         assert_eq!(results.albums.len(), 1);
         assert_eq!(results.tracks.len(), 1);
+    }
+
+    #[test]
+    fn track_id_lookup_preserves_saved_order_duplicates_and_deleted_slots() {
+        let temp = tempdir().unwrap();
+        let mut store = LibraryStore::open_in_memory().unwrap();
+        let root =
+            crate::backend::repo::storage_roots::add(&mut store, temp.path(), "Music").unwrap();
+        let first = insert_track(
+            &mut store,
+            &root,
+            &test_file(&root, "first.wav", 1, 10),
+            &test_metadata("First", "Artist", Some("Album"), None),
+        );
+        let second = insert_track(
+            &mut store,
+            &root,
+            &test_file(&root, "second.wav", 2, 10),
+            &test_metadata("Second", "Artist", Some("Album"), None),
+        );
+
+        let resolved = tracks_by_ids(&store, &[second, 999_999, first, second]).unwrap();
+
+        assert_eq!(
+            resolved
+                .iter()
+                .map(|track| track.as_ref().map(|track| track.id))
+                .collect::<Vec<_>>(),
+            [Some(second), None, Some(first), Some(second)]
+        );
     }
 }

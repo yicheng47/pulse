@@ -253,7 +253,7 @@ struct WorkerSettings {
 
 struct Worker {
     state: PlaybackState,
-    /// Count of PlayFile commands processed. Gapless advances keep the current count.
+    /// Count of PlayFile and Load commands processed. Gapless advances keep the current count.
     attempt: u64,
     output_device: DeviceId,
     exclusive_mode: bool,
@@ -366,6 +366,7 @@ impl Worker {
         }
         let result = match command {
             PlaybackCommand::PlayFile { path } => self.play_file(path),
+            PlaybackCommand::Load { path, position_ms } => self.load(path, position_ms),
             PlaybackCommand::SetNext { path } => self.set_next(path),
             PlaybackCommand::ClearNext => {
                 self.clear_next();
@@ -397,6 +398,71 @@ impl Worker {
         self.current = None;
         self.set_state(PlaybackState::Loading);
         self.start_path(&path, 0, true, false)
+    }
+
+    fn load(&mut self, path: PathBuf, position_ms: u64) -> Result<(), EngineError> {
+        if !matches!(
+            self.state,
+            PlaybackState::Idle | PlaybackState::Ended | PlaybackState::Error
+        ) {
+            self.illegal_command("Load");
+            return Ok(());
+        }
+
+        self.attempt += 1;
+        self.next_source = None;
+        self.transition = None;
+        self.release_backend()?;
+        self.prepared_decoder = None;
+        self.current = None;
+        self.set_state(PlaybackState::Loading);
+
+        let result: Result<(), EngineError> = (|| {
+            let mut decoder = (self.decoder_factory)(&path)?;
+            let format = decoder.format();
+            let duration_ms = decoder.duration_ms();
+            let requested_position_ms =
+                duration_ms.map_or(position_ms, |duration| position_ms.min(duration));
+            let actual_position_ms = if requested_position_ms == 0 {
+                0
+            } else {
+                decoder.seek(requested_position_ms)?
+            };
+            let source = PlayableSource {
+                path: path.clone(),
+                duration_ms,
+            };
+            self.prepared_decoder = Some(PreparedDecoder {
+                path,
+                requested_position_ms,
+                actual_position_ms,
+                decoder,
+            });
+            self.current = Some(CurrentTrack {
+                source: source.clone(),
+                format,
+                position_ms: actual_position_ms,
+                resume_position_ms: requested_position_ms,
+                dropout_frames: 0,
+                last_reported_dropout_frames: 0,
+            });
+            self.broadcast(PlaybackEvent::NowPlaying { source, format });
+            self.emit_position(actual_position_ms);
+            self.set_state(PlaybackState::Paused);
+            Ok(())
+        })();
+
+        if let Err(error) = result {
+            self.prepared_decoder = None;
+            self.current = None;
+            self.set_state(PlaybackState::Idle);
+            self.broadcast(PlaybackEvent::Error {
+                attempt: self.attempt,
+                kind: (&error).into(),
+                message: error.to_string(),
+            });
+        }
+        Ok(())
     }
 
     fn set_next(&mut self, path: PathBuf) -> Result<(), EngineError> {
@@ -2202,6 +2268,135 @@ mod tests {
         assert_no_matching_event(&events, TEST_STALL_TIMEOUT * 2, |event| {
             matches!(event, PlaybackEvent::Error { .. })
         });
+    }
+
+    #[test]
+    fn load_prepares_a_paused_source_without_opening_or_starting_the_backend() {
+        let (controller, log) = fake_controller_with_seek_offset(250);
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::Load {
+                path: PathBuf::from("track.flac"),
+                position_ms: 5_000,
+            })
+            .unwrap();
+
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::NowPlaying { .. }
+            )),
+            PlaybackEvent::NowPlaying {
+                source: PlayableSource {
+                    path: PathBuf::from("track.flac"),
+                    duration_ms: Some(10_000),
+                },
+                format: TEST_FORMAT,
+            }
+        );
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::Position { .. }
+            )),
+            PlaybackEvent::Position {
+                position_ms: 4_750,
+                duration_ms: Some(10_000),
+                dropout_frames: 0,
+            }
+        );
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Paused)
+        });
+        {
+            let log = log.lock().unwrap();
+            assert!(log.opened_devices.is_empty());
+            assert!(log.backend_starts.is_empty());
+            assert_eq!(log.seek_positions, [5_000]);
+        }
+
+        commands.send(PlaybackCommand::Resume).unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+        let log = log.lock().unwrap();
+        assert_eq!(log.opened_devices, [7]);
+        assert_eq!(log.backend_starts, [TEST_FORMAT]);
+        assert_eq!(log.seek_positions, [5_000]);
+    }
+
+    #[test]
+    fn load_is_rejected_while_a_source_is_paused() {
+        let (controller, log) = fake_controller();
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::Load {
+                path: PathBuf::from("first.flac"),
+                position_ms: 0,
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Paused)
+        });
+
+        commands
+            .send(PlaybackCommand::Load {
+                path: PathBuf::from("second.flac"),
+                position_ms: 0,
+            })
+            .unwrap();
+
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::CommandRejected { .. }
+            )),
+            PlaybackEvent::CommandRejected {
+                command: "Load",
+                state: PlaybackState::Paused,
+            }
+        );
+        assert_eq!(
+            log.lock().unwrap().decoder_opens,
+            [PathBuf::from("first.flac")]
+        );
+    }
+
+    #[test]
+    fn unreadable_loads_return_to_idle_and_increment_attempts() {
+        let (controller, log) = fake_controller();
+        log.lock()
+            .unwrap()
+            .unreadable_paths
+            .extend([PathBuf::from("first.flac"), PathBuf::from("second.flac")]);
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+
+        for (path, attempt) in [("first.flac", 1), ("second.flac", 2)] {
+            commands
+                .send(PlaybackCommand::Load {
+                    path: PathBuf::from(path),
+                    position_ms: 1_000,
+                })
+                .unwrap();
+            assert_eq!(
+                wait_for(&events, |event| matches!(
+                    event,
+                    PlaybackEvent::Error { .. }
+                )),
+                PlaybackEvent::Error {
+                    attempt,
+                    kind: crate::PlaybackErrorKind::Track,
+                    message: "decode: unreadable source".to_string(),
+                }
+            );
+        }
+
+        let log = log.lock().unwrap();
+        assert!(log.opened_devices.is_empty());
+        assert!(log.backend_starts.is_empty());
     }
 
     #[test]

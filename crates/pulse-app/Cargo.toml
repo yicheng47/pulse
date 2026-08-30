@@ -30,4 +30,5 @@ objc2-app-kit.workspace = true
 objc2-foundation = { workspace = true, features = ["NSDate", "NSDictionary", "NSError", "NSString"] }
 
 [dev-dependencies]
+gpui = { workspace = true, features = ["test-support"] }
 tempfile.workspace = true

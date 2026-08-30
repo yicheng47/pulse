@@ -13,6 +13,7 @@ mod playback_actions;
 mod playlist_actions;
 mod playlists;
 mod playlists_logic;
+mod session;
 mod storage;
 mod storage_actions;
 mod storage_logic;
@@ -47,9 +48,9 @@ use crate::{
     backend::{
         Album, AlbumSortOrder, Artist, ArtistDetail, BackfillProgress, DeleteAlbumOutcome,
         LibraryError, LibrarySearchResults, LibrarySummary, PlaybackAction, PlaylistId,
-        PlaylistSummary, PlaylistTrack, ScanHistoryEntry, ScanOutcome, ScanProgress, StorageRoot,
-        StorageRootId, Track, TrackId, TrackSortOrder, cover_cache_directory,
-        library_database_path, ops,
+        PlaylistSummary, PlaylistTrack, ScanHistoryEntry, ScanOutcome, ScanProgress,
+        SessionAlbumKey, SessionRoute, StorageRoot, StorageRootId, Track, TrackId, TrackSortOrder,
+        cover_cache_directory, library_database_path, ops,
     },
     surfaces::Destination,
     text_input::{self, TextInput},
@@ -267,6 +268,7 @@ pub(crate) struct LibraryView {
     text_input: TextInput,
     input_focus: FocusHandle,
     error: Option<String>,
+    launch_state_restored: bool,
     _store_subscription: Subscription,
 }
 
@@ -277,6 +279,31 @@ impl LibraryView {
         let cover_cache_directory =
             cover_cache_directory().expect("failed to resolve library cover cache path");
         let app_store = global_app_store(cx);
+        let mut view = Self::build(app_store, database_path, cover_cache_directory, cx);
+        view.begin_open_store();
+
+        cx.spawn(async move |this, cx| {
+            loop {
+                cx.background_executor().timer(SCAN_POLL_INTERVAL).await;
+                if this
+                    .update(cx, |this, cx| this.drain_worker_events(cx))
+                    .is_err()
+                {
+                    break;
+                }
+            }
+        })
+        .detach();
+
+        view
+    }
+
+    fn build(
+        app_store: Entity<AppStore>,
+        database_path: PathBuf,
+        cover_cache_directory: PathBuf,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let store_revisions = app_store.read(cx).revisions;
         let playback = app_store.read(cx).playback_snapshot();
         let (worker_tx, worker_rx) = mpsc::channel();
@@ -290,7 +317,7 @@ impl LibraryView {
             Scrollbar::new("artists-scrollbar", artists_scroll.clone())
                 .thumb_id("artists-scrollbar-thumb")
         });
-        let mut view = Self {
+        Self {
             destination: Destination::Albums,
             app_store: app_store.clone(),
             store_revisions,
@@ -353,6 +380,7 @@ impl LibraryView {
             text_input: TextInput::default(),
             input_focus: cx.focus_handle(),
             error: None,
+            launch_state_restored: false,
             _store_subscription: cx.observe(&app_store, |this, _, cx| {
                 let revisions = this.app_store.read(cx).revisions;
                 let reactions = revisions.reactions_since(this.store_revisions);
@@ -368,23 +396,17 @@ impl LibraryView {
                     cx.notify();
                 }
             }),
-        };
-        view.begin_open_store();
+        }
+    }
 
-        cx.spawn(async move |this, cx| {
-            loop {
-                cx.background_executor().timer(SCAN_POLL_INTERVAL).await;
-                if this
-                    .update(cx, |this, cx| this.drain_worker_events(cx))
-                    .is_err()
-                {
-                    break;
-                }
-            }
-        })
-        .detach();
-
-        view
+    #[cfg(test)]
+    fn for_test(
+        app_store: Entity<AppStore>,
+        database_path: PathBuf,
+        cover_cache_directory: PathBuf,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        Self::build(app_store, database_path, cover_cache_directory, cx)
     }
 }
 

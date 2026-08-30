@@ -8,8 +8,8 @@ use gpui::{App, Context, Entity, Global};
 use pulse_engine::device;
 
 use crate::backend::{
-    AppSettings, ManagedDeviceGroups, Playback, PlaybackAction, PlaybackSnapshot, UpdateInfo,
-    Updater,
+    AppSettings, ManagedDeviceGroups, Playback, PlaybackAction, PlaybackSnapshot, SessionRoute,
+    SessionState, Track, UpdateInfo, Updater,
 };
 
 const EVENT_POLL_INTERVAL: Duration = Duration::from_millis(16);
@@ -124,6 +124,45 @@ impl AppStore {
 
     pub(crate) fn playback_snapshot(&self) -> PlaybackSnapshot {
         self.playback.snapshot()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn for_test(
+        settings_path: PathBuf,
+        settings: AppSettings,
+        _cx: &mut Context<Self>,
+    ) -> Self {
+        let playback = Playback::for_test(settings_path, settings);
+        let revision_snapshot = RevisionSnapshot::new(&playback);
+        Self {
+            playback,
+            revision_snapshot,
+            revisions: StoreRevisions::default(),
+        }
+    }
+
+    pub(crate) fn launch_session(&self) -> Option<SessionState> {
+        self.playback.launch_session()
+    }
+
+    pub(crate) fn restore_session(
+        &mut self,
+        session: &SessionState,
+        resolved_tracks: Vec<Option<Track>>,
+        cx: &mut Context<Self>,
+    ) {
+        self.playback.restore_session(session, resolved_tracks);
+        self.finish_update(cx);
+    }
+
+    pub(crate) fn abandon_launch_session_restore(&mut self, cx: &mut Context<Self>) {
+        self.playback.abandon_launch_session_restore();
+        self.finish_update(cx);
+    }
+
+    pub(crate) fn set_session_route(&mut self, route: SessionRoute, cx: &mut Context<Self>) {
+        self.playback.set_session_route(route);
+        self.finish_update(cx);
     }
 
     pub(crate) fn managed_device_groups(&self) -> ManagedDeviceGroups {

@@ -2,6 +2,7 @@ mod controller;
 mod devices;
 mod logic;
 mod queue_control;
+mod session;
 
 pub(crate) use logic::*;
 
@@ -24,8 +25,12 @@ use pulse_engine::{
 use super::{
     Track, TrackId,
     queue::{PreviousAction, QueueState, TrackRef},
-    settings::{AppSettings, ExclusiveModePreferences, StoredDeviceCapabilities},
+    settings::{
+        AppSettings, ExclusiveModePreferences, SessionRoute, SessionState, StoredDeviceCapabilities,
+    },
 };
+
+use session::SessionSaveCadence;
 
 const SUPPORTED_EXTENSIONS: &[&str] = &["flac", "m4a", "aif", "aiff", "wav"];
 
@@ -91,6 +96,12 @@ struct RetryTarget {
 struct PlayAttempt {
     target: RetryTarget,
     confirmed: bool,
+    load: bool,
+}
+
+struct StagedSettings {
+    generation: Option<u64>,
+    settings: AppSettings,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -275,12 +286,25 @@ pub(crate) struct Playback {
     pending_seek_ms: Option<u64>,
     recent_dropouts: VecDeque<Instant>,
     last_dropout_at: Option<Instant>,
+    session_save_cadence: SessionSaveCadence,
+    /// Protects an existing launch blob until restore concludes or the first
+    /// successful PlayFile/Load dispatch proves that live playback replaced it.
+    launch_session_pending: bool,
     settings: AppSettings,
     settings_path: PathBuf,
+    settings_writer: Option<super::settings::SettingsWriter>,
+    staged_settings: Option<StagedSettings>,
+    next_settings_generation: u64,
+    last_settings_error: Option<String>,
 }
 
 impl Playback {
     pub(crate) fn new(settings_path: PathBuf, settings: AppSettings) -> Self {
+        let saved_position_ms = settings
+            .session
+            .as_ref()
+            .map_or(0, |session| session.position_ms);
+        let launch_session_pending = settings.session.is_some();
         let mut playback = Self {
             controller: None,
             command_tx: None,
@@ -322,8 +346,14 @@ impl Playback {
             pending_seek_ms: None,
             recent_dropouts: VecDeque::new(),
             last_dropout_at: None,
+            session_save_cadence: SessionSaveCadence::new(saved_position_ms),
+            launch_session_pending,
             settings,
             settings_path,
+            settings_writer: None,
+            staged_settings: None,
+            next_settings_generation: 0,
+            last_settings_error: None,
         };
         playback.initialize_output_inner();
         playback
@@ -372,9 +402,31 @@ impl Playback {
             pending_seek_ms: None,
             recent_dropouts: VecDeque::new(),
             last_dropout_at: None,
+            session_save_cadence: SessionSaveCadence::new(0),
+            // General playback tests do not own a settings path; session tests release this gate.
+            launch_session_pending: true,
             settings: AppSettings::default(),
             settings_path: PathBuf::new(),
+            settings_writer: None,
+            staged_settings: None,
+            next_settings_generation: 0,
+            last_settings_error: None,
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn for_test(settings_path: PathBuf, settings: AppSettings) -> Self {
+        let saved_position_ms = settings
+            .session
+            .as_ref()
+            .map_or(0, |session| session.position_ms);
+        let launch_session_pending = settings.session.is_some();
+        let mut playback = Self::initial();
+        playback.settings_path = settings_path;
+        playback.settings = settings;
+        playback.session_save_cadence = SessionSaveCadence::new(saved_position_ms);
+        playback.launch_session_pending = launch_session_pending;
+        playback
     }
 
     #[cfg(test)]
@@ -464,15 +516,129 @@ impl Playback {
     }
 
     fn update_settings(&mut self, update: impl FnOnce(&mut AppSettings)) -> io::Result<bool> {
-        let mut settings = self.settings.clone();
+        let mut settings = self.desired_settings().clone();
         update(&mut settings);
         settings.normalize();
-        if settings == self.settings {
+        if settings == *self.desired_settings() {
             return Ok(false);
         }
-        settings.save(&self.settings_path)?;
+        let result = self.ensure_settings_writer()?.save(settings.clone());
+        if let Err(error) = result {
+            self.apply_settings_write_results();
+            return Err(error);
+        }
+        if let Some(writer) = &self.settings_writer {
+            let _ = writer.take_results();
+        }
         self.settings = settings;
+        self.staged_settings = None;
+        self.last_settings_error = None;
         Ok(true)
+    }
+
+    fn update_settings_in_background(
+        &mut self,
+        update: impl FnOnce(&mut AppSettings),
+    ) -> io::Result<bool> {
+        let mut settings = self.desired_settings().clone();
+        update(&mut settings);
+        settings.normalize();
+        let changed = settings != *self.desired_settings();
+        let retry = !changed
+            && self
+                .staged_settings
+                .as_ref()
+                .is_some_and(|staged| staged.generation.is_none());
+        if !changed && !retry {
+            return Ok(false);
+        }
+        self.next_settings_generation = self.next_settings_generation.wrapping_add(1);
+        let generation = self.next_settings_generation;
+        match self
+            .ensure_settings_writer()
+            .and_then(|writer| writer.save_in_background(generation, settings.clone()))
+        {
+            Ok(()) => {
+                self.staged_settings = Some(StagedSettings {
+                    generation: Some(generation),
+                    settings,
+                });
+                Ok(changed)
+            }
+            Err(error) => {
+                self.staged_settings = Some(StagedSettings {
+                    generation: None,
+                    settings,
+                });
+                Err(error)
+            }
+        }
+    }
+
+    fn desired_settings(&self) -> &AppSettings {
+        self.staged_settings
+            .as_ref()
+            .map_or(&self.settings, |staged| &staged.settings)
+    }
+
+    fn apply_settings_write_results(&mut self) -> bool {
+        let results = self
+            .settings_writer
+            .as_ref()
+            .map(super::settings::SettingsWriter::take_results)
+            .unwrap_or_default();
+        let changed = !results.is_empty();
+        for result in results {
+            match result.result {
+                Ok(()) => {
+                    self.settings = result.settings;
+                    if self
+                        .staged_settings
+                        .as_ref()
+                        .is_some_and(|staged| staged.generation == Some(result.generation))
+                    {
+                        self.staged_settings = None;
+                        self.last_settings_error = None;
+                    }
+                }
+                Err(error) => {
+                    if let Some(staged) = &mut self.staged_settings
+                        && staged.generation == Some(result.generation)
+                    {
+                        staged.generation = None;
+                    }
+                    self.record_settings_error(error);
+                }
+            }
+        }
+        changed
+    }
+
+    fn record_settings_error(&mut self, error: io::Error) {
+        let message = format!("Could not save the launch state: {error}");
+        if self.last_settings_error.as_deref() != Some(&message) {
+            eprintln!("{message}");
+        }
+        self.last_settings_error = Some(message);
+    }
+
+    fn ensure_settings_writer(&mut self) -> io::Result<&super::settings::SettingsWriter> {
+        if self.settings_writer.is_none() {
+            self.settings_writer = Some(super::settings::SettingsWriter::spawn(
+                self.settings_path.clone(),
+            )?);
+        }
+        Ok(self
+            .settings_writer
+            .as_ref()
+            .expect("settings writer was initialized"))
+    }
+
+    fn flush_settings_writer(&self) -> io::Result<()> {
+        match &self.settings_writer {
+            Some(writer) => writer.flush(),
+            None => Ok(()),
+        }
     }
 }
 

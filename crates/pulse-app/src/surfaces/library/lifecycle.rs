@@ -58,6 +58,7 @@ impl LibraryView {
         self.playlist_menu = None;
         self.genre_popover_open = false;
         self.artist_popover_open = false;
+        self.persist_route(cx);
         cx.notify();
     }
 
@@ -220,9 +221,15 @@ impl LibraryView {
                         Ok(store) => {
                             self.store = Some(store);
                             self.boot = LibraryBoot::Ready;
-                            self.reload_or_show_error();
+                            self.reload_or_show_error(cx);
+                            self.restore_launch_state(cx);
                         }
-                        Err(message) => self.boot = LibraryBoot::Failed { message },
+                        Err(message) => {
+                            self.boot = LibraryBoot::Failed { message };
+                            self.app_store.update(cx, |store, store_cx| {
+                                store.abandon_launch_session_restore(store_cx);
+                            });
+                        }
                     }
                     changed = true;
                 }
@@ -256,7 +263,7 @@ impl LibraryView {
                         Ok(_) => {}
                         Err(error) => self.error = Some(error.clone()),
                     }
-                    self.reload_or_show_error();
+                    self.reload_or_show_error(cx);
                     changed = true;
                 }
                 Ok(WorkerEvent::DeleteAlbumFinished { store, result }) => {
@@ -283,7 +290,7 @@ impl LibraryView {
                                 });
                             }
                             self.error = None;
-                            self.reload_or_show_error();
+                            self.reload_or_show_error(cx);
                             let reload_error = self.error.take();
                             self.error = delete_album_notice(&outcome, reload_error);
                         }
@@ -327,9 +334,13 @@ impl LibraryView {
         }
     }
 
-    pub(super) fn reload_or_show_error(&mut self) {
+    pub(super) fn reload_or_show_error(&mut self, cx: &mut Context<Self>) {
+        let route = self.session_route();
         if let Err(error) = self.reload() {
             self.error = Some(error.to_string());
+        }
+        if self.session_route() != route {
+            self.persist_route(cx);
         }
     }
 

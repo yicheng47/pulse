@@ -428,6 +428,7 @@ impl LibraryView {
                         }
                         this.selected_album_track_id = None;
                         this.album_menu_open = false;
+                        this.persist_route(cx);
                         cx.notify();
                     }))
                     .child(

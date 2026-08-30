@@ -17,7 +17,7 @@ impl PlaybackState {
             (self, next),
             (Idle | Ended | Error, Loading)
                 | (Ended | Error, Stopping)
-                | (Loading, Playing | Error)
+                | (Loading, Idle | Playing | Paused | Error)
                 | (Playing, Loading | Paused | Stopping | Ended | Error)
                 | (Paused, Loading | Stopping | Error)
                 | (Stopping, Idle | Error)
@@ -32,6 +32,8 @@ mod tests {
     #[test]
     fn permits_product_playback_transitions() {
         assert!(Idle.can_transition_to(Loading));
+        assert!(Loading.can_transition_to(Paused));
+        assert!(Loading.can_transition_to(Idle));
         assert!(Loading.can_transition_to(Playing));
         assert!(Playing.can_transition_to(Paused));
         assert!(Paused.can_transition_to(Loading));

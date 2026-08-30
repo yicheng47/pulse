@@ -40,7 +40,7 @@ pub enum PlaybackEvent {
     /// `PlayFile`. This event replaces the outgoing track's `Ended` event and is immediately
     /// followed by `Position { position_ms: 0, .. }`.
     Advanced {
-        /// The current `PlayFile` ordinal. Gapless advancement does not increment it because the
+        /// The current play/load ordinal. Gapless advancement does not increment it because the
         /// engine starts the preloaded source without processing another `PlayFile` command.
         attempt: u64,
         source: PlayableSource,
@@ -58,7 +58,7 @@ pub enum PlaybackEvent {
     /// New output underruns attributed to the audible track, emitted with the periodic position
     /// report at most once per position-report interval.
     Dropout {
-        /// The current `PlayFile` ordinal, matching [`PlaybackEvent::Advanced::attempt`].
+        /// The current play/load ordinal, matching [`PlaybackEvent::Advanced::attempt`].
         attempt: u64,
         /// Newly observed underrun frames since the previous dropout report.
         frames: u64,
@@ -90,7 +90,7 @@ pub enum PlaybackEvent {
     },
     /// A lookahead source could not be opened. Current playback and state are unchanged.
     NextRejected {
-        /// The current `PlayFile` ordinal, matching [`PlaybackEvent::Advanced::attempt`].
+        /// The current play/load ordinal, matching [`PlaybackEvent::Advanced::attempt`].
         attempt: u64,
         path: std::path::PathBuf,
         message: String,
@@ -98,9 +98,9 @@ pub enum PlaybackEvent {
     /// A runtime failure. It is fatal when paired with `StateChanged(Error)` and advisory when a
     /// teardown has already reached `Idle` or `Ended`.
     Error {
-        /// Ordinal of the `PlayFile` command this event belongs to (the nth `PlayFile` the worker
-        /// processed; 0 before any). Commands and events are FIFO, so a consumer that counts its
-        /// own dispatched `PlayFile`s can discard events from superseded plays. Gapless
+        /// Ordinal of the `PlayFile` or `Load` command this event belongs to (0 before any).
+        /// Commands and events are FIFO, so a consumer that counts its own dispatched attempts can
+        /// discard events from superseded plays. Gapless
         /// advancement keeps the same attempt because it does not process another `PlayFile`.
         attempt: u64,
         kind: PlaybackErrorKind,

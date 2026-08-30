@@ -40,7 +40,11 @@ impl Shell {
         let devices = cx.new(DeviceManagementPage::new);
         let library = cx.new(LibraryView::new);
         let updater = cx.new(UpdaterBridge::new);
-        cx.observe(&library, |_, _, cx| cx.notify()).detach();
+        cx.observe(&library, |this, library, cx| {
+            this.destination = library.read(cx).destination();
+            cx.notify();
+        })
+        .detach();
         cx.observe(&updater, |_, _, cx| cx.notify()).detach();
         updater.read(cx).start();
         Self {

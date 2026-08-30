@@ -79,7 +79,7 @@ impl LibraryView {
         match ops::storage::add(store, path, &display_name) {
             Ok(root) => {
                 self.selected_root_id = Some(root.id);
-                self.reload_or_show_error();
+                self.reload_or_show_error(cx);
                 if draft.scan_now {
                     self.start_scan(root.id, cx);
                 }
@@ -135,7 +135,7 @@ impl LibraryView {
                 self.app_store.update(cx, |store, store_cx| {
                     store.send_command(PlaybackAction::ClearMissingMarks, store_cx);
                 });
-                self.reload_or_show_error();
+                self.reload_or_show_error(cx);
             }
             Err(error) => self.error = Some(error.to_string()),
         }
@@ -170,7 +170,7 @@ impl LibraryView {
             self.error = Some(error.to_string());
             self.rename_draft = Some(draft);
         } else {
-            self.reload_or_show_error();
+            self.reload_or_show_error(cx);
         }
         cx.notify();
     }

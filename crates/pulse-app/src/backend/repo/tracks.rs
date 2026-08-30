@@ -233,6 +233,27 @@ pub fn matching(
     Ok(tracks)
 }
 
+pub fn by_ids(store: &LibraryStore, track_ids: &[TrackId]) -> Result<Vec<Track>, LibraryError> {
+    let conn = &store.connection;
+    let columns = select_list(COLUMNS);
+    let mut tracks = Vec::new();
+    for chunk in track_ids.chunks(900) {
+        let placeholders = vec!["?"; chunk.len()].join(", ");
+        let sql = format!(
+            "SELECT {columns}
+             FROM tracks
+             WHERE id IN ({placeholders})"
+        );
+        let mut statement = conn.prepare(&sql)?;
+        tracks.extend(
+            statement
+                .query_map(params_from_iter(chunk.iter()), track_from_row)?
+                .collect::<Result<Vec<_>, _>>()?,
+        );
+    }
+    Ok(tracks)
+}
+
 pub fn for_album(
     store: &LibraryStore,
     artist: &str,

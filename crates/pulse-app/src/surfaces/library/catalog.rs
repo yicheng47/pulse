@@ -18,6 +18,7 @@ impl LibraryView {
         self.artist_route.open_artist(detail.artist.name.clone());
         self.artist_detail = Some(detail);
         self.artist_detail_scroll = ScrollHandle::new();
+        self.persist_route(cx);
         cx.notify();
     }
 
@@ -30,7 +31,7 @@ impl LibraryView {
             AlbumSortOrder::Duration => AlbumSortOrder::Title,
         };
         self.reset_albums();
-        self.reload_or_show_error();
+        self.reload_or_show_error(cx);
         cx.notify();
     }
 
@@ -90,7 +91,7 @@ impl LibraryView {
             TrackSortOrder::Duration => TrackSortOrder::Title,
         };
         self.reset_tracks(cx);
-        self.reload_or_show_error();
+        self.reload_or_show_error(cx);
         cx.notify();
     }
 
@@ -100,7 +101,7 @@ impl LibraryView {
         }
         self.track_filter = filter;
         self.reset_tracks(cx);
-        self.reload_or_show_error();
+        self.reload_or_show_error(cx);
         cx.notify();
     }
 
@@ -110,7 +111,7 @@ impl LibraryView {
         }
         self.album_filter = filter;
         self.reset_albums();
-        self.reload_or_show_error();
+        self.reload_or_show_error(cx);
         cx.notify();
     }
 
@@ -131,7 +132,7 @@ impl LibraryView {
         }
         self.artist_filter = artist;
         self.reset_tracks(cx);
-        self.reload_or_show_error();
+        self.reload_or_show_error(cx);
         cx.notify();
     }
 
@@ -231,6 +232,7 @@ impl LibraryView {
         self.album_detail = Some(AlbumDetail { album, tracks });
         self.selected_album_track_id = None;
         self.album_menu_open = false;
+        self.persist_route(cx);
         cx.notify();
     }
 }

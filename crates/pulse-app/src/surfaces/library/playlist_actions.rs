@@ -11,7 +11,8 @@ impl LibraryView {
         }
         self.selected_playlist_id = Some(playlist_id);
         self.selected_playlist_position = None;
-        self.reload_or_show_error();
+        self.reload_or_show_error(cx);
+        self.persist_route(cx);
         cx.notify();
     }
 
@@ -83,7 +84,8 @@ impl LibraryView {
             Ok(playlist_id) => {
                 self.selected_playlist_id = Some(playlist_id);
                 self.selected_playlist_position = None;
-                self.reload_or_show_error();
+                self.reload_or_show_error(cx);
+                self.persist_route(cx);
             }
             Err(error) => {
                 self.error = Some(error.to_string());
@@ -139,7 +141,8 @@ impl LibraryView {
                     self.selected_playlist_id = None;
                     self.selected_playlist_position = None;
                 }
-                self.reload_or_show_error();
+                self.reload_or_show_error(cx);
+                self.persist_route(cx);
             }
             Err(error) => self.error = Some(error.to_string()),
         }
@@ -210,7 +213,7 @@ impl LibraryView {
         if let Err(error) = ops::playlists::append_tracks(store, playlist_id, &[track_id]) {
             self.error = Some(error.to_string());
         } else {
-            self.reload_or_show_error();
+            self.reload_or_show_error(cx);
         }
         self.track_menu = None;
         cx.notify();
@@ -231,7 +234,7 @@ impl LibraryView {
             self.error = Some(error.to_string());
         } else {
             self.selected_playlist_position = None;
-            self.reload_or_show_error();
+            self.reload_or_show_error(cx);
         }
         self.track_menu = None;
         cx.notify();
@@ -255,7 +258,7 @@ impl LibraryView {
             self.error = Some(error.to_string());
         } else {
             self.selected_playlist_position = Some(to_position);
-            self.reload_or_show_error();
+            self.reload_or_show_error(cx);
         }
         self.track_menu = None;
         cx.notify();

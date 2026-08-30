@@ -32,6 +32,121 @@ fn engine_errors_map_to_the_kinds_that_drive_queue_behavior() {
 }
 
 #[test]
+fn failed_launch_load_keeps_the_queue_and_retries_normally_on_play() {
+    let directory = tempfile::tempdir().unwrap();
+    let tracks = [
+        library_track(1, PathBuf::from("/1.flac"), "Track 1"),
+        library_track(2, PathBuf::from("/2.flac"), "Track 2"),
+        library_track(3, PathBuf::from("/3.flac"), "Track 3"),
+    ];
+    let session = SessionState {
+        queue_track_ids: vec![1, 2, 3],
+        queue_original_positions: vec![0, 1, 2],
+        current_index: Some(1),
+        position_ms: 12_345,
+        ..SessionState::default()
+    };
+    let mut playback = Playback::initial();
+    playback.settings_path = directory.path().join("settings.json");
+    let (command_tx, command_rx) = std::sync::mpsc::channel();
+    playback.command_tx = Some(command_tx);
+    playback.restore_session(&session, tracks.iter().cloned().map(Some).collect());
+    command_rx.recv().unwrap();
+
+    playback.handle_event(PlaybackEvent::StateChanged(PlaybackState::Loading));
+    playback.handle_event(PlaybackEvent::StateChanged(PlaybackState::Idle));
+    playback.handle_event(PlaybackEvent::Error {
+        attempt: 1,
+        kind: PlaybackErrorKind::Track,
+        message: "unreadable source".to_string(),
+    });
+
+    assert_eq!(playback.queue.current().unwrap().id, 2);
+    assert_eq!(playback.position_ms, 12_345);
+    assert!(playback.error.is_none());
+    assert_eq!(
+        playback.prepare_toggle_command(),
+        Some(PlaybackCommand::PlayFile {
+            path: PathBuf::from("/2.flac"),
+        })
+    );
+}
+
+#[test]
+fn gate_released_play_advance_pause_and_next_each_persist_the_expected_save_point() {
+    let directory = tempfile::tempdir().unwrap();
+    let tracks = wav_tracks(directory.path(), &["first", "second", "third"]);
+    let mut playback = Playback::initial();
+    playback.settings_path = directory.path().join("settings.json");
+    playback.launch_session_pending = false;
+    let (command_tx, command_rx) = std::sync::mpsc::channel();
+    playback.command_tx = Some(command_tx);
+    playback.play_library_tracks(&tracks, 0);
+    assert_eq!(playback.dispatched_plays, 1);
+    command_rx.recv().unwrap();
+
+    let format = PcmFormat {
+        sample_rate: 44_100,
+        bits_per_sample: 16,
+        channels: 2,
+    };
+    playback.handle_event(PlaybackEvent::StateChanged(PlaybackState::Loading));
+    playback.handle_event(PlaybackEvent::NowPlaying {
+        source: PlayableSource {
+            path: tracks[0].path.clone(),
+            duration_ms: Some(60_000),
+        },
+        format,
+    });
+    assert_eq!(playback.next_settings_generation, 1);
+    playback.handle_event(PlaybackEvent::StateChanged(PlaybackState::Playing));
+    playback.handle_event(PlaybackEvent::Advanced {
+        attempt: 1,
+        source: PlayableSource {
+            path: tracks[1].path.clone(),
+            duration_ms: Some(60_000),
+        },
+        format,
+    });
+    assert_eq!(playback.next_settings_generation, 2);
+    playback.handle_event(PlaybackEvent::Position {
+        position_ms: 2_345,
+        duration_ms: Some(60_000),
+        dropout_frames: 0,
+    });
+    assert_eq!(playback.next_settings_generation, 2);
+    playback.handle_event(PlaybackEvent::StateChanged(PlaybackState::Paused));
+    assert_eq!(playback.next_settings_generation, 3);
+
+    while command_rx.try_recv().is_ok() {}
+    playback.next_track();
+    let commands = command_rx.try_iter().collect::<Vec<_>>();
+    assert!(commands.contains(&PlaybackCommand::PlayFile {
+        path: tracks[2].path.clone(),
+    }));
+    assert_eq!(playback.next_settings_generation, 3);
+    playback.handle_event(PlaybackEvent::StateChanged(PlaybackState::Loading));
+    playback.handle_event(PlaybackEvent::NowPlaying {
+        source: PlayableSource {
+            path: tracks[2].path.clone(),
+            duration_ms: Some(60_000),
+        },
+        format,
+    });
+    assert_eq!(playback.next_settings_generation, 4);
+
+    playback.flush_settings_writer().unwrap();
+    playback.drain_events();
+    let saved = AppSettings::load(&playback.settings_path)
+        .unwrap()
+        .session
+        .unwrap();
+    assert_eq!(saved.current_index, Some(2));
+    assert_eq!(saved.position_ms, 0);
+    assert_eq!(saved.queue_track_ids, [1, 2, 3]);
+}
+
+#[test]
 fn a_decode_failure_mid_queue_skips_to_the_next_entry_and_reports() {
     let temp = tempfile::tempdir().unwrap();
     let tracks = wav_tracks(temp.path(), &["corrupt", "good", "later"]);
@@ -344,6 +459,7 @@ fn transport_play_from_an_idle_selection_records_the_attempt() {
                 position_ms: 0,
             },
             confirmed: false,
+            load: false,
         })
     );
 
@@ -386,6 +502,7 @@ fn replaying_an_ended_track_restarts_the_attempt_from_zero() {
                 position_ms: 0,
             },
             confirmed: false,
+            load: false,
         })
     );
 }

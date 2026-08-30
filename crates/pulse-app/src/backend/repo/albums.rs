@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use rusqlite::{params, params_from_iter, types::Value};
+use rusqlite::{OptionalExtension, params, params_from_iter, types::Value};
 
 use super::super::{
     Album, AlbumPage, AlbumQueryFilter, AlbumSortOrder, LibraryError, UNKNOWN_ALBUM,
@@ -68,6 +68,37 @@ pub fn list(store: &LibraryStore, sort_order: AlbumSortOrder) -> Result<Vec<Albu
         .query_map(params![UNKNOWN_ALBUM], album_from_row)?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(albums)
+}
+
+pub fn get(store: &LibraryStore, artist: &str, title: &str) -> Result<Option<Album>, LibraryError> {
+    let conn = &store.connection;
+    let album_title = album_title_sql("?1");
+    let sql = format!(
+        "WITH normalized AS (
+             SELECT id,
+                    {EFFECTIVE_ALBUM_ARTIST_SQL} AS album_owner,
+                    {album_title} AS album_title,
+                    year, duration_ms, sample_rate_hz, bit_depth, cover_art_path, added_at_ms
+             FROM tracks
+         )
+         SELECT album_title, album_owner, MIN(year) AS album_year,
+                COUNT(*) AS track_count,
+                COALESCE(SUM(duration_ms), 0) AS total_duration_ms,
+                MAX(sample_rate_hz) AS max_sample_rate_hz,
+                MAX(bit_depth) AS max_bit_depth,
+                substr(MIN(
+                    CASE WHEN cover_art_path IS NOT NULL
+                         THEN printf('%020lld%s', id, cover_art_path)
+                    END
+                ), 21) AS cover_art_path,
+                MAX(added_at_ms) AS latest_added_at_ms
+         FROM normalized
+         WHERE album_owner = ?2 AND album_title = ?3
+         GROUP BY album_owner, album_title"
+    );
+    Ok(conn
+        .query_row(&sql, params![UNKNOWN_ALBUM, artist, title], album_from_row)
+        .optional()?)
 }
 
 pub fn page(

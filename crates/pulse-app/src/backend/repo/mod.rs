@@ -199,6 +199,10 @@ pub(crate) mod testing {
             .unwrap();
     }
 
+    pub fn break_tracks(store: &mut LibraryStore) {
+        store.connection.execute("DROP TABLE tracks", []).unwrap();
+    }
+
     pub fn fail_second_artist_refresh(store: &mut LibraryStore) {
         store
             .connection

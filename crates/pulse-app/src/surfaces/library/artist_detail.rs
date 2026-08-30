@@ -70,6 +70,7 @@ impl LibraryView {
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.artist_route.back();
                         this.artist_detail = None;
+                        this.persist_route(cx);
                         cx.notify();
                     }))
                     .child(

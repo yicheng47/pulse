@@ -17,6 +17,27 @@ pub(crate) use settings::*;
 pub(crate) use updater::*;
 
 #[cfg(test)]
+pub(crate) mod testing {
+    use super::{LibraryStore, StorageRoot, TrackId, repo};
+
+    pub(crate) fn insert_track(
+        store: &mut LibraryStore,
+        root: &StorageRoot,
+        name: &str,
+        title: &str,
+        modified_at_ns: i64,
+    ) -> TrackId {
+        let file = repo::testing::test_file(root, name, modified_at_ns, 100);
+        let metadata = repo::testing::test_metadata(title, "Artist", Some("Album"), None);
+        repo::testing::insert_track(store, root, &file, &metadata)
+    }
+
+    pub(crate) fn break_tracks(store: &mut LibraryStore) {
+        repo::testing::break_tracks(store);
+    }
+}
+
+#[cfg(test)]
 mod boundary_tests {
     use std::{fs, path::Path};
 
