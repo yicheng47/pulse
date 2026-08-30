@@ -11,14 +11,15 @@ The active-development tracker for Pulse. Since 2026-08-29 this file — not Git
 
 ## Shipped
 
+- **v0.2.0** (2026-08-30) — App shell overhaul: full-width header, island sidebars, Settings sections with Output ([28](features/archive/28-app-shell-overhaul.md)); interface scale 80–150% on a `px` → `rems` migration ([30](features/archive/30-interface-scale.md), [29](features/archive/29-type-scale.md)); gapless playback ([16](features/archive/16-gapless-playback.md)); launch state restore ([21](features/archive/21-launch-state-restore.md)); dropout reporting ([17](features/archive/17-playback-dropout-reporting.md)); hardware volume while hogged, accurate seek, stale-selection fix.
 - **v0.1.8** (2026-08-29) — Backend foundations: `backend/{model.rs, repo/, ops/, scan/}` with gpui and SQL boundary gates ([25](features/archive/25-library-repo-layer.md), [27](features/archive/27-flatten-backend-layout.md)); transport buttons with hover/pressed feedback and a stable play button; app menu items and ⌘M / ⌘W working without focus; rounded album covers; one track-artist SQL fragment; macOS 13 floor.
 - **v0.1.7** (2026-08-29) — Artists page with the v5 `artists` table ([11](features/archive/11-artists-page.md)); app architecture parity with Runner: `ui/` kit, `settings.json` + migration, `AppStore`, surfaces split ([24](features/archive/24-app-architecture-parity.md)).
 - **v0.1.6** (2026-08-28) — Device management page ([22](features/archive/22-device-management-page.md)); updater parity with Runner ([23](features/archive/23-updater-parity.md)); click-free transport transitions; stalled-output detection.
 - v0.1.0–v0.1.5 — MVP and hardening; see [`docs/impls/ROADMAP.md`](impls/ROADMAP.md) and the archived specs.
 
-## M2 — Playback, session, app shell → v0.2.0
+## M2 — Playback, session, app shell → v0.2.0 (shipped 2026-08-30)
 
-The audio path first, then session state, then the shell overhaul and the interface scale. Closed at feature 30 on 2026-08-30 (Jason: release 0.2.0 after the overhaul plus the interface scale); metadata, now playing, and integrations moved to M3.
+Kept as the record of what v0.2.0 contained; every row is done.
 
 | Item | Priority | Status | Notes |
 |---|---|---|---|
