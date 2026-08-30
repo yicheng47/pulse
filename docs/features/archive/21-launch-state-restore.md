@@ -2,6 +2,8 @@
 
 > Feature 21 · P2 · GitHub issue [#57](https://github.com/yicheng47/pulse-src/issues/57). Every launch starts cold — empty playback row, default library page. The app should reopen where it left off: the last track ready to resume and the last page open.
 
+**Merged** 2026-08-30 in `1c7880f`. Note the save-gate rule adopted in review: the previous session blob is protected until a restore concludes or the first real playback dispatch, so a failed boot followed by quit never erases the last session.
+
 ## Motivation
 
 Pulse forgets everything between launches: the queue and current track vanish, and the library always opens on the default page. Every session starts with re-navigating and re-queueing, which is friction no established player has — the expected behavior is to come back exactly where you stopped, with the last track loaded and paused.
