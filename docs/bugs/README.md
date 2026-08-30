@@ -4,7 +4,7 @@ One note per open bug, written with the `bug` skill's template (description, exp
 
 ## Open
 
-None.
+- [`placeholder-album-artist.md`](placeholder-album-artist.md) - P3. Album artists with no name (`######`) should fall back to the track artist instead of becoming an artist.
 
 ## Fixed
 
