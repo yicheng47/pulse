@@ -22,6 +22,19 @@ Decision (Jason, 2026-08-31): disclose, don't restrict. No locked slider, no pur
 - No change to volume behavior itself — dispatch, cubic curve, fades, and the unity pin stay exactly as they are.
 - Transient fade ramps (pause/resume/seek, ~10 ms) do not demote the indicator; it reflects steady state.
 
+## Findings
+
+- **2026-08-31, first bit-perfect hardware run**: the Matrix Mini-i Pro 4 exposes **no settable volume scalar while hogged** — bit-perfect on the Matrix is the fixed-at-100% camp (`FIXED` domain). On current main the playback-row slider still slides and silently no-ops in that mode — exactly the dead-control state this feature's UI phase removes (slider disabled at 100%, `FIXED` label, reason disclosed). The design for the domain label and disabled state landed in the 2026-08-31 Pencil pass (volume popover + Spec — Signal Path board).
+
+## Design (2026-08-31 Pencil pass, approved — `design/pulse-desktop.pen`: Signal Path Popover, Spec — Signal Path, Volume Popover, Spec — Volume States addendum)
+
+- **Signal Path popover**: opens from the quality badge in the playback row (queue-popover dismissal pattern). Anatomy: header row — "SIGNAL PATH" (mono, 10px, letter-spaced, `$text-muted`) left, verdict pill right; five chain rows (Source, Decode, Volume, Engine, Output), each a 5px status dot + stage name (sans 12 semibold `$text-primary`) left and a mono 10 `$text-secondary` detail right, with thin 8px vertical connectors between rows; divider; sans 10 `$text-muted` footer note.
+- **Verdicts**: `BIT-PERFECT` (`$quality` on `$quality-soft`, `$quality-border`) only on the integer engine with hog held and the integer virtual format confirmed by readback — the state stage 4 already plumbs; footer "Source integers reach the DAC unmodified." `TRANSPARENT` (`$primary`) on Universal with untouched samples (unity software gain, or device volume) — dots past the Engine row muted, footer "Samples leave Pulse untouched. Core Audio owns the conversion past the client boundary." `PROCESSED` (`$warning`) when software gain is below unity — the Volume row and its dot flagged, footer points at 100%. Transient fade ramps (~10 ms) never demote the verdict; it reflects steady state.
+- **Volume popover**: a domain label at the foot (mono 8, `$text-muted`) — `DEVICE` (hardware volume while hogged), `SOFTWARE` (engine gain), `FIXED` (bit-perfect without hardware volume). The % readout renders `$quality` on a transparent path.
+- **Slider**: in the `FIXED` state the playback-row slider and popover slider are disabled, pinned at 100% — no slides that do nothing.
+- **Devices page**: a device's class line appends "Device volume" when hardware volume is available while hogged.
+- Release note: the `BIT-PERFECT` verdict state is implemented with this feature, but the v0.3.0 release (and any public bit-perfect wording) stays gated on the stage 5 DoP pass.
+
 ## Implementation Phases
 
 1. **Backend**: expose the active volume domain and unity state from the engine to the app store (extend the existing volume/`HardwareVolume` plumbing; no new engine behavior). Unit-test the state transitions: hog acquired with settable scalar → hardware; fallback → software; slider at 100% → transparent, below → not.
