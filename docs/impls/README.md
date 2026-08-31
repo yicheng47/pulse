@@ -6,9 +6,9 @@ Notes stay here while their stage is in flight. Once a stage ships — or a deci
 
 Active notes:
 
-- [`ROADMAP.md`](ROADMAP.md) - canonical implementation stage order.
 - [`MANUAL_ACCEPTANCE_CHECKLIST.md`](MANUAL_ACCEPTANCE_CHECKLIST.md) - the human-only MVP acceptance gate; 96 checks across playback, hardware, library, queue, playlists, and search.
 - [`0015-mvp-states-and-hardening.md`](0015-mvp-states-and-hardening.md) - stage 13: loading states, decode failure, hogged/unavailable device, and missing-file handling.
+- [`0016-integer-engine.md`](0016-integer-engine.md) - feature 32: raw-HAL integer engine — probe, virtual-format fix, per-device selection, DoP gate.
 
 Archived notes:
 

@@ -18,7 +18,6 @@ Current architecture docs:
 - `arch/thread-model.md` - which thread owns what, cross-thread data flow, and the single-process decision.
 - `product/vision.md` - broad product direction and constraints.
 - `product/mvp.md` - first usable desktop release scope.
-- `impls/ROADMAP.md` - canonical implementation stage order.
 - `impls/README.md` - index of active and archived implementation notes.
 
 Runner's docs tree is larger (`features/`, `tests/`, `journals/`) because it is already shipping iterative app work. Pulse should add those folders when feature planning starts, not before.
