@@ -20,9 +20,11 @@ use objc2_core_audio::{
     AudioObjectSetPropertyData, AudioStreamRangedDescription,
     kAudioDevicePropertyAvailableNominalSampleRates, kAudioDevicePropertyHogMode,
     kAudioDevicePropertyMute, kAudioDevicePropertyNominalSampleRate, kAudioDevicePropertyStreams,
-    kAudioDevicePropertyVolumeScalar, kAudioHardwareNoError, kAudioObjectPropertyElementMain,
-    kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyScopeOutput,
-    kAudioStreamPropertyAvailablePhysicalFormats, kAudioStreamPropertyPhysicalFormat,
+    kAudioDevicePropertySupportsMixing, kAudioDevicePropertyVolumeScalar, kAudioHardwareNoError,
+    kAudioObjectPropertyElementMain, kAudioObjectPropertyScopeGlobal,
+    kAudioObjectPropertyScopeOutput, kAudioStreamPropertyAvailablePhysicalFormats,
+    kAudioStreamPropertyAvailableVirtualFormats, kAudioStreamPropertyPhysicalFormat,
+    kAudioStreamPropertyVirtualFormat,
 };
 use objc2_core_audio_types::{
     AudioBuffer, AudioBufferList, AudioStreamBasicDescription, AudioValueRange,
@@ -37,13 +39,13 @@ const HOG_MODE_FREE: i32 = -1;
 const FORMAT_SETTLE_TIMEOUT: Duration = Duration::from_secs(2);
 const FORMAT_POLL_INTERVAL: Duration = Duration::from_millis(5);
 
-pub(crate) struct HogGuard {
+pub struct HogGuard {
     device_id: AudioObjectID,
     owns: bool,
 }
 
 impl HogGuard {
-    pub(crate) fn acquire(device_id: AudioObjectID) -> Result<Self, EngineError> {
+    pub fn acquire(device_id: AudioObjectID) -> Result<Self, EngineError> {
         let current_pid = current_pid();
         match hog_owner(device_id)? {
             HOG_MODE_FREE => {
@@ -67,7 +69,7 @@ impl HogGuard {
         }
     }
 
-    pub(crate) fn owns(&self) -> bool {
+    pub fn owns(&self) -> bool {
         self.owns
     }
 }
@@ -403,7 +405,7 @@ pub(crate) fn audio_buffer_list_channel_count(bytes: &[u8]) -> u32 {
         .sum()
 }
 
-fn hog_owner(device_id: AudioObjectID) -> Result<i32, EngineError> {
+pub fn hog_owner(device_id: AudioObjectID) -> Result<i32, EngineError> {
     get_value::<i32>(
         device_id,
         address(kAudioDevicePropertyHogMode, kAudioObjectPropertyScopeGlobal),
@@ -412,7 +414,7 @@ fn hog_owner(device_id: AudioObjectID) -> Result<i32, EngineError> {
 }
 
 fn property_is_settable(object_id: AudioObjectID, mut address: AudioObjectPropertyAddress) -> bool {
-    if !unsafe { AudioObjectHasProperty(object_id, (&mut address).into()) } {
+    if !has_property(object_id, address) {
         return false;
     }
     let mut settable = 0_u8;
@@ -484,7 +486,7 @@ fn wait_for_nominal_sample_rate(
     }
 }
 
-fn output_streams(device_id: AudioObjectID) -> Result<Vec<AudioObjectID>, EngineError> {
+pub fn output_streams(device_id: AudioObjectID) -> Result<Vec<AudioObjectID>, EngineError> {
     get_array::<AudioObjectID>(
         device_id,
         address(kAudioDevicePropertyStreams, kAudioObjectPropertyScopeOutput),
@@ -492,7 +494,7 @@ fn output_streams(device_id: AudioObjectID) -> Result<Vec<AudioObjectID>, Engine
     )
 }
 
-fn available_physical_formats(
+pub fn available_physical_formats(
     stream_id: AudioObjectID,
 ) -> Result<Vec<AudioStreamRangedDescription>, EngineError> {
     get_array::<AudioStreamRangedDescription>(
@@ -502,6 +504,93 @@ fn available_physical_formats(
             kAudioObjectPropertyScopeGlobal,
         ),
         "AudioObjectGetPropertyData(kAudioStreamPropertyAvailablePhysicalFormats)",
+    )
+}
+
+pub fn physical_format(
+    stream_id: AudioObjectID,
+) -> Result<AudioStreamBasicDescription, EngineError> {
+    get_value::<AudioStreamBasicDescription>(
+        stream_id,
+        address(
+            kAudioStreamPropertyPhysicalFormat,
+            kAudioObjectPropertyScopeGlobal,
+        ),
+        "AudioObjectGetPropertyData(kAudioStreamPropertyPhysicalFormat)",
+    )
+}
+
+pub fn available_virtual_formats(
+    stream_id: AudioObjectID,
+) -> Result<Vec<AudioStreamRangedDescription>, EngineError> {
+    get_array::<AudioStreamRangedDescription>(
+        stream_id,
+        address(
+            kAudioStreamPropertyAvailableVirtualFormats,
+            kAudioObjectPropertyScopeGlobal,
+        ),
+        "AudioObjectGetPropertyData(kAudioStreamPropertyAvailableVirtualFormats)",
+    )
+}
+
+pub fn virtual_format(
+    stream_id: AudioObjectID,
+) -> Result<AudioStreamBasicDescription, EngineError> {
+    get_value::<AudioStreamBasicDescription>(
+        stream_id,
+        address(
+            kAudioStreamPropertyVirtualFormat,
+            kAudioObjectPropertyScopeGlobal,
+        ),
+        "AudioObjectGetPropertyData(kAudioStreamPropertyVirtualFormat)",
+    )
+}
+
+pub fn set_virtual_format(
+    stream_id: AudioObjectID,
+    format: AudioStreamBasicDescription,
+) -> Result<(), EngineError> {
+    set_stream_format(
+        stream_id,
+        kAudioStreamPropertyVirtualFormat,
+        format,
+        "AudioObjectGetPropertyData(kAudioStreamPropertyVirtualFormat)",
+        "AudioObjectSetPropertyData(kAudioStreamPropertyVirtualFormat)",
+        "virtual stream format change",
+    )
+}
+
+pub fn mixing_enabled(device_id: AudioObjectID) -> Result<Option<bool>, EngineError> {
+    let address = address(
+        kAudioDevicePropertySupportsMixing,
+        kAudioObjectPropertyScopeGlobal,
+    );
+    if !has_property(device_id, address) {
+        return Ok(None);
+    }
+
+    get_value::<u32>(
+        device_id,
+        address,
+        "AudioObjectGetPropertyData(kAudioDevicePropertySupportsMixing)",
+    )
+    .map(|value| Some(value != 0))
+}
+
+pub fn set_mixing_enabled(device_id: AudioObjectID, enabled: bool) -> Result<(), EngineError> {
+    let address = address(
+        kAudioDevicePropertySupportsMixing,
+        kAudioObjectPropertyScopeGlobal,
+    );
+    if !property_is_settable(device_id, address) {
+        return Ok(());
+    }
+
+    set_value(
+        device_id,
+        address,
+        u32::from(enabled),
+        "AudioObjectSetPropertyData(kAudioDevicePropertySupportsMixing)",
     )
 }
 
@@ -584,51 +673,44 @@ fn maximum_physical_format_capabilities(
         .or_else(|| maximum_mixable_float_rate.map(|rate| (None, rate)))
 }
 
-fn set_physical_format(
+pub fn set_physical_format(
     stream_id: AudioObjectID,
     format: AudioStreamBasicDescription,
 ) -> Result<(), EngineError> {
-    let address = address(
-        kAudioStreamPropertyPhysicalFormat,
-        kAudioObjectPropertyScopeGlobal,
-    );
-    let current = get_value::<AudioStreamBasicDescription>(
+    set_stream_format(
         stream_id,
-        address,
+        kAudioStreamPropertyPhysicalFormat,
+        format,
         "AudioObjectGetPropertyData(kAudioStreamPropertyPhysicalFormat)",
-    )?;
-    if physical_formats_match(current, format) {
+        "AudioObjectSetPropertyData(kAudioStreamPropertyPhysicalFormat)",
+        "physical stream format change",
+    )
+}
+
+fn set_stream_format(
+    stream_id: AudioObjectID,
+    selector: AudioObjectPropertySelector,
+    requested: AudioStreamBasicDescription,
+    get_call: &'static str,
+    set_call: &'static str,
+    timeout_name: &'static str,
+) -> Result<(), EngineError> {
+    let address = address(selector, kAudioObjectPropertyScopeGlobal);
+    let current = get_value::<AudioStreamBasicDescription>(stream_id, address, get_call)?;
+    if stream_formats_match(current, requested) {
         return Ok(());
     }
 
-    set_value(
-        stream_id,
-        address,
-        format,
-        "AudioObjectSetPropertyData(kAudioStreamPropertyPhysicalFormat)",
-    )?;
-    wait_for_physical_format(stream_id, format)
-}
+    set_value(stream_id, address, requested, set_call)?;
 
-fn wait_for_physical_format(
-    stream_id: AudioObjectID,
-    requested: AudioStreamBasicDescription,
-) -> Result<(), EngineError> {
     let deadline = Instant::now() + FORMAT_SETTLE_TIMEOUT;
     loop {
-        let current = get_value::<AudioStreamBasicDescription>(
-            stream_id,
-            address(
-                kAudioStreamPropertyPhysicalFormat,
-                kAudioObjectPropertyScopeGlobal,
-            ),
-            "AudioObjectGetPropertyData(kAudioStreamPropertyPhysicalFormat)",
-        )?;
-        if physical_formats_match(current, requested) {
+        let current = get_value::<AudioStreamBasicDescription>(stream_id, address, get_call)?;
+        if stream_formats_match(current, requested) {
             return Ok(());
         }
         if Instant::now() >= deadline {
-            return Err(EngineError::Timeout("physical stream format change"));
+            return Err(EngineError::Timeout(timeout_name));
         }
         thread::sleep(FORMAT_POLL_INTERVAL);
     }
@@ -647,7 +729,7 @@ fn sample_rates_match(left: f64, right: f64) -> bool {
     (left - right).abs() < 0.5
 }
 
-fn physical_formats_match(
+fn stream_formats_match(
     left: AudioStreamBasicDescription,
     right: AudioStreamBasicDescription,
 ) -> bool {
@@ -659,6 +741,10 @@ fn physical_formats_match(
         && left.mBytesPerFrame == right.mBytesPerFrame
         && left.mChannelsPerFrame == right.mChannelsPerFrame
         && left.mBitsPerChannel == right.mBitsPerChannel
+}
+
+fn has_property(object_id: AudioObjectID, mut address: AudioObjectPropertyAddress) -> bool {
+    unsafe { AudioObjectHasProperty(object_id, (&mut address).into()) }
 }
 
 fn current_pid() -> i32 {

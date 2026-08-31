@@ -28,6 +28,7 @@ check:
 
 test:
 	cargo test --workspace
+	cargo test --workspace --examples
 
 clippy:
 	cargo clippy --workspace --all-targets -- -D warnings
