@@ -40,9 +40,9 @@ A challenge milestone (Jason, 2026-08-31): prove a bit-exact delivery path exist
 
 | Item | Priority | Status | Notes |
 |---|---|---|---|
-| [Feature 32 — integer bit-perfect engine](features/32-integer-engine.md) | P2 | planned | Raw-HAL engine behind the existing `PlaybackBackend` seam, selected per device on the Devices page; phase 1 is a device probe example, phase 4 the DoP acceptance test on the Matrix. References: mpv `ao_coreaudio_exclusive`, MPD OSX plugin, SFBAudioEngine (ideas only; no GPL code). |
-| [Feature 31 — volume transparency](features/31-volume-transparency.md) | P2 | planned | Disclose hardware vs software volume domain and a transparent-path state at unity; engine already tracks both (`Engine::set_volume`). Feature 32's indicator states build on this. |
-| [Feature 33 — DSD playback over DoP](features/33-dsd-over-dop.md) | P2 | planned | DSF/DFF parsers + DoP packer at decode time; refuses (never noise) off the bit-perfect path. Gated on 32's phase-4 DoP acceptance pass. |
+| [Feature 32 — integer bit-perfect engine](features/32-integer-engine.md) | P2 | review | All five stages merged 2026-08-31 (probe gate PASS, restore guard, engine `689bdbb`, app wiring `668e504`, DoP payload `de5bf37`); plain FLAC already plays clean on the Matrix. Awaiting Jason's hardware acceptance — the DoP flip — 2026-09-01. |
+| [Feature 31 — volume transparency](features/31-volume-transparency.md) | P2 | review | `0c44e08` merged 2026-08-31: volume domains, Signal Path popover, FIXED slider disable, Devices line. Awaiting Jason's smoke test 2026-09-01. |
+| [Feature 33 — DSD playback over DoP](features/33-dsd-over-dop.md) | P2 | planned | DSF/DFF parsers + DoP packer at decode time; refuses (never noise) off the bit-perfect path. Gated on 32's DoP acceptance pass. |
 
 
 ## M4 — Metadata, now playing, integrations → v0.4.0
