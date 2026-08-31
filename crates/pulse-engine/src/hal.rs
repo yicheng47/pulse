@@ -37,12 +37,6 @@ const HOG_MODE_FREE: i32 = -1;
 const FORMAT_SETTLE_TIMEOUT: Duration = Duration::from_secs(2);
 const FORMAT_POLL_INTERVAL: Duration = Duration::from_millis(5);
 
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct SelectedPhysicalFormat {
-    pub stream_id: AudioObjectID,
-    pub format: AudioStreamBasicDescription,
-}
-
 pub(crate) struct HogGuard {
     device_id: AudioObjectID,
     owns: bool,
@@ -351,7 +345,7 @@ pub(crate) fn set_nominal_sample_rate(
 pub(crate) fn set_matching_physical_format(
     device_id: AudioObjectID,
     format: PcmFormat,
-) -> Result<SelectedPhysicalFormat, EngineError> {
+) -> Result<(), EngineError> {
     for stream_id in output_streams(device_id)? {
         for ranged_format in available_physical_formats(stream_id)? {
             let Some(candidate) = matching_physical_format(ranged_format, format) else {
@@ -359,10 +353,7 @@ pub(crate) fn set_matching_physical_format(
             };
 
             set_physical_format(stream_id, candidate)?;
-            return Ok(SelectedPhysicalFormat {
-                stream_id,
-                format: candidate,
-            });
+            return Ok(());
         }
     }
 

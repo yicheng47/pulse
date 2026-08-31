@@ -89,7 +89,7 @@ impl Engine {
         configure_device_format(
             self.exclusive_mode,
             || hal::set_nominal_sample_rate(self.device, fmt).map(|_| ()),
-            || hal::set_matching_physical_format(self.device, fmt).map(|_| ()),
+            || hal::set_matching_physical_format(self.device, fmt),
         )?;
         let packer = FloatPacker::new(fmt)?;
 
