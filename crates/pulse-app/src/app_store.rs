@@ -419,6 +419,7 @@ fn devices_changed(before: &RevisionSnapshot, after: &RevisionSnapshot) -> bool 
         || before.playback.automatic_output_mode != after.playback.automatic_output_mode
         || before.playback.output_mode != after.playback.output_mode
         || before.playback.output_mode_automatic != after.playback.output_mode_automatic
+        || before.playback.volume_state != after.playback.volume_state
 }
 
 fn playback_changed(before: &PlaybackSnapshot, after: &PlaybackSnapshot) -> bool {
@@ -439,6 +440,7 @@ fn playback_changed(before: &PlaybackSnapshot, after: &PlaybackSnapshot) -> bool
         playback_output_mode: before_playback_output_mode,
         output_mode_automatic: _before_output_mode_automatic,
         bit_perfect_active: before_bit_perfect_active,
+        volume_state: before_volume_state,
         volume_level: before_volume_level,
         volume_muted: before_volume_muted,
         position_ms: before_position_ms,
@@ -465,6 +467,7 @@ fn playback_changed(before: &PlaybackSnapshot, after: &PlaybackSnapshot) -> bool
         playback_output_mode: after_playback_output_mode,
         output_mode_automatic: _after_output_mode_automatic,
         bit_perfect_active: after_bit_perfect_active,
+        volume_state: after_volume_state,
         volume_level: after_volume_level,
         volume_muted: after_volume_muted,
         position_ms: after_position_ms,
@@ -485,6 +488,7 @@ fn playback_changed(before: &PlaybackSnapshot, after: &PlaybackSnapshot) -> bool
             != active_device_row(after_active_device.as_ref())
         || before_playback_output_mode != after_playback_output_mode
         || before_bit_perfect_active != after_bit_perfect_active
+        || before_volume_state != after_volume_state
         || before_volume_level != after_volume_level
         || before_volume_muted != after_volume_muted
         || before_position_ms != after_position_ms

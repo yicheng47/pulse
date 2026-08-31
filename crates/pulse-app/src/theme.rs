@@ -21,6 +21,7 @@ pub mod text {
 
     use super::rpx;
 
+    pub const CAPTION_XXS: Rems = rpx(8.);
     pub const CAPTION_XS: Rems = rpx(9.);
     pub const CAPTION: Rems = rpx(10.);
     pub const SMALL: Rems = rpx(11.);

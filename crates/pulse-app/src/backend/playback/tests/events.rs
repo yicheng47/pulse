@@ -73,6 +73,16 @@ fn hardware_volume_updates_and_persists_without_sending_volume_back() {
 }
 
 #[test]
+fn volume_domain_is_exposed_in_the_snapshot() {
+    let mut row = Playback::initial();
+    let state = VolumeState::new(pulse_engine::VolumeDomain::Fixed);
+
+    row.handle_event(PlaybackEvent::VolumeStateChanged(state));
+
+    assert_eq!(row.snapshot().volume_state, state);
+}
+
+#[test]
 fn gapless_lookahead_advances_the_queue_without_dispatching_play_file() {
     let temp = tempfile::tempdir().unwrap();
     let tracks = wav_tracks(temp.path(), &["a", "b", "c"]);

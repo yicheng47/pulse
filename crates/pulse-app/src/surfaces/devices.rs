@@ -103,7 +103,11 @@ impl DeviceManagementPage {
             .capabilities
             .map(format_stored_device_capabilities)
             .unwrap_or_else(|| "Capabilities unavailable".to_string());
-        let metadata = format!("{class} · {capability}");
+        let metadata = if device.hardware_volume_available {
+            format!("{class} · {capability} · Device volume")
+        } else {
+            format!("{class} · {capability}")
+        };
         let status_color = if device.connected {
             theme::quality()
         } else {

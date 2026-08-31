@@ -216,7 +216,37 @@ fn volume_icon_and_fill_follow_the_designed_states() {
     assert_eq!(displayed_volume_level(0.75, true), 0.0);
     assert_eq!(format_volume_percent(0.0), "0%");
     assert_eq!(format_volume_percent(0.7), "70%");
+    assert_eq!(format_volume_percent(0.996), "99%");
     assert_eq!(format_volume_percent(1.0), "100%");
+}
+
+#[test]
+fn fixed_volume_pins_the_control_and_verdicts_follow_the_transparent_path() {
+    let fixed = VolumeState::new(pulse_engine::VolumeDomain::Fixed);
+    assert_eq!(volume_control_level(0.2, fixed), 1.0);
+    assert!(!volume_control_muted(true, fixed));
+    assert_eq!(
+        signal_path_verdict(false, fixed, 0.2, true),
+        SignalPathVerdict::Transparent
+    );
+    assert_eq!(
+        signal_path_verdict(true, fixed, 0.2, true),
+        SignalPathVerdict::BitPerfect
+    );
+
+    let software = VolumeState::new(pulse_engine::VolumeDomain::Software);
+    assert_eq!(
+        signal_path_verdict(false, software, 1.0, false),
+        SignalPathVerdict::Transparent
+    );
+    assert_eq!(
+        signal_path_verdict(false, software, 0.7, false),
+        SignalPathVerdict::Processed
+    );
+    assert_eq!(
+        signal_path_verdict(false, software, 1.0, true),
+        SignalPathVerdict::Processed
+    );
 }
 
 #[test]

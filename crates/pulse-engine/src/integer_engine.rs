@@ -6,7 +6,7 @@ use objc2_core_audio_types::{
 };
 use rtrb::{Consumer, Producer, RingBuffer};
 
-use crate::{EngineError, PcmFormat, device, hal, raw_sink};
+use crate::{EngineError, PcmFormat, device, event::VolumeDomain, hal, raw_sink};
 
 #[derive(Debug, Clone, Copy)]
 struct IntPacker {
@@ -254,6 +254,14 @@ impl IntegerEngine {
         self.hardware_volume
             .as_ref()
             .map(|volume| (volume.level, volume.muted))
+    }
+
+    pub(crate) fn volume_domain(&self) -> VolumeDomain {
+        if self.hardware_volume.is_some() {
+            VolumeDomain::Device
+        } else {
+            VolumeDomain::Fixed
+        }
     }
 
     pub(crate) fn set_volume(&mut self, level: f32, muted: bool) -> Result<(), EngineError> {

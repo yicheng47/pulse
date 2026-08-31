@@ -1,11 +1,51 @@
 use super::*;
 
 pub(crate) fn format_volume_percent(level: f32) -> String {
-    format!("{:.0}%", level.clamp(0.0, 1.0) * 100.0)
+    let level = level.clamp(0.0, 1.0);
+    let percent = if level == 1.0 {
+        100
+    } else {
+        (level * 100.0).round().min(99.0) as u32
+    };
+    format!("{percent}%")
 }
 
 pub(crate) fn displayed_volume_level(level: f32, muted: bool) -> f32 {
     if muted { 0.0 } else { level }
+}
+
+pub(crate) fn volume_control_level(level: f32, state: VolumeState) -> f32 {
+    if state.domain == pulse_engine::VolumeDomain::Fixed {
+        1.0
+    } else {
+        level
+    }
+}
+
+pub(crate) fn volume_control_muted(muted: bool, state: VolumeState) -> bool {
+    state.domain != pulse_engine::VolumeDomain::Fixed && muted
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum SignalPathVerdict {
+    BitPerfect,
+    Transparent,
+    Processed,
+}
+
+pub(crate) fn signal_path_verdict(
+    bit_perfect_active: bool,
+    volume_state: VolumeState,
+    volume_level: f32,
+    volume_muted: bool,
+) -> SignalPathVerdict {
+    if bit_perfect_active {
+        SignalPathVerdict::BitPerfect
+    } else if volume_state.transparent(volume_level, volume_muted) {
+        SignalPathVerdict::Transparent
+    } else {
+        SignalPathVerdict::Processed
+    }
 }
 
 pub(crate) fn volume_icon_state(level: f32, muted: bool) -> VolumeIconState {
@@ -233,6 +273,7 @@ pub(crate) fn merge_managed_devices(
                 bit_perfect_available: stored
                     .capabilities
                     .is_some_and(StoredDeviceCapabilities::supports_bit_perfect),
+                hardware_volume_available: false,
             },
         );
     }
@@ -250,6 +291,7 @@ pub(crate) fn merge_managed_devices(
                 output_mode: preferences.effective_mode(&connected.uid, StoredOutputMode::Shared),
                 automatic: !preferences.is_pinned(&connected.uid),
                 bit_perfect_available: false,
+                hardware_volume_available: false,
             });
         managed.name = connected.name.clone();
         managed.connected = true;

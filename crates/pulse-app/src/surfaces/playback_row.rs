@@ -21,7 +21,8 @@ use crate::{
 };
 
 use super::playback_row_logic::{
-    PendingToggle, begin_pending_toggle, reconcile_pending_toggle, transport_presentation,
+    PendingToggle, begin_pending_toggle, reconcile_pending_toggle, signal_path_available,
+    transport_presentation,
 };
 
 pub(crate) struct PlaybackRow {
@@ -30,12 +31,15 @@ pub(crate) struct PlaybackRow {
     pub(super) snapshot: PlaybackSnapshot,
     pub(super) volume_popover_open: bool,
     pub(super) volume_toggle_press_closed_popover: bool,
+    pub(super) signal_popover_open: bool,
+    pub(super) signal_toggle_press_closed_popover: bool,
     pub(super) output_popover_open: bool,
     pub(super) output_toggle_press_closed_popover: bool,
     pub(super) queue_popover_open: bool,
     pub(super) queue_toggle_press_closed_popover: bool,
     pub(super) hovered_upcoming: Option<usize>,
     pub(super) volume_popover_focus: Option<FocusHandle>,
+    pub(super) signal_popover_focus: Option<FocusHandle>,
     pub(super) queue_popover_focus: Option<FocusHandle>,
     pub(super) track_bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
     pub(super) scrubbing: bool,
@@ -57,12 +61,15 @@ impl PlaybackRow {
             snapshot,
             volume_popover_open: false,
             volume_toggle_press_closed_popover: false,
+            signal_popover_open: false,
+            signal_toggle_press_closed_popover: false,
             output_popover_open: false,
             output_toggle_press_closed_popover: false,
             queue_popover_open: false,
             queue_toggle_press_closed_popover: false,
             hovered_upcoming: None,
             volume_popover_focus: Some(cx.focus_handle()),
+            signal_popover_focus: Some(cx.focus_handle()),
             queue_popover_focus: Some(cx.focus_handle()),
             track_bounds: Rc::new(Cell::new(None)),
             scrubbing: false,
@@ -85,6 +92,15 @@ impl PlaybackRow {
             if reactions.playback {
                 self.pending_toggle =
                     reconcile_pending_toggle(self.pending_toggle, self.snapshot.playback_state);
+                if !signal_path_available(
+                    self.snapshot.playback_state,
+                    self.snapshot.format.is_some(),
+                ) {
+                    self.signal_popover_open = false;
+                }
+                if self.snapshot.volume_state.domain == pulse_engine::VolumeDomain::Fixed {
+                    self.volume_dragging = false;
+                }
             }
             cx.notify();
         }
@@ -97,6 +113,7 @@ impl PlaybackRow {
 
     pub(crate) fn enter_settings(&mut self, cx: &mut Context<Self>) {
         self.volume_popover_open = false;
+        self.signal_popover_open = false;
         self.output_popover_open = false;
         self.queue_popover_open = false;
         cx.notify();
@@ -104,16 +121,23 @@ impl PlaybackRow {
 
     pub(crate) fn leave_settings(&mut self, cx: &mut Context<Self>) {
         self.volume_popover_open = false;
+        self.signal_popover_open = false;
         self.output_popover_open = false;
         self.queue_popover_open = false;
         cx.notify();
     }
 
     pub(super) fn toggle_volume_mute(&mut self, cx: &mut Context<Self>) {
+        if self.snapshot.volume_state.domain == pulse_engine::VolumeDomain::Fixed {
+            return;
+        }
         self.send(PlaybackAction::ToggleVolumeMute, cx);
     }
 
     fn set_volume_level(&mut self, level: f32, cx: &mut Context<Self>) {
+        if self.snapshot.volume_state.domain == pulse_engine::VolumeDomain::Fixed {
+            return;
+        }
         self.send(PlaybackAction::SetVolumeLevel(level), cx);
     }
 
@@ -231,6 +255,19 @@ impl PlaybackRow {
         cx.notify();
     }
 
+    fn toggle_signal_popover(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !signal_path_available(self.snapshot.playback_state, self.snapshot.format.is_some()) {
+            return;
+        }
+        self.signal_popover_open = !self.signal_popover_open;
+        if self.signal_popover_open
+            && let Some(focus) = &self.signal_popover_focus
+        {
+            window.focus(focus, cx);
+        }
+        cx.notify();
+    }
+
     fn toggle_volume_popover(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.volume_popover_open = !self.volume_popover_open;
         if self.volume_popover_open
@@ -261,6 +298,9 @@ impl PlaybackRow {
     }
 
     pub(super) fn begin_volume_drag(&mut self, event: &MouseDownEvent, cx: &mut Context<Self>) {
+        if self.snapshot.volume_state.domain == pulse_engine::VolumeDomain::Fixed {
+            return;
+        }
         let Some(bounds) = self.volume_bounds.get() else {
             return;
         };
@@ -602,7 +642,15 @@ impl PlaybackRow {
 
     fn render_output(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let remaining = self.snapshot.queue.remaining_count();
-        let volume_icon = volume_icon_state(self.snapshot.volume_level, self.snapshot.volume_muted);
+        let volume_level = crate::backend::volume_control_level(
+            self.snapshot.volume_level,
+            self.snapshot.volume_state,
+        );
+        let volume_muted = crate::backend::volume_control_muted(
+            self.snapshot.volume_muted,
+            self.snapshot.volume_state,
+        );
+        let volume_icon = volume_icon_state(volume_level, volume_muted);
         let (quality, quality_color) = self
             .snapshot
             .format
@@ -622,20 +670,43 @@ impl PlaybackRow {
             (_, Some(device)) => device.name.clone(),
             (_, None) => "No output selected".to_string(),
         };
+        let signal_available =
+            signal_path_available(self.snapshot.playback_state, self.snapshot.format.is_some());
+        let mut quality_badge = div()
+            .id("signal-path-toggle")
+            .relative()
+            .font_family(theme::FONT_MONO)
+            .font_weight(FontWeight::BOLD)
+            .text_size(theme::text::BODY)
+            .text_color(quality_color)
+            .whitespace_nowrap()
+            .when(!signal_available, |badge| badge.cursor_default())
+            .when(signal_available, |badge| {
+                badge
+                    .cursor_pointer()
+                    .capture_any_mouse_down(cx.listener(|this, event: &MouseDownEvent, _, _| {
+                        if event.button == MouseButton::Left {
+                            this.signal_toggle_press_closed_popover = this.signal_popover_open;
+                        }
+                    }))
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        if std::mem::take(&mut this.signal_toggle_press_closed_popover) {
+                            cx.notify();
+                            return;
+                        }
+                        this.toggle_signal_popover(window, cx);
+                    }))
+            })
+            .child(quality);
+        if self.signal_popover_open && signal_available {
+            quality_badge = quality_badge.child(self.render_signal_path_popover(cx));
+        }
         let mut output_details = div()
             .flex()
             .flex_col()
             .gap(rpx(3.))
             .w(rpx(132.))
-            .child(
-                div()
-                    .font_family(theme::FONT_MONO)
-                    .font_weight(FontWeight::BOLD)
-                    .text_size(theme::text::BODY)
-                    .text_color(quality_color)
-                    .whitespace_nowrap()
-                    .child(quality),
-            )
+            .child(quality_badge)
             .child(
                 div()
                     .w_full()

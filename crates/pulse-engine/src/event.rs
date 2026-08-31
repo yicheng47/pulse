@@ -1,5 +1,40 @@
 use crate::{EngineError, EngineKind, PcmFormat, PlayableSource, PlaybackState};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VolumeDomain {
+    Device,
+    Software,
+    Fixed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VolumeState {
+    pub domain: VolumeDomain,
+}
+
+impl VolumeState {
+    pub const fn new(domain: VolumeDomain) -> Self {
+        Self { domain }
+    }
+
+    pub const fn software_unity(self, level: f32, muted: bool) -> bool {
+        match self.domain {
+            VolumeDomain::Software => level == 1.0 && !muted,
+            VolumeDomain::Device | VolumeDomain::Fixed => true,
+        }
+    }
+
+    pub const fn transparent(self, level: f32, muted: bool) -> bool {
+        self.software_unity(level, muted)
+    }
+}
+
+impl Default for VolumeState {
+    fn default() -> Self {
+        Self::new(VolumeDomain::Software)
+    }
+}
+
 /// What failed, independent of the display text. Track-scoped failures let a
 /// queue skip to the next entry; device-scoped ones need output recovery.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -73,6 +108,7 @@ pub enum PlaybackEvent {
     BitPerfectStateChanged {
         active: bool,
     },
+    VolumeStateChanged(VolumeState),
     ExclusiveModeFallback {
         device_id: crate::device::DeviceId,
     },
@@ -110,4 +146,33 @@ pub enum PlaybackEvent {
         kind: PlaybackErrorKind,
         message: String,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn volume_state_covers_domain_and_unity_matrix() {
+        assert_eq!(
+            VolumeState::new(VolumeDomain::Device),
+            VolumeState {
+                domain: VolumeDomain::Device,
+            }
+        );
+        assert!(VolumeState::new(VolumeDomain::Device).transparent(0.4, true));
+
+        let software = VolumeState::new(VolumeDomain::Software);
+        assert!(software.transparent(1.0, false));
+        assert!(!software.transparent(0.7, false));
+        assert!(!software.transparent(1.0, true));
+
+        assert_eq!(
+            VolumeState::new(VolumeDomain::Fixed),
+            VolumeState {
+                domain: VolumeDomain::Fixed,
+            }
+        );
+        assert!(VolumeState::new(VolumeDomain::Fixed).transparent(0.2, true));
+    }
 }

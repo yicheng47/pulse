@@ -19,7 +19,7 @@ use std::{
 
 use pulse_engine::{
     EngineError, EngineKind, PcmFormat, PlayableSource, PlaybackCommand, PlaybackController,
-    PlaybackErrorKind, PlaybackEvent, PlaybackState, device,
+    PlaybackErrorKind, PlaybackEvent, PlaybackState, VolumeState, device,
 };
 
 use super::{
@@ -117,6 +117,7 @@ pub(crate) struct ManagedDevice {
     pub output_mode: StoredOutputMode,
     pub automatic: bool,
     pub bit_perfect_available: bool,
+    pub hardware_volume_available: bool,
 }
 
 impl ManagedDevice {
@@ -153,6 +154,7 @@ pub(crate) struct PlaybackSnapshot {
     pub(crate) playback_output_mode: StoredOutputMode,
     pub(crate) output_mode_automatic: bool,
     pub(crate) bit_perfect_active: bool,
+    pub(crate) volume_state: VolumeState,
     pub(crate) volume_level: f32,
     pub(crate) volume_muted: bool,
     pub(crate) position_ms: u64,
@@ -268,6 +270,7 @@ pub(crate) struct Playback {
     pub(crate) output_mode: StoredOutputMode,
     pub(crate) playback_output_mode: StoredOutputMode,
     pub(crate) bit_perfect_active: bool,
+    pub(crate) volume_state: VolumeState,
     pub(crate) volume_level: f32,
     pub(crate) volume_muted: bool,
     pub(crate) position_ms: u64,
@@ -330,6 +333,7 @@ impl Playback {
             output_mode: StoredOutputMode::Shared,
             playback_output_mode: StoredOutputMode::Shared,
             bit_perfect_active: false,
+            volume_state: VolumeState::default(),
             volume_level: settings.volume_level,
             volume_muted: settings.volume_muted,
             position_ms: 0,
@@ -387,6 +391,7 @@ impl Playback {
             output_mode: StoredOutputMode::Shared,
             playback_output_mode: StoredOutputMode::Shared,
             bit_perfect_active: false,
+            volume_state: VolumeState::default(),
             volume_level: 1.0,
             volume_muted: false,
             position_ms: 0,
@@ -481,6 +486,7 @@ impl Playback {
             playback_output_mode: self.playback_output_mode,
             output_mode_automatic: self.output_mode_is_automatic(),
             bit_perfect_active: self.bit_perfect_active,
+            volume_state: self.volume_state,
             volume_level: self.volume_level,
             volume_muted: self.volume_muted,
             position_ms: self.position_ms,

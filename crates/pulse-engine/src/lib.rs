@@ -23,7 +23,7 @@ pub use command::PlaybackCommand;
 pub use controller::PlaybackController;
 pub use engine::Engine;
 pub use error::EngineError;
-pub use event::{PlaybackErrorKind, PlaybackEvent};
+pub use event::{PlaybackErrorKind, PlaybackEvent, VolumeDomain, VolumeState};
 pub use gain::volume_gain_for_level;
 pub use levels::Levels;
 pub use source::PlayableSource;

@@ -363,6 +363,9 @@ impl Playback {
             PlaybackEvent::BitPerfectStateChanged { active } => {
                 self.bit_perfect_active = active;
             }
+            PlaybackEvent::VolumeStateChanged(state) => {
+                self.volume_state = state;
+            }
             PlaybackEvent::ExclusiveModeFallback { device_id } => {
                 self.playback_output_mode = StoredOutputMode::Shared;
                 let device_name = self

@@ -210,6 +210,8 @@ impl Playback {
             active.bit_perfect_available = active
                 .capabilities
                 .is_some_and(StoredDeviceCapabilities::supports_bit_perfect);
+            active.hardware_volume_available =
+                self.volume_state.domain == pulse_engine::VolumeDomain::Device;
         }
         groups
     }

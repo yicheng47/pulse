@@ -62,6 +62,14 @@ pub(super) fn reconcile_pending_toggle(
     })
 }
 
+pub(super) fn signal_path_available(playback_state: PlaybackState, has_format: bool) -> bool {
+    has_format
+        && matches!(
+            playback_state,
+            PlaybackState::Loading | PlaybackState::Playing | PlaybackState::Paused
+        )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -186,5 +194,15 @@ mod tests {
         for state in [PlaybackState::Stopping, PlaybackState::Idle] {
             assert!(!transport_presentation(state, None, true, true).show_pause);
         }
+    }
+
+    #[test]
+    fn signal_path_is_available_only_for_a_live_path() {
+        assert!(signal_path_available(PlaybackState::Loading, true));
+        assert!(signal_path_available(PlaybackState::Playing, true));
+        assert!(signal_path_available(PlaybackState::Paused, true));
+        assert!(!signal_path_available(PlaybackState::Idle, true));
+        assert!(!signal_path_available(PlaybackState::Ended, true));
+        assert!(!signal_path_available(PlaybackState::Playing, false));
     }
 }

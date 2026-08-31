@@ -4,6 +4,7 @@ use rtrb::{Consumer, Producer, RingBuffer};
 
 use crate::{
     EngineError, Levels, PcmFormat, auhal, device,
+    event::VolumeDomain,
     gain::{GainControl, UNITY_GAIN, volume_gain_for_level},
     hal,
 };
@@ -200,6 +201,14 @@ impl Engine {
         self.hardware_volume
             .as_ref()
             .map(|volume| (volume.level, volume.muted))
+    }
+
+    pub(crate) fn volume_domain(&self) -> VolumeDomain {
+        if self.hardware_volume.is_some() {
+            VolumeDomain::Device
+        } else {
+            VolumeDomain::Software
+        }
     }
 
     /// Latest RMS/peak from the realtime tap.

@@ -247,6 +247,26 @@ fn bit_perfect_confirmation_is_exposed_in_the_snapshot() {
 }
 
 #[test]
+fn active_hardware_volume_is_exposed_on_the_managed_device() {
+    let mut row = Playback::initial();
+    let matrix = output_device(9, "matrix", "mini-i Series");
+    row.seed_devices(vec![matrix.clone()]);
+    row.active_device = Some(matrix);
+
+    row.handle_event(PlaybackEvent::VolumeStateChanged(VolumeState::new(
+        pulse_engine::VolumeDomain::Device,
+    )));
+
+    assert!(row.managed_device_groups().connected[0].hardware_volume_available);
+
+    row.handle_event(PlaybackEvent::VolumeStateChanged(VolumeState::new(
+        pulse_engine::VolumeDomain::Software,
+    )));
+
+    assert!(!row.managed_device_groups().connected[0].hardware_volume_available);
+}
+
+#[test]
 fn changing_the_active_mode_dispatches_a_resolved_output_device_command() {
     let mut row = Playback::initial();
     row.active_device = Some(output_device(9, "matrix", "mini-i Series"));
