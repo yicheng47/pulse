@@ -59,20 +59,17 @@ Inspect a local result with `codesign --verify --strict --verbose=2 target/relea
 | `APPLE_PASSWORD` | App-specific password for that Apple ID, not the account password. |
 | `APPLE_TEAM_ID` | Apple Developer team identifier passed to `notarytool`. |
 | `SPARKLE_ED_PRIVATE_KEY` | Base64-encoded EdDSA private seed consumed by Sparkle's `generate_appcast`; it must never be written to the repository or workflow logs. |
-| `RELEASE_TOKEN` | Fine-grained personal access token with **Contents: read and write** on the public `yicheng47/pulse` repo only. The workflow's own `GITHUB_TOKEN` is scoped to this private repo and cannot create releases there. |
 
 CI derives `APPLE_SIGNING_IDENTITY` from the imported certificate at runtime. Pulse does not use any `TAURI_SIGNING_*` secret.
 
 The Sparkle key lives under the `com.wycstudios.pulse` account in the login Keychain. Its public half is pinned as `SUPublicEDKey` in the app's `Info.plist`; the private half lives only in that Keychain and the `SPARKLE_ED_PRIVATE_KEY` Actions secret. Back up the private key alongside the Developer ID certificate: losing it can force users through a manual-download recovery, while leaking it weakens the update chain to Apple code signing alone.
 
-## Two repositories
+## Repository
 
-Since 2026-08-28 the source lives in the private `yicheng47/pulse-src` repo (this one; local checkout `~/repos/yicheng47/pulse-src`, with the public repo cloned beside it at `~/repos/yicheng47/pulse`). The public `yicheng47/pulse` repo holds no code: only a README, the GitHub Releases with their DMG and appcast assets, and customer-facing issues. Release assets on a private repo need authentication to download, which breaks Sparkle and plain browser downloads, so everything users fetch must live on the public repo. The public repo kept the original name so the feed URL and download prefix baked into v0.1.3 and v0.1.4 keep resolving without a rebuild.
-
-Releases v0.1.0–v0.1.4 were re-published to the public repo by hand with identical tags, titles, notes, and assets (all tags point at the public repo's single README commit). Later releases are published there by CI.
+Source, CI, releases, and user bug reports all live in the single public `yicheng47/pulse` repo (open source, GPLv3). The 2026-08-28 private split into `pulse-src` plus a public releases shell was reversed on 2026-08-31 by renaming the source repo back and re-publishing the shell's releases here; releases v0.1.5–v0.2.0 therefore carry a 2026-08-31 publish date with their original notes and assets, and their tags point at the true source commits.
 
 ## Release appcast
 
-For every matching version tag, `.github/workflows/release.yml` keeps the tag-version guard and draft-release flow, completes the existing signed/notarized DMG build, then downloads the same checksum-pinned Sparkle tools. It streams `SPARKLE_ED_PRIVATE_KEY` into `generate_appcast`, signs the built DMG entry, points its download and release-notes links at the tagged release on the public repo, and uploads `appcast.xml` beside the DMG as a draft release on `yicheng47/pulse` using `RELEASE_TOKEN`. Release notes are written by hand when publishing the draft; auto-generated notes are off because the public repo has no commit history to summarize.
+For every matching version tag, `.github/workflows/release.yml` keeps the tag-version guard and draft-release flow, completes the existing signed/notarized DMG build, then downloads the same checksum-pinned Sparkle tools. It streams `SPARKLE_ED_PRIVATE_KEY` into `generate_appcast`, signs the built DMG entry, points its download and release-notes links at the tagged release, and uploads `appcast.xml` beside the DMG as a draft release on this repo with the workflow's own `GITHUB_TOKEN`. Release notes are written by hand when publishing the draft.
 
 Bundled apps read the stable feed URL `https://github.com/yicheng47/pulse/releases/latest/download/appcast.xml`. The alias starts resolving to a draft's appcast only after that release is published, so publishing the GitHub release is the final activation step. GitHub's anonymous edge cache can keep serving the previous alias target for several minutes after publishing; verify with a cache-busting query string (`?cb=1`) rather than assuming the publish failed.

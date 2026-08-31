@@ -10,11 +10,11 @@ The first release scope is defined separately in [`mvp.md`](mvp.md). This vision
 
 ## Commercialization Stance
 
-Pulse is a commercial, closed-source product as of 2026-08-28. It was open-source under MIT through engine validation and the first app releases (v0.1.0–v0.1.4), which is what that phase was for: credibility, inspectable engineering, and fast feedback while the playback path was unproven.
+Pulse is open source under **GPLv3** as of 2026-08-31. The closed-source turn of 2026-08-28 was reversed three days later, before any proprietary release shipped: a closed player has no standing chance in this market, and the open client is the credibility engine. The 2026-08-28..31 commits were never distributed under another license; the relicense to GPLv3 covers the whole tree from here forward (v0.1.0–v0.1.4 remain MIT for anyone who obtained them).
 
-Distribution plan: direct sales first (Developer ID + notarization + Sparkle already ship this way; a merchant-of-record handles tax), one-time purchase with paid major versions rather than a subscription. The Mac App Store is a possible second channel later, but it would require dropping Sparkle and proving exclusive-mode Core Audio under the App Sandbox, so it is not on the path to v1.0.
+Monetization lives beside the client, not inside it: a paid **cloud sync service** (library, playlists, play state across machines) is the commercial product. GPLv3 protects that position where MIT would not — nobody can close a fork of the client and sell it against a competing backend without opening their changes. Distribution stays direct (Developer ID + notarization + Sparkle). The Mac App Store is off the path entirely now — GPLv3 and MAS terms conflict — which was already true in practice, since MAS would also have required dropping Sparkle and sandboxing exclusive-mode Core Audio.
 
-No GPL dependencies remains a constraint; every current dependency is MIT/Apache/MPL-2.0 and compatible with closed distribution. `symphonia` is MPL-2.0, which only obliges publishing modifications to symphonia's own files — do not vendor-patch it.
+GPL-compatible dependencies are the constraint now (every current dependency — MIT/Apache/MPL-2.0 — qualifies). `symphonia` is MPL-2.0, which only obliges publishing modifications to symphonia's own files — do not vendor-patch it.
 
 ## Scope
 
