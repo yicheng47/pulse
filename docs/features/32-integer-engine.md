@@ -35,7 +35,7 @@ Reference clones live read-only in `~/repos/audio/`, kept outside pulse-src so G
 
 ## Implementation Phases
 
-Detailed tactical plan: [`docs/impls/0016-integer-engine.md`](../impls/0016-integer-engine.md).
+Detailed tactical plan: [`docs/impls/bit-perfect/`](../impls/bit-perfect/README.md) — five staged mission docs with a journey log ([`IMPL_LOG.md`](../impls/bit-perfect/IMPL_LOG.md)).
 
 1. **Probe spike**: a dev-only example binary (`cargo run -p pulse-engine --example integer_probe`) that hogs the Matrix, walks physical formats, attempts virtual = physical (integer), and reports what the device/OS accepts. Findings recorded in the spec before any engine code. Reading pass over the references first (clone the missing ones).
 2. **Engine**: `pulse-engine` gains the integer backend behind the existing `PlaybackBackend` trait — hog, mixing off, format setup, integer ring (bytes at source width, no `FloatPacker`), IOProc callback honoring the realtime rules. Reuses `hal.rs` and extends it with the virtual-format and mixing properties.

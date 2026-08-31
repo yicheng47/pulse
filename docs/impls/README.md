@@ -8,7 +8,7 @@ Active notes:
 
 - [`MANUAL_ACCEPTANCE_CHECKLIST.md`](MANUAL_ACCEPTANCE_CHECKLIST.md) - the human-only MVP acceptance gate; 96 checks across playback, hardware, library, queue, playlists, and search.
 - [`0015-mvp-states-and-hardening.md`](0015-mvp-states-and-hardening.md) - stage 13: loading states, decode failure, hogged/unavailable device, and missing-file handling.
-- [`0016-integer-engine.md`](0016-integer-engine.md) - feature 32: raw-HAL integer engine — probe, virtual-format fix, per-device selection, DoP gate.
+- [`bit-perfect/`](bit-perfect/README.md) - the M3 milestone (feature 32): raw-HAL integer engine split into five staged mission docs — probe gate, hal guards, engine, app wiring, DoP acceptance — with a journey log ([`IMPL_LOG.md`](bit-perfect/IMPL_LOG.md)). Supersedes 0016.
 
 Archived notes:
 

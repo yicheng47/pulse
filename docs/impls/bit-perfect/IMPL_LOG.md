@@ -1,0 +1,8 @@
+# Bit-perfect engine — implementation log
+
+The journey log for the M3 milestone. Maintained by the lead session: crews report in their Runner mission, the lead appends entries at decisions and stage boundaries. Chronological, newest last. (This is the one sanctioned impl log — the retired root `docs/impls/IMPL_LOG.md` stays retired.)
+
+- **2026-08-31** — Milestone planned: features [31](../../features/31-volume-transparency.md) and [32](../../features/32-integer-engine.md) specced, single-file tactical plan filed as impl 0016 (`e5b7b2e`).
+- **2026-08-31** — Design review against the codebase; five findings confirmed by Jason and folded in (`f65513d`). Decisions: **pause holds the device** (Audirvana model — hog, formats, and mixing state survive pause; release on `Stop`/switch/quit); capability gating **provisional** until the stage 1 probe; `EngineKind` absorbs `exclusive_mode` so BitPerfect + shared is unrepresentable; reference clones corrected (mpv/MPD/SFBAudioEngine to clone, hummingbird already present); AUHAL keeps release-on-pause.
+- **2026-08-31** — [Feature 33](../../features/33-dsd-over-dop.md) filed: DSD playback over DoP, gated on the stage 5 acceptance pass; the no-DSD constraint lifted to DoP-passthrough-only across vision/AGENTS/skill (`654a8c9`). Test payload `04 - 暧昧.dff` (DSD64, ~4½ min) staged in `~/qobuz`.
+- **2026-08-31** — Plan restructured into this directory: 0016 retired, five stage docs + this log. Process set: one peer-coding mission per stage with codex-crew, stage 1 gates the milestone, stage 4 gated on the approved Pencil design. Stage 1 mission started.
