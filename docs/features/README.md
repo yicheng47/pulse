@@ -6,6 +6,7 @@ Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phase
 
 ## Active
 
+- [`34-scan-error-detail.md`](34-scan-error-detail.md) - P3. Persist per-file scan errors and open them from the Storage page's ISSUES badge — path, plain-language reason, Reveal in Finder. Filed after a zero-byte FLAC took a sqlite session to diagnose.
 - [`33-dsd-over-dop.md`](33-dsd-over-dop.md) - P2. Play `.dsf`/`.dff` by DoP-packing at decode time — a container parser and bit-packer, no DSD engine; refuses (never noise) off the bit-perfect path. Gated on feature 32's DoP acceptance pass.
 - [`32-integer-engine.md`](32-integer-engine.md) - P2. Challenge milestone: a second raw-HAL integer engine, chosen per device (feature 08 pattern) (hog, mixing off, virtual = physical integer format) for a provable bit-perfect path; AUHAL stays the default. DoP test on the Matrix is the acceptance gate.
 - [`31-volume-transparency.md`](31-volume-transparency.md) - P2. Disclose which domain the volume slider drives (DAC hardware volume vs software gain) and show a transparent-path state at unity. Disclose, not restrict; wording bound by the honest claim. Successor to the disclosure half of 01.
