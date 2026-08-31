@@ -27,14 +27,6 @@ No GPL dependencies remains a constraint; every current dependency is MIT/Apache
 - Editorial enrichment from MusicBrainz, Cover Art Archive, Last.fm, Discogs, or Wikipedia.
 - Smart Radio from the user's own library.
 
-## Agent Harness Direction
-
-`pulse-cli` should remain a deterministic, scriptable engine harness even after the desktop app exists. It is the place to prove device visibility, file probing, hog mode, format switching, playback validation, and diagnostics without a UI in the way.
-
-That also makes `pulse-cli` the natural future boundary for agent and MCP workflows. The command surface should support stable JSON output, stable exit codes, bounded playback tests, and machine-readable error types so an agent can list devices, probe files, run format validation, play a short test clip, and collect diagnostics safely.
-
-A TUI can be added later if it helps human debugging, but it should not replace the boring command surface. The CLI's first job is to be a reliable harness for engineers and agents.
-
 ## Non-Goals
 
 - No DSD.
@@ -47,7 +39,7 @@ A TUI can be added later if it helps human debugging, but it should not replace 
 
 ## Build Order
 
-1. Prove the audio engine with `pulse-cli play <file>` and the Matrix Mini-i Pro 4 showing the file's native sample rate with clean sound.
+1. Prove the audio engine with a validation CLI and the Matrix Mini-i Pro 4 showing the file's native sample rate with clean sound.
 2. Design the library, now-playing, search, and settings surfaces in Pencil.
 3. Scaffold the native GPUI app shell, `crates/pulse-app` ([tech stack](../arch/tech-stack.md)).
 4. Build the library scanner, SQLite store, and FTS search.

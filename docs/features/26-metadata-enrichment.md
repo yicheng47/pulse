@@ -76,12 +76,12 @@ The Artists grid and detail read `artists.photo_path` first, as they already do;
 
 ## Implementation Phases
 
-1. **Backend**: schema v6, `artist_metadata` repo, the provider trait + MusicBrainz/fanart implementation with fixture tests, the identification scorer with its normalization tests, the job runner with cancellation and rate limiting, `settings.json` fields, and a `pulse-cli enrich --dry-run <library>` subcommand that prints candidate scores per artist so matching can be validated on Jason's library before any UI exists. No visible change in the app.
+1. **Backend**: schema v6, `artist_metadata` repo, the provider trait + MusicBrainz/fanart implementation with fixture tests, the identification scorer with its normalization tests, the job runner with cancellation and rate limiting, `settings.json` fields, and an `--enrich-dry-run <library>` flag on `pulse-app` that prints candidate scores per artist so matching can be validated on Jason's library before any UI exists. No visible change in the app.
 2. **Settings page + triggers**: Settings ▸ Metadata per the design, the Metadata nav row, the five triggers, status/progress, Clear cache, photos on the Artists grid and detail via the existing `photo_path` read.
 
 ## Verification
 
 - `make verify` green after each phase; the gpui gate and SQL gate still hold (`backend/metadata` is gpui-free; SQL stays in `repo/`).
 - `grep -rn "ureq\|musicbrainz" crates/pulse-app/src` shows the client only under `backend/metadata/`.
-- Phase 1 on Jason's library: `pulse enrich --dry-run` identifies the well-tagged artists (王菲, Western artists with Latin names) with confidence and reports `unmapped` for `######`-style rows; no writes.
+- Phase 1 on Jason's library: the enrich dry-run identifies the well-tagged artists (王菲, Western artists with Latin names) with confidence and reports `unmapped` for `######`-style rows; no writes.
 - Phase 2 manual: enable the switch → the first pass runs and the Artists grid fills with photos as it goes; disable → the job stops; paste a key later → photos arrive without identity requests; rescan → no requests; relaunch after 30 days (or with a clock override for testing) → the launch refresh trickles; Clear cache → covers return immediately.

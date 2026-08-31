@@ -18,7 +18,6 @@ Bundled releases use Sparkle to fetch a signed `appcast.xml` from GitHub Release
 ## Layout
 
 - `crates/pulse-engine` — standalone, UI-agnostic audio engine: AUHAL playback through `coreaudio-rs`, direct `objc2-core-audio` HAL device control, `symphonia` decode, `rtrb` ring buffer.
-- `crates/pulse-cli` — CLI harness that drives the engine and validates playback/device behavior before any UI exists.
 - `crates/pulse-app` — native GPUI desktop app shell; observes the engine in-process ([tech stack](docs/arch/tech-stack.md)).
 - `design/` — Pencil (`.pen`) design files.
 - `docs/` — project markdown: architecture, product scope, reference notes.

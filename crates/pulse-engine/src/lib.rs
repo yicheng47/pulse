@@ -1,6 +1,5 @@
-//! Core Audio playback engine. UI-agnostic — no Tauri, no web.
-//! Driven by `pulse-cli` to validate device control and playback against a real
-//! DAC before any shell exists.
+//! Core Audio playback engine. UI-agnostic — no GPUI or app types.
+//! Driven in-process by `pulse-app`.
 
 mod auhal;
 pub mod command;

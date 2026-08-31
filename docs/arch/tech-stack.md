@@ -23,7 +23,7 @@ Pulse is a native GPUI desktop app with a standalone Rust audio engine. One Rust
 
 ## Key Decisions
 
-- The engine is standalone and testable from `pulse-cli`.
+- The engine is standalone and testable headless, without the app.
 - The app shell is not allowed to own playback correctness.
 - The realtime AudioUnit render callback must allocate nothing, lock nothing, and perform no syscalls.
 - Decode happens off the realtime thread and feeds the AUHAL callback through `rtrb`.

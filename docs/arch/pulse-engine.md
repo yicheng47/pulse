@@ -6,7 +6,7 @@
 
 `pulse-engine` is the UI-agnostic playback engine. It should own the complete playback behavior: device discovery, decode, native-rate configuration, low-level AUHAL output, playback state, transport commands, queue mechanics, and progress/events.
 
-The GPUI app (`pulse-app`, [tech stack](tech-stack.md)) and `pulse-cli` should both drive the same Rust engine API. They are adapters, not playback owners.
+The GPUI app (`pulse-app`, [tech stack](tech-stack.md)) drives the engine API as an adapter, not a playback owner.
 
 The current implemented core already proves clean native-rate playback through Core Audio's Hardware AudioUnit path, also called AUHAL. Pulse still talks directly to Core Audio HAL for device control, but the audio callback is owned by an AudioUnit rather than a raw `AudioDeviceCreateIOProcID` callback.
 
@@ -20,7 +20,7 @@ The desired product runtime is a long-lived controller inside the Rust process, 
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ pulse-app UI or pulse-cli                                                    │
+│ pulse-app UI                                                                 │
 │                                                                              │
 │  - play / pause / resume / seek / stop / next / previous                     │
 │  - select output device                                                      │
@@ -107,7 +107,7 @@ There are four practical execution contexts once the controller exists.
 
 ### 4.1 Adapter Thread
 
-The adapter is `pulse-cli` today and `pulse-app` for the desktop app. It can parse commands, receive UI invocations, serialize output, and forward events.
+The adapter is `pulse-app`. It translates UI invocations into engine commands and forwards events back to the UI.
 
 Adapter responsibilities:
 

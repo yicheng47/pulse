@@ -112,4 +112,4 @@ release-macos:
 # Drop accumulated dev generations of the workspace crates, keeping
 # dependency artifacts warm
 clean-rust-stale:
-	cargo clean -p pulse-app -p pulse-engine -p pulse-cli --profile dev
+	cargo clean -p pulse-app -p pulse-engine --profile dev
