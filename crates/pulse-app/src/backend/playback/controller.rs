@@ -5,9 +5,8 @@ const DROPOUT_NOTICE_WINDOW: Duration = Duration::from_secs(10);
 const DROPOUT_NOTICE_CLEAR_AFTER: Duration = Duration::from_secs(30);
 
 impl Playback {
-    pub(crate) fn install_controller(&mut self, device_id: device::DeviceId, exclusive_mode: bool) {
-        let controller =
-            PlaybackController::spawn(device_id, EngineKind::Universal { exclusive_mode });
+    pub(crate) fn install_controller(&mut self, device_id: device::DeviceId, kind: EngineKind) {
+        let controller = PlaybackController::spawn(device_id, kind);
         self.sent_next = None;
         self.event_rx = Some(controller.subscribe());
         let command_tx = controller.command_sender();
@@ -357,15 +356,15 @@ impl Playback {
                 self.dropout_frames = cumulative_frames;
                 self.record_dropout_at(now);
             }
-            PlaybackEvent::OutputDeviceChanged {
-                device_id,
-                exclusive_mode,
-            } => {
-                self.complete_output_device_change(device_id, exclusive_mode);
+            PlaybackEvent::OutputDeviceChanged { device_id, kind } => {
+                self.complete_output_device_change(device_id, kind);
                 self.sync_next_source();
             }
+            PlaybackEvent::BitPerfectStateChanged { active } => {
+                self.bit_perfect_active = active;
+            }
             PlaybackEvent::ExclusiveModeFallback { device_id } => {
-                self.playback_exclusive_mode = false;
+                self.playback_output_mode = StoredOutputMode::Shared;
                 let device_name = self
                     .pending_device_change
                     .as_ref()
@@ -458,6 +457,15 @@ impl Playback {
                 // Output-device change failures are not play-scoped; handle
                 // them before the attempt staleness guard.
                 if let Some(pending) = self.pending_device_change.take() {
+                    if pending.output_mode == StoredOutputMode::BitPerfect {
+                        self.retry = self
+                            .current_play
+                            .as_ref()
+                            .map(|attempt| attempt.target.clone());
+                        self.notice = Some(PlaybackNotice::DeviceFailure {
+                            text: format!("Playback stopped on {}: {message}", pending.device.name),
+                        });
+                    }
                     self.device_message = Some(DeviceMessage {
                         text: format!("Could not switch to {}: {message}", pending.device.name),
                         is_error: true,
@@ -560,9 +568,17 @@ impl Playback {
     pub(crate) fn complete_output_device_change(
         &mut self,
         device_id: device::DeviceId,
-        playback_exclusive_mode: bool,
+        kind: EngineKind,
     ) {
+        let playback_output_mode = output_mode_for_engine_kind(kind);
         let Some(pending) = self.pending_device_change.take() else {
+            if self
+                .active_device
+                .as_ref()
+                .is_some_and(|device| device.id == device_id)
+            {
+                self.playback_output_mode = playback_output_mode;
+            }
             return;
         };
         if pending.device.id != device_id {
@@ -571,7 +587,7 @@ impl Playback {
 
         let persist = pending.persist;
         let output_device =
-            self.apply_completed_output_device_change(pending, playback_exclusive_mode);
+            self.apply_completed_output_device_change(pending, playback_output_mode);
 
         if persist {
             self.pending_saved_output_device_uid = Some(output_device.uid);
@@ -603,21 +619,21 @@ impl Playback {
     pub(super) fn apply_completed_output_device_change(
         &mut self,
         pending: PendingDeviceChange,
-        playback_exclusive_mode: bool,
+        playback_output_mode: StoredOutputMode,
     ) -> device::Device {
         let PendingDeviceChange {
             device: output_device,
             success_message,
             capabilities,
-            default_exclusive_mode,
-            exclusive_mode,
+            automatic_mode,
+            output_mode,
             ..
         } = pending;
         self.active_device = Some(output_device.clone());
         self.device_message = success_message;
-        self.default_exclusive_mode = default_exclusive_mode;
-        self.exclusive_mode = exclusive_mode;
-        self.playback_exclusive_mode = playback_exclusive_mode;
+        self.automatic_output_mode = automatic_mode;
+        self.output_mode = output_mode;
+        self.playback_output_mode = playback_output_mode;
         self.apply_device_capabilities_result(&output_device, capabilities);
         output_device
     }

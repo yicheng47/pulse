@@ -139,6 +139,57 @@ where
 pub struct StoredDeviceCapabilities {
     pub max_bits_per_channel: Option<u32>,
     pub max_sample_rate: u32,
+    pub transport: Option<StoredDeviceTransport>,
+}
+
+impl StoredDeviceCapabilities {
+    pub fn supports_bit_perfect(self) -> bool {
+        self.max_bits_per_channel.is_some()
+            && self
+                .transport
+                .is_some_and(StoredDeviceTransport::supports_bit_perfect)
+    }
+
+    fn is_complete(self) -> bool {
+        self.transport.is_some()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum StoredDeviceTransport {
+    Unknown,
+    BuiltIn,
+    Aggregate,
+    Virtual,
+    Pci,
+    Usb,
+    FireWire,
+    Bluetooth,
+    BluetoothLe,
+    Hdmi,
+    DisplayPort,
+    AirPlay,
+    Avb,
+    Thunderbolt,
+    Other,
+}
+
+impl StoredDeviceTransport {
+    pub fn supports_bit_perfect(self) -> bool {
+        !matches!(
+            self,
+            Self::Bluetooth | Self::BluetoothLe | Self::Hdmi | Self::DisplayPort
+        )
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum StoredOutputMode {
+    Shared,
+    Exclusive,
+    BitPerfect,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
@@ -147,45 +198,58 @@ pub struct StoredDevicePreferences {
     pub name: Option<String>,
     pub capabilities: Option<StoredDeviceCapabilities>,
     pub last_seen_unix_seconds: Option<u64>,
-    pub(crate) exclusive_mode: Option<bool>,
+    pub mode: Option<StoredOutputMode>,
+    #[serde(rename = "exclusiveMode", skip_serializing)]
+    pub(crate) legacy_exclusive_mode: Option<bool>,
 }
 
 impl StoredDevicePreferences {
-    pub fn exclusive_mode_override(&self) -> Option<bool> {
-        self.exclusive_mode
+    fn migrate_legacy_mode(&mut self) -> bool {
+        let Some(exclusive_mode) = self.legacy_exclusive_mode.take() else {
+            return false;
+        };
+        if self.mode.is_none() {
+            self.mode = Some(if exclusive_mode {
+                StoredOutputMode::Exclusive
+            } else {
+                StoredOutputMode::Shared
+            });
+        }
+        true
     }
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
-pub struct ExclusiveModePreferences {
+pub struct OutputModePreferences {
     pub(crate) devices: BTreeMap<String, StoredDevicePreferences>,
 }
 
-impl ExclusiveModePreferences {
-    pub fn effective_mode(&self, device_uid: &str, default: bool) -> bool {
+impl OutputModePreferences {
+    pub fn effective_mode(
+        &self,
+        device_uid: &str,
+        automatic: StoredOutputMode,
+    ) -> StoredOutputMode {
         self.devices
             .get(device_uid)
-            .and_then(StoredDevicePreferences::exclusive_mode_override)
-            .unwrap_or(default)
+            .and_then(|device| device.mode)
+            .unwrap_or(automatic)
     }
 
-    pub fn is_overridden(&self, device_uid: &str) -> bool {
+    pub fn is_pinned(&self, device_uid: &str) -> bool {
         self.devices
             .get(device_uid)
-            .is_some_and(|device| device.exclusive_mode.is_some())
+            .is_some_and(|device| device.mode.is_some())
     }
 
-    pub fn set_override(&mut self, device_uid: &str, enabled: bool) {
-        self.devices
-            .entry(device_uid.to_string())
-            .or_default()
-            .exclusive_mode = Some(enabled);
+    pub fn set_mode(&mut self, device_uid: &str, mode: StoredOutputMode) {
+        self.devices.entry(device_uid.to_string()).or_default().mode = Some(mode);
     }
 
-    pub fn clear_override(&mut self, device_uid: &str) {
+    pub fn clear_mode(&mut self, device_uid: &str) {
         if let Some(device) = self.devices.get_mut(device_uid) {
-            device.exclusive_mode = None;
+            device.mode = None;
         }
     }
 
@@ -214,10 +278,19 @@ impl ExclusiveModePreferences {
         self.devices
             .get(device_uid)
             .and_then(|device| device.capabilities)
+            .filter(|capabilities| capabilities.is_complete())
     }
 
     pub fn forget(&mut self, device_uid: &str) -> bool {
         self.devices.remove(device_uid).is_some()
+    }
+
+    fn migrate_legacy_modes(&mut self) -> bool {
+        let mut migrated = false;
+        for device in self.devices.values_mut() {
+            migrated |= device.migrate_legacy_mode();
+        }
+        migrated
     }
 }
 
@@ -225,7 +298,8 @@ impl ExclusiveModePreferences {
 #[serde(default, rename_all = "camelCase")]
 pub struct AppSettings {
     pub saved_output_device_uid: Option<String>,
-    pub exclusive_mode_preferences: ExclusiveModePreferences,
+    #[serde(alias = "exclusiveModePreferences")]
+    pub output_mode_preferences: OutputModePreferences,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) legacy_exclusive_mode_disabled: Option<bool>,
     pub volume_level: f32,
@@ -244,7 +318,7 @@ impl Default for AppSettings {
     fn default() -> Self {
         Self {
             saved_output_device_uid: None,
-            exclusive_mode_preferences: ExclusiveModePreferences::default(),
+            output_mode_preferences: OutputModePreferences::default(),
             legacy_exclusive_mode_disabled: None,
             volume_level: 1.0,
             volume_muted: false,
@@ -255,23 +329,30 @@ impl Default for AppSettings {
 }
 
 impl AppSettings {
+    #[cfg(test)]
     pub fn load(path: &Path) -> io::Result<Self> {
+        Self::load_with_migration_status(path).map(|(settings, _)| settings)
+    }
+
+    pub(crate) fn load_with_migration_status(path: &Path) -> io::Result<(Self, bool)> {
         let contents = match fs::read_to_string(path) {
             Ok(contents) => contents,
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
-                return Ok(Self::default());
+                return Ok((Self::default(), false));
             }
             Err(error) if error.kind() == io::ErrorKind::InvalidData => {
-                return recover_invalid_settings(path, &error);
+                return recover_invalid_settings(path, &error).map(|settings| (settings, false));
             }
             Err(error) => return Err(error),
         };
         let mut settings = match serde_json::from_str::<Self>(&contents) {
             Ok(settings) => settings,
-            Err(error) => return recover_invalid_settings(path, &error),
+            Err(error) => {
+                return recover_invalid_settings(path, &error).map(|settings| (settings, false));
+            }
         };
-        settings.normalize();
-        Ok(settings)
+        let migrated = settings.normalize() || contents.contains("\"exclusiveModePreferences\"");
+        Ok((settings, migrated))
     }
 
     pub fn save(&self, path: &Path) -> io::Result<()> {
@@ -299,7 +380,8 @@ impl AppSettings {
         result
     }
 
-    pub fn normalize(&mut self) {
+    pub fn normalize(&mut self) -> bool {
+        let migrated = self.output_mode_preferences.migrate_legacy_modes();
         self.saved_output_device_uid = self
             .saved_output_device_uid
             .take()
@@ -316,6 +398,7 @@ impl AppSettings {
         {
             self.session = None;
         }
+        migrated
     }
 }
 
@@ -546,18 +629,19 @@ mod tests {
             }),
             ..AppSettings::default()
         };
-        settings.exclusive_mode_preferences.record_sighting(
+        settings.output_mode_preferences.record_sighting(
             "matrix",
             "mini-i Series",
             Some(StoredDeviceCapabilities {
                 max_bits_per_channel: Some(24),
                 max_sample_rate: 192_000,
+                transport: Some(StoredDeviceTransport::Usb),
             }),
             1_777_777_777,
         );
         settings
-            .exclusive_mode_preferences
-            .set_override("matrix", false);
+            .output_mode_preferences
+            .set_mode("matrix", StoredOutputMode::BitPerfect);
 
         settings.save(&path).unwrap();
 
@@ -620,71 +704,97 @@ mod tests {
     }
 
     #[test]
-    fn exclusive_mode_preferences_round_trip_two_device_overrides() {
+    fn output_mode_preferences_round_trip_every_pinned_mode() {
         let directory = tempfile::tempdir().unwrap();
         let path = settings_path(directory.path());
         let mut settings = AppSettings::default();
         settings
-            .exclusive_mode_preferences
-            .set_override("matrix", false);
+            .output_mode_preferences
+            .set_mode("shared", StoredOutputMode::Shared);
         settings
-            .exclusive_mode_preferences
-            .set_override("airpods", true);
+            .output_mode_preferences
+            .set_mode("exclusive", StoredOutputMode::Exclusive);
+        settings
+            .output_mode_preferences
+            .set_mode("integer", StoredOutputMode::BitPerfect);
 
         settings.save(&path).unwrap();
-        let loaded = AppSettings::load(&path).unwrap().exclusive_mode_preferences;
+        let loaded = AppSettings::load(&path).unwrap().output_mode_preferences;
 
-        assert!(!loaded.effective_mode("matrix", true));
-        assert!(loaded.effective_mode("airpods", false));
-        assert!(loaded.is_overridden("matrix"));
-        assert!(loaded.is_overridden("airpods"));
-        assert!(loaded.effective_mode("unset-dac", true));
-        assert!(!loaded.effective_mode("unset-bluetooth", false));
-    }
-
-    #[test]
-    fn explicit_mode_equal_to_the_default_remains_pinned() {
-        let mut preferences = ExclusiveModePreferences::default();
-        preferences.set_override("matrix", true);
-
-        assert!(preferences.is_overridden("matrix"));
-        assert!(preferences.effective_mode("matrix", false));
-    }
-
-    #[test]
-    fn offline_override_edit_persists_and_applies_when_the_device_reconnects() {
-        let directory = tempfile::tempdir().unwrap();
-        let path = settings_path(directory.path());
-        let mut settings = AppSettings::default();
-        settings.exclusive_mode_preferences.record_sighting(
-            "matrix",
-            "mini-i Series",
-            Some(StoredDeviceCapabilities {
-                max_bits_per_channel: Some(24),
-                max_sample_rate: 192_000,
-            }),
-            100,
+        assert_eq!(
+            loaded.effective_mode("shared", StoredOutputMode::BitPerfect),
+            StoredOutputMode::Shared
         );
-        settings
-            .exclusive_mode_preferences
-            .set_override("matrix", false);
-
-        settings.save(&path).unwrap();
-        let loaded = AppSettings::load(&path).unwrap().exclusive_mode_preferences;
-
-        assert!(loaded.is_overridden("matrix"));
-        assert!(!loaded.effective_mode("matrix", true));
+        assert_eq!(
+            loaded.effective_mode("exclusive", StoredOutputMode::Shared),
+            StoredOutputMode::Exclusive
+        );
+        assert_eq!(
+            loaded.effective_mode("integer", StoredOutputMode::Shared),
+            StoredOutputMode::BitPerfect
+        );
+        assert!(loaded.is_pinned("shared"));
+        assert!(loaded.is_pinned("exclusive"));
+        assert!(loaded.is_pinned("integer"));
     }
 
     #[test]
-    fn clearing_an_override_returns_the_device_to_its_default() {
-        let mut preferences = ExclusiveModePreferences::default();
-        preferences.set_override("matrix", false);
+    fn explicit_mode_equal_to_auto_remains_pinned() {
+        let mut preferences = OutputModePreferences::default();
+        preferences.set_mode("matrix", StoredOutputMode::BitPerfect);
 
-        preferences.clear_override("matrix");
+        assert!(preferences.is_pinned("matrix"));
+        assert_eq!(
+            preferences.effective_mode("matrix", StoredOutputMode::BitPerfect),
+            StoredOutputMode::BitPerfect
+        );
+    }
 
-        assert!(!preferences.is_overridden("matrix"));
-        assert!(preferences.effective_mode("matrix", true));
+    #[test]
+    fn legacy_exclusive_overrides_migrate_once_to_pinned_output_modes() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = settings_path(directory.path());
+        fs::write(
+            &path,
+            r#"{"exclusiveModePreferences":{"devices":{"shared":{"exclusiveMode":false},"exclusive":{"exclusiveMode":true},"auto":{}}}}"#,
+        )
+        .unwrap();
+
+        let (loaded, migrated) = AppSettings::load_with_migration_status(&path).unwrap();
+
+        assert!(migrated);
+        assert_eq!(
+            loaded
+                .output_mode_preferences
+                .effective_mode("shared", StoredOutputMode::BitPerfect),
+            StoredOutputMode::Shared
+        );
+        assert_eq!(
+            loaded
+                .output_mode_preferences
+                .effective_mode("exclusive", StoredOutputMode::Shared),
+            StoredOutputMode::Exclusive
+        );
+        assert!(!loaded.output_mode_preferences.is_pinned("auto"));
+
+        loaded.save(&path).unwrap();
+        let contents = fs::read_to_string(&path).unwrap();
+        assert!(contents.contains("\"outputModePreferences\""));
+        assert!(!contents.contains("\"exclusiveMode\":"));
+    }
+
+    #[test]
+    fn clearing_a_pin_returns_the_device_to_auto() {
+        let mut preferences = OutputModePreferences::default();
+        preferences.set_mode("matrix", StoredOutputMode::Shared);
+
+        preferences.clear_mode("matrix");
+
+        assert!(!preferences.is_pinned("matrix"));
+        assert_eq!(
+            preferences.effective_mode("matrix", StoredOutputMode::BitPerfect),
+            StoredOutputMode::BitPerfect
+        );
     }
 
     #[test]
@@ -692,12 +802,13 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let path = settings_path(directory.path());
         let mut settings = AppSettings::default();
-        settings.exclusive_mode_preferences.record_sighting(
+        settings.output_mode_preferences.record_sighting(
             "matrix\\uid",
             "Matrix\tmini-i\nSeries",
             Some(StoredDeviceCapabilities {
                 max_bits_per_channel: Some(24),
                 max_sample_rate: 192_000,
+                transport: Some(StoredDeviceTransport::Usb),
             }),
             1_777_777_777,
         );
@@ -707,27 +818,28 @@ mod tests {
 
         assert_eq!(loaded, settings);
         let stored = loaded
-            .exclusive_mode_preferences
+            .output_mode_preferences
             .devices
             .get("matrix\\uid")
             .unwrap();
         assert_eq!(stored.name.as_deref(), Some("Matrix\tmini-i\nSeries"));
-        assert_eq!(stored.exclusive_mode_override(), None);
+        assert_eq!(stored.mode, None);
     }
 
     #[test]
     fn a_forgotten_device_reconnects_with_fresh_probe_defaults() {
-        let mut preferences = ExclusiveModePreferences::default();
+        let mut preferences = OutputModePreferences::default();
         preferences.record_sighting(
             "matrix",
             "Old name",
             Some(StoredDeviceCapabilities {
                 max_bits_per_channel: None,
                 max_sample_rate: 48_000,
+                transport: Some(StoredDeviceTransport::Bluetooth),
             }),
             100,
         );
-        preferences.set_override("matrix", false);
+        preferences.set_mode("matrix", StoredOutputMode::Shared);
 
         assert!(preferences.forget("matrix"));
         preferences.record_sighting(
@@ -736,15 +848,43 @@ mod tests {
             Some(StoredDeviceCapabilities {
                 max_bits_per_channel: Some(24),
                 max_sample_rate: 192_000,
+                transport: Some(StoredDeviceTransport::Usb),
             }),
             200,
         );
 
-        assert!(!preferences.is_overridden("matrix"));
-        assert!(preferences.effective_mode("matrix", true));
+        assert!(!preferences.is_pinned("matrix"));
+        assert_eq!(
+            preferences.effective_mode("matrix", StoredOutputMode::BitPerfect),
+            StoredOutputMode::BitPerfect
+        );
         let stored = preferences.devices.get("matrix").unwrap();
         assert_eq!(stored.name.as_deref(), Some("mini-i Series"));
         assert_eq!(stored.last_seen_unix_seconds, Some(200));
+    }
+
+    #[test]
+    fn stored_capabilities_without_transport_require_a_reprobe() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = settings_path(directory.path());
+        fs::write(
+            &path,
+            r#"{"outputModePreferences":{"devices":{"matrix":{"capabilities":{"maxBitsPerChannel":24,"maxSampleRate":192000}}}}}"#,
+        )
+        .unwrap();
+
+        let loaded = AppSettings::load(&path).unwrap();
+        let preferences = &loaded.output_mode_preferences;
+
+        assert_eq!(preferences.stored_capabilities("matrix"), None);
+        assert!(
+            preferences
+                .devices
+                .get("matrix")
+                .unwrap()
+                .capabilities
+                .is_some()
+        );
     }
 
     #[test]

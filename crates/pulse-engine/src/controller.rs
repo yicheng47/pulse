@@ -323,6 +323,7 @@ struct Worker {
     output_device: DeviceId,
     engine_kind: EngineKind,
     shared_mode_fallback: bool,
+    bit_perfect_active: bool,
     adopted_hardware_volume: HashSet<DeviceId>,
     volume_level: f32,
     muted: bool,
@@ -358,6 +359,7 @@ impl Worker {
             output_device: settings.output_device,
             engine_kind: settings.engine_kind,
             shared_mode_fallback: false,
+            bit_perfect_active: false,
             adopted_hardware_volume: HashSet::new(),
             volume_level: 1.0,
             muted: false,
@@ -679,10 +681,13 @@ impl Worker {
         device_id: DeviceId,
         engine_kind: EngineKind,
     ) -> Result<(), EngineError> {
-        if self.output_device == device_id && self.engine_kind == engine_kind {
+        if self.output_device == device_id
+            && self.engine_kind == engine_kind
+            && !self.shared_mode_fallback
+        {
             self.broadcast(PlaybackEvent::OutputDeviceChanged {
                 device_id,
-                exclusive_mode: self.actual_exclusive_mode(),
+                kind: self.actual_engine_kind(),
             });
             return Ok(());
         }
@@ -712,7 +717,7 @@ impl Worker {
             }
             self.broadcast(PlaybackEvent::OutputDeviceChanged {
                 device_id,
-                exclusive_mode: self.actual_exclusive_mode(),
+                kind: self.actual_engine_kind(),
             });
             return Ok(());
         }
@@ -726,7 +731,7 @@ impl Worker {
         self.shared_mode_fallback = false;
         self.broadcast(PlaybackEvent::OutputDeviceChanged {
             device_id,
-            exclusive_mode: self.actual_exclusive_mode(),
+            kind: self.actual_engine_kind(),
         });
         Ok(())
     }
@@ -816,6 +821,7 @@ impl Worker {
         match backend.start(format) {
             Ok(()) => {
                 self.backend = Some((self.output_device, engine_kind, backend));
+                self.set_bit_perfect_active(engine_kind == EngineKind::BitPerfect);
                 if let Some((level, muted)) = hardware_volume_event {
                     self.volume_level = level;
                     self.adopted_hardware_volume.insert(self.output_device);
@@ -1230,6 +1236,7 @@ impl Worker {
 
     fn release_backend(&mut self) -> Result<(), EngineError> {
         let was_active = self.active.take().is_some();
+        self.set_bit_perfect_active(false);
         let Some((_, _, mut backend)) = self.backend.take() else {
             return Ok(());
         };
@@ -1246,6 +1253,14 @@ impl Worker {
                 Err(combine_backend_errors(stop_error, release_error))
             }
         }
+    }
+
+    fn set_bit_perfect_active(&mut self, active: bool) {
+        if self.bit_perfect_active == active {
+            return;
+        }
+        self.bit_perfect_active = active;
+        self.broadcast(PlaybackEvent::BitPerfectStateChanged { active });
     }
 
     fn set_state(&mut self, next: PlaybackState) {
@@ -2656,6 +2671,9 @@ mod tests {
             })
             .unwrap();
         wait_for(&events, |event| {
+            *event == PlaybackEvent::BitPerfectStateChanged { active: true }
+        });
+        wait_for(&events, |event| {
             matches!(
                 event,
                 PlaybackEvent::Position {
@@ -2681,6 +2699,9 @@ mod tests {
             *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
         });
         commands.send(PlaybackCommand::Stop).unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::BitPerfectStateChanged { active: false }
+        });
         wait_for(&events, |event| {
             *event == PlaybackEvent::StateChanged(PlaybackState::Idle)
         });
@@ -3034,7 +3055,9 @@ mod tests {
             events.recv_timeout(Duration::from_secs(1)).unwrap(),
             PlaybackEvent::OutputDeviceChanged {
                 device_id: 9,
-                exclusive_mode: false,
+                kind: EngineKind::Universal {
+                    exclusive_mode: false,
+                },
             }
         );
 
@@ -3131,6 +3154,50 @@ mod tests {
     }
 
     #[test]
+    fn bitperfect_restart_failure_clears_the_confirmed_state() {
+        let (controller, log) = fake_controller_with_kind(EngineKind::BitPerfect);
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("first.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::BitPerfectStateChanged { active: true }
+        });
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+
+        log.lock().unwrap().fail_bitperfect_start_device = Some(7);
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("second.flac"),
+            })
+            .unwrap();
+
+        assert_eq!(
+            wait_for(&events, |event| {
+                *event == PlaybackEvent::BitPerfectStateChanged { active: false }
+            }),
+            PlaybackEvent::BitPerfectStateChanged { active: false }
+        );
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::Error { .. }
+            )),
+            PlaybackEvent::Error {
+                attempt: 2,
+                kind: crate::PlaybackErrorKind::Device { hog_pid: None },
+                message: "AudioDeviceStart failed (OSStatus -1)".to_string(),
+            }
+        );
+        assert_eq!(log.lock().unwrap().releases, 1);
+    }
+
+    #[test]
     fn exclusive_open_failure_retries_shared_once_for_the_device_session() {
         let (controller, log) = fake_controller();
         let events = controller.subscribe();
@@ -3173,7 +3240,9 @@ mod tests {
             )),
             PlaybackEvent::OutputDeviceChanged {
                 device_id: 9,
-                exclusive_mode: false,
+                kind: EngineKind::Universal {
+                    exclusive_mode: false,
+                },
             }
         );
 
@@ -3222,6 +3291,56 @@ mod tests {
             *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
         });
         assert_eq!(log.lock().unwrap().exclusive_modes, [true, false]);
+    }
+
+    #[test]
+    fn reselecting_exclusive_after_fallback_retries_exclusive() {
+        let (controller, log) = fake_controller();
+        log.lock().unwrap().fail_exclusive_start_device = Some(7);
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            matches!(event, PlaybackEvent::ExclusiveModeFallback { device_id: 7 })
+        });
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+
+        log.lock().unwrap().fail_exclusive_start_device = None;
+        commands
+            .send(PlaybackCommand::SetOutputDevice {
+                device_id: 7,
+                kind: EngineKind::Universal {
+                    exclusive_mode: true,
+                },
+            })
+            .unwrap();
+
+        assert_eq!(
+            wait_for(&events, |event| {
+                matches!(
+                    event,
+                    PlaybackEvent::OutputDeviceChanged {
+                        device_id: 7,
+                        kind: EngineKind::Universal {
+                            exclusive_mode: true,
+                        },
+                    }
+                )
+            }),
+            PlaybackEvent::OutputDeviceChanged {
+                device_id: 7,
+                kind: EngineKind::Universal {
+                    exclusive_mode: true,
+                },
+            }
+        );
+        assert_eq!(log.lock().unwrap().exclusive_modes, [true, false, true]);
     }
 
     #[test]
@@ -3288,7 +3407,9 @@ mod tests {
             *event
                 == PlaybackEvent::OutputDeviceChanged {
                     device_id: 9,
-                    exclusive_mode: false,
+                    kind: EngineKind::Universal {
+                        exclusive_mode: false,
+                    },
                 }
         });
 
@@ -3584,7 +3705,9 @@ mod tests {
             *event
                 == PlaybackEvent::OutputDeviceChanged {
                     device_id: 9,
-                    exclusive_mode: false,
+                    kind: EngineKind::Universal {
+                        exclusive_mode: false,
+                    },
                 }
         });
 

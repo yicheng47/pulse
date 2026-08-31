@@ -20,7 +20,8 @@ use objc2_core_audio::{
     AudioObjectSetPropertyData, AudioStreamRangedDescription,
     kAudioDevicePropertyAvailableNominalSampleRates, kAudioDevicePropertyHogMode,
     kAudioDevicePropertyMute, kAudioDevicePropertyNominalSampleRate, kAudioDevicePropertyStreams,
-    kAudioDevicePropertySupportsMixing, kAudioDevicePropertyVolumeScalar, kAudioHardwareNoError,
+    kAudioDevicePropertySupportsMixing, kAudioDevicePropertyTransportType,
+    kAudioDevicePropertyVolumeScalar, kAudioDeviceTransportTypeUnknown, kAudioHardwareNoError,
     kAudioObjectPropertyElementMain, kAudioObjectPropertyScopeGlobal,
     kAudioObjectPropertyScopeOutput, kAudioStreamPropertyAvailablePhysicalFormats,
     kAudioStreamPropertyAvailableVirtualFormats, kAudioStreamPropertyPhysicalFormat,
@@ -534,12 +535,34 @@ pub(crate) fn set_matching_physical_format(
 
 pub(crate) fn output_device_capabilities(
     device_id: AudioObjectID,
-) -> Result<Option<(Option<u32>, f64)>, EngineError> {
+) -> Result<Option<(Option<u32>, f64, u32)>, EngineError> {
     let mut formats = Vec::new();
     for stream_id in output_streams(device_id)? {
         formats.extend(available_physical_formats(stream_id)?);
     }
-    Ok(maximum_physical_format_capabilities(&formats))
+    let Some((max_bits_per_channel, max_sample_rate)) =
+        maximum_physical_format_capabilities(&formats)
+    else {
+        return Ok(None);
+    };
+    let transport_address = address(
+        kAudioDevicePropertyTransportType,
+        kAudioObjectPropertyScopeGlobal,
+    );
+    let transport_type = if has_property(device_id, transport_address) {
+        get_value::<u32>(
+            device_id,
+            transport_address,
+            "AudioObjectGetPropertyData(kAudioDevicePropertyTransportType)",
+        )?
+    } else {
+        kAudioDeviceTransportTypeUnknown
+    };
+    Ok(Some((
+        max_bits_per_channel,
+        max_sample_rate,
+        transport_type,
+    )))
 }
 
 pub(crate) fn audio_buffer_list_channel_count(bytes: &[u8]) -> u32 {

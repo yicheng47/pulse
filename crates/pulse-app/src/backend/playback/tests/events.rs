@@ -536,7 +536,9 @@ fn device_and_exclusive_mode_changes_reset_then_resync_lookahead() {
     assert_eq!(output.sent_next, None);
     output.handle_event(PlaybackEvent::OutputDeviceChanged {
         device_id: 9,
-        exclusive_mode: true,
+        kind: EngineKind::Universal {
+            exclusive_mode: true,
+        },
     });
     assert_eq!(
         output_rx.recv().unwrap(),

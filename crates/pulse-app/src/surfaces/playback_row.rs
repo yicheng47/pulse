@@ -13,8 +13,8 @@ use crate::{
     app_store::{AppStore, StoreRevisions, global_app_store},
     backend::{
         DeviceMessage, PlaybackAction, PlaybackNotice, PlaybackSnapshot, RepeatMode,
-        VolumeIconState, format_output_device, format_quality, format_time, fraction_at_x,
-        fraction_at_y, scrub_position_ms, volume_icon_state,
+        StoredOutputMode, VolumeIconState, format_output_device, format_quality, format_time,
+        fraction_at_x, fraction_at_y, scrub_position_ms, volume_icon_state,
     },
     theme,
     ui::{self, IconButtonVariant},
@@ -180,34 +180,28 @@ impl PlaybackRow {
         self.snapshot.device_message.clone()
     }
 
-    pub(super) fn exclusive_mode_is_automatic(&self) -> bool {
-        self.snapshot.exclusive_mode_automatic
+    pub(super) fn output_mode_is_automatic(&self) -> bool {
+        self.snapshot.output_mode_automatic
     }
 
-    pub(super) fn toggle_exclusive_mode(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn set_output_mode(&mut self, mode: StoredOutputMode, cx: &mut Context<Self>) {
         let Some(active_device) = self.snapshot.active_device.clone() else {
             return;
         };
         self.send(
-            PlaybackAction::ToggleDeviceExclusiveMode {
+            PlaybackAction::SetDeviceOutputMode {
                 device_uid: active_device.uid,
-                default: self.snapshot.default_exclusive_mode,
+                mode,
             },
             cx,
         );
     }
 
-    pub(super) fn reset_exclusive_mode_to_auto(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn reset_output_mode_to_auto(&mut self, cx: &mut Context<Self>) {
         let Some(active_device) = self.snapshot.active_device.clone() else {
             return;
         };
-        self.send(
-            PlaybackAction::ResetDeviceExclusiveMode {
-                device_uid: active_device.uid,
-                default: self.snapshot.default_exclusive_mode,
-            },
-            cx,
-        );
+        self.send(PlaybackAction::ResetDeviceOutputMode(active_device.uid), cx);
     }
 
     pub(super) fn select_output_device(
@@ -623,7 +617,7 @@ impl PlaybackRow {
             (Some(format), Some(device)) => format_output_device(
                 format.sample_rate,
                 &device.name,
-                self.snapshot.playback_exclusive_mode,
+                self.snapshot.playback_output_mode,
             ),
             (_, Some(device)) => device.name.clone(),
             (_, None) => "No output selected".to_string(),

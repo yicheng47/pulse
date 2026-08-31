@@ -71,13 +71,22 @@ pub(crate) fn format_time(milliseconds: u64) -> String {
 pub(crate) fn format_output_device(
     sample_rate: u32,
     device_name: &str,
-    exclusive_mode: bool,
+    mode: StoredOutputMode,
 ) -> String {
     let sample_rate = format_sample_rate(sample_rate);
-    if exclusive_mode {
-        format!("{sample_rate} · {device_name}")
-    } else {
-        format!("{sample_rate} source · {device_name}")
+    match mode {
+        StoredOutputMode::Shared => format!("{sample_rate} source · {device_name}"),
+        StoredOutputMode::Exclusive | StoredOutputMode::BitPerfect => {
+            format!("{sample_rate} · {device_name}")
+        }
+    }
+}
+
+pub(crate) fn output_mode_meta(mode: StoredOutputMode) -> &'static str {
+    match mode {
+        StoredOutputMode::Shared => "CoreAudio · Shared",
+        StoredOutputMode::Exclusive => "CoreAudio · Exclusive",
+        StoredOutputMode::BitPerfect => "CoreAudio · Bit-perfect",
     }
 }
 
@@ -147,25 +156,68 @@ pub(crate) fn format_device_capabilities(capabilities: device::OutputDeviceCapab
     )
 }
 
-pub(crate) fn default_exclusive_mode(
+pub(crate) fn automatic_output_mode(
     capabilities: &Result<device::OutputDeviceCapabilities, EngineError>,
-) -> bool {
-    capabilities
-        .as_ref()
-        .is_ok_and(|capabilities| capabilities.max_bits_per_channel.is_some())
+) -> StoredOutputMode {
+    match capabilities {
+        Ok(capabilities)
+            if capabilities.max_bits_per_channel.is_some()
+                && capabilities.transport.supports_bit_perfect() =>
+        {
+            StoredOutputMode::BitPerfect
+        }
+        Ok(capabilities) if capabilities.max_bits_per_channel.is_some() => {
+            StoredOutputMode::Exclusive
+        }
+        Ok(_) | Err(_) => StoredOutputMode::Shared,
+    }
+}
+
+pub(crate) fn automatic_stored_output_mode(
+    capabilities: Option<StoredDeviceCapabilities>,
+) -> StoredOutputMode {
+    match capabilities {
+        Some(capabilities) if capabilities.supports_bit_perfect() => StoredOutputMode::BitPerfect,
+        Some(capabilities) if capabilities.max_bits_per_channel.is_some() => {
+            StoredOutputMode::Exclusive
+        }
+        Some(_) | None => StoredOutputMode::Shared,
+    }
+}
+
+pub(crate) fn engine_kind_for_output_mode(mode: StoredOutputMode) -> EngineKind {
+    match mode {
+        StoredOutputMode::Shared => EngineKind::Universal {
+            exclusive_mode: false,
+        },
+        StoredOutputMode::Exclusive => EngineKind::Universal {
+            exclusive_mode: true,
+        },
+        StoredOutputMode::BitPerfect => EngineKind::BitPerfect,
+    }
+}
+
+pub(crate) fn output_mode_for_engine_kind(kind: EngineKind) -> StoredOutputMode {
+    match kind {
+        EngineKind::Universal {
+            exclusive_mode: false,
+        } => StoredOutputMode::Shared,
+        EngineKind::Universal {
+            exclusive_mode: true,
+        } => StoredOutputMode::Exclusive,
+        EngineKind::BitPerfect => StoredOutputMode::BitPerfect,
+    }
 }
 
 pub(crate) fn merge_managed_devices(
     connected_devices: &[device::Device],
     active_device_uid: Option<&str>,
     saved_output_device_uid: Option<&str>,
-    preferences: &ExclusiveModePreferences,
+    preferences: &OutputModePreferences,
 ) -> ManagedDeviceGroups {
     let mut merged = BTreeMap::new();
     for (uid, stored) in preferences.devices() {
-        let default_exclusive_mode = stored
-            .capabilities
-            .is_some_and(|capabilities| capabilities.max_bits_per_channel.is_some());
+        let automatic_mode = automatic_stored_output_mode(stored.capabilities);
         merged.insert(
             uid.to_string(),
             ManagedDevice {
@@ -176,9 +228,11 @@ pub(crate) fn merge_managed_devices(
                 connected: false,
                 active: false,
                 saved_default: saved_output_device_uid == Some(uid),
-                default_exclusive_mode,
-                exclusive_mode: preferences.effective_mode(uid, default_exclusive_mode),
-                automatic: stored.exclusive_mode_override().is_none(),
+                output_mode: preferences.effective_mode(uid, automatic_mode),
+                automatic: stored.mode.is_none(),
+                bit_perfect_available: stored
+                    .capabilities
+                    .is_some_and(StoredDeviceCapabilities::supports_bit_perfect),
             },
         );
     }
@@ -193,9 +247,9 @@ pub(crate) fn merge_managed_devices(
                 connected: true,
                 active: false,
                 saved_default: saved_output_device_uid == Some(connected.uid.as_str()),
-                default_exclusive_mode: false,
-                exclusive_mode: preferences.effective_mode(&connected.uid, false),
-                automatic: !preferences.is_overridden(&connected.uid),
+                output_mode: preferences.effective_mode(&connected.uid, StoredOutputMode::Shared),
+                automatic: !preferences.is_pinned(&connected.uid),
+                bit_perfect_available: false,
             });
         managed.name = connected.name.clone();
         managed.connected = true;
@@ -230,6 +284,34 @@ pub(crate) fn stored_device_capabilities(
     StoredDeviceCapabilities {
         max_bits_per_channel: capabilities.max_bits_per_channel,
         max_sample_rate: capabilities.max_sample_rate.round() as u32,
+        transport: Some(stored_device_transport(capabilities.transport)),
+    }
+}
+
+pub(crate) fn capabilities_for_sighting(
+    stored: Option<StoredDeviceCapabilities>,
+    probe: impl FnOnce() -> Result<device::OutputDeviceCapabilities, EngineError>,
+) -> Option<StoredDeviceCapabilities> {
+    stored.or_else(|| probe().ok().map(stored_device_capabilities))
+}
+
+fn stored_device_transport(transport: device::DeviceTransport) -> StoredDeviceTransport {
+    match transport {
+        device::DeviceTransport::Unknown => StoredDeviceTransport::Unknown,
+        device::DeviceTransport::BuiltIn => StoredDeviceTransport::BuiltIn,
+        device::DeviceTransport::Aggregate => StoredDeviceTransport::Aggregate,
+        device::DeviceTransport::Virtual => StoredDeviceTransport::Virtual,
+        device::DeviceTransport::Pci => StoredDeviceTransport::Pci,
+        device::DeviceTransport::Usb => StoredDeviceTransport::Usb,
+        device::DeviceTransport::FireWire => StoredDeviceTransport::FireWire,
+        device::DeviceTransport::Bluetooth => StoredDeviceTransport::Bluetooth,
+        device::DeviceTransport::BluetoothLe => StoredDeviceTransport::BluetoothLe,
+        device::DeviceTransport::Hdmi => StoredDeviceTransport::Hdmi,
+        device::DeviceTransport::DisplayPort => StoredDeviceTransport::DisplayPort,
+        device::DeviceTransport::AirPlay => StoredDeviceTransport::AirPlay,
+        device::DeviceTransport::Avb => StoredDeviceTransport::Avb,
+        device::DeviceTransport::Thunderbolt => StoredDeviceTransport::Thunderbolt,
+        device::DeviceTransport::Other => StoredDeviceTransport::Other,
     }
 }
 

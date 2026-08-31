@@ -1,4 +1,4 @@
-use crate::{EngineError, PcmFormat, PlayableSource, PlaybackState};
+use crate::{EngineError, EngineKind, PcmFormat, PlayableSource, PlaybackState};
 
 /// What failed, independent of the display text. Track-scoped failures let a
 /// queue skip to the next entry; device-scoped ones need output recovery.
@@ -68,7 +68,10 @@ pub enum PlaybackEvent {
     },
     OutputDeviceChanged {
         device_id: crate::device::DeviceId,
-        exclusive_mode: bool,
+        kind: EngineKind,
+    },
+    BitPerfectStateChanged {
+        active: bool,
     },
     ExclusiveModeFallback {
         device_id: crate::device::DeviceId,

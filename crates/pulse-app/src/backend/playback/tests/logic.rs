@@ -41,14 +41,15 @@ fn legacy_disabled_marker_becomes_one_active_device_override() {
     assert!(
         playback
             .settings
-            .exclusive_mode_preferences
-            .is_overridden("airpods")
+            .output_mode_preferences
+            .is_pinned("airpods")
     );
-    assert!(
-        !playback
+    assert_eq!(
+        playback
             .settings
-            .exclusive_mode_preferences
-            .effective_mode("airpods", true)
+            .output_mode_preferences
+            .effective_mode("airpods", StoredOutputMode::BitPerfect),
+        StoredOutputMode::Shared
     );
     assert_eq!(
         AppSettings::load(&path)
@@ -65,18 +66,16 @@ fn forgetting_a_saved_device_updates_both_json_fields_atomically() {
     let mut playback = Playback::initial();
     playback.settings_path = path.clone();
     playback.settings.saved_output_device_uid = Some("matrix".to_string());
-    playback
-        .settings
-        .exclusive_mode_preferences
-        .record_sighting(
-            "matrix",
-            "mini-i Series",
-            Some(StoredDeviceCapabilities {
-                max_bits_per_channel: Some(24),
-                max_sample_rate: 192_000,
-            }),
-            100,
-        );
+    playback.settings.output_mode_preferences.record_sighting(
+        "matrix",
+        "mini-i Series",
+        Some(StoredDeviceCapabilities {
+            max_bits_per_channel: Some(24),
+            max_sample_rate: 192_000,
+            transport: Some(StoredDeviceTransport::Usb),
+        }),
+        100,
+    );
 
     assert!(playback.forget_device_settings("matrix").unwrap());
 
@@ -84,7 +83,7 @@ fn forgetting_a_saved_device_updates_both_json_fields_atomically() {
     assert_eq!(saved.saved_output_device_uid, None);
     assert!(
         !saved
-            .exclusive_mode_preferences
+            .output_mode_preferences
             .devices()
             .any(|(uid, _)| uid == "matrix")
     );
@@ -100,8 +99,8 @@ fn combined_volume_update_preserves_unrelated_settings_fields() {
     playback.settings.legacy_exclusive_mode_disabled = Some(true);
     playback
         .settings
-        .exclusive_mode_preferences
-        .set_override("matrix", false);
+        .output_mode_preferences
+        .set_mode("matrix", StoredOutputMode::Shared);
 
     playback
         .update_settings(|settings| {
@@ -112,10 +111,11 @@ fn combined_volume_update_preserves_unrelated_settings_fields() {
 
     let loaded = AppSettings::load(&path).unwrap();
     assert_eq!(loaded.saved_output_device_uid.as_deref(), Some("matrix"));
-    assert!(
-        !loaded
-            .exclusive_mode_preferences
-            .effective_mode("matrix", true)
+    assert_eq!(
+        loaded
+            .output_mode_preferences
+            .effective_mode("matrix", StoredOutputMode::BitPerfect),
+        StoredOutputMode::Shared
     );
     assert_eq!(loaded.legacy_exclusive_mode_disabled, Some(true));
     assert_eq!(loaded.volume_level, 0.25);
@@ -123,25 +123,24 @@ fn combined_volume_update_preserves_unrelated_settings_fields() {
 }
 
 #[test]
-fn explicit_exclusive_mode_write_clears_pending_legacy_intent() {
+fn explicit_output_mode_write_clears_pending_legacy_intent() {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("settings.json");
     let mut playback = Playback::initial();
     playback.settings_path = path.clone();
     playback.settings.legacy_exclusive_mode_disabled = Some(true);
-    let mut exclusive_modes = ExclusiveModePreferences::default();
-    exclusive_modes.set_override("matrix", true);
+    let mut output_modes = OutputModePreferences::default();
+    output_modes.set_mode("matrix", StoredOutputMode::Exclusive);
 
-    playback
-        .set_exclusive_mode_preferences(exclusive_modes)
-        .unwrap();
+    playback.set_output_mode_preferences(output_modes).unwrap();
 
     let loaded = AppSettings::load(&path).unwrap();
     assert_eq!(loaded.legacy_exclusive_mode_disabled, None);
-    assert!(
+    assert_eq!(
         loaded
-            .exclusive_mode_preferences
-            .effective_mode("matrix", false)
+            .output_mode_preferences
+            .effective_mode("matrix", StoredOutputMode::Shared),
+        StoredOutputMode::Exclusive
     );
 }
 
@@ -252,12 +251,63 @@ fn formats_reported_pcm_without_inventing_codec_details() {
 #[test]
 fn shared_output_labels_the_track_rate_as_source_metadata() {
     assert_eq!(
-        format_output_device(44_100, "AirPods Pro", false),
+        format_output_device(44_100, "AirPods Pro", StoredOutputMode::Shared),
         "44.1 kHz source · AirPods Pro"
     );
     assert_eq!(
-        format_output_device(44_100, "mini-i Series", true),
+        format_output_device(44_100, "mini-i Series", StoredOutputMode::Exclusive),
         "44.1 kHz · mini-i Series"
+    );
+    assert_eq!(
+        output_mode_meta(StoredOutputMode::Shared),
+        "CoreAudio · Shared"
+    );
+    assert_eq!(
+        output_mode_meta(StoredOutputMode::Exclusive),
+        "CoreAudio · Exclusive"
+    );
+    assert_eq!(
+        output_mode_meta(StoredOutputMode::BitPerfect),
+        "CoreAudio · Bit-perfect"
+    );
+}
+
+#[test]
+fn every_resolved_output_mode_maps_to_one_controller_kind() {
+    assert_eq!(
+        engine_kind_for_output_mode(StoredOutputMode::Shared),
+        EngineKind::Universal {
+            exclusive_mode: false,
+        }
+    );
+    assert_eq!(
+        engine_kind_for_output_mode(StoredOutputMode::Exclusive),
+        EngineKind::Universal {
+            exclusive_mode: true,
+        }
+    );
+    assert_eq!(
+        engine_kind_for_output_mode(StoredOutputMode::BitPerfect),
+        EngineKind::BitPerfect
+    );
+}
+
+#[test]
+fn a_missing_stored_transport_runs_the_capability_probe() {
+    let mut probe_called = false;
+    let capabilities = capabilities_for_sighting(None, || {
+        probe_called = true;
+        Ok(device::OutputDeviceCapabilities {
+            max_bits_per_channel: Some(24),
+            max_sample_rate: 192_000.0,
+            transport: device::DeviceTransport::Usb,
+        })
+    });
+
+    assert!(probe_called);
+    assert_eq!(
+        capabilities.unwrap().transport,
+        Some(StoredDeviceTransport::Usb)
     );
 }
 
@@ -276,13 +326,14 @@ fn resolves_saved_output_by_uid_and_falls_back_silently() {
 
 #[test]
 fn managed_devices_merge_connected_and_stored_rows_without_duplicates() {
-    let mut preferences = app_settings::ExclusiveModePreferences::default();
+    let mut preferences = app_settings::OutputModePreferences::default();
     preferences.record_sighting(
         "matrix",
         "mini-i Series",
         Some(app_settings::StoredDeviceCapabilities {
             max_bits_per_channel: Some(24),
             max_sample_rate: 192_000,
+            transport: Some(StoredDeviceTransport::Usb),
         }),
         100,
     );
@@ -292,6 +343,7 @@ fn managed_devices_merge_connected_and_stored_rows_without_duplicates() {
         Some(app_settings::StoredDeviceCapabilities {
             max_bits_per_channel: None,
             max_sample_rate: 48_000,
+            transport: Some(StoredDeviceTransport::Bluetooth),
         }),
         90,
     );
@@ -315,21 +367,25 @@ fn managed_devices_merge_connected_and_stored_rows_without_duplicates() {
 }
 
 #[test]
-fn managed_device_group_moves_keep_the_stored_override() {
-    let mut preferences = app_settings::ExclusiveModePreferences::default();
+fn managed_device_group_moves_keep_the_stored_pin() {
+    let mut preferences = app_settings::OutputModePreferences::default();
     preferences.record_sighting(
         "matrix",
         "mini-i Series",
         Some(app_settings::StoredDeviceCapabilities {
             max_bits_per_channel: Some(24),
             max_sample_rate: 192_000,
+            transport: Some(StoredDeviceTransport::Usb),
         }),
         100,
     );
-    preferences.set_override("matrix", false);
+    preferences.set_mode("matrix", StoredOutputMode::Shared);
 
     let disconnected = merge_managed_devices(&[], None, None, &preferences);
-    assert!(!disconnected.not_connected[0].exclusive_mode);
+    assert_eq!(
+        disconnected.not_connected[0].output_mode,
+        StoredOutputMode::Shared
+    );
     assert!(!disconnected.not_connected[0].automatic);
 
     let connected = merge_managed_devices(
@@ -338,14 +394,14 @@ fn managed_device_group_moves_keep_the_stored_override() {
         None,
         &preferences,
     );
-    assert!(!connected.connected[0].exclusive_mode);
+    assert_eq!(connected.connected[0].output_mode, StoredOutputMode::Shared);
     assert!(!connected.connected[0].automatic);
-    assert!(preferences.is_overridden("matrix"));
+    assert!(preferences.is_pinned("matrix"));
 }
 
 #[test]
 fn managed_device_groups_sort_active_first_then_alphabetically() {
-    let mut preferences = app_settings::ExclusiveModePreferences::default();
+    let mut preferences = app_settings::OutputModePreferences::default();
     for (uid, name) in [
         ("delta", "Delta"),
         ("charlie", "charlie"),

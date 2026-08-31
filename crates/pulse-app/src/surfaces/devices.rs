@@ -7,7 +7,10 @@ use gpui::{
 
 use crate::{
     app_store::{AppStore, StoreRevisions, global_app_store},
-    backend::{ManagedDevice, PlaybackAction, format_stored_device_capabilities},
+    backend::{
+        ManagedDevice, PlaybackAction, StoredDeviceTransport, StoredOutputMode,
+        format_stored_device_capabilities,
+    },
     surfaces::devices_logic::{device_class, format_last_seen},
     theme,
     ui::{self, Scrollbar},
@@ -106,10 +109,12 @@ impl DeviceManagementPage {
         } else {
             theme::text_muted()
         };
-        let icon = if device
-            .capabilities
-            .is_some_and(|capabilities| capabilities.max_bits_per_channel.is_none())
-        {
+        let icon = if device.capabilities.is_some_and(|capabilities| {
+            matches!(
+                capabilities.transport,
+                Some(StoredDeviceTransport::Bluetooth | StoredDeviceTransport::BluetoothLe)
+            )
+        }) {
             "icons/bluetooth.svg"
         } else {
             "icons/speaker.svg"
@@ -189,10 +194,74 @@ impl DeviceManagementPage {
 
         let reset_store = self.app_store.clone();
         let reset_uid = device.uid.clone();
-        let reset_default = device.default_exclusive_mode;
-        let toggle_store = self.app_store.clone();
-        let toggle_uid = device.uid.clone();
-        let toggle_default = device.default_exclusive_mode;
+        let shared_store = self.app_store.clone();
+        let shared_uid = device.uid.clone();
+        let exclusive_store = self.app_store.clone();
+        let exclusive_uid = device.uid.clone();
+        let bit_perfect_store = self.app_store.clone();
+        let bit_perfect_uid = device.uid.clone();
+        let shared = ui::output_mode_segment(
+            ("device-mode-shared", index),
+            "Shared",
+            device.output_mode == StoredOutputMode::Shared,
+            false,
+            false,
+        )
+        .on_click(move |_, _, cx| {
+            shared_store.update(cx, |store, store_cx| {
+                store.send_command(
+                    PlaybackAction::SetDeviceOutputMode {
+                        device_uid: shared_uid.clone(),
+                        mode: StoredOutputMode::Shared,
+                    },
+                    store_cx,
+                );
+            });
+        })
+        .into_any_element();
+        let exclusive = ui::output_mode_segment(
+            ("device-mode-exclusive", index),
+            "Exclusive",
+            device.output_mode == StoredOutputMode::Exclusive,
+            false,
+            false,
+        )
+        .on_click(move |_, _, cx| {
+            exclusive_store.update(cx, |store, store_cx| {
+                store.send_command(
+                    PlaybackAction::SetDeviceOutputMode {
+                        device_uid: exclusive_uid.clone(),
+                        mode: StoredOutputMode::Exclusive,
+                    },
+                    store_cx,
+                );
+            });
+        })
+        .into_any_element();
+        let bit_perfect = ui::output_mode_segment(
+            ("device-mode-bit-perfect", index),
+            "Bit-perfect",
+            device.output_mode == StoredOutputMode::BitPerfect,
+            true,
+            !device.bit_perfect_available,
+        );
+        let bit_perfect = if device.bit_perfect_available {
+            bit_perfect
+                .on_click(move |_, _, cx| {
+                    bit_perfect_store.update(cx, |store, store_cx| {
+                        store.send_command(
+                            PlaybackAction::SetDeviceOutputMode {
+                                device_uid: bit_perfect_uid.clone(),
+                                mode: StoredOutputMode::BitPerfect,
+                            },
+                            store_cx,
+                        );
+                    });
+                })
+                .into_any_element()
+        } else {
+            bit_perfect.into_any_element()
+        };
         div()
             .id(("managed-device", index))
             .flex()
@@ -230,34 +299,21 @@ impl DeviceManagementPage {
                     .h(gpui::px(1.)) // physical
                     .bg(theme::border()),
             )
-            .child(ui::exclusive_mode_control(
+            .child(ui::output_mode_control(
+                "Output mode",
                 device.automatic,
-                ui::exclusive_mode_reset_link(("device-mode-reset", index))
+                device.bit_perfect_available,
+                ui::output_mode_reset_link(("device-mode-reset", index))
                     .on_click(move |_, _, cx| {
                         reset_store.update(cx, |store, store_cx| {
                             store.send_command(
-                                PlaybackAction::ResetDeviceExclusiveMode {
-                                    device_uid: reset_uid.clone(),
-                                    default: reset_default,
-                                },
+                                PlaybackAction::ResetDeviceOutputMode(reset_uid.clone()),
                                 store_cx,
                             );
                         });
                     })
                     .into_any_element(),
-                ui::Toggle::new(("device-mode-toggle", index), device.exclusive_mode)
-                    .on_click(move |_, _, cx| {
-                        toggle_store.update(cx, |store, store_cx| {
-                            store.send_command(
-                                PlaybackAction::ToggleDeviceExclusiveMode {
-                                    device_uid: toggle_uid.clone(),
-                                    default: toggle_default,
-                                },
-                                store_cx,
-                            );
-                        });
-                    })
-                    .into_any_element(),
+                ui::output_mode_segments(shared, exclusive, bit_perfect).into_any_element(),
             ))
             .into_any_element()
     }
@@ -285,7 +341,7 @@ impl DeviceManagementPage {
                     .line_height(rpx(18.))
                     .text_color(theme::text_secondary())
                     .child(
-                        "This removes the saved device details and exclusive-mode setting. If it reconnects, Pulse will probe it again and return it to Auto.",
+                        "This removes the saved device details and output-mode setting. If it reconnects, Pulse will probe it again and return it to Auto.",
                     ),
             );
         ui::ConfirmDialog::new("forget-device-dialog", "Forget Device", body)
@@ -365,7 +421,7 @@ impl Render for DeviceManagementPage {
                             .font_family(theme::FONT_SANS)
                             .text_size(theme::text::BODY_LARGE)
                             .text_color(theme::text_secondary())
-                            .child("Every output Pulse knows — settings stick to each device whether it’s connected or not. Exclusive mode follows the device’s Auto default until you pin it."),
+                            .child("Every output Pulse knows — settings stick to each device whether it’s connected or not. Output mode follows the device’s Auto default until you pin it."),
                     ),
             );
         for (message, is_error) in messages {

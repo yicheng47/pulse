@@ -10,8 +10,8 @@ use pulse_engine::device;
 
 use crate::{
     backend::{
-        TrackRef, displayed_volume_level, format_device_capabilities, format_queue_meta,
-        format_queue_time, format_volume_percent,
+        StoredOutputMode, TrackRef, displayed_volume_level, format_device_capabilities,
+        format_queue_meta, format_queue_time, format_volume_percent, output_mode_meta,
     },
     surfaces::PlaybackRow,
     theme, ui,
@@ -148,6 +148,51 @@ impl PlaybackRow {
             .device_capabilities
             .map(format_device_capabilities)
             .unwrap_or_else(|| "Capabilities unavailable".to_string());
+        let bit_perfect_available = self
+            .snapshot
+            .device_capabilities
+            .is_some_and(|capabilities| {
+                capabilities.max_bits_per_channel.is_some()
+                    && capabilities.transport.supports_bit_perfect()
+            });
+        let shared = ui::output_mode_segment(
+            "output-mode-shared",
+            "Shared",
+            self.snapshot.output_mode == StoredOutputMode::Shared,
+            false,
+            false,
+        )
+        .on_click(cx.listener(|this, _, _, cx| {
+            this.set_output_mode(StoredOutputMode::Shared, cx);
+        }))
+        .into_any_element();
+        let exclusive = ui::output_mode_segment(
+            "output-mode-exclusive",
+            "Exclusive",
+            self.snapshot.output_mode == StoredOutputMode::Exclusive,
+            false,
+            false,
+        )
+        .on_click(cx.listener(|this, _, _, cx| {
+            this.set_output_mode(StoredOutputMode::Exclusive, cx);
+        }))
+        .into_any_element();
+        let bit_perfect = ui::output_mode_segment(
+            "output-mode-bit-perfect",
+            "Bit-perfect",
+            self.snapshot.output_mode == StoredOutputMode::BitPerfect,
+            true,
+            !bit_perfect_available,
+        );
+        let bit_perfect = if bit_perfect_available {
+            bit_perfect
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.set_output_mode(StoredOutputMode::BitPerfect, cx);
+                }))
+                .into_any_element()
+        } else {
+            bit_perfect.into_any_element()
+        };
         let mut direct_devices = div().flex().flex_col().gap(rpx(2.)).w_full();
         for (index, output_device) in self.snapshot.devices.iter().cloned().enumerate() {
             direct_devices =
@@ -246,11 +291,9 @@ impl PlaybackRow {
                                             .text_color(theme::text_secondary())
                                             .overflow_hidden()
                                             .whitespace_nowrap()
-                                            .child(if self.snapshot.playback_exclusive_mode {
-                                                "CoreAudio · Exclusive during playback"
-                                            } else {
-                                                "CoreAudio · Shared playback"
-                                            }),
+                                            .child(output_mode_meta(
+                                                self.snapshot.playback_output_mode,
+                                            )),
                                     )
                                     .child(
                                         div()
@@ -288,17 +331,16 @@ impl PlaybackRow {
                                 .my(rpx(10.))
                                 .bg(theme::border()),
                         )
-                        .child(ui::exclusive_mode_control(
-                            self.exclusive_mode_is_automatic(),
-                            ui::exclusive_mode_reset_link("exclusive-mode-reset-auto")
+                        .child(ui::output_mode_control(
+                            "Mode",
+                            self.output_mode_is_automatic(),
+                            bit_perfect_available,
+                            ui::output_mode_reset_link("output-mode-reset-auto")
                                 .on_click(cx.listener(|this, _, _, cx| {
-                                    this.reset_exclusive_mode_to_auto(cx);
+                                    this.reset_output_mode_to_auto(cx);
                                 }))
                                 .into_any_element(),
-                            ui::Toggle::new("exclusive-mode-toggle", self.snapshot.exclusive_mode)
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.toggle_exclusive_mode(cx);
-                                }))
+                            ui::output_mode_segments(shared, exclusive, bit_perfect)
                                 .into_any_element(),
                         ))
                     }),

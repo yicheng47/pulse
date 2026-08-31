@@ -1,11 +1,26 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::backend::ManagedDevice;
+use crate::backend::{ManagedDevice, StoredDeviceTransport};
 
 pub(super) fn device_class(device: &ManagedDevice) -> &'static str {
-    match device.capabilities {
-        Some(capabilities) if capabilities.max_bits_per_channel.is_some() => "DAC",
-        Some(_) => "Bluetooth",
+    match device
+        .capabilities
+        .and_then(|capabilities| capabilities.transport)
+    {
+        Some(StoredDeviceTransport::Bluetooth | StoredDeviceTransport::BluetoothLe) => "Bluetooth",
+        Some(StoredDeviceTransport::Hdmi | StoredDeviceTransport::DisplayPort) => "Display audio",
+        Some(StoredDeviceTransport::Usb) => "DAC",
+        Some(StoredDeviceTransport::BuiltIn) => "Built-in audio",
+        Some(StoredDeviceTransport::AirPlay | StoredDeviceTransport::Avb) => "Network audio",
+        Some(StoredDeviceTransport::Virtual | StoredDeviceTransport::Aggregate) => "Virtual audio",
+        Some(_)
+            if device
+                .capabilities
+                .is_some_and(|capabilities| capabilities.max_bits_per_channel.is_some()) =>
+        {
+            "DAC"
+        }
+        Some(_) => "Audio device",
         None => "Unknown",
     }
 }

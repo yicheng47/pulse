@@ -21,8 +21,8 @@ pub(crate) use scrollbar::{ScrollbarMetrics, scrollbar_metrics};
 pub(crate) use settings::{SettingsCard, SettingsRow};
 pub(crate) use sidebar::{SIDEBAR_SLOT_WIDTH, SidebarIsland, SidebarItem, SidebarSection};
 pub(crate) use surfaces::{
-    Badge, BadgeSize, exclusive_mode_control, exclusive_mode_reset_link, input_caret, pill,
-    playing_row_bar, playing_row_glow,
+    Badge, BadgeSize, input_caret, output_mode_control, output_mode_reset_link,
+    output_mode_segment, output_mode_segments, pill, playing_row_bar, playing_row_glow,
 };
 pub(crate) use toggle::Toggle;
 pub(crate) use tooltip::Tooltip;

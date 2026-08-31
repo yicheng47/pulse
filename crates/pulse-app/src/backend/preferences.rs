@@ -5,8 +5,8 @@ use std::{
 };
 
 use super::settings::{
-    AppSettings, ExclusiveModePreferences, StoredDeviceCapabilities, StoredDevicePreferences,
-    settings_path,
+    AppSettings, OutputModePreferences, StoredDeviceCapabilities, StoredDevicePreferences,
+    StoredOutputMode, settings_path,
 };
 
 const APP_DIRECTORY_NAME: &str = if cfg!(debug_assertions) {
@@ -54,8 +54,8 @@ pub(crate) fn load_or_migrate_app_settings_from(
     let path = settings_path(app_data_dir);
     let legacy_paths = LegacyPreferencePaths::new(legacy_config_dir);
     if path_exists(&path)? {
-        let settings = AppSettings::load(&path)?;
-        if !path_exists(&path)? {
+        let (settings, migrated) = AppSettings::load_with_migration_status(&path)?;
+        if migrated || !path_exists(&path)? {
             settings.save(&path)?;
         }
         return Ok(settings);
@@ -111,17 +111,17 @@ fn migrate_legacy_preferences(
         LegacyText::Contents(contents) => parse_output_device_uid(&contents),
         LegacyText::Missing | LegacyText::Corrupt => None,
     };
-    let (exclusive_mode_preferences, had_exclusive_modes) =
+    let (output_mode_preferences, had_exclusive_modes) =
         match read_legacy_text(&paths.exclusive_modes)? {
             LegacyText::Contents(contents) => match parse_exclusive_mode_preferences(&contents) {
                 Ok(preferences) => (preferences, true),
                 Err(error) => {
                     archive_corrupt_legacy_file(&paths.exclusive_modes, &error)?;
-                    (ExclusiveModePreferences::default(), true)
+                    (OutputModePreferences::default(), true)
                 }
             },
-            LegacyText::Corrupt => (ExclusiveModePreferences::default(), true),
-            LegacyText::Missing => (ExclusiveModePreferences::default(), false),
+            LegacyText::Corrupt => (OutputModePreferences::default(), true),
+            LegacyText::Missing => (OutputModePreferences::default(), false),
         };
     let legacy_exclusive_mode_disabled = if had_exclusive_modes {
         None
@@ -144,7 +144,7 @@ fn migrate_legacy_preferences(
 
     Ok(AppSettings {
         saved_output_device_uid,
-        exclusive_mode_preferences,
+        output_mode_preferences,
         legacy_exclusive_mode_disabled,
         volume_level,
         volume_muted,
@@ -215,7 +215,7 @@ fn path_exists(path: &Path) -> io::Result<bool> {
     }
 }
 
-fn parse_exclusive_mode_preferences(contents: &str) -> io::Result<ExclusiveModePreferences> {
+fn parse_exclusive_mode_preferences(contents: &str) -> io::Result<OutputModePreferences> {
     let mut lines = contents.lines();
     let version = lines.next();
     if version == Some(LEGACY_EXCLUSIVE_MODES_VERSION) {
@@ -237,7 +237,7 @@ fn parse_exclusive_mode_preferences(contents: &str) -> io::Result<ExclusiveModeP
                 "invalid exclusive-mode preference entry",
             ));
         }
-        let exclusive_mode = parse_exclusive_mode(fields[0])?;
+        let mode = parse_exclusive_mode(fields[0])?;
         let uid = unescape_field(fields[1])?;
         if uid.is_empty() {
             return Err(io::Error::new(
@@ -265,17 +265,18 @@ fn parse_exclusive_mode_preferences(contents: &str) -> io::Result<ExclusiveModeP
                 name,
                 capabilities,
                 last_seen_unix_seconds,
-                exclusive_mode,
+                mode,
+                legacy_exclusive_mode: None,
             },
         );
     }
-    Ok(ExclusiveModePreferences { devices })
+    Ok(OutputModePreferences { devices })
 }
 
 fn parse_legacy_exclusive_mode_preferences<'a>(
     lines: impl Iterator<Item = &'a str>,
-) -> io::Result<ExclusiveModePreferences> {
-    let mut preferences = ExclusiveModePreferences::default();
+) -> io::Result<OutputModePreferences> {
+    let mut preferences = OutputModePreferences::default();
     for line in lines {
         let (mode, uid) = line.split_once('\t').ok_or_else(|| {
             io::Error::new(
@@ -289,22 +290,22 @@ fn parse_legacy_exclusive_mode_preferences<'a>(
                 "exclusive-mode device UID is empty",
             ));
         }
-        let Some(enabled) = parse_exclusive_mode(mode)? else {
+        let Some(mode) = parse_exclusive_mode(mode)? else {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "legacy exclusive-mode preference cannot be automatic",
             ));
         };
-        preferences.set_override(uid, enabled);
+        preferences.set_mode(uid, mode);
     }
     Ok(preferences)
 }
 
-fn parse_exclusive_mode(mode: &str) -> io::Result<Option<bool>> {
+fn parse_exclusive_mode(mode: &str) -> io::Result<Option<StoredOutputMode>> {
     match mode {
         "auto" => Ok(None),
-        "exclusive" => Ok(Some(true)),
-        "shared" => Ok(Some(false)),
+        "exclusive" => Ok(Some(StoredOutputMode::Exclusive)),
+        "shared" => Ok(Some(StoredOutputMode::Shared)),
         _ => Err(io::Error::new(
             io::ErrorKind::InvalidData,
             "invalid exclusive-mode preference value",
@@ -340,6 +341,7 @@ fn parse_stored_capabilities(
     Ok(Some(StoredDeviceCapabilities {
         max_bits_per_channel,
         max_sample_rate,
+        transport: None,
     }))
 }
 
@@ -435,13 +437,14 @@ mod tests {
         assert_eq!(migrated.saved_output_device_uid.as_deref(), Some("matrix"));
         assert_eq!(migrated.volume_level, 0.42);
         assert!(migrated.volume_muted);
-        assert!(
-            !migrated
-                .exclusive_mode_preferences
-                .effective_mode("matrix\\uid", true)
+        assert_eq!(
+            migrated
+                .output_mode_preferences
+                .effective_mode("matrix\\uid", StoredOutputMode::BitPerfect),
+            StoredOutputMode::Shared
         );
         let stored = migrated
-            .exclusive_mode_preferences
+            .output_mode_preferences
             .devices
             .get("matrix\\uid")
             .unwrap();
@@ -451,6 +454,7 @@ mod tests {
             Some(StoredDeviceCapabilities {
                 max_bits_per_channel: Some(24),
                 max_sample_rate: 192_000,
+                transport: None,
             })
         );
         assert_eq!(stored.last_seen_unix_seconds, Some(1_777_777_777));
@@ -500,6 +504,32 @@ mod tests {
             fs::read_to_string(legacy.join("volume.level")).unwrap(),
             "0.9"
         );
+    }
+
+    #[test]
+    fn existing_json_rewrites_legacy_exclusive_overrides_once() {
+        let root = tempfile::tempdir().unwrap();
+        let app_data = root.path().join("data");
+        let legacy = root.path().join("config");
+        fs::create_dir_all(&app_data).unwrap();
+        fs::write(
+            settings_path(&app_data),
+            r#"{"exclusiveModePreferences":{"devices":{"matrix":{"exclusiveMode":true}}}}"#,
+        )
+        .unwrap();
+
+        let loaded = load_or_migrate_app_settings_from(&app_data, &legacy).unwrap();
+
+        assert_eq!(
+            loaded
+                .output_mode_preferences
+                .effective_mode("matrix", StoredOutputMode::Shared),
+            StoredOutputMode::Exclusive
+        );
+        let contents = fs::read_to_string(settings_path(&app_data)).unwrap();
+        assert!(contents.contains("\"outputModePreferences\""));
+        assert!(contents.contains("\"mode\": \"exclusive\""));
+        assert!(!contents.contains("\"exclusiveMode\":"));
     }
 
     #[test]
@@ -562,7 +592,7 @@ mod tests {
         let migrated = load_or_migrate_app_settings_from(&app_data, &legacy).unwrap();
 
         assert_eq!(migrated.saved_output_device_uid.as_deref(), Some("matrix"));
-        assert!(migrated.exclusive_mode_preferences.devices.is_empty());
+        assert!(migrated.output_mode_preferences.devices.is_empty());
         assert_eq!(migrated.legacy_exclusive_mode_disabled, None);
         assert_eq!(migrated.volume_level, 0.42);
         assert!(settings_path(&app_data).exists());
@@ -578,8 +608,14 @@ mod tests {
             parse_exclusive_mode_preferences("version=1\nexclusive\tmatrix\nshared\tairpods\n")
                 .unwrap();
 
-        assert!(preferences.effective_mode("matrix", false));
-        assert!(!preferences.effective_mode("airpods", true));
+        assert_eq!(
+            preferences.effective_mode("matrix", StoredOutputMode::Shared),
+            StoredOutputMode::Exclusive
+        );
+        assert_eq!(
+            preferences.effective_mode("airpods", StoredOutputMode::Exclusive),
+            StoredOutputMode::Shared
+        );
         assert_eq!(preferences.devices.len(), 2);
     }
 

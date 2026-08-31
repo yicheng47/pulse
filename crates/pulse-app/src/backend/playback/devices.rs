@@ -10,18 +10,23 @@ impl Playback {
         };
         self.update_settings(|settings| {
             settings.legacy_exclusive_mode_disabled = None;
-            settings
-                .exclusive_mode_preferences
-                .set_override(active_device_uid, !disabled);
+            settings.output_mode_preferences.set_mode(
+                active_device_uid,
+                if disabled {
+                    StoredOutputMode::Shared
+                } else {
+                    StoredOutputMode::Exclusive
+                },
+            );
         })
     }
 
-    pub(super) fn set_exclusive_mode_preferences(
+    pub(super) fn set_output_mode_preferences(
         &mut self,
-        preferences: ExclusiveModePreferences,
+        preferences: OutputModePreferences,
     ) -> io::Result<bool> {
         self.update_settings(|settings| {
-            settings.exclusive_mode_preferences = preferences;
+            settings.output_mode_preferences = preferences;
             settings.legacy_exclusive_mode_disabled = None;
         })
     }
@@ -29,14 +34,14 @@ impl Playback {
     pub(super) fn forget_device_settings(&mut self, device_uid: &str) -> io::Result<bool> {
         if !self
             .settings
-            .exclusive_mode_preferences
+            .output_mode_preferences
             .devices()
             .any(|(uid, _)| uid == device_uid)
         {
             return Ok(false);
         }
         self.update_settings(|settings| {
-            settings.exclusive_mode_preferences.forget(device_uid);
+            settings.output_mode_preferences.forget(device_uid);
             if settings.saved_output_device_uid.as_deref() == Some(device_uid) {
                 settings.saved_output_device_uid = None;
             }
@@ -76,7 +81,7 @@ impl Playback {
             && let Err(error) = self.migrate_legacy_exclusive_mode(&active_device.uid)
         {
             self.device_message = Some(DeviceMessage {
-                text: format!("Could not load exclusive-mode preferences: {error}"),
+                text: format!("Could not load output-mode preferences: {error}"),
                 is_error: true,
             });
             self.device_sightings_writable = false;
@@ -85,14 +90,17 @@ impl Playback {
         self.devices = devices;
         self.refresh_devices_snapshot();
         let capabilities = device::output_device_capabilities(active_device.id);
-        self.default_exclusive_mode = default_exclusive_mode(&capabilities);
-        self.exclusive_mode = self
+        self.automatic_output_mode = automatic_output_mode(&capabilities);
+        self.output_mode = self
             .settings
-            .exclusive_mode_preferences
-            .effective_mode(&active_device.uid, self.default_exclusive_mode);
-        self.playback_exclusive_mode = self.exclusive_mode;
+            .output_mode_preferences
+            .effective_mode(&active_device.uid, self.automatic_output_mode);
+        self.playback_output_mode = self.output_mode;
         self.apply_device_capabilities_result(&active_device, capabilities);
-        self.install_controller(active_device.id, self.exclusive_mode);
+        self.install_controller(
+            active_device.id,
+            engine_kind_for_output_mode(self.output_mode),
+        );
     }
 
     pub(super) fn initialize_output(&mut self) {
@@ -151,13 +159,12 @@ impl Playback {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        let mut updated = self.settings.exclusive_mode_preferences.clone();
+        let mut updated = self.settings.output_mode_preferences.clone();
         for output_device in devices {
-            let capabilities = updated.stored_capabilities(&output_device.uid).or_else(|| {
-                device::output_device_capabilities(output_device.id)
-                    .ok()
-                    .map(stored_device_capabilities)
-            });
+            let capabilities =
+                capabilities_for_sighting(updated.stored_capabilities(&output_device.uid), || {
+                    device::output_device_capabilities(output_device.id)
+                });
             updated.record_sighting(
                 &output_device.uid,
                 &output_device.name,
@@ -165,7 +172,7 @@ impl Playback {
                 seen_at,
             );
         }
-        if let Err(error) = self.set_exclusive_mode_preferences(updated) {
+        if let Err(error) = self.set_output_mode_preferences(updated) {
             self.device_message = Some(DeviceMessage {
                 text: format!("Could not save output device details: {error}"),
                 is_error: true,
@@ -192,15 +199,17 @@ impl Playback {
                 .as_ref()
                 .map(|device| device.uid.as_str()),
             self.settings.saved_output_device_uid.as_deref(),
-            &self.settings.exclusive_mode_preferences,
+            &self.settings.output_mode_preferences,
         );
         if let Some(active) = groups.connected.iter_mut().find(|device| device.active) {
             if let Some(capabilities) = self.device_capabilities {
                 active.capabilities = Some(stored_device_capabilities(capabilities));
             }
-            active.default_exclusive_mode = self.default_exclusive_mode;
-            active.exclusive_mode = self.exclusive_mode;
-            active.automatic = self.exclusive_mode_is_automatic();
+            active.output_mode = self.output_mode;
+            active.automatic = self.output_mode_is_automatic();
+            active.bit_perfect_available = active
+                .capabilities
+                .is_some_and(StoredDeviceCapabilities::supports_bit_perfect);
         }
         groups
     }
@@ -216,64 +225,74 @@ impl Playback {
         messages
     }
 
-    pub(crate) fn exclusive_mode_is_automatic(&self) -> bool {
-        self.active_device.as_ref().is_none_or(|device| {
-            !self
-                .settings
-                .exclusive_mode_preferences
-                .is_overridden(&device.uid)
-        })
+    pub(crate) fn output_mode_is_automatic(&self) -> bool {
+        self.active_device
+            .as_ref()
+            .is_none_or(|device| !self.settings.output_mode_preferences.is_pinned(&device.uid))
     }
 
-    pub(crate) fn toggle_device_exclusive_mode(&mut self, device_uid: String, default: bool) {
-        let enabled = !self
-            .settings
-            .exclusive_mode_preferences
-            .effective_mode(&device_uid, default);
-        let mut updated_preferences = self.settings.exclusive_mode_preferences.clone();
-        updated_preferences.set_override(&device_uid, enabled);
-        if let Err(error) = self.set_exclusive_mode_preferences(updated_preferences) {
+    pub(crate) fn set_device_output_mode(&mut self, device_uid: String, mode: StoredOutputMode) {
+        let mut updated_preferences = self.settings.output_mode_preferences.clone();
+        updated_preferences.set_mode(&device_uid, mode);
+        if let Err(error) = self.set_output_mode_preferences(updated_preferences) {
             self.device_message = Some(DeviceMessage {
-                text: format!("Could not save the exclusive-mode preference: {error}"),
+                text: format!("Could not save the output-mode preference: {error}"),
                 is_error: true,
             });
 
             return;
         }
         self.device_sightings_writable = true;
-        self.apply_exclusive_mode_if_active(&device_uid, enabled);
+        self.apply_output_mode_if_active(&device_uid, mode);
     }
 
-    pub(crate) fn reset_device_exclusive_mode_to_auto(
-        &mut self,
-        device_uid: String,
-        default: bool,
-    ) {
-        let mut updated_preferences = self.settings.exclusive_mode_preferences.clone();
-        updated_preferences.clear_override(&device_uid);
-        if let Err(error) = self.set_exclusive_mode_preferences(updated_preferences) {
+    pub(crate) fn reset_device_output_mode_to_auto(&mut self, device_uid: String) {
+        let automatic_mode = self.automatic_mode_for_device(&device_uid);
+        let mut updated_preferences = self.settings.output_mode_preferences.clone();
+        updated_preferences.clear_mode(&device_uid);
+        if let Err(error) = self.set_output_mode_preferences(updated_preferences) {
             self.device_message = Some(DeviceMessage {
-                text: format!("Could not save the exclusive-mode preference: {error}"),
+                text: format!("Could not save the output-mode preference: {error}"),
                 is_error: true,
             });
 
             return;
         }
         self.device_sightings_writable = true;
-        self.apply_exclusive_mode_if_active(&device_uid, default);
+        self.apply_output_mode_if_active(&device_uid, automatic_mode);
     }
 
-    pub(crate) fn apply_exclusive_mode_if_active(&mut self, device_uid: &str, enabled: bool) {
-        if !self
+    fn automatic_mode_for_device(&self, device_uid: &str) -> StoredOutputMode {
+        if self
             .active_device
             .as_ref()
             .is_some_and(|device| device.uid == device_uid)
         {
-            return;
+            return self.automatic_output_mode;
         }
-        self.exclusive_mode = enabled;
-        self.playback_exclusive_mode = enabled;
-        self.send_command(PlaybackCommand::SetExclusiveMode { enabled });
+        automatic_stored_output_mode(
+            self.settings
+                .output_mode_preferences
+                .devices()
+                .find(|(uid, _)| *uid == device_uid)
+                .and_then(|(_, preferences)| preferences.capabilities),
+        )
+    }
+
+    pub(crate) fn apply_output_mode_if_active(&mut self, device_uid: &str, mode: StoredOutputMode) {
+        let Some(active_device) = self
+            .active_device
+            .as_ref()
+            .filter(|device| device.uid == device_uid)
+        else {
+            return;
+        };
+        let device_id = active_device.id;
+        self.output_mode = mode;
+        self.send_command(PlaybackCommand::SetOutputDevice {
+            device_id,
+            kind: engine_kind_for_output_mode(mode),
+        });
     }
 
     pub(crate) fn forget_managed_device(&mut self, device_uid: &str) -> bool {
@@ -463,30 +482,31 @@ impl Playback {
         self.device_message = None;
         self.device_capability_message = None;
         let capabilities = device::output_device_capabilities(output_device.id);
-        let default_exclusive_mode = default_exclusive_mode(&capabilities);
-        let exclusive_mode = self
+        let automatic_mode = automatic_output_mode(&capabilities);
+        let output_mode = self
             .settings
-            .exclusive_mode_preferences
-            .effective_mode(&output_device.uid, default_exclusive_mode);
+            .output_mode_preferences
+            .effective_mode(&output_device.uid, automatic_mode);
         self.pending_device_change = Some(PendingDeviceChange {
             device: output_device.clone(),
             persist,
             success_message,
             capabilities,
-            default_exclusive_mode,
-            exclusive_mode,
+            automatic_mode,
+            output_mode,
         });
 
         if self.command_tx.is_none() {
-            self.install_controller(output_device.id, exclusive_mode);
-            self.complete_output_device_change(output_device.id, exclusive_mode);
+            let kind = engine_kind_for_output_mode(output_mode);
+            self.install_controller(output_device.id, kind);
+            self.complete_output_device_change(output_device.id, kind);
             self.sync_next_source();
 
             return;
         }
         if !self.send_command(PlaybackCommand::SetOutputDevice {
             device_id: output_device.id,
-            kind: EngineKind::Universal { exclusive_mode },
+            kind: engine_kind_for_output_mode(output_mode),
         }) {
             self.pending_device_change = None;
             self.device_message = Some(DeviceMessage {

@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn only_not_connected_devices_can_be_forgotten() {
-    let mut preferences = app_settings::ExclusiveModePreferences::default();
+    let mut preferences = app_settings::OutputModePreferences::default();
     preferences.record_sighting("matrix", "mini-i Series", None, 100);
     preferences.record_sighting("airpods", "AirPods Pro", None, 100);
 
@@ -80,6 +80,7 @@ fn formats_advertised_output_capabilities_without_playback_claims() {
         format_device_capabilities(device::OutputDeviceCapabilities {
             max_bits_per_channel: Some(24),
             max_sample_rate: 192_000.0,
+            transport: device::DeviceTransport::Usb,
         }),
         "Up to 24-bit / 192 kHz"
     );
@@ -87,39 +88,53 @@ fn formats_advertised_output_capabilities_without_playback_claims() {
         format_device_capabilities(device::OutputDeviceCapabilities {
             max_bits_per_channel: None,
             max_sample_rate: 48_000.0,
+            transport: device::DeviceTransport::Bluetooth,
         }),
         "Up to 48 kHz"
     );
 }
 
 #[test]
-fn device_capabilities_choose_the_unset_exclusive_mode_default() {
-    assert!(default_exclusive_mode(&Ok(
-        device::OutputDeviceCapabilities {
+fn auto_output_mode_uses_the_transport_and_format_ladder() {
+    assert_eq!(
+        automatic_output_mode(&Ok(device::OutputDeviceCapabilities {
             max_bits_per_channel: Some(24),
             max_sample_rate: 192_000.0,
-        }
-    )));
-    assert!(!default_exclusive_mode(&Ok(
-        device::OutputDeviceCapabilities {
+            transport: device::DeviceTransport::Usb,
+        })),
+        StoredOutputMode::BitPerfect
+    );
+    assert_eq!(
+        automatic_output_mode(&Ok(device::OutputDeviceCapabilities {
+            max_bits_per_channel: Some(24),
+            max_sample_rate: 192_000.0,
+            transport: device::DeviceTransport::DisplayPort,
+        })),
+        StoredOutputMode::Exclusive
+    );
+    assert_eq!(
+        automatic_output_mode(&Ok(device::OutputDeviceCapabilities {
             max_bits_per_channel: None,
             max_sample_rate: 48_000.0,
-        }
-    )));
-    assert!(!default_exclusive_mode(&Err(
-        EngineError::NoOutputCapabilities(9)
-    )));
+            transport: device::DeviceTransport::BuiltIn,
+        })),
+        StoredOutputMode::Shared
+    );
+    assert_eq!(
+        automatic_output_mode(&Err(EngineError::NoOutputCapabilities(9))),
+        StoredOutputMode::Shared
+    );
 }
 
 #[test]
 fn exclusive_fallback_notice_names_the_device_and_marks_playback_shared() {
     let mut row = Playback::initial();
     row.active_device = Some(output_device(9, "matrix", "mini-i Series"));
-    row.playback_exclusive_mode = true;
+    row.playback_output_mode = StoredOutputMode::Exclusive;
 
     row.handle_event(PlaybackEvent::ExclusiveModeFallback { device_id: 9 });
 
-    assert!(!row.playback_exclusive_mode);
+    assert_eq!(row.playback_output_mode, StoredOutputMode::Shared);
     assert_eq!(
         row.notice,
         Some(PlaybackNotice::ExclusiveFallback {
@@ -169,11 +184,12 @@ fn applies_a_confirmed_output_device_and_its_success_message() {
             capabilities: Ok(device::OutputDeviceCapabilities {
                 max_bits_per_channel: Some(24),
                 max_sample_rate: 192_000.0,
+                transport: device::DeviceTransport::Usb,
             }),
-            default_exclusive_mode: true,
-            exclusive_mode: true,
+            automatic_mode: StoredOutputMode::BitPerfect,
+            output_mode: StoredOutputMode::BitPerfect,
         },
-        true,
+        StoredOutputMode::BitPerfect,
     );
 
     assert_eq!(applied.id, selected.id);
@@ -194,9 +210,10 @@ fn attributes_a_device_change_error_and_clears_the_pending_change() {
         capabilities: Ok(device::OutputDeviceCapabilities {
             max_bits_per_channel: Some(24),
             max_sample_rate: 192_000.0,
+            transport: device::DeviceTransport::Usb,
         }),
-        default_exclusive_mode: true,
-        exclusive_mode: true,
+        automatic_mode: StoredOutputMode::BitPerfect,
+        output_mode: StoredOutputMode::BitPerfect,
     });
 
     row.handle_event(PlaybackEvent::Error {
@@ -209,6 +226,42 @@ fn attributes_a_device_change_error_and_clears_the_pending_change() {
     assert_eq!(
         row.device_message.as_ref().unwrap().text,
         "Could not switch to mini-i Series: device hogged by pid 42"
+    );
+    assert_eq!(
+        row.notice,
+        Some(PlaybackNotice::DeviceFailure {
+            text: "Playback stopped on mini-i Series: device hogged by pid 42".to_string(),
+        })
+    );
+}
+
+#[test]
+fn bit_perfect_confirmation_is_exposed_in_the_snapshot() {
+    let mut row = Playback::initial();
+
+    row.handle_event(PlaybackEvent::BitPerfectStateChanged { active: true });
+    assert!(row.snapshot().bit_perfect_active);
+
+    row.handle_event(PlaybackEvent::BitPerfectStateChanged { active: false });
+    assert!(!row.snapshot().bit_perfect_active);
+}
+
+#[test]
+fn changing_the_active_mode_dispatches_a_resolved_output_device_command() {
+    let mut row = Playback::initial();
+    row.active_device = Some(output_device(9, "matrix", "mini-i Series"));
+    let (command_tx, command_rx) = std::sync::mpsc::channel();
+    row.command_tx = Some(command_tx);
+
+    row.apply_output_mode_if_active("matrix", StoredOutputMode::BitPerfect);
+
+    assert_eq!(row.output_mode, StoredOutputMode::BitPerfect);
+    assert_eq!(
+        command_rx.recv().unwrap(),
+        PlaybackCommand::SetOutputDevice {
+            device_id: 9,
+            kind: EngineKind::BitPerfect,
+        }
     );
 }
 

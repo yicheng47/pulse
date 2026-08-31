@@ -276,20 +276,12 @@ impl AppStore {
                 self.playback.select_output_device(output_device);
                 false
             }
-            PlaybackAction::ToggleDeviceExclusiveMode {
-                device_uid,
-                default,
-            } => {
-                self.playback
-                    .toggle_device_exclusive_mode(device_uid, default);
+            PlaybackAction::SetDeviceOutputMode { device_uid, mode } => {
+                self.playback.set_device_output_mode(device_uid, mode);
                 false
             }
-            PlaybackAction::ResetDeviceExclusiveMode {
-                device_uid,
-                default,
-            } => {
-                self.playback
-                    .reset_device_exclusive_mode_to_auto(device_uid, default);
+            PlaybackAction::ResetDeviceOutputMode(device_uid) => {
+                self.playback.reset_device_output_mode_to_auto(device_uid);
                 false
             }
             PlaybackAction::ForgetManagedDevice(device_uid) => {
@@ -419,14 +411,14 @@ impl RevisionSnapshot {
 fn devices_changed(before: &RevisionSnapshot, after: &RevisionSnapshot) -> bool {
     !Arc::ptr_eq(&before.playback.devices, &after.playback.devices)
         || before.settings.saved_output_device_uid != after.settings.saved_output_device_uid
-        || before.settings.exclusive_mode_preferences != after.settings.exclusive_mode_preferences
+        || before.settings.output_mode_preferences != after.settings.output_mode_preferences
         || before.device_messages != after.device_messages
         || active_device_row(before.playback.active_device.as_ref())
             != active_device_row(after.playback.active_device.as_ref())
         || before.playback.device_capabilities != after.playback.device_capabilities
-        || before.playback.default_exclusive_mode != after.playback.default_exclusive_mode
-        || before.playback.exclusive_mode != after.playback.exclusive_mode
-        || before.playback.exclusive_mode_automatic != after.playback.exclusive_mode_automatic
+        || before.playback.automatic_output_mode != after.playback.automatic_output_mode
+        || before.playback.output_mode != after.playback.output_mode
+        || before.playback.output_mode_automatic != after.playback.output_mode_automatic
 }
 
 fn playback_changed(before: &PlaybackSnapshot, after: &PlaybackSnapshot) -> bool {
@@ -442,10 +434,11 @@ fn playback_changed(before: &PlaybackSnapshot, after: &PlaybackSnapshot) -> bool
         active_device: before_active_device,
         device_capabilities: _before_device_capabilities,
         device_message: _before_device_message,
-        default_exclusive_mode: _before_default_exclusive_mode,
-        exclusive_mode: _before_exclusive_mode,
-        playback_exclusive_mode: before_playback_exclusive_mode,
-        exclusive_mode_automatic: _before_exclusive_mode_automatic,
+        automatic_output_mode: _before_automatic_output_mode,
+        output_mode: _before_output_mode,
+        playback_output_mode: before_playback_output_mode,
+        output_mode_automatic: _before_output_mode_automatic,
+        bit_perfect_active: before_bit_perfect_active,
         volume_level: before_volume_level,
         volume_muted: before_volume_muted,
         position_ms: before_position_ms,
@@ -467,10 +460,11 @@ fn playback_changed(before: &PlaybackSnapshot, after: &PlaybackSnapshot) -> bool
         active_device: after_active_device,
         device_capabilities: _after_device_capabilities,
         device_message: _after_device_message,
-        default_exclusive_mode: _after_default_exclusive_mode,
-        exclusive_mode: _after_exclusive_mode,
-        playback_exclusive_mode: after_playback_exclusive_mode,
-        exclusive_mode_automatic: _after_exclusive_mode_automatic,
+        automatic_output_mode: _after_automatic_output_mode,
+        output_mode: _after_output_mode,
+        playback_output_mode: after_playback_output_mode,
+        output_mode_automatic: _after_output_mode_automatic,
+        bit_perfect_active: after_bit_perfect_active,
         volume_level: after_volume_level,
         volume_muted: after_volume_muted,
         position_ms: after_position_ms,
@@ -489,7 +483,8 @@ fn playback_changed(before: &PlaybackSnapshot, after: &PlaybackSnapshot) -> bool
         || before_format != after_format
         || active_device_row(before_active_device.as_ref())
             != active_device_row(after_active_device.as_ref())
-        || before_playback_exclusive_mode != after_playback_exclusive_mode
+        || before_playback_output_mode != after_playback_output_mode
+        || before_bit_perfect_active != after_bit_perfect_active
         || before_volume_level != after_volume_level
         || before_volume_muted != after_volume_muted
         || before_position_ms != after_position_ms
