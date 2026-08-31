@@ -6,6 +6,7 @@ Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phase
 
 ## Active
 
+- [`33-dsd-over-dop.md`](33-dsd-over-dop.md) - P2. Play `.dsf`/`.dff` by DoP-packing at decode time — a container parser and bit-packer, no DSD engine; refuses (never noise) off the bit-perfect path. Gated on feature 32's DoP acceptance pass.
 - [`32-integer-engine.md`](32-integer-engine.md) - P2. Challenge milestone: a second raw-HAL integer engine, chosen per device (feature 08 pattern) (hog, mixing off, virtual = physical integer format) for a provable bit-perfect path; AUHAL stays the default. DoP test on the Matrix is the acceptance gate.
 - [`31-volume-transparency.md`](31-volume-transparency.md) - P2. Disclose which domain the volume slider drives (DAC hardware volume vs software gain) and show a transparent-path state at unity. Disclose, not restrict; wording bound by the honest claim. Successor to the disclosure half of 01.
 - [`26-metadata-enrichment.md`](26-metadata-enrichment.md) - P2. Artists identified against MusicBrainz with fanart.tv photos; opt-in Settings ▸ Metadata page owning the switch, API key, triggers (Enrich now, after scans, launch refresh, enabling, key paste) and status; `artist_metadata` keyed by mbid; unmapped stays visible. Design drafted 2026-08-30, awaiting approval.

@@ -1,6 +1,6 @@
 # Product Vision
 
-Pulse is a high-quality local music library player for macOS. It is music-only: no video playback, no video library support, no streaming integration, no DSD.
+Pulse is a high-quality local music library player for macOS. It is music-only: no video playback, no video library support, no streaming integration. Internally it is PCM-only — DSD plays as DoP-packed PCM through the bit-perfect engine, never through a DSD processing path.
 
 The target is the local FLAC listener who wants Audirvana-level output care without Audirvana's pricing and UI. The product wedge is simple: beautiful, fast, native-rate playback for owned music libraries.
 
@@ -19,7 +19,7 @@ GPL-compatible dependencies are the constraint now (every current dependency —
 ## Scope
 
 - Local and NAS music libraries.
-- PCM formats only: FLAC, ALAC, AIFF, WAV.
+- PCM formats: FLAC, ALAC, AIFF, WAV; DSF/DFF carried as DoP-packed PCM on the bit-perfect engine (feature 33).
 - Native-rate playback through Core Audio AUHAL, with direct HAL control for hog mode, sample-rate switching, and physical-format diagnostics.
 - Fast scanning and sub-100ms search across large libraries.
 - Grid/list browsing, collections, smart collections, and metadata editing.
@@ -29,7 +29,7 @@ GPL-compatible dependencies are the constraint now (every current dependency —
 
 ## Non-Goals
 
-- No DSD.
+- No DSD processing: DSD rides only as DoP passthrough (feature 33) — no DST decompression, no SACD ISO, no native/raw DSD output, no DSD→PCM conversion.
 - No video playback or video library support.
 - No streaming-service integration.
 - No libmpv.

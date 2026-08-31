@@ -47,7 +47,7 @@ Pulse feature specs should live in `docs/features/` once feature planning starts
 
 ## Project Constraints
 
-- Music only, PCM only.
-- No DSD, video, streaming integration, libmpv, FFmpeg, or GPL dependencies.
+- Music only; PCM only inside the engine (DSD rides as DoP-packed PCM — feature 33; no DST, no native DSD).
+- No video, streaming integration, libmpv, FFmpeg, or GPL dependencies.
 - Design in Pencil before implementing substantial UI.
 - Prove engine correctness before building around UI assumptions.
