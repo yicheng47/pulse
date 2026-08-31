@@ -44,6 +44,33 @@ pub struct HogGuard {
     owns: bool,
 }
 
+pub struct FormatRestoreGuard {
+    state: Option<SavedFormatState>,
+}
+
+impl FormatRestoreGuard {
+    pub fn capture(device_id: AudioObjectID) -> Result<Self, EngineError> {
+        Ok(Self {
+            state: Some(capture_format_state(&CoreAudioFormatProperties, device_id)?),
+        })
+    }
+
+    pub fn restore(mut self) -> Vec<EngineError> {
+        restore_format_state(
+            &CoreAudioFormatProperties,
+            self.state.take().expect("format state must be armed"),
+        )
+    }
+}
+
+impl Drop for FormatRestoreGuard {
+    fn drop(&mut self) {
+        if let Some(state) = self.state.take() {
+            let _ = restore_format_state(&CoreAudioFormatProperties, state);
+        }
+    }
+}
+
 impl HogGuard {
     pub fn acquire(device_id: AudioObjectID) -> Result<Self, EngineError> {
         let current_pid = current_pid();
@@ -80,6 +107,149 @@ impl Drop for HogGuard {
             let _ = toggle_hog_mode(self.device_id);
         }
     }
+}
+
+struct SavedStreamFormats {
+    stream_id: AudioObjectID,
+    physical: AudioStreamBasicDescription,
+    virtual_format: AudioStreamBasicDescription,
+}
+
+struct SavedFormatState {
+    device_id: AudioObjectID,
+    streams: Vec<SavedStreamFormats>,
+    mixing: Option<bool>,
+}
+
+trait FormatPropertyAccess {
+    fn output_streams(&self, device_id: AudioObjectID) -> Result<Vec<AudioObjectID>, EngineError>;
+    fn physical_format(
+        &self,
+        stream_id: AudioObjectID,
+    ) -> Result<AudioStreamBasicDescription, EngineError>;
+    fn virtual_format(
+        &self,
+        stream_id: AudioObjectID,
+    ) -> Result<AudioStreamBasicDescription, EngineError>;
+    fn mixing_enabled(&self, device_id: AudioObjectID) -> Result<Option<bool>, EngineError>;
+    fn set_physical_format(
+        &self,
+        stream_id: AudioObjectID,
+        format: AudioStreamBasicDescription,
+        deadline: Instant,
+    ) -> Result<(), EngineError>;
+    fn set_virtual_format(
+        &self,
+        stream_id: AudioObjectID,
+        format: AudioStreamBasicDescription,
+        deadline: Instant,
+    ) -> Result<(), EngineError>;
+    fn set_mixing_enabled(
+        &self,
+        device_id: AudioObjectID,
+        enabled: bool,
+        deadline: Instant,
+    ) -> Result<(), EngineError>;
+}
+
+struct CoreAudioFormatProperties;
+
+impl FormatPropertyAccess for CoreAudioFormatProperties {
+    fn output_streams(&self, device_id: AudioObjectID) -> Result<Vec<AudioObjectID>, EngineError> {
+        output_streams(device_id)
+    }
+
+    fn physical_format(
+        &self,
+        stream_id: AudioObjectID,
+    ) -> Result<AudioStreamBasicDescription, EngineError> {
+        physical_format(stream_id)
+    }
+
+    fn virtual_format(
+        &self,
+        stream_id: AudioObjectID,
+    ) -> Result<AudioStreamBasicDescription, EngineError> {
+        virtual_format(stream_id)
+    }
+
+    fn mixing_enabled(&self, device_id: AudioObjectID) -> Result<Option<bool>, EngineError> {
+        mixing_enabled(device_id)
+    }
+
+    fn set_physical_format(
+        &self,
+        stream_id: AudioObjectID,
+        format: AudioStreamBasicDescription,
+        deadline: Instant,
+    ) -> Result<(), EngineError> {
+        set_physical_format_until(stream_id, format, deadline)
+    }
+
+    fn set_virtual_format(
+        &self,
+        stream_id: AudioObjectID,
+        format: AudioStreamBasicDescription,
+        deadline: Instant,
+    ) -> Result<(), EngineError> {
+        set_virtual_format_until(stream_id, format, deadline)
+    }
+
+    fn set_mixing_enabled(
+        &self,
+        device_id: AudioObjectID,
+        enabled: bool,
+        deadline: Instant,
+    ) -> Result<(), EngineError> {
+        set_mixing_enabled_until(device_id, enabled, deadline)
+    }
+}
+
+fn capture_format_state(
+    properties: &impl FormatPropertyAccess,
+    device_id: AudioObjectID,
+) -> Result<SavedFormatState, EngineError> {
+    let stream_ids = properties.output_streams(device_id)?;
+    let mut streams = Vec::with_capacity(stream_ids.len());
+    for stream_id in stream_ids {
+        streams.push(SavedStreamFormats {
+            stream_id,
+            physical: properties.physical_format(stream_id)?,
+            virtual_format: properties.virtual_format(stream_id)?,
+        });
+    }
+
+    Ok(SavedFormatState {
+        device_id,
+        streams,
+        mixing: properties.mixing_enabled(device_id)?,
+    })
+}
+
+fn restore_format_state(
+    properties: &impl FormatPropertyAccess,
+    state: SavedFormatState,
+) -> Vec<EngineError> {
+    let deadline = Instant::now() + FORMAT_SETTLE_TIMEOUT;
+    let mut errors = Vec::new();
+    for stream in state.streams {
+        if let Err(error) =
+            properties.set_physical_format(stream.stream_id, stream.physical, deadline)
+        {
+            errors.push(error);
+        }
+        if let Err(error) =
+            properties.set_virtual_format(stream.stream_id, stream.virtual_format, deadline)
+        {
+            errors.push(error);
+        }
+    }
+    if let Some(mixing) = state.mixing
+        && let Err(error) = properties.set_mixing_enabled(state.device_id, mixing, deadline)
+    {
+        errors.push(error);
+    }
+    errors
 }
 
 pub(crate) fn address(
@@ -550,6 +720,14 @@ pub fn set_virtual_format(
     stream_id: AudioObjectID,
     format: AudioStreamBasicDescription,
 ) -> Result<(), EngineError> {
+    set_virtual_format_until(stream_id, format, Instant::now() + FORMAT_SETTLE_TIMEOUT)
+}
+
+fn set_virtual_format_until(
+    stream_id: AudioObjectID,
+    format: AudioStreamBasicDescription,
+    deadline: Instant,
+) -> Result<(), EngineError> {
     set_stream_format(
         stream_id,
         kAudioStreamPropertyVirtualFormat,
@@ -557,6 +735,7 @@ pub fn set_virtual_format(
         "AudioObjectGetPropertyData(kAudioStreamPropertyVirtualFormat)",
         "AudioObjectSetPropertyData(kAudioStreamPropertyVirtualFormat)",
         "virtual stream format change",
+        deadline,
     )
 }
 
@@ -578,6 +757,14 @@ pub fn mixing_enabled(device_id: AudioObjectID) -> Result<Option<bool>, EngineEr
 }
 
 pub fn set_mixing_enabled(device_id: AudioObjectID, enabled: bool) -> Result<(), EngineError> {
+    set_mixing_enabled_until(device_id, enabled, Instant::now() + FORMAT_SETTLE_TIMEOUT)
+}
+
+fn set_mixing_enabled_until(
+    device_id: AudioObjectID,
+    enabled: bool,
+    deadline: Instant,
+) -> Result<(), EngineError> {
     let address = address(
         kAudioDevicePropertySupportsMixing,
         kAudioObjectPropertyScopeGlobal,
@@ -586,12 +773,37 @@ pub fn set_mixing_enabled(device_id: AudioObjectID, enabled: bool) -> Result<(),
         return Ok(());
     }
 
+    let requested = u32::from(enabled);
+    let current = get_value::<u32>(
+        device_id,
+        address,
+        "AudioObjectGetPropertyData(kAudioDevicePropertySupportsMixing)",
+    )?;
+    if current == requested {
+        return Ok(());
+    }
+
     set_value(
         device_id,
         address,
-        u32::from(enabled),
+        requested,
         "AudioObjectSetPropertyData(kAudioDevicePropertySupportsMixing)",
-    )
+    )?;
+
+    loop {
+        let current = get_value::<u32>(
+            device_id,
+            address,
+            "AudioObjectGetPropertyData(kAudioDevicePropertySupportsMixing)",
+        )?;
+        if current == requested {
+            return Ok(());
+        }
+        if Instant::now() >= deadline {
+            return Err(EngineError::Timeout("device mixing state change"));
+        }
+        thread::sleep(FORMAT_POLL_INTERVAL);
+    }
 }
 
 fn matching_physical_format(
@@ -677,6 +889,14 @@ pub fn set_physical_format(
     stream_id: AudioObjectID,
     format: AudioStreamBasicDescription,
 ) -> Result<(), EngineError> {
+    set_physical_format_until(stream_id, format, Instant::now() + FORMAT_SETTLE_TIMEOUT)
+}
+
+fn set_physical_format_until(
+    stream_id: AudioObjectID,
+    format: AudioStreamBasicDescription,
+    deadline: Instant,
+) -> Result<(), EngineError> {
     set_stream_format(
         stream_id,
         kAudioStreamPropertyPhysicalFormat,
@@ -684,6 +904,7 @@ pub fn set_physical_format(
         "AudioObjectGetPropertyData(kAudioStreamPropertyPhysicalFormat)",
         "AudioObjectSetPropertyData(kAudioStreamPropertyPhysicalFormat)",
         "physical stream format change",
+        deadline,
     )
 }
 
@@ -694,6 +915,7 @@ fn set_stream_format(
     get_call: &'static str,
     set_call: &'static str,
     timeout_name: &'static str,
+    deadline: Instant,
 ) -> Result<(), EngineError> {
     let address = address(selector, kAudioObjectPropertyScopeGlobal);
     let current = get_value::<AudioStreamBasicDescription>(stream_id, address, get_call)?;
@@ -703,7 +925,6 @@ fn set_stream_format(
 
     set_value(stream_id, address, requested, set_call)?;
 
-    let deadline = Instant::now() + FORMAT_SETTLE_TIMEOUT;
     loop {
         let current = get_value::<AudioStreamBasicDescription>(stream_id, address, get_call)?;
         if stream_formats_match(current, requested) {
@@ -913,8 +1134,240 @@ mod tests {
         );
     }
 
+    #[test]
+    fn format_restore_captures_and_restores_every_property_in_order() {
+        let properties = FakeFormatProperties::new(Some(true));
+        let state = capture_format_state(&properties, 7).expect("format state should be captured");
+
+        let errors = restore_format_state(&properties, state);
+
+        assert!(errors.is_empty());
+        assert_eq!(
+            properties.calls.borrow().as_slice(),
+            [
+                FormatCall::OutputStreams(7),
+                FormatCall::PhysicalFormat(11),
+                FormatCall::VirtualFormat(11),
+                FormatCall::PhysicalFormat(22),
+                FormatCall::VirtualFormat(22),
+                FormatCall::MixingEnabled(7),
+                FormatCall::SetPhysicalFormat(11, 44_111),
+                FormatCall::SetVirtualFormat(11, 48_011),
+                FormatCall::SetPhysicalFormat(22, 44_122),
+                FormatCall::SetVirtualFormat(22, 48_022),
+                FormatCall::SetMixingEnabled(7, true),
+            ]
+        );
+        let deadlines = properties.deadlines.borrow();
+        assert_eq!(deadlines.len(), 5);
+        assert!(deadlines.iter().all(|deadline| *deadline == deadlines[0]));
+    }
+
+    #[test]
+    fn format_restore_continues_after_a_failed_property_write() {
+        let properties = FakeFormatProperties::new(Some(true)).with_failing_physical_stream(11);
+        let state = capture_format_state(&properties, 7).expect("format state should be captured");
+        properties.calls.borrow_mut().clear();
+
+        let errors = restore_format_state(&properties, state);
+
+        assert_eq!(errors.len(), 1);
+        assert_eq!(
+            properties.calls.borrow().as_slice(),
+            [
+                FormatCall::SetPhysicalFormat(11, 44_111),
+                FormatCall::SetVirtualFormat(11, 48_011),
+                FormatCall::SetPhysicalFormat(22, 44_122),
+                FormatCall::SetVirtualFormat(22, 48_022),
+                FormatCall::SetMixingEnabled(7, true),
+            ]
+        );
+    }
+
+    #[test]
+    fn format_restore_skips_absent_mixing_property() {
+        let properties = FakeFormatProperties::new(None);
+        let state = capture_format_state(&properties, 7).expect("format state should be captured");
+        properties.calls.borrow_mut().clear();
+
+        let errors = restore_format_state(&properties, state);
+
+        assert!(errors.is_empty());
+        assert_eq!(
+            properties.calls.borrow().as_slice(),
+            [
+                FormatCall::SetPhysicalFormat(11, 44_111),
+                FormatCall::SetVirtualFormat(11, 48_011),
+                FormatCall::SetPhysicalFormat(22, 44_122),
+                FormatCall::SetVirtualFormat(22, 48_022),
+            ]
+        );
+    }
+
+    #[test]
+    fn stream_format_matching_checks_flags_and_layout_with_rate_tolerance() {
+        let expected = stream_format(44_100.0, kAudioFormatFlagIsSignedInteger);
+
+        let mut equivalent = expected;
+        equivalent.mSampleRate += 0.49;
+        equivalent.mReserved = 1;
+        assert!(stream_formats_match(expected, equivalent));
+
+        let mut different_flags = expected;
+        different_flags.mFormatFlags |= kAudioFormatFlagIsNonMixable;
+        assert!(!stream_formats_match(expected, different_flags));
+
+        let mut different_layout = expected;
+        different_layout.mBytesPerFrame += 1;
+        assert!(!stream_formats_match(expected, different_layout));
+
+        let mut different_rate = expected;
+        different_rate.mSampleRate += 0.5;
+        assert!(!stream_formats_match(expected, different_rate));
+    }
+
+    #[derive(Debug, PartialEq)]
+    enum FormatCall {
+        OutputStreams(AudioObjectID),
+        PhysicalFormat(AudioObjectID),
+        VirtualFormat(AudioObjectID),
+        MixingEnabled(AudioObjectID),
+        SetPhysicalFormat(AudioObjectID, u32),
+        SetVirtualFormat(AudioObjectID, u32),
+        SetMixingEnabled(AudioObjectID, bool),
+    }
+
+    struct FakeFormatProperties {
+        calls: std::cell::RefCell<Vec<FormatCall>>,
+        deadlines: std::cell::RefCell<Vec<Instant>>,
+        mixing: Option<bool>,
+        failing_physical_stream: Option<AudioObjectID>,
+    }
+
+    impl FakeFormatProperties {
+        fn new(mixing: Option<bool>) -> Self {
+            Self {
+                calls: std::cell::RefCell::new(Vec::new()),
+                deadlines: std::cell::RefCell::new(Vec::new()),
+                mixing,
+                failing_physical_stream: None,
+            }
+        }
+
+        fn with_failing_physical_stream(mut self, stream_id: AudioObjectID) -> Self {
+            self.failing_physical_stream = Some(stream_id);
+            self
+        }
+    }
+
+    impl FormatPropertyAccess for FakeFormatProperties {
+        fn output_streams(
+            &self,
+            device_id: AudioObjectID,
+        ) -> Result<Vec<AudioObjectID>, EngineError> {
+            self.calls
+                .borrow_mut()
+                .push(FormatCall::OutputStreams(device_id));
+            Ok(vec![11, 22])
+        }
+
+        fn physical_format(
+            &self,
+            stream_id: AudioObjectID,
+        ) -> Result<AudioStreamBasicDescription, EngineError> {
+            self.calls
+                .borrow_mut()
+                .push(FormatCall::PhysicalFormat(stream_id));
+            Ok(stream_format(
+                44_100.0 + f64::from(stream_id),
+                kAudioFormatFlagIsSignedInteger,
+            ))
+        }
+
+        fn virtual_format(
+            &self,
+            stream_id: AudioObjectID,
+        ) -> Result<AudioStreamBasicDescription, EngineError> {
+            self.calls
+                .borrow_mut()
+                .push(FormatCall::VirtualFormat(stream_id));
+            Ok(stream_format(
+                48_000.0 + f64::from(stream_id),
+                kAudioFormatFlagIsFloat,
+            ))
+        }
+
+        fn mixing_enabled(&self, device_id: AudioObjectID) -> Result<Option<bool>, EngineError> {
+            self.calls
+                .borrow_mut()
+                .push(FormatCall::MixingEnabled(device_id));
+            Ok(self.mixing)
+        }
+
+        fn set_physical_format(
+            &self,
+            stream_id: AudioObjectID,
+            format: AudioStreamBasicDescription,
+            deadline: Instant,
+        ) -> Result<(), EngineError> {
+            self.deadlines.borrow_mut().push(deadline);
+            self.calls.borrow_mut().push(FormatCall::SetPhysicalFormat(
+                stream_id,
+                format.mSampleRate as u32,
+            ));
+            if self.failing_physical_stream == Some(stream_id) {
+                return Err(EngineError::Os {
+                    call: "fake physical format restore",
+                    status: -1,
+                });
+            }
+            Ok(())
+        }
+
+        fn set_virtual_format(
+            &self,
+            stream_id: AudioObjectID,
+            format: AudioStreamBasicDescription,
+            deadline: Instant,
+        ) -> Result<(), EngineError> {
+            self.deadlines.borrow_mut().push(deadline);
+            self.calls.borrow_mut().push(FormatCall::SetVirtualFormat(
+                stream_id,
+                format.mSampleRate as u32,
+            ));
+            Ok(())
+        }
+
+        fn set_mixing_enabled(
+            &self,
+            device_id: AudioObjectID,
+            enabled: bool,
+            deadline: Instant,
+        ) -> Result<(), EngineError> {
+            self.deadlines.borrow_mut().push(deadline);
+            self.calls
+                .borrow_mut()
+                .push(FormatCall::SetMixingEnabled(device_id, enabled));
+            Ok(())
+        }
+    }
+
     fn write_u32(bytes: &mut [u8], offset: usize, value: u32) {
         bytes[offset..offset + mem::size_of::<u32>()].copy_from_slice(&value.to_ne_bytes());
+    }
+
+    fn stream_format(sample_rate: f64, format_flags: u32) -> AudioStreamBasicDescription {
+        AudioStreamBasicDescription {
+            mSampleRate: sample_rate,
+            mFormatID: kAudioFormatLinearPCM,
+            mFormatFlags: format_flags,
+            mBytesPerPacket: 8,
+            mFramesPerPacket: 1,
+            mBytesPerFrame: 8,
+            mChannelsPerFrame: 2,
+            mBitsPerChannel: 32,
+            mReserved: 0,
+        }
     }
 
     fn ranged_format(
