@@ -6,7 +6,8 @@ const DROPOUT_NOTICE_CLEAR_AFTER: Duration = Duration::from_secs(30);
 
 impl Playback {
     pub(crate) fn install_controller(&mut self, device_id: device::DeviceId, exclusive_mode: bool) {
-        let controller = PlaybackController::spawn(device_id, exclusive_mode);
+        let controller =
+            PlaybackController::spawn(device_id, EngineKind::Universal { exclusive_mode });
         self.sent_next = None;
         self.event_rx = Some(controller.subscribe());
         let command_tx = controller.command_sender();

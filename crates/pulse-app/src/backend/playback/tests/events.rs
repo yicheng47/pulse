@@ -520,13 +520,17 @@ fn device_and_exclusive_mode_changes_reset_then_resync_lookahead() {
     let output_rx = command_sink(&mut output);
     assert!(output.send_command(PlaybackCommand::SetOutputDevice {
         device_id: 9,
-        exclusive_mode: true,
+        kind: EngineKind::Universal {
+            exclusive_mode: true,
+        },
     }));
     assert_eq!(
         output_rx.recv().unwrap(),
         PlaybackCommand::SetOutputDevice {
             device_id: 9,
-            exclusive_mode: true,
+            kind: EngineKind::Universal {
+                exclusive_mode: true,
+            },
         }
     );
     assert_eq!(output.sent_next, None);

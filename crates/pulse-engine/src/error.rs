@@ -22,6 +22,8 @@ pub enum EngineError {
     UnsupportedFormat(String),
     #[error("timed out waiting for {0}")]
     Timeout(&'static str),
+    #[error("playback backend release failed: {0}")]
+    BackendRelease(String),
     #[error("decode: {0}")]
     Decode(String),
 }

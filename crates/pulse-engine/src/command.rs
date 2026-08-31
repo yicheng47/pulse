@@ -2,6 +2,12 @@ use std::path::PathBuf;
 
 use crate::device::DeviceId;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EngineKind {
+    Universal { exclusive_mode: bool },
+    BitPerfect,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum PlaybackCommand {
     PlayFile {
@@ -27,7 +33,7 @@ pub enum PlaybackCommand {
     Stop,
     SetOutputDevice {
         device_id: DeviceId,
-        exclusive_mode: bool,
+        kind: EngineKind,
     },
     SetExclusiveMode {
         enabled: bool,

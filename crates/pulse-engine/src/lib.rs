@@ -12,10 +12,13 @@ pub mod event;
 mod gain;
 #[doc(hidden)]
 pub mod hal;
+mod integer_engine;
 mod levels;
+mod raw_sink;
 pub mod source;
 pub mod state;
 
+pub use command::EngineKind;
 pub use command::PlaybackCommand;
 pub use controller::PlaybackController;
 pub use engine::Engine;

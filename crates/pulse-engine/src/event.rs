@@ -23,6 +23,7 @@ impl From<&EngineError> for PlaybackErrorKind {
             | EngineError::UnsupportedNominalSampleRate(_)
             | EngineError::NoMatchingPhysicalFormat(_)
             | EngineError::Timeout(_)
+            | EngineError::BackendRelease(_)
             | EngineError::AudioUnit(_) => Self::Device { hog_pid: None },
         }
     }

@@ -18,8 +18,8 @@ use std::{
 };
 
 use pulse_engine::{
-    EngineError, PcmFormat, PlayableSource, PlaybackCommand, PlaybackController, PlaybackErrorKind,
-    PlaybackEvent, PlaybackState, device,
+    EngineError, EngineKind, PcmFormat, PlayableSource, PlaybackCommand, PlaybackController,
+    PlaybackErrorKind, PlaybackEvent, PlaybackState, device,
 };
 
 use super::{

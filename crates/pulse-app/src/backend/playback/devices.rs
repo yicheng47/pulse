@@ -486,7 +486,7 @@ impl Playback {
         }
         if !self.send_command(PlaybackCommand::SetOutputDevice {
             device_id: output_device.id,
-            exclusive_mode,
+            kind: EngineKind::Universal { exclusive_mode },
         }) {
             self.pending_device_change = None;
             self.device_message = Some(DeviceMessage {
