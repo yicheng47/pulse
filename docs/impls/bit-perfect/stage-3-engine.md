@@ -2,6 +2,12 @@
 
 Entry gate: stage 1's findings table archived in feature 32, stage 2's guard merged.
 
+Stage 1 probe inputs (see feature 32's findings and [`stage-1-probe-output.md`](stage-1-probe-output.md)):
+
+- **Only non-mixable integer variants are accepted as virtual formats** — the Matrix takes 24-bit aligned-high `0x00000054` and packed 32-bit `0x0000004c`, and refuses the mixable twins. Format selection must prefer the `IsNonMixable` integer physical variant; non-mixability lives in the flags word, since `kAudioDevicePropertySupportsMixing` was absent on every probed device (the guard's mixing step no-ops there).
+- **A refused virtual write returns `noErr` and then never settles** — acceptance is a matching readback within `FORMAT_SETTLE_TIMEOUT`, never the setter status; the start-time refusal backstop can take up to the 2s timeout before it can error.
+- The probe set the target rate directly in the physical ASBD without `set_nominal_sample_rate` first and it worked; the engine keeps the explicit nominal-rate step below, and stage 5 validates that combined sequence on hardware.
+
 - **`raw_sink.rs`** — `RawSink`, mirroring `AuhalSink`'s surface (`start(device, consumer, device_format, …)`, `position_frames`, `underrun_frames`, `stop`, `Drop` stops): `AudioDeviceCreateIOProcID` + `AudioDeviceStart`. The IOProc receives an `AudioBufferList` to fill: pop from the ring, zero-fill the remainder, count underrun bytes, bump position atomics. Realtime rules identical to the AUHAL callback. **No `GainProcessor`** — samples are never multiplied.
 - **`integer_engine.rs`** — `IntegerEngine`, mirroring `Engine`'s surface so the backend wrapper is mechanical:
   - `open`: hog **mandatory** — `owns()` false or acquire failure is a hard `Hogged` error, no shared fallback; mixing off via the guard; hardware-volume probe as today.
