@@ -2629,8 +2629,8 @@
     {
       "type": "frame",
       "id": "vH78z",
-      "x": 993,
-      "y": -342,
+      "x": 3501,
+      "y": -119,
       "name": "Output Device Popover",
       "width": 360,
       "fill": "$bg-surface",
@@ -2731,7 +2731,7 @@
                       "fill": "$text-secondary",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "CoreAudio · Exclusive mode",
+                      "content": "CoreAudio · Bit-perfect",
                       "fontFamily": "$font-sans",
                       "fontSize": 12,
                       "fontWeight": "normal"
@@ -2772,32 +2772,32 @@
             },
             {
               "type": "frame",
-              "id": "L6s5P",
-              "name": "Mode Row",
+              "id": "m14ZyM",
+              "name": "Output Mode Row",
               "width": "fill_container",
               "justifyContent": "space_between",
               "alignItems": "center",
               "children": [
                 {
                   "type": "frame",
-                  "id": "jqvyL",
-                  "name": "Mode Label Group",
+                  "id": "DWw2E",
+                  "name": "Engine Label Group",
                   "gap": 8,
                   "alignItems": "center",
                   "children": [
                     {
                       "type": "text",
-                      "id": "nWPqX",
-                      "name": "Mode Label",
+                      "id": "EGxyK",
+                      "name": "Engine Label",
                       "fill": "$text-primary",
-                      "content": "Exclusive mode",
+                      "content": "Mode",
                       "fontFamily": "$font-sans",
                       "fontSize": 12,
                       "fontWeight": "600"
                     },
                     {
                       "type": "frame",
-                      "id": "RbzG2",
+                      "id": "R8pHSf",
                       "name": "Auto Tag",
                       "fill": "$bg-elevated",
                       "cornerRadius": "$radius-sm",
@@ -2811,24 +2811,102 @@
                       "children": [
                         {
                           "type": "text",
-                          "id": "P0Huz",
+                          "id": "TAlyU",
                           "name": "Auto Label",
                           "fill": "$text-secondary",
                           "content": "AUTO",
                           "fontFamily": "$font-mono",
                           "fontSize": 9,
                           "fontWeight": "700",
-                          "letterSpacing": 0.8
+                          "letterSpacing": 0.5
                         }
                       ]
                     }
                   ]
                 },
                 {
-                  "id": "HPpOK",
-                  "type": "ref",
-                  "ref": "SK7jO",
-                  "name": "Toggle"
+                  "type": "frame",
+                  "id": "eovxT",
+                  "name": "Engine Segments",
+                  "cornerRadius": "$radius-sm",
+                  "stroke": "$border-strong",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "gap": 2,
+                  "padding": 2,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "wioRT",
+                      "name": "Seg Shared",
+                      "cornerRadius": 3,
+                      "padding": [
+                        2,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "zr6lL",
+                          "name": "Seg Label",
+                          "fill": "$text-secondary",
+                          "content": "Shared",
+                          "fontFamily": "$font-sans",
+                          "fontSize": 10,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "I0sewb",
+                      "name": "Seg Exclusive",
+                      "cornerRadius": 3,
+                      "padding": [
+                        2,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "qPEjA",
+                          "name": "Seg Label",
+                          "fill": "$text-secondary",
+                          "content": "Exclusive",
+                          "fontFamily": "$font-sans",
+                          "fontSize": 10,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "fEn5S",
+                      "name": "Seg Bit-perfect",
+                      "fill": "$quality-soft",
+                      "cornerRadius": 3,
+                      "stroke": "$quality-border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        2,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "ArMpP",
+                          "name": "Seg Label",
+                          "fill": "$quality",
+                          "content": "Bit-perfect",
+                          "fontFamily": "$font-sans",
+                          "fontSize": 10,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
             }
@@ -41303,6 +41381,140 @@
               ]
             }
           ]
+        },
+        {
+          "type": "frame",
+          "id": "TMHAo",
+          "name": "Feature 31 Addendum",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 10,
+          "children": [
+            {
+              "type": "text",
+              "id": "KX7VU",
+              "name": "Addendum Title",
+              "fill": "$text-secondary",
+              "content": "ADDENDUM — FEATURE 31 · VOLUME TRANSPARENCY",
+              "fontFamily": "$font-mono",
+              "fontSize": 10,
+              "fontWeight": "700",
+              "letterSpacing": 0.8
+            },
+            {
+              "type": "text",
+              "id": "mRIj0",
+              "name": "Addendum Note",
+              "fill": "$text-muted",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "A domain label sits at the popover's foot and names the mechanism the slider drives: DEVICE (kAudioDevicePropertyVolumeScalar while hogged — the DAC's own attenuator, full-scale samples on the wire) or SOFTWARE (engine gain, cubic taper). The % readout renders in the quality green when the path is transparent — unity software gain or device volume — and returns to text-primary below unity. On the bit-perfect engine with no hardware volume the slider is disabled at 100% with the domain label reading FIXED. Devices page: a device's class line appends \"Device volume\" when hardware volume is available while hogged (feature 31 phase 3 fills the Matrix's actual camp). Copy rule: \"samples leave Pulse untouched\", never \"bit-perfect to the DAC\" — the bit-perfect wording belongs to the integer engine's indicator alone (feature 32).",
+              "lineHeight": 1.45,
+              "fontFamily": "$font-sans",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "xJ47w",
+              "name": "Domain Chips",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Gr6wM",
+                  "name": "Chip DEVICE",
+                  "fill": "$bg-elevated",
+                  "cornerRadius": "$radius-sm",
+                  "stroke": "$border-strong",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "padding": [
+                    2,
+                    6
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "xggDe",
+                      "name": "Chip Label",
+                      "fill": "$text-muted",
+                      "content": "DEVICE",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 9,
+                      "fontWeight": "700",
+                      "letterSpacing": 0.5
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "XbVwA",
+                  "name": "Chip SOFTWARE",
+                  "fill": "$bg-elevated",
+                  "cornerRadius": "$radius-sm",
+                  "stroke": "$border-strong",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "padding": [
+                    2,
+                    6
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "MpJ9Z",
+                      "name": "Chip Label",
+                      "fill": "$text-muted",
+                      "content": "SOFTWARE",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 9,
+                      "fontWeight": "700",
+                      "letterSpacing": 0.5
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Up3U2",
+                  "name": "Chip FIXED",
+                  "fill": "$bg-elevated",
+                  "cornerRadius": "$radius-sm",
+                  "stroke": "$border-strong",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "padding": [
+                    2,
+                    6
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Gi8QZ",
+                      "name": "Chip Label",
+                      "fill": "$text-muted",
+                      "content": "FIXED",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 9,
+                      "fontWeight": "700",
+                      "letterSpacing": 0.5
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "ay9gS",
+                  "name": "Transparent Readout Example",
+                  "fill": "$quality",
+                  "content": "100% ← transparent readout in $quality",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
         }
       ]
     },
@@ -41365,585 +41577,17 @@
           "icon": "volume-x",
           "library": "lucide",
           "fill": "$text-secondary"
-        }
-      ]
-    },
-    {
-      "type": "frame",
-      "id": "r85ht",
-      "x": 1433,
-      "y": -342,
-      "name": "Spec — Exclusive Mode Control",
-      "fill": "$bg-page",
-      "cornerRadius": "$radius-lg",
-      "stroke": "$border",
-      "strokeWidth": 1,
-      "strokeAlignment": "inner",
-      "layout": "vertical",
-      "gap": 14,
-      "padding": 20,
-      "children": [
+        },
         {
           "type": "text",
-          "id": "lpaIs",
-          "name": "Board Title",
+          "id": "xfwxF",
+          "name": "Domain Label",
           "fill": "$text-muted",
-          "content": "SPEC — EXCLUSIVE MODE CONTROL",
+          "content": "DEVICE",
           "fontFamily": "$font-mono",
-          "fontSize": 10,
+          "fontSize": 8,
           "fontWeight": "700",
-          "letterSpacing": 0.8
-        },
-        {
-          "type": "text",
-          "id": "pCzNV",
-          "name": "Board Note",
-          "fill": "$text-secondary",
-          "textGrowth": "fixed-width",
-          "width": 332,
-          "content": "Feature 08: effective mode = per-device override, else capability-probe default. AUTO tag shows while no override is stored; toggling pins an override; Reset to Auto restores the probe default. Global Settings toggle is deleted.",
-          "lineHeight": 1.45,
-          "fontFamily": "$font-sans",
-          "fontSize": 11,
-          "fontWeight": "normal"
-        },
-        {
-          "type": "frame",
-          "id": "xRPEB",
-          "name": "STATE 1 — AUTO · DAC",
-          "layout": "vertical",
-          "gap": 8,
-          "children": [
-            {
-              "type": "text",
-              "id": "j6yweQ",
-              "name": "State Label",
-              "fill": "$accent",
-              "content": "STATE 1 — AUTO · DAC",
-              "fontFamily": "$font-mono",
-              "fontSize": 10,
-              "fontWeight": "700",
-              "letterSpacing": 0.8
-            },
-            {
-              "type": "frame",
-              "id": "YPlrH",
-              "name": "Card",
-              "width": 332,
-              "fill": "$bg-inset",
-              "cornerRadius": "$radius-md",
-              "stroke": "$border-strong",
-              "strokeWidth": 1,
-              "strokeAlignment": "inner",
-              "layout": "vertical",
-              "gap": 10,
-              "padding": 12,
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "DFo3s",
-                  "name": "Device",
-                  "width": "fill_container",
-                  "gap": 12,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "yAAXz",
-                      "name": "Icon",
-                      "width": 22,
-                      "height": 22,
-                      "icon": "speaker",
-                      "library": "lucide",
-                      "fill": "$accent"
-                    },
-                    {
-                      "type": "frame",
-                      "id": "Li2fj",
-                      "name": "Copy",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 3,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "El2Jb",
-                          "name": "Name",
-                          "fill": "$text-primary",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "mini-i Series",
-                          "fontFamily": "$font-display",
-                          "fontSize": 17,
-                          "fontWeight": "700"
-                        },
-                        {
-                          "type": "text",
-                          "id": "CGDg1",
-                          "name": "Driver",
-                          "fill": "$text-secondary",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "CoreAudio · Exclusive mode",
-                          "fontFamily": "$font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "text",
-                          "id": "W2WOr",
-                          "name": "Info",
-                          "fill": "$quality",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "Up to 24-bit / 192 kHz",
-                          "fontFamily": "$font-mono",
-                          "fontSize": 11,
-                          "fontWeight": "700"
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "type": "rectangle",
-                  "id": "kOwng",
-                  "name": "Divider",
-                  "fill": "$border",
-                  "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "frame",
-                  "id": "O6ajnS",
-                  "name": "Mode Row",
-                  "width": "fill_container",
-                  "justifyContent": "space_between",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "X9unEb",
-                      "name": "Mode Label Group",
-                      "gap": 8,
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "j6INV",
-                          "name": "Mode Label",
-                          "fill": "$text-primary",
-                          "content": "Exclusive mode",
-                          "fontFamily": "$font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "600"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "YFjQY",
-                          "name": "Auto Tag",
-                          "fill": "$bg-elevated",
-                          "cornerRadius": "$radius-sm",
-                          "stroke": "$border-strong",
-                          "strokeWidth": 1,
-                          "strokeAlignment": "inner",
-                          "padding": [
-                            2,
-                            6
-                          ],
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "z9iHF",
-                              "name": "Auto Label",
-                              "fill": "$text-secondary",
-                              "content": "AUTO",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 9,
-                              "fontWeight": "700",
-                              "letterSpacing": 0.8
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "id": "f0SLW",
-                      "type": "ref",
-                      "ref": "SK7jO",
-                      "name": "Toggle"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "type": "text",
-              "id": "lxv4z",
-              "name": "Caption",
-              "fill": "$text-secondary",
-              "textGrowth": "fixed-width",
-              "width": 332,
-              "content": "No override stored. Probe finds signed-integer physical formats → defaults to exclusive. AUTO tag visible; toggle shows the effective mode.",
-              "lineHeight": 1.45,
-              "fontFamily": "$font-sans",
-              "fontSize": 11,
-              "fontWeight": "normal"
-            }
-          ]
-        },
-        {
-          "type": "frame",
-          "id": "G1fWXx",
-          "name": "STATE 2 — AUTO · BLUETOOTH",
-          "layout": "vertical",
-          "gap": 8,
-          "children": [
-            {
-              "type": "text",
-              "id": "q4Fhw9",
-              "name": "State Label",
-              "fill": "$accent",
-              "content": "STATE 2 — AUTO · BLUETOOTH",
-              "fontFamily": "$font-mono",
-              "fontSize": 10,
-              "fontWeight": "700",
-              "letterSpacing": 0.8
-            },
-            {
-              "type": "frame",
-              "id": "a168k",
-              "name": "Card",
-              "width": 332,
-              "fill": "$bg-inset",
-              "cornerRadius": "$radius-md",
-              "stroke": "$border-strong",
-              "strokeWidth": 1,
-              "strokeAlignment": "inner",
-              "layout": "vertical",
-              "gap": 10,
-              "padding": 12,
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "BeAbO",
-                  "name": "Device",
-                  "width": "fill_container",
-                  "gap": 12,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "c0EqR",
-                      "name": "Icon",
-                      "width": 22,
-                      "height": 22,
-                      "icon": "bluetooth",
-                      "library": "lucide",
-                      "fill": "$accent"
-                    },
-                    {
-                      "type": "frame",
-                      "id": "D2oax",
-                      "name": "Copy",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 3,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "BapYH",
-                          "name": "Name",
-                          "fill": "$text-primary",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "逸成's AirPods Pro",
-                          "fontFamily": "$font-display",
-                          "fontSize": 17,
-                          "fontWeight": "700"
-                        },
-                        {
-                          "type": "text",
-                          "id": "D4RQp",
-                          "name": "Driver",
-                          "fill": "$text-secondary",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "CoreAudio · Shared mode",
-                          "fontFamily": "$font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "text",
-                          "id": "pC8CC",
-                          "name": "Info",
-                          "fill": "$quality",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "Up to 48 kHz",
-                          "fontFamily": "$font-mono",
-                          "fontSize": 11,
-                          "fontWeight": "700"
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "type": "rectangle",
-                  "id": "l2rgwd",
-                  "name": "Divider",
-                  "fill": "$border",
-                  "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "frame",
-                  "id": "i6eQ3",
-                  "name": "Mode Row",
-                  "width": "fill_container",
-                  "justifyContent": "space_between",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "jj8xp",
-                      "name": "Mode Label Group",
-                      "gap": 8,
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "drJ65",
-                          "name": "Mode Label",
-                          "fill": "$text-primary",
-                          "content": "Exclusive mode",
-                          "fontFamily": "$font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "600"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "j9pqS",
-                          "name": "Auto Tag",
-                          "fill": "$bg-elevated",
-                          "cornerRadius": "$radius-sm",
-                          "stroke": "$border-strong",
-                          "strokeWidth": 1,
-                          "strokeAlignment": "inner",
-                          "padding": [
-                            2,
-                            6
-                          ],
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "zeVoy",
-                              "name": "Auto Label",
-                              "fill": "$text-secondary",
-                              "content": "AUTO",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 9,
-                              "fontWeight": "700",
-                              "letterSpacing": 0.8
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "id": "qNONl",
-                      "type": "ref",
-                      "ref": "jkTS9",
-                      "name": "Toggle"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "type": "text",
-              "id": "GME09",
-              "name": "Caption",
-              "fill": "$text-secondary",
-              "textGrowth": "fixed-width",
-              "width": 332,
-              "content": "No override stored. Float-only device → defaults to shared; AUHAL resamples. Exclusive buys nothing on this class, so Auto lands on shared.",
-              "lineHeight": 1.45,
-              "fontFamily": "$font-sans",
-              "fontSize": 11,
-              "fontWeight": "normal"
-            }
-          ]
-        },
-        {
-          "type": "frame",
-          "id": "JNU5u",
-          "name": "STATE 3 — PINNED OVERRIDE",
-          "layout": "vertical",
-          "gap": 8,
-          "children": [
-            {
-              "type": "text",
-              "id": "PSc1l",
-              "name": "State Label",
-              "fill": "$accent",
-              "content": "STATE 3 — PINNED OVERRIDE",
-              "fontFamily": "$font-mono",
-              "fontSize": 10,
-              "fontWeight": "700",
-              "letterSpacing": 0.8
-            },
-            {
-              "type": "frame",
-              "id": "wyWO9",
-              "name": "Card",
-              "width": 332,
-              "fill": "$bg-inset",
-              "cornerRadius": "$radius-md",
-              "stroke": "$border-strong",
-              "strokeWidth": 1,
-              "strokeAlignment": "inner",
-              "layout": "vertical",
-              "gap": 10,
-              "padding": 12,
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "PNyut",
-                  "name": "Device",
-                  "width": "fill_container",
-                  "gap": 12,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "wMnz4",
-                      "name": "Icon",
-                      "width": 22,
-                      "height": 22,
-                      "icon": "speaker",
-                      "library": "lucide",
-                      "fill": "$accent"
-                    },
-                    {
-                      "type": "frame",
-                      "id": "xmdZn",
-                      "name": "Copy",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 3,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "L14pII",
-                          "name": "Name",
-                          "fill": "$text-primary",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "mini-i Series",
-                          "fontFamily": "$font-display",
-                          "fontSize": 17,
-                          "fontWeight": "700"
-                        },
-                        {
-                          "type": "text",
-                          "id": "txxLh",
-                          "name": "Driver",
-                          "fill": "$text-secondary",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "CoreAudio · Shared mode",
-                          "fontFamily": "$font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "text",
-                          "id": "JPF5a",
-                          "name": "Info",
-                          "fill": "$quality",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "Up to 24-bit / 192 kHz",
-                          "fontFamily": "$font-mono",
-                          "fontSize": 11,
-                          "fontWeight": "700"
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "type": "rectangle",
-                  "id": "T06mO",
-                  "name": "Divider",
-                  "fill": "$border",
-                  "width": "fill_container",
-                  "height": 1
-                },
-                {
-                  "type": "frame",
-                  "id": "bnJuC",
-                  "name": "Mode Row",
-                  "width": "fill_container",
-                  "justifyContent": "space_between",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "m0A2Q",
-                      "name": "Mode Label Group",
-                      "gap": 8,
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "ToSlr",
-                          "name": "Mode Label",
-                          "fill": "$text-primary",
-                          "content": "Exclusive mode",
-                          "fontFamily": "$font-sans",
-                          "fontSize": 12,
-                          "fontWeight": "600"
-                        },
-                        {
-                          "type": "text",
-                          "id": "gdof5",
-                          "name": "Reset Link",
-                          "fill": "$accent",
-                          "content": "Reset to Auto",
-                          "fontFamily": "$font-sans",
-                          "fontSize": 11,
-                          "fontWeight": "600"
-                        }
-                      ]
-                    },
-                    {
-                      "id": "ZRDnr",
-                      "type": "ref",
-                      "ref": "jkTS9",
-                      "name": "Toggle"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "type": "text",
-              "id": "EAp8I",
-              "name": "Caption",
-              "fill": "$text-secondary",
-              "textGrowth": "fixed-width",
-              "width": 332,
-              "content": "User toggled the DAC to shared (e.g. to keep other apps audible). AUTO tag is replaced by Reset to Auto, which clears the override and returns to the probe default.",
-              "lineHeight": 1.45,
-              "fontFamily": "$font-sans",
-              "fontSize": 11,
-              "fontWeight": "normal"
-            }
-          ]
+          "letterSpacing": 0.6
         }
       ]
     },
@@ -42176,7 +41820,7 @@
                                               "fill": "$quality",
                                               "textGrowth": "fixed-width",
                                               "width": "fill_container",
-                                              "content": "DAC · Up to 24-bit / 192 kHz",
+                                              "content": "DAC · Up to 24-bit / 192 kHz · Device volume",
                                               "fontFamily": "$font-mono",
                                               "fontSize": 11,
                                               "fontWeight": "700"
@@ -42207,31 +41851,31 @@
                                     {
                                       "type": "frame",
                                       "id": "WRgFF",
-                                      "name": "Mode Row",
+                                      "name": "Output Mode Row",
                                       "width": "fill_container",
                                       "justifyContent": "space_between",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "frame",
-                                          "id": "B35cGp",
-                                          "name": "Mode Label Group",
+                                          "id": "uQPLy",
+                                          "name": "Engine Label Group",
                                           "gap": 8,
                                           "alignItems": "center",
                                           "children": [
                                             {
                                               "type": "text",
-                                              "id": "ttLwc",
-                                              "name": "Mode Label",
+                                              "id": "yMWNk",
+                                              "name": "Engine Label",
                                               "fill": "$text-primary",
-                                              "content": "Exclusive mode",
+                                              "content": "Output mode",
                                               "fontFamily": "$font-sans",
                                               "fontSize": 12,
                                               "fontWeight": "600"
                                             },
                                             {
                                               "type": "frame",
-                                              "id": "zO5OT",
+                                              "id": "y5feqd",
                                               "name": "Auto Tag",
                                               "fill": "$bg-elevated",
                                               "cornerRadius": "$radius-sm",
@@ -42245,24 +41889,102 @@
                                               "children": [
                                                 {
                                                   "type": "text",
-                                                  "id": "DtPk1",
+                                                  "id": "X336Wa",
                                                   "name": "Auto Label",
                                                   "fill": "$text-secondary",
                                                   "content": "AUTO",
                                                   "fontFamily": "$font-mono",
                                                   "fontSize": 9,
                                                   "fontWeight": "700",
-                                                  "letterSpacing": 0.8
+                                                  "letterSpacing": 0.5
                                                 }
                                               ]
                                             }
                                           ]
                                         },
                                         {
-                                          "id": "j6QNQE",
-                                          "type": "ref",
-                                          "ref": "SK7jO",
-                                          "name": "Toggle"
+                                          "type": "frame",
+                                          "id": "RX9cC",
+                                          "name": "Engine Segments",
+                                          "cornerRadius": "$radius-sm",
+                                          "stroke": "$border-strong",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "gap": 2,
+                                          "padding": 2,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "frame",
+                                              "id": "G0HVKU",
+                                              "name": "Seg Shared",
+                                              "cornerRadius": 3,
+                                              "padding": [
+                                                2,
+                                                8
+                                              ],
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "ky6kH",
+                                                  "name": "Seg Label",
+                                                  "fill": "$text-secondary",
+                                                  "content": "Shared",
+                                                  "fontFamily": "$font-sans",
+                                                  "fontSize": 10,
+                                                  "fontWeight": "600"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "sjJNu",
+                                              "name": "Seg Exclusive",
+                                              "cornerRadius": 3,
+                                              "padding": [
+                                                2,
+                                                8
+                                              ],
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "A2cdJ",
+                                                  "name": "Seg Label",
+                                                  "fill": "$text-secondary",
+                                                  "content": "Exclusive",
+                                                  "fontFamily": "$font-sans",
+                                                  "fontSize": 10,
+                                                  "fontWeight": "600"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "T8rkyW",
+                                              "name": "Seg Bit-perfect",
+                                              "fill": "$quality-soft",
+                                              "cornerRadius": 3,
+                                              "stroke": "$quality-border",
+                                              "strokeWidth": 1,
+                                              "strokeAlignment": "inner",
+                                              "padding": [
+                                                2,
+                                                8
+                                              ],
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "wHAYI",
+                                                  "name": "Seg Label",
+                                                  "fill": "$quality",
+                                                  "content": "Bit-perfect",
+                                                  "fontFamily": "$font-sans",
+                                                  "fontSize": 10,
+                                                  "fontWeight": "600"
+                                                }
+                                              ]
+                                            }
+                                          ]
                                         }
                                       ]
                                     }
@@ -42372,32 +42094,32 @@
                                     {
                                       "type": "frame",
                                       "id": "P3bGc",
-                                      "name": "Mode Row",
+                                      "name": "Output Mode Row",
                                       "width": "fill_container",
                                       "justifyContent": "space_between",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "frame",
-                                          "id": "h3VGhy",
-                                          "name": "Mode Label Group",
+                                          "id": "IWPMn",
+                                          "name": "Engine Label Group",
                                           "gap": 8,
                                           "alignItems": "center",
                                           "children": [
                                             {
                                               "type": "text",
-                                              "id": "HbOY6",
-                                              "name": "Mode Label",
+                                              "id": "WZZws",
+                                              "name": "Engine Label",
                                               "fill": "$text-primary",
-                                              "content": "Exclusive mode",
+                                              "content": "Output mode",
                                               "fontFamily": "$font-sans",
                                               "fontSize": 12,
                                               "fontWeight": "600"
                                             },
                                             {
                                               "type": "frame",
-                                              "id": "e74JPf",
-                                              "name": "Auto Tag",
+                                              "id": "Y579Hz",
+                                              "name": "Gate Tag",
                                               "fill": "$bg-elevated",
                                               "cornerRadius": "$radius-sm",
                                               "stroke": "$border-strong",
@@ -42410,24 +42132,99 @@
                                               "children": [
                                                 {
                                                   "type": "text",
-                                                  "id": "x8CaG",
-                                                  "name": "Auto Label",
-                                                  "fill": "$text-secondary",
-                                                  "content": "AUTO",
+                                                  "id": "x01pJ8",
+                                                  "name": "Gate Label",
+                                                  "fill": "$text-muted",
+                                                  "content": "NO INTEGER PATH",
                                                   "fontFamily": "$font-mono",
                                                   "fontSize": 9,
                                                   "fontWeight": "700",
-                                                  "letterSpacing": 0.8
+                                                  "letterSpacing": 0.5
                                                 }
                                               ]
                                             }
                                           ]
                                         },
                                         {
-                                          "id": "w9b6Pz",
-                                          "type": "ref",
-                                          "ref": "jkTS9",
-                                          "name": "Toggle"
+                                          "type": "frame",
+                                          "id": "xxj9f",
+                                          "name": "Engine Segments",
+                                          "cornerRadius": "$radius-sm",
+                                          "stroke": "$border-strong",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "gap": 2,
+                                          "padding": 2,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "frame",
+                                              "id": "AW5ti",
+                                              "name": "Seg Shared",
+                                              "fill": "$bg-elevated",
+                                              "cornerRadius": 3,
+                                              "padding": [
+                                                2,
+                                                8
+                                              ],
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "LoPO5",
+                                                  "name": "Seg Label",
+                                                  "fill": "$text-primary",
+                                                  "content": "Shared",
+                                                  "fontFamily": "$font-sans",
+                                                  "fontSize": 10,
+                                                  "fontWeight": "600"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "mGVA6",
+                                              "name": "Seg Exclusive",
+                                              "cornerRadius": 3,
+                                              "padding": [
+                                                2,
+                                                8
+                                              ],
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "ukTrv",
+                                                  "name": "Seg Label",
+                                                  "fill": "$text-secondary",
+                                                  "content": "Exclusive",
+                                                  "fontFamily": "$font-sans",
+                                                  "fontSize": 10,
+                                                  "fontWeight": "600"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "uM0pc",
+                                              "name": "Seg Bit-perfect",
+                                              "cornerRadius": 3,
+                                              "padding": [
+                                                2,
+                                                8
+                                              ],
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "M5fL7",
+                                                  "name": "Seg Label",
+                                                  "fill": "$text-muted",
+                                                  "content": "Bit-perfect",
+                                                  "fontFamily": "$font-sans",
+                                                  "fontSize": 10,
+                                                  "fontWeight": "600"
+                                                }
+                                              ]
+                                            }
+                                          ]
                                         }
                                       ]
                                     }
@@ -42570,32 +42367,32 @@
                                     {
                                       "type": "frame",
                                       "id": "HrZzl",
-                                      "name": "Mode Row",
+                                      "name": "Output Mode Row",
                                       "width": "fill_container",
                                       "justifyContent": "space_between",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "frame",
-                                          "id": "EVjz9",
-                                          "name": "Mode Label Group",
+                                          "id": "IqALv",
+                                          "name": "Engine Label Group",
                                           "gap": 8,
                                           "alignItems": "center",
                                           "children": [
                                             {
                                               "type": "text",
-                                              "id": "v7DfR",
-                                              "name": "Mode Label",
+                                              "id": "BT4WK",
+                                              "name": "Engine Label",
                                               "fill": "$text-primary",
-                                              "content": "Exclusive mode",
+                                              "content": "Output mode",
                                               "fontFamily": "$font-sans",
                                               "fontSize": 12,
                                               "fontWeight": "600"
                                             },
                                             {
                                               "type": "frame",
-                                              "id": "I01JT",
-                                              "name": "Auto Tag",
+                                              "id": "YR00G",
+                                              "name": "Gate Tag",
                                               "fill": "$bg-elevated",
                                               "cornerRadius": "$radius-sm",
                                               "stroke": "$border-strong",
@@ -42608,24 +42405,99 @@
                                               "children": [
                                                 {
                                                   "type": "text",
-                                                  "id": "cXjEa",
-                                                  "name": "Auto Label",
-                                                  "fill": "$text-secondary",
-                                                  "content": "AUTO",
+                                                  "id": "g1D4L2",
+                                                  "name": "Gate Label",
+                                                  "fill": "$text-muted",
+                                                  "content": "NO INTEGER PATH",
                                                   "fontFamily": "$font-mono",
                                                   "fontSize": 9,
                                                   "fontWeight": "700",
-                                                  "letterSpacing": 0.8
+                                                  "letterSpacing": 0.5
                                                 }
                                               ]
                                             }
                                           ]
                                         },
                                         {
-                                          "id": "yDtEW",
-                                          "type": "ref",
-                                          "ref": "jkTS9",
-                                          "name": "Toggle"
+                                          "type": "frame",
+                                          "id": "w0z6nc",
+                                          "name": "Engine Segments",
+                                          "cornerRadius": "$radius-sm",
+                                          "stroke": "$border-strong",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "gap": 2,
+                                          "padding": 2,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "frame",
+                                              "id": "gRsxK",
+                                              "name": "Seg Shared",
+                                              "cornerRadius": 3,
+                                              "padding": [
+                                                2,
+                                                8
+                                              ],
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "u0yuod",
+                                                  "name": "Seg Label",
+                                                  "fill": "$text-secondary",
+                                                  "content": "Shared",
+                                                  "fontFamily": "$font-sans",
+                                                  "fontSize": 10,
+                                                  "fontWeight": "600"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "U8BH1",
+                                              "name": "Seg Exclusive",
+                                              "fill": "$bg-elevated",
+                                              "cornerRadius": 3,
+                                              "padding": [
+                                                2,
+                                                8
+                                              ],
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "R8Yo2Z",
+                                                  "name": "Seg Label",
+                                                  "fill": "$text-primary",
+                                                  "content": "Exclusive",
+                                                  "fontFamily": "$font-sans",
+                                                  "fontSize": 10,
+                                                  "fontWeight": "600"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "h79uVP",
+                                              "name": "Seg Bit-perfect",
+                                              "cornerRadius": 3,
+                                              "padding": [
+                                                2,
+                                                8
+                                              ],
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "lepxm",
+                                                  "name": "Seg Label",
+                                                  "fill": "$text-muted",
+                                                  "content": "Bit-perfect",
+                                                  "fontFamily": "$font-sans",
+                                                  "fontSize": 10,
+                                                  "fontWeight": "600"
+                                                }
+                                              ]
+                                            }
+                                          ]
                                         }
                                       ]
                                     }
@@ -42747,31 +42619,31 @@
                                     {
                                       "type": "frame",
                                       "id": "xUye0",
-                                      "name": "Mode Row",
+                                      "name": "Output Mode Row",
                                       "width": "fill_container",
                                       "justifyContent": "space_between",
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "frame",
-                                          "id": "e93S3K",
-                                          "name": "Mode Label Group",
+                                          "id": "rxY4Q",
+                                          "name": "Engine Label Group",
                                           "gap": 8,
                                           "alignItems": "center",
                                           "children": [
                                             {
                                               "type": "text",
-                                              "id": "Cj0UU",
-                                              "name": "Mode Label",
+                                              "id": "mLJyN",
+                                              "name": "Engine Label",
                                               "fill": "$text-primary",
-                                              "content": "Exclusive mode",
+                                              "content": "Output mode",
                                               "fontFamily": "$font-sans",
                                               "fontSize": 12,
                                               "fontWeight": "600"
                                             },
                                             {
                                               "type": "text",
-                                              "id": "f87mw",
+                                              "id": "nAtIy",
                                               "name": "Reset Link",
                                               "fill": "$accent",
                                               "content": "Reset to Auto",
@@ -42782,10 +42654,85 @@
                                           ]
                                         },
                                         {
-                                          "id": "VoHUU",
-                                          "type": "ref",
-                                          "ref": "jkTS9",
-                                          "name": "Toggle"
+                                          "type": "frame",
+                                          "id": "p0CTd",
+                                          "name": "Engine Segments",
+                                          "cornerRadius": "$radius-sm",
+                                          "stroke": "$border-strong",
+                                          "strokeWidth": 1,
+                                          "strokeAlignment": "inner",
+                                          "gap": 2,
+                                          "padding": 2,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "frame",
+                                              "id": "w4bqed",
+                                              "name": "Seg Shared",
+                                              "fill": "$bg-elevated",
+                                              "cornerRadius": 3,
+                                              "padding": [
+                                                2,
+                                                8
+                                              ],
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "DHMZa",
+                                                  "name": "Seg Label",
+                                                  "fill": "$text-primary",
+                                                  "content": "Shared",
+                                                  "fontFamily": "$font-sans",
+                                                  "fontSize": 10,
+                                                  "fontWeight": "600"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "bORpQ",
+                                              "name": "Seg Exclusive",
+                                              "cornerRadius": 3,
+                                              "padding": [
+                                                2,
+                                                8
+                                              ],
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "W4bo1F",
+                                                  "name": "Seg Label",
+                                                  "fill": "$text-secondary",
+                                                  "content": "Exclusive",
+                                                  "fontFamily": "$font-sans",
+                                                  "fontSize": 10,
+                                                  "fontWeight": "600"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "Xa67f",
+                                              "name": "Seg Bit-perfect",
+                                              "cornerRadius": 3,
+                                              "padding": [
+                                                2,
+                                                8
+                                              ],
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "Sxtb8",
+                                                  "name": "Seg Label",
+                                                  "fill": "$text-secondary",
+                                                  "content": "Bit-perfect",
+                                                  "fontFamily": "$font-sans",
+                                                  "fontSize": 10,
+                                                  "fontWeight": "600"
+                                                }
+                                              ]
+                                            }
+                                          ]
                                         }
                                       ]
                                     }
@@ -46967,6 +46914,2784 @@
           "fill": "$accent",
           "width": 10,
           "height": 10
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "iay7h",
+      "x": 1809,
+      "y": -947,
+      "name": "Signal Path Popover",
+      "width": 320,
+      "fill": "$bg-surface",
+      "cornerRadius": "$radius-lg",
+      "stroke": "$border",
+      "strokeWidth": 1,
+      "strokeAlignment": "inner",
+      "layout": "vertical",
+      "gap": 12,
+      "padding": [
+        14,
+        16
+      ],
+      "children": [
+        {
+          "type": "frame",
+          "id": "m4QlE",
+          "name": "Header",
+          "width": "fill_container",
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "S30xj",
+              "name": "Title",
+              "fill": "$text-muted",
+              "content": "SIGNAL PATH",
+              "fontFamily": "$font-mono",
+              "fontSize": 10,
+              "fontWeight": "700",
+              "letterSpacing": 0.8
+            },
+            {
+              "type": "frame",
+              "id": "mfAJj",
+              "name": "Verdict Pill",
+              "fill": "$quality-soft",
+              "cornerRadius": "$radius-sm",
+              "stroke": "$quality-border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "gap": 5,
+              "padding": [
+                3,
+                8
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 3,
+                  "id": "cFkVC",
+                  "name": "Verdict Dot",
+                  "fill": "$quality",
+                  "width": 6,
+                  "height": 6
+                },
+                {
+                  "type": "text",
+                  "id": "kQVWq",
+                  "name": "Verdict Label",
+                  "fill": "$quality",
+                  "content": "BIT-PERFECT",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 9,
+                  "fontWeight": "700",
+                  "letterSpacing": 0.6
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Fw8ij",
+          "name": "Chain",
+          "width": "fill_container",
+          "layout": "vertical",
+          "children": [
+            {
+              "type": "frame",
+              "id": "S8uGbK",
+              "name": "Source Row",
+              "width": "fill_container",
+              "gap": 10,
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "GtLwJ",
+                  "name": "Stage Group",
+                  "gap": 7,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2.5,
+                      "id": "MLq8D",
+                      "name": "Dot",
+                      "fill": "$quality",
+                      "width": 5,
+                      "height": 5
+                    },
+                    {
+                      "type": "text",
+                      "id": "rTwE5",
+                      "name": "Stage",
+                      "fill": "$text-primary",
+                      "content": "Source",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "UlBe1",
+                  "name": "Detail",
+                  "fill": "$text-secondary",
+                  "content": "FLAC · 24-bit / 96 kHz",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "XB3bm",
+              "name": "Connector 1",
+              "width": "fill_container",
+              "layout": "vertical",
+              "padding": [
+                0,
+                0,
+                0,
+                2
+              ],
+              "children": [
+                {
+                  "type": "rectangle",
+                  "id": "u5ZIH",
+                  "name": "Line",
+                  "fill": "$border-strong",
+                  "width": 1,
+                  "height": 8
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "N95Adw",
+              "name": "Decode Row",
+              "width": "fill_container",
+              "gap": 10,
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "HRGrJ",
+                  "name": "Stage Group",
+                  "gap": 7,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2.5,
+                      "id": "ByXN6",
+                      "name": "Dot",
+                      "fill": "$quality",
+                      "width": 5,
+                      "height": 5
+                    },
+                    {
+                      "type": "text",
+                      "id": "FeG1J",
+                      "name": "Stage",
+                      "fill": "$text-primary",
+                      "content": "Decode",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "a8pKew",
+                  "name": "Detail",
+                  "fill": "$text-secondary",
+                  "content": "Lossless unpack · no resampling",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "bl5O7",
+              "name": "Connector 2",
+              "width": "fill_container",
+              "layout": "vertical",
+              "padding": [
+                0,
+                0,
+                0,
+                2
+              ],
+              "children": [
+                {
+                  "type": "rectangle",
+                  "id": "HsCWU",
+                  "name": "Line",
+                  "fill": "$border-strong",
+                  "width": 1,
+                  "height": 8
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "lWq8K",
+              "name": "Volume Row",
+              "width": "fill_container",
+              "gap": 10,
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "n6tanb",
+                  "name": "Stage Group",
+                  "gap": 7,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2.5,
+                      "id": "nGnqC",
+                      "name": "Dot",
+                      "fill": "$quality",
+                      "width": 5,
+                      "height": 5
+                    },
+                    {
+                      "type": "text",
+                      "id": "F1t3p",
+                      "name": "Stage",
+                      "fill": "$text-primary",
+                      "content": "Volume",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "g69Xj",
+                  "name": "Detail",
+                  "fill": "$text-secondary",
+                  "content": "Device volume · DAC attenuator",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "CNT3a",
+              "name": "Connector 3",
+              "width": "fill_container",
+              "layout": "vertical",
+              "padding": [
+                0,
+                0,
+                0,
+                2
+              ],
+              "children": [
+                {
+                  "type": "rectangle",
+                  "id": "viS9K",
+                  "name": "Line",
+                  "fill": "$border-strong",
+                  "width": 1,
+                  "height": 8
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "jL63e",
+              "name": "Engine Row",
+              "width": "fill_container",
+              "gap": 10,
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "zFV5X",
+                  "name": "Stage Group",
+                  "gap": 7,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2.5,
+                      "id": "h28OBz",
+                      "name": "Dot",
+                      "fill": "$quality",
+                      "width": 5,
+                      "height": 5
+                    },
+                    {
+                      "type": "text",
+                      "id": "V5Olo",
+                      "name": "Stage",
+                      "fill": "$text-primary",
+                      "content": "Engine",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "xele8",
+                  "name": "Detail",
+                  "fill": "$text-secondary",
+                  "content": "Bit-perfect · hog held · mixing off",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "w3mEd",
+              "name": "Connector 4",
+              "width": "fill_container",
+              "layout": "vertical",
+              "padding": [
+                0,
+                0,
+                0,
+                2
+              ],
+              "children": [
+                {
+                  "type": "rectangle",
+                  "id": "kzlUH",
+                  "name": "Line",
+                  "fill": "$border-strong",
+                  "width": 1,
+                  "height": 8
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "xPSfC",
+              "name": "Output Row",
+              "width": "fill_container",
+              "gap": 10,
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "T7LCKX",
+                  "name": "Stage Group",
+                  "gap": 7,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2.5,
+                      "id": "ikbiU",
+                      "name": "Dot",
+                      "fill": "$quality",
+                      "width": 5,
+                      "height": 5
+                    },
+                    {
+                      "type": "text",
+                      "id": "PCHgj",
+                      "name": "Stage",
+                      "fill": "$text-primary",
+                      "content": "Output",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "sVKJj",
+                  "name": "Detail",
+                  "fill": "$text-secondary",
+                  "content": "mini-i Series · 24/96 integer",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "zI4ns",
+          "name": "Footer Divider",
+          "fill": "$border",
+          "width": "fill_container",
+          "height": 1
+        },
+        {
+          "type": "text",
+          "id": "idPUI",
+          "name": "Footer Note",
+          "fill": "$text-muted",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "Source integers reach the DAC unmodified. Verified by the DoP test on this device.",
+          "lineHeight": 1.45,
+          "fontFamily": "$font-sans",
+          "fontSize": 10,
+          "fontWeight": "normal"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "eBomZ",
+      "x": 2209,
+      "y": -947,
+      "name": "Spec — Signal Path",
+      "width": 412,
+      "fill": "$bg-page",
+      "layout": "vertical",
+      "gap": 24,
+      "padding": 20,
+      "children": [
+        {
+          "type": "text",
+          "id": "s8w4Nl",
+          "name": "Board Title",
+          "fill": "$text-muted",
+          "content": "SPEC — SIGNAL PATH POPOVER",
+          "fontFamily": "$font-mono",
+          "fontSize": 10,
+          "fontWeight": "700",
+          "letterSpacing": 0.8
+        },
+        {
+          "type": "text",
+          "id": "k4Lqyp",
+          "name": "Board Note",
+          "fill": "$text-secondary",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "Features 31 + 32. Opens from the quality badge in the bottom player. Verdict is BIT-PERFECT only on the integer engine with hog held and the integer virtual format confirmed by readback; TRANSPARENT when samples leave Pulse untouched on Universal (unity software gain, or device volume); PROCESSED when the float path modifies samples. Copy is bound by the honest-claim rule in docs/arch/pulse-engine.md — no bit-perfect wording before the stage 5 DoP pass.",
+          "lineHeight": 1.45,
+          "fontFamily": "$font-sans",
+          "fontSize": 11,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "IPAF0",
+          "name": "STATE 1 — BIT-PERFECT · INTEGER ENGINE",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 10,
+          "children": [
+            {
+              "type": "text",
+              "id": "aB4Qa",
+              "name": "State Label",
+              "fill": "$text-secondary",
+              "content": "STATE 1 — BIT-PERFECT · INTEGER ENGINE",
+              "fontFamily": "$font-mono",
+              "fontSize": 10,
+              "fontWeight": "700",
+              "letterSpacing": 0.8
+            },
+            {
+              "type": "frame",
+              "id": "fGIYD",
+              "name": "Popover",
+              "width": "fill_container",
+              "fill": "$bg-surface",
+              "cornerRadius": "$radius-lg",
+              "stroke": "$border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 12,
+              "padding": [
+                14,
+                16
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "RMfLc",
+                  "name": "Header",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "RxlFq",
+                      "name": "Title",
+                      "fill": "$text-muted",
+                      "content": "SIGNAL PATH",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 10,
+                      "fontWeight": "700",
+                      "letterSpacing": 0.8
+                    },
+                    {
+                      "type": "frame",
+                      "id": "VVRqH",
+                      "name": "Verdict Pill",
+                      "fill": "$quality-soft",
+                      "cornerRadius": "$radius-sm",
+                      "stroke": "$quality-border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": 5,
+                      "padding": [
+                        3,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 3,
+                          "id": "IsRKX",
+                          "name": "Verdict Dot",
+                          "fill": "$quality",
+                          "width": 6,
+                          "height": 6
+                        },
+                        {
+                          "type": "text",
+                          "id": "Ewibn",
+                          "name": "Verdict Label",
+                          "fill": "$quality",
+                          "content": "BIT-PERFECT",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 9,
+                          "fontWeight": "700",
+                          "letterSpacing": 0.6
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "a5Z9N",
+                  "name": "Chain",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "Y3yojy",
+                      "name": "Source Row",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "l9zRHR",
+                          "name": "Stage Group",
+                          "gap": 7,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 2.5,
+                              "id": "UzKPw",
+                              "name": "Dot",
+                              "fill": "$quality",
+                              "width": 5,
+                              "height": 5
+                            },
+                            {
+                              "type": "text",
+                              "id": "Rd3Y5",
+                              "name": "Stage",
+                              "fill": "$text-primary",
+                              "content": "Source",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "ubA2g",
+                          "name": "Detail",
+                          "fill": "$text-secondary",
+                          "content": "FLAC · 24-bit / 96 kHz",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "t9iQA1",
+                      "name": "Connector 1",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "padding": [
+                        0,
+                        0,
+                        0,
+                        2
+                      ],
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "id": "RX9Ap",
+                          "name": "Line",
+                          "fill": "$border-strong",
+                          "width": 1,
+                          "height": 8
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Y7IFV",
+                      "name": "Decode Row",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "FUrbr",
+                          "name": "Stage Group",
+                          "gap": 7,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 2.5,
+                              "id": "gSuVG",
+                              "name": "Dot",
+                              "fill": "$quality",
+                              "width": 5,
+                              "height": 5
+                            },
+                            {
+                              "type": "text",
+                              "id": "v12jC",
+                              "name": "Stage",
+                              "fill": "$text-primary",
+                              "content": "Decode",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "EtMUm",
+                          "name": "Detail",
+                          "fill": "$text-secondary",
+                          "content": "Lossless unpack · no resampling",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "hLRw6",
+                      "name": "Connector 2",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "padding": [
+                        0,
+                        0,
+                        0,
+                        2
+                      ],
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "id": "T8d8N",
+                          "name": "Line",
+                          "fill": "$border-strong",
+                          "width": 1,
+                          "height": 8
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "rQT87",
+                      "name": "Volume Row",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "FgZ7s",
+                          "name": "Stage Group",
+                          "gap": 7,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 2.5,
+                              "id": "jXZb3",
+                              "name": "Dot",
+                              "fill": "$quality",
+                              "width": 5,
+                              "height": 5
+                            },
+                            {
+                              "type": "text",
+                              "id": "RTjBh",
+                              "name": "Stage",
+                              "fill": "$text-primary",
+                              "content": "Volume",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "j6qs16",
+                          "name": "Detail",
+                          "fill": "$text-secondary",
+                          "content": "Device volume · DAC attenuator",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "t6gIW",
+                      "name": "Connector 3",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "padding": [
+                        0,
+                        0,
+                        0,
+                        2
+                      ],
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "id": "JrWnW",
+                          "name": "Line",
+                          "fill": "$border-strong",
+                          "width": 1,
+                          "height": 8
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "J2DMFv",
+                      "name": "Engine Row",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "qMTpT",
+                          "name": "Stage Group",
+                          "gap": 7,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 2.5,
+                              "id": "evUQf",
+                              "name": "Dot",
+                              "fill": "$quality",
+                              "width": 5,
+                              "height": 5
+                            },
+                            {
+                              "type": "text",
+                              "id": "PTqCQ",
+                              "name": "Stage",
+                              "fill": "$text-primary",
+                              "content": "Engine",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "SQEGw",
+                          "name": "Detail",
+                          "fill": "$text-secondary",
+                          "content": "Bit-perfect · hog held · mixing off",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "SIXrr",
+                      "name": "Connector 4",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "padding": [
+                        0,
+                        0,
+                        0,
+                        2
+                      ],
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "id": "xUJu3",
+                          "name": "Line",
+                          "fill": "$border-strong",
+                          "width": 1,
+                          "height": 8
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "AEx8Y",
+                      "name": "Output Row",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "v0wvs",
+                          "name": "Stage Group",
+                          "gap": 7,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 2.5,
+                              "id": "CdoIh",
+                              "name": "Dot",
+                              "fill": "$quality",
+                              "width": 5,
+                              "height": 5
+                            },
+                            {
+                              "type": "text",
+                              "id": "uRk5A",
+                              "name": "Stage",
+                              "fill": "$text-primary",
+                              "content": "Output",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "elPpC",
+                          "name": "Detail",
+                          "fill": "$text-secondary",
+                          "content": "mini-i Series · 24/96 integer",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "rectangle",
+                  "id": "UOaIK",
+                  "name": "Footer Divider",
+                  "fill": "$border",
+                  "width": "fill_container",
+                  "height": 1
+                },
+                {
+                  "type": "text",
+                  "id": "RDb1A",
+                  "name": "Footer Note",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Source integers reach the DAC unmodified. Verified by the DoP test on this device.",
+                  "lineHeight": 1.45,
+                  "fontFamily": "$font-sans",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "Xm2DD",
+              "name": "Caption",
+              "fill": "$text-secondary",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Integer engine on an accepting DAC: source integers packed to the device's non-mixable integer format, no float stage, no gain multiply. The only state allowed to read bit-perfect. If the device has no hardware volume, the Volume row reads \"Fixed · 100% — no gain stage\".",
+              "lineHeight": 1.45,
+              "fontFamily": "$font-sans",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "m5L7C",
+          "name": "STATE 2 — TRANSPARENT · UNIVERSAL",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 10,
+          "children": [
+            {
+              "type": "text",
+              "id": "k6lCr",
+              "name": "State Label",
+              "fill": "$text-secondary",
+              "content": "STATE 2 — TRANSPARENT · UNIVERSAL",
+              "fontFamily": "$font-mono",
+              "fontSize": 10,
+              "fontWeight": "700",
+              "letterSpacing": 0.8
+            },
+            {
+              "type": "frame",
+              "id": "hBp0O",
+              "name": "Popover",
+              "width": "fill_container",
+              "fill": "$bg-surface",
+              "cornerRadius": "$radius-lg",
+              "stroke": "$border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 12,
+              "padding": [
+                14,
+                16
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Q0XPZ",
+                  "name": "Header",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "YiU4R",
+                      "name": "Title",
+                      "fill": "$text-muted",
+                      "content": "SIGNAL PATH",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 10,
+                      "fontWeight": "700",
+                      "letterSpacing": 0.8
+                    },
+                    {
+                      "type": "frame",
+                      "id": "g7bNt5",
+                      "name": "Verdict Pill",
+                      "fill": "$primary-soft",
+                      "cornerRadius": "$radius-sm",
+                      "stroke": "$border-strong",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": 5,
+                      "padding": [
+                        3,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 3,
+                          "id": "LfKjd",
+                          "name": "Verdict Dot",
+                          "fill": "$primary",
+                          "width": 6,
+                          "height": 6
+                        },
+                        {
+                          "type": "text",
+                          "id": "jJcJN",
+                          "name": "Verdict Label",
+                          "fill": "$primary",
+                          "content": "TRANSPARENT",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 9,
+                          "fontWeight": "700",
+                          "letterSpacing": 0.6
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "UdZpv",
+                  "name": "Chain",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "CW8z7",
+                      "name": "Source Row",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "j7pXt3",
+                          "name": "Stage Group",
+                          "gap": 7,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 2.5,
+                              "id": "hc5t8",
+                              "name": "Dot",
+                              "fill": "$quality",
+                              "width": 5,
+                              "height": 5
+                            },
+                            {
+                              "type": "text",
+                              "id": "Y8HiH",
+                              "name": "Stage",
+                              "fill": "$text-primary",
+                              "content": "Source",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "e79Sp",
+                          "name": "Detail",
+                          "fill": "$text-secondary",
+                          "content": "FLAC · 24-bit / 96 kHz",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "orVUK",
+                      "name": "Connector 1",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "padding": [
+                        0,
+                        0,
+                        0,
+                        2
+                      ],
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "id": "tThMx",
+                          "name": "Line",
+                          "fill": "$border-strong",
+                          "width": 1,
+                          "height": 8
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "NinAw",
+                      "name": "Decode Row",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "eeUYL",
+                          "name": "Stage Group",
+                          "gap": 7,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 2.5,
+                              "id": "QSUDt",
+                              "name": "Dot",
+                              "fill": "$quality",
+                              "width": 5,
+                              "height": 5
+                            },
+                            {
+                              "type": "text",
+                              "id": "yBp4Q",
+                              "name": "Stage",
+                              "fill": "$text-primary",
+                              "content": "Decode",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "VvqnI",
+                          "name": "Detail",
+                          "fill": "$text-secondary",
+                          "content": "Lossless unpack · no resampling",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "JaC97",
+                      "name": "Connector 2",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "padding": [
+                        0,
+                        0,
+                        0,
+                        2
+                      ],
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "id": "G9UqmI",
+                          "name": "Line",
+                          "fill": "$border-strong",
+                          "width": 1,
+                          "height": 8
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Qsm7W",
+                      "name": "Volume Row",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "HFYMD",
+                          "name": "Stage Group",
+                          "gap": 7,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 2.5,
+                              "id": "PilP3",
+                              "name": "Dot",
+                              "fill": "$quality",
+                              "width": 5,
+                              "height": 5
+                            },
+                            {
+                              "type": "text",
+                              "id": "zsccX",
+                              "name": "Stage",
+                              "fill": "$text-primary",
+                              "content": "Volume",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "W5KYv",
+                          "name": "Detail",
+                          "fill": "$text-secondary",
+                          "content": "Software · unity — untouched",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "k1oV2",
+                      "name": "Connector 3",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "padding": [
+                        0,
+                        0,
+                        0,
+                        2
+                      ],
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "id": "uJ3oR",
+                          "name": "Line",
+                          "fill": "$border-strong",
+                          "width": 1,
+                          "height": 8
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "kBHsn",
+                      "name": "Engine Row",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "MYZ0V",
+                          "name": "Stage Group",
+                          "gap": 7,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 2.5,
+                              "id": "k6uZb",
+                              "name": "Dot",
+                              "fill": "$text-muted",
+                              "width": 5,
+                              "height": 5
+                            },
+                            {
+                              "type": "text",
+                              "id": "coluA",
+                              "name": "Stage",
+                              "fill": "$text-primary",
+                              "content": "Engine",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "yGAbO",
+                          "name": "Detail",
+                          "fill": "$text-secondary",
+                          "content": "Universal · AUHAL · float32",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "B1Emq",
+                      "name": "Connector 4",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "padding": [
+                        0,
+                        0,
+                        0,
+                        2
+                      ],
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "id": "Ht2s6",
+                          "name": "Line",
+                          "fill": "$border-strong",
+                          "width": 1,
+                          "height": 8
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "l2ZmdE",
+                      "name": "Output Row",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "Ndu3U",
+                          "name": "Stage Group",
+                          "gap": 7,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 2.5,
+                              "id": "zlctW",
+                              "name": "Dot",
+                              "fill": "$text-muted",
+                              "width": 5,
+                              "height": 5
+                            },
+                            {
+                              "type": "text",
+                              "id": "QIA0m",
+                              "name": "Stage",
+                              "fill": "$text-primary",
+                              "content": "Output",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "x2NBh1",
+                          "name": "Detail",
+                          "fill": "$text-secondary",
+                          "content": "mini-i Series · Core Audio → 24/96",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "rectangle",
+                  "id": "edke1",
+                  "name": "Footer Divider",
+                  "fill": "$border",
+                  "width": "fill_container",
+                  "height": 1
+                },
+                {
+                  "type": "text",
+                  "id": "t7Co7c",
+                  "name": "Footer Note",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Samples leave Pulse untouched. Core Audio owns the conversion past the client boundary.",
+                  "lineHeight": 1.45,
+                  "fontFamily": "$font-sans",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "G6K7G",
+              "name": "Caption",
+              "fill": "$text-secondary",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Universal engine, value-exact inside Pulse: unity software gain (or device volume while hogged). Muted dots past the engine mark the boundary — Core Audio owns f32 → physical, so the claim stops there.",
+              "lineHeight": 1.45,
+              "fontFamily": "$font-sans",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Mm13Z",
+          "name": "STATE 3 — PROCESSED · SOFTWARE GAIN",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 10,
+          "children": [
+            {
+              "type": "text",
+              "id": "Idf5r",
+              "name": "State Label",
+              "fill": "$text-secondary",
+              "content": "STATE 3 — PROCESSED · SOFTWARE GAIN",
+              "fontFamily": "$font-mono",
+              "fontSize": 10,
+              "fontWeight": "700",
+              "letterSpacing": 0.8
+            },
+            {
+              "type": "frame",
+              "id": "CSKq2",
+              "name": "Popover",
+              "width": "fill_container",
+              "fill": "$bg-surface",
+              "cornerRadius": "$radius-lg",
+              "stroke": "$border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 12,
+              "padding": [
+                14,
+                16
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "LQGYA",
+                  "name": "Header",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Pf01M",
+                      "name": "Title",
+                      "fill": "$text-muted",
+                      "content": "SIGNAL PATH",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 10,
+                      "fontWeight": "700",
+                      "letterSpacing": 0.8
+                    },
+                    {
+                      "type": "frame",
+                      "id": "tYue2",
+                      "name": "Verdict Pill",
+                      "fill": "$bg-elevated",
+                      "cornerRadius": "$radius-sm",
+                      "stroke": "$border-strong",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": 5,
+                      "padding": [
+                        3,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 3,
+                          "id": "GVtRG",
+                          "name": "Verdict Dot",
+                          "fill": "$warning",
+                          "width": 6,
+                          "height": 6
+                        },
+                        {
+                          "type": "text",
+                          "id": "JVz8G",
+                          "name": "Verdict Label",
+                          "fill": "$warning",
+                          "content": "PROCESSED",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 9,
+                          "fontWeight": "700",
+                          "letterSpacing": 0.6
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "WJJ1G",
+                  "name": "Chain",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "bG6tP",
+                      "name": "Source Row",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "f2srH3",
+                          "name": "Stage Group",
+                          "gap": 7,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 2.5,
+                              "id": "Q3oG90",
+                              "name": "Dot",
+                              "fill": "$quality",
+                              "width": 5,
+                              "height": 5
+                            },
+                            {
+                              "type": "text",
+                              "id": "s0TVkJ",
+                              "name": "Stage",
+                              "fill": "$text-primary",
+                              "content": "Source",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "gKE3W",
+                          "name": "Detail",
+                          "fill": "$text-secondary",
+                          "content": "FLAC · 24-bit / 96 kHz",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "p381Nm",
+                      "name": "Connector 1",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "padding": [
+                        0,
+                        0,
+                        0,
+                        2
+                      ],
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "id": "uFIxn",
+                          "name": "Line",
+                          "fill": "$border-strong",
+                          "width": 1,
+                          "height": 8
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "I74xGP",
+                      "name": "Decode Row",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "QuH4U",
+                          "name": "Stage Group",
+                          "gap": 7,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 2.5,
+                              "id": "kWqyn",
+                              "name": "Dot",
+                              "fill": "$quality",
+                              "width": 5,
+                              "height": 5
+                            },
+                            {
+                              "type": "text",
+                              "id": "F4Q03",
+                              "name": "Stage",
+                              "fill": "$text-primary",
+                              "content": "Decode",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "KrP9I",
+                          "name": "Detail",
+                          "fill": "$text-secondary",
+                          "content": "Lossless unpack · no resampling",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "P8A1M",
+                      "name": "Connector 2",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "padding": [
+                        0,
+                        0,
+                        0,
+                        2
+                      ],
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "id": "UMDZ3",
+                          "name": "Line",
+                          "fill": "$border-strong",
+                          "width": 1,
+                          "height": 8
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "M3Wy8X",
+                      "name": "Volume Row",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "qL4Pn",
+                          "name": "Stage Group",
+                          "gap": 7,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 2.5,
+                              "id": "Ff7Za",
+                              "name": "Dot",
+                              "fill": "$warning",
+                              "width": 5,
+                              "height": 5
+                            },
+                            {
+                              "type": "text",
+                              "id": "MFzxC",
+                              "name": "Stage",
+                              "fill": "$text-primary",
+                              "content": "Volume",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "H4dWA",
+                          "name": "Detail",
+                          "fill": "$warning",
+                          "content": "Software · 70% (−9.5 dB)",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "EGmAt",
+                      "name": "Connector 3",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "padding": [
+                        0,
+                        0,
+                        0,
+                        2
+                      ],
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "id": "OKUBW",
+                          "name": "Line",
+                          "fill": "$border-strong",
+                          "width": 1,
+                          "height": 8
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ZVmJB",
+                      "name": "Engine Row",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "fmQLq",
+                          "name": "Stage Group",
+                          "gap": 7,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 2.5,
+                              "id": "wg7dz",
+                              "name": "Dot",
+                              "fill": "$text-muted",
+                              "width": 5,
+                              "height": 5
+                            },
+                            {
+                              "type": "text",
+                              "id": "do7Pa",
+                              "name": "Stage",
+                              "fill": "$text-primary",
+                              "content": "Engine",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "iOom2",
+                          "name": "Detail",
+                          "fill": "$text-secondary",
+                          "content": "Universal · AUHAL · float32",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "hvbiM",
+                      "name": "Connector 4",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "padding": [
+                        0,
+                        0,
+                        0,
+                        2
+                      ],
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "id": "Xw4Ug",
+                          "name": "Line",
+                          "fill": "$border-strong",
+                          "width": 1,
+                          "height": 8
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "IC1Sa",
+                      "name": "Output Row",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "rjM7F",
+                          "name": "Stage Group",
+                          "gap": 7,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 2.5,
+                              "id": "VoZiI",
+                              "name": "Dot",
+                              "fill": "$text-muted",
+                              "width": 5,
+                              "height": 5
+                            },
+                            {
+                              "type": "text",
+                              "id": "gzqho",
+                              "name": "Stage",
+                              "fill": "$text-primary",
+                              "content": "Output",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "tKRCW",
+                          "name": "Detail",
+                          "fill": "$text-secondary",
+                          "content": "mini-i Series · Core Audio → 24/96",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "rectangle",
+                  "id": "Qpok6",
+                  "name": "Footer Divider",
+                  "fill": "$border",
+                  "width": "fill_container",
+                  "height": 1
+                },
+                {
+                  "type": "text",
+                  "id": "JvnPh",
+                  "name": "Footer Note",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Software gain multiplies samples in the float path. Set volume to 100% for a transparent path.",
+                  "lineHeight": 1.45,
+                  "fontFamily": "$font-sans",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "CJ6pb",
+              "name": "Caption",
+              "fill": "$text-secondary",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Slider below unity on Universal: the volume stage is flagged and the verdict demotes. Transient fade ramps (pause / seek, ~10 ms) do not demote — the indicator reflects steady state (feature 31). On the integer engine this state is unreachable: the engine never multiplies.",
+              "lineHeight": 1.45,
+              "fontFamily": "$font-sans",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "TrYbi",
+      "x": 2701,
+      "y": -947,
+      "name": "Spec — Engine Control",
+      "width": 760,
+      "fill": "$bg-page",
+      "layout": "vertical",
+      "gap": 24,
+      "padding": 20,
+      "children": [
+        {
+          "type": "text",
+          "id": "FCNJp",
+          "name": "Board Title",
+          "fill": "$text-muted",
+          "content": "SPEC — ENGINE CONTROL",
+          "fontFamily": "$font-mono",
+          "fontSize": 10,
+          "fontWeight": "700",
+          "letterSpacing": 0.8
+        },
+        {
+          "type": "text",
+          "id": "PAO7t",
+          "name": "Board Note",
+          "fill": "$text-secondary",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "Feature 32 (Jason, 2026-08-31 — supersedes feature 08's separate Exclusive toggle): one per-device Output mode control — Shared / Exclusive / Bit-perfect — one axis: shared AUHAL, hogged AUHAL, hogged integer. Stored mode None = AUTO, resolving down the ladder: gate passes → Bit-perfect; integer physical formats but gated transport or refused virtual → Exclusive; float-only → Shared. Pinning any segment drops the AUTO tag (Reset to Auto returns). The Bit-perfect segment is disabled with the NO INTEGER PATH tag on gated devices. Maps 1:1 onto the engine protocol: Shared → Universal{shared}, Exclusive → Universal{exclusive}, Bit-perfect → BitPerfect — no controller changes. Migration: stored exclusive_mode_override + engine collapse into one stored mode. Changing the active device's mode restarts playback; bit-perfect wording stays gated on the stage 5 DoP pass.",
+          "lineHeight": 1.45,
+          "fontFamily": "$font-sans",
+          "fontSize": 11,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "K6NoG0",
+          "name": "STATE 1 — AUTO → BIT-PERFECT",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 10,
+          "children": [
+            {
+              "type": "text",
+              "id": "IChOP",
+              "name": "State Label",
+              "fill": "$text-secondary",
+              "content": "STATE 1 — AUTO · GATE PASSES → BIT-PERFECT",
+              "fontFamily": "$font-mono",
+              "fontSize": 10,
+              "fontWeight": "700",
+              "letterSpacing": 0.8
+            },
+            {
+              "type": "frame",
+              "id": "WHgqY",
+              "name": "Card",
+              "width": "fill_container",
+              "fill": "$bg-inset",
+              "cornerRadius": "$radius-md",
+              "stroke": "$accent",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 10,
+              "padding": 14,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "PKvm6",
+                  "name": "Device",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "efu2g",
+                      "name": "Icon",
+                      "width": 22,
+                      "height": 22,
+                      "icon": "speaker",
+                      "library": "lucide",
+                      "fill": "$accent"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "nREyR",
+                      "name": "Copy",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 3,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "eYWBA",
+                          "name": "Name",
+                          "fill": "$text-primary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "mini-i Series",
+                          "fontFamily": "$font-display",
+                          "fontSize": 17,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "hok7I",
+                          "name": "Class",
+                          "fill": "$quality",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "DAC · Up to 24-bit / 192 kHz · Device volume",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    },
+                    {
+                      "id": "H4hU6c",
+                      "type": "ref",
+                      "ref": "Y8Ojv",
+                      "name": "Active Pill",
+                      "descendants": {
+                        "kjQGY": {
+                          "content": "Active"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "rectangle",
+                  "id": "e6J9N",
+                  "name": "Divider",
+                  "fill": "$border",
+                  "width": "fill_container",
+                  "height": 1
+                },
+                {
+                  "type": "frame",
+                  "id": "sGUcV",
+                  "name": "Output Mode Row",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "stAfQ",
+                      "name": "Engine Label Group",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "bMzsF",
+                          "name": "Engine Label",
+                          "fill": "$text-primary",
+                          "content": "Output mode",
+                          "fontFamily": "$font-sans",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "tFKeI",
+                          "name": "Auto Tag",
+                          "fill": "$bg-elevated",
+                          "cornerRadius": "$radius-sm",
+                          "stroke": "$border-strong",
+                          "strokeWidth": 1,
+                          "strokeAlignment": "inner",
+                          "padding": [
+                            2,
+                            6
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "d69X1r",
+                              "name": "Auto Label",
+                              "fill": "$text-secondary",
+                              "content": "AUTO",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 9,
+                              "fontWeight": "700",
+                              "letterSpacing": 0.5
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "i179re",
+                      "name": "Engine Segments",
+                      "cornerRadius": "$radius-sm",
+                      "stroke": "$border-strong",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": 2,
+                      "padding": 2,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "baLYr",
+                          "name": "Seg Shared",
+                          "cornerRadius": 3,
+                          "padding": [
+                            2,
+                            8
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "MgDfe",
+                              "name": "Seg Label",
+                              "fill": "$text-secondary",
+                              "content": "Shared",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 10,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "wDSuR",
+                          "name": "Seg Exclusive",
+                          "cornerRadius": 3,
+                          "padding": [
+                            2,
+                            8
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "IMfc3",
+                              "name": "Seg Label",
+                              "fill": "$text-secondary",
+                              "content": "Exclusive",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 10,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "clFoV",
+                          "name": "Seg Bit-perfect",
+                          "fill": "$quality-soft",
+                          "cornerRadius": 3,
+                          "stroke": "$quality-border",
+                          "strokeWidth": 1,
+                          "strokeAlignment": "inner",
+                          "padding": [
+                            2,
+                            8
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "A2SMzk",
+                              "name": "Seg Label",
+                              "fill": "$quality",
+                              "content": "Bit-perfect",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 10,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "u1a4T",
+              "name": "Caption",
+              "fill": "$text-secondary",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Integer DAC, nothing pinned: AUTO resolves to Bit-perfect. Hog + integer path implied by the mode itself — no second control to lock. Pause holds the device; no fades (clicks accepted); volume hardware-only or fixed at 100%; disclosed in the control's tooltip.",
+              "lineHeight": 1.45,
+              "fontFamily": "$font-sans",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "s0EMJ",
+          "name": "STATE 2 — PINNED",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 10,
+          "children": [
+            {
+              "type": "text",
+              "id": "QEW8p",
+              "name": "State Label",
+              "fill": "$text-secondary",
+              "content": "STATE 2 — PINNED · RESET TO AUTO",
+              "fontFamily": "$font-mono",
+              "fontSize": 10,
+              "fontWeight": "700",
+              "letterSpacing": 0.8
+            },
+            {
+              "type": "frame",
+              "id": "p1ab0",
+              "name": "Card",
+              "width": "fill_container",
+              "fill": "$bg-inset",
+              "cornerRadius": "$radius-md",
+              "stroke": "$border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 10,
+              "padding": 14,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "ZSOi9",
+                  "name": "Device",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "C0AzrO",
+                      "name": "Icon",
+                      "width": 22,
+                      "height": 22,
+                      "icon": "speaker",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "j3Fcf",
+                      "name": "Copy",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 3,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "bt6Bz",
+                          "name": "Name",
+                          "fill": "$text-primary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Scarlett 2i2 4th Gen",
+                          "fontFamily": "$font-display",
+                          "fontSize": 17,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "G1xvPr",
+                          "name": "Class",
+                          "fill": "$text-muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "DAC · Up to 24-bit / 192 kHz",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "fU824",
+                          "name": "Status",
+                          "fill": "$text-muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Last seen 3 days ago",
+                          "fontFamily": "$font-sans",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "FXmxY",
+                      "name": "Forget Button",
+                      "cornerRadius": "$radius-sm",
+                      "stroke": "$border-strong",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        4,
+                        10
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "B2aFON",
+                          "name": "Forget Label",
+                          "fill": "$text-secondary",
+                          "content": "Forget",
+                          "fontFamily": "$font-sans",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "rectangle",
+                  "id": "Rw2h6",
+                  "name": "Divider",
+                  "fill": "$border",
+                  "width": "fill_container",
+                  "height": 1
+                },
+                {
+                  "type": "frame",
+                  "id": "UfXCo",
+                  "name": "Output Mode Row",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "PhHEF",
+                      "name": "Engine Label Group",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "W2p7Ea",
+                          "name": "Engine Label",
+                          "fill": "$text-primary",
+                          "content": "Output mode",
+                          "fontFamily": "$font-sans",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Z8k8J",
+                          "name": "Reset Link",
+                          "fill": "$accent",
+                          "content": "Reset to Auto",
+                          "fontFamily": "$font-sans",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "QFCZI",
+                      "name": "Engine Segments",
+                      "cornerRadius": "$radius-sm",
+                      "stroke": "$border-strong",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": 2,
+                      "padding": 2,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "NEfeg",
+                          "name": "Seg Shared",
+                          "fill": "$bg-elevated",
+                          "cornerRadius": 3,
+                          "padding": [
+                            2,
+                            8
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "yMAre",
+                              "name": "Seg Label",
+                              "fill": "$text-primary",
+                              "content": "Shared",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 10,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "PNkZy",
+                          "name": "Seg Exclusive",
+                          "cornerRadius": 3,
+                          "padding": [
+                            2,
+                            8
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "S1GAC7",
+                              "name": "Seg Label",
+                              "fill": "$text-secondary",
+                              "content": "Exclusive",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 10,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "l78anW",
+                          "name": "Seg Bit-perfect",
+                          "cornerRadius": 3,
+                          "padding": [
+                            2,
+                            8
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "B62w5j",
+                              "name": "Seg Label",
+                              "fill": "$text-secondary",
+                              "content": "Bit-perfect",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 10,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "X3QYZU",
+              "name": "Caption",
+              "fill": "$text-secondary",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "The user pinned a mode (here: Shared on a capable interface — keeps other apps audible, fades and software volume alive). AUTO tag replaced by the Reset to Auto action, feature 08's pinned pattern carried over per-mode.",
+              "lineHeight": 1.45,
+              "fontFamily": "$font-sans",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "c09XA",
+          "name": "STATE 3 — GATED",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 10,
+          "children": [
+            {
+              "type": "text",
+              "id": "O8QiFA",
+              "name": "State Label",
+              "fill": "$text-secondary",
+              "content": "STATE 3 — GATED · DISPLAY / BLUETOOTH / BUILT-IN",
+              "fontFamily": "$font-mono",
+              "fontSize": 10,
+              "fontWeight": "700",
+              "letterSpacing": 0.8
+            },
+            {
+              "type": "frame",
+              "id": "AYPWJ",
+              "name": "Card",
+              "width": "fill_container",
+              "fill": "$bg-inset",
+              "cornerRadius": "$radius-md",
+              "stroke": "$border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 10,
+              "padding": 14,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "O1oQIw",
+                  "name": "Device",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "AtPqw",
+                      "name": "Icon",
+                      "width": 22,
+                      "height": 22,
+                      "icon": "monitor-speaker",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "evKfd",
+                      "name": "Copy",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 3,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "DfcAL",
+                          "name": "Name",
+                          "fill": "$text-primary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "DELL U2718Q",
+                          "fontFamily": "$font-display",
+                          "fontSize": 17,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "kjLGz",
+                          "name": "Class",
+                          "fill": "$text-muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Display audio · Up to 48 kHz",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "nmC8Y",
+                          "name": "Status",
+                          "fill": "$text-muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Last seen 2 weeks ago",
+                          "fontFamily": "$font-sans",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "OnCnv",
+                      "name": "Forget Button",
+                      "cornerRadius": "$radius-sm",
+                      "stroke": "$border-strong",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        4,
+                        10
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "XtBKG",
+                          "name": "Forget Label",
+                          "fill": "$text-secondary",
+                          "content": "Forget",
+                          "fontFamily": "$font-sans",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "rectangle",
+                  "id": "e5YmK",
+                  "name": "Divider",
+                  "fill": "$border",
+                  "width": "fill_container",
+                  "height": 1
+                },
+                {
+                  "type": "frame",
+                  "id": "lQqql",
+                  "name": "Output Mode Row",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "aMAMu",
+                      "name": "Engine Label Group",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "vHSar",
+                          "name": "Engine Label",
+                          "fill": "$text-primary",
+                          "content": "Output mode",
+                          "fontFamily": "$font-sans",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "bSYlj",
+                          "name": "Gate Tag",
+                          "fill": "$bg-elevated",
+                          "cornerRadius": "$radius-sm",
+                          "stroke": "$border-strong",
+                          "strokeWidth": 1,
+                          "strokeAlignment": "inner",
+                          "padding": [
+                            2,
+                            6
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "C7fPZq",
+                              "name": "Gate Label",
+                              "fill": "$text-muted",
+                              "content": "NO INTEGER PATH",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 9,
+                              "fontWeight": "700",
+                              "letterSpacing": 0.5
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ly0WK",
+                      "name": "Engine Segments",
+                      "cornerRadius": "$radius-sm",
+                      "stroke": "$border-strong",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": 2,
+                      "padding": 2,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "yawmj",
+                          "name": "Seg Shared",
+                          "cornerRadius": 3,
+                          "padding": [
+                            2,
+                            8
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Nj9ua",
+                              "name": "Seg Label",
+                              "fill": "$text-secondary",
+                              "content": "Shared",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 10,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "EUzdU",
+                          "name": "Seg Exclusive",
+                          "fill": "$bg-elevated",
+                          "cornerRadius": 3,
+                          "padding": [
+                            2,
+                            8
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "HfaoI",
+                              "name": "Seg Label",
+                              "fill": "$text-primary",
+                              "content": "Exclusive",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 10,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "ZsRSQ",
+                          "name": "Seg Bit-perfect",
+                          "cornerRadius": 3,
+                          "padding": [
+                            2,
+                            8
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "waqGa",
+                              "name": "Seg Label",
+                              "fill": "$text-muted",
+                              "content": "Bit-perfect",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 10,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "hrm6B",
+              "name": "Caption",
+              "fill": "$text-secondary",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Gate = transport + format (stage 1 findings): display and Bluetooth transports are excluded even when they advertise integer physical formats — the DELLs accept integer physical yet refuse every integer virtual write — and built-in output falls out by float-only formats. Bit-perfect segment disabled with the NO INTEGER PATH tag; AUTO still resolves Shared vs Exclusive per feature 08's ladder (this DELL: integer formats → Exclusive). Start-time virtual refusal (noErr, then settle timeout up to 2 s) is the backstop: clear error, never a silent float fallback.",
+              "lineHeight": 1.45,
+              "fontFamily": "$font-sans",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            }
+          ]
         }
       ]
     }
