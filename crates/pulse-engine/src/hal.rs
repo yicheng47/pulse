@@ -1,6 +1,13 @@
 //! Safe wrapper over the AudioObject property API: hog mode, physical format,
 //! nominal sample rate, property listeners.
 //!
+//! Core Audio is a property system: every entity (system, device, stream) is
+//! an AudioObject, and nearly everything happens as a get/set on a
+//! (selector, scope, element) address. Values are untyped bytes;
+//! variable-sized properties take a get-size-then-get-data pair. All `unsafe`
+//! FFI in the engine lives in this file — callers get typed,
+//! `Result`-returning helpers with the failing C call named in the error.
+//!
 //! Crib sheet: coreaudio-rs `macos_helpers` (post-PR #128 it uses these same
 //! objc2 bindings). Rate/format switches are async — always wait on a property
 //! listener before trusting the new state.
@@ -40,6 +47,9 @@ const HOG_MODE_FREE: i32 = -1;
 const FORMAT_SETTLE_TIMEOUT: Duration = Duration::from_secs(2);
 const FORMAT_POLL_INTERVAL: Duration = Duration::from_millis(5);
 
+/// Exclusive device ownership (`kAudioDevicePropertyHogMode`), released on
+/// drop. `owns: false` means this process already held the hog before
+/// `acquire` — the guard then must not release it on drop.
 pub struct HogGuard {
     device_id: AudioObjectID,
     owns: bool,
@@ -73,6 +83,9 @@ impl Drop for FormatRestoreGuard {
 }
 
 impl HogGuard {
+    /// Takes the hog if the device is free, succeeds idempotently if this
+    /// process already owns it, and reports the owning pid otherwise. The HAL
+    /// arbitrates races, so the outcome is read back rather than assumed.
     pub fn acquire(device_id: AudioObjectID) -> Result<Self, EngineError> {
         let current_pid = current_pid();
         match hog_owner(device_id)? {
@@ -253,6 +266,8 @@ fn restore_format_state(
     errors
 }
 
+/// Builds the property address triple with element Main — the whole object,
+/// as opposed to one channel.
 pub(crate) fn address(
     selector: AudioObjectPropertySelector,
     scope: AudioObjectPropertyScope,
@@ -264,6 +279,8 @@ pub(crate) fn address(
     }
 }
 
+/// First half of Core Audio's two-step read: a variable-sized property must
+/// be asked for its byte size before the data itself.
 pub(crate) fn get_data_size(
     object_id: AudioObjectID,
     mut address: AudioObjectPropertyAddress,
@@ -283,6 +300,8 @@ pub(crate) fn get_data_size(
     Ok(size)
 }
 
+/// Reads a fixed-size property straight into a `T`. Core Audio just writes
+/// bytes, so `T` must match the property's documented layout.
 pub(crate) fn get_value<T: Copy>(
     object_id: AudioObjectID,
     mut address: AudioObjectPropertyAddress,
@@ -323,6 +342,9 @@ pub(crate) fn set_value<T: Copy>(
     check_status(call, status)
 }
 
+/// Two-step read of a variable-length property as a `Vec<T>`. The final
+/// element count is whatever the HAL reports at read time — it can shrink
+/// between the size query and the read.
 pub(crate) fn get_array<T: Copy>(
     object_id: AudioObjectID,
     address: AudioObjectPropertyAddress,
@@ -350,6 +372,8 @@ pub(crate) fn get_array<T: Copy>(
     Ok(values)
 }
 
+/// Raw-bytes read for properties without a fixed layout (e.g. the
+/// flexible-array `AudioBufferList`); the caller does the parsing.
 pub(crate) fn get_bytes(
     object_id: AudioObjectID,
     address: AudioObjectPropertyAddress,
@@ -374,6 +398,9 @@ pub(crate) fn get_bytes(
     Ok(bytes)
 }
 
+/// Reads a `CFString` property. The HAL hands back a +1-retained reference;
+/// `CFRetained::from_raw` adopts it so it is released exactly once. A null
+/// string falls back to a synthetic object name.
 pub(crate) fn get_cf_string(
     object_id: AudioObjectID,
     mut address: AudioObjectPropertyAddress,
@@ -402,6 +429,10 @@ pub(crate) fn get_cf_string(
 }
 
 #[derive(Debug)]
+/// A device's own output volume/mute controls, probed once and then written
+/// through. Only exists for devices whose driver exposes a settable volume
+/// scalar (e.g. DACs with hardware volume); everything else stays on the
+/// engine's software gain.
 pub(crate) struct HardwareVolume {
     device_id: AudioObjectID,
     pub level: f32,
@@ -410,6 +441,8 @@ pub(crate) struct HardwareVolume {
 }
 
 impl HardwareVolume {
+    /// A device without a settable mute control emulates mute by writing a
+    /// zero volume scalar instead.
     pub(crate) fn set_volume(&mut self, level: f32, muted: bool) -> Result<(), EngineError> {
         let scalar = hardware_volume_scalar(level, muted, self.mute_settable);
         set_value(
@@ -435,6 +468,8 @@ impl HardwareVolume {
     }
 }
 
+/// Probes for usable hardware volume; `None` sends the caller down the
+/// software (float gain) volume path instead.
 pub(crate) fn hardware_volume_control(device_id: AudioObjectID) -> Option<HardwareVolume> {
     let volume_address = address(
         kAudioDevicePropertyVolumeScalar,
@@ -483,6 +518,10 @@ fn hardware_volume_level_is_valid(level: f32) -> bool {
     level.is_finite() && (0.0..=1.0).contains(&level)
 }
 
+/// Switches the device clock to the track's rate — the "native rate"
+/// behavior. Skips the write when already there, because rate changes
+/// reconfigure hardware and can audibly click. The change is asynchronous, so
+/// the new rate is polled until it settles.
 pub(crate) fn set_nominal_sample_rate(
     device_id: AudioObjectID,
     format: PcmFormat,
@@ -515,6 +554,10 @@ pub(crate) fn set_nominal_sample_rate(
     Ok(requested)
 }
 
+/// Points the device's wire format at the best match for the source: the
+/// first signed-integer linear-PCM physical format with enough channels and
+/// bit depth on any output stream. The physical format is what actually
+/// crosses to the DAC, which is why float candidates are rejected.
 pub(crate) fn set_matching_physical_format(
     device_id: AudioObjectID,
     format: PcmFormat,
@@ -533,6 +576,10 @@ pub(crate) fn set_matching_physical_format(
     Err(EngineError::NoMatchingPhysicalFormat(format))
 }
 
+/// Maximum integer bit depth and sample rate across all output streams, for
+/// the capability line in the device UI. `(None, rate)` means the device only
+/// offers mixable float (e.g. built-in speakers), where bit depth is
+/// meaningless.
 pub(crate) fn output_device_capabilities(
     device_id: AudioObjectID,
 ) -> Result<Option<(Option<u32>, f64, u32)>, EngineError> {
@@ -565,6 +612,9 @@ pub(crate) fn output_device_capabilities(
     )))
 }
 
+/// Sums output channels from raw `AudioBufferList` bytes. The C struct ends
+/// in a flexible array member, so it cannot be read as one typed value —
+/// fields are decoded manually with unaligned reads, tolerating truncation.
 pub(crate) fn audio_buffer_list_channel_count(bytes: &[u8]) -> u32 {
     let Some(buffer_count) =
         read_unaligned::<u32>(bytes, mem::offset_of!(AudioBufferList, mNumberBuffers))
@@ -621,6 +671,9 @@ fn property_is_settable(object_id: AudioObjectID, mut address: AudioObjectProper
     status == kAudioHardwareNoError && settable != 0
 }
 
+/// Setting `HogMode` toggles: if the device is free the HAL assigns the hog
+/// to this process; if this process owns it, the write releases it. The
+/// written value is ignored — the read-back owner is the actual outcome.
 fn toggle_hog_mode(device_id: AudioObjectID) -> Result<i32, EngineError> {
     let mut address = address(kAudioDevicePropertyHogMode, kAudioObjectPropertyScopeGlobal);
     let mut pid = HOG_MODE_FREE;
@@ -829,6 +882,10 @@ fn set_mixing_enabled_until(
     }
 }
 
+/// A candidate must be signed-integer linear PCM with at least the requested
+/// channels and bits — a wider container (24-in-32) is fine, the extra bits
+/// are padding. A `kAudioStreamAnyRate` wildcard resolves to the requested
+/// rate.
 fn matching_physical_format(
     ranged_format: AudioStreamRangedDescription,
     requested: PcmFormat,
@@ -969,6 +1026,8 @@ fn ranged_format_supports_rate(
             && requested_rate <= ranged_format.mSampleRateRange.mMaximum)
 }
 
+/// Rates arrive as `Float64` from the hardware, so equality is a ±0.5 Hz
+/// test.
 fn sample_rates_match(left: f64, right: f64) -> bool {
     (left - right).abs() < 0.5
 }
@@ -1007,6 +1066,7 @@ fn non_null<T>(ptr: *mut T) -> NonNull<T> {
     NonNull::new(ptr).expect("Core Audio output buffer pointer must be non-null")
 }
 
+/// Property bytes carry no alignment guarantee, hence `ptr::read_unaligned`.
 fn read_unaligned<T: Copy>(bytes: &[u8], offset: usize) -> Option<T> {
     let end = offset.checked_add(mem::size_of::<T>())?;
     if end > bytes.len() {
