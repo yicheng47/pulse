@@ -293,8 +293,18 @@ fn app_name_for_pid(_pid: i32) -> Option<String> {
     None
 }
 
+trait EngineController {
+    fn shutdown(&mut self) -> Result<(), EngineError>;
+}
+
+impl EngineController for PlaybackController {
+    fn shutdown(&mut self) -> Result<(), EngineError> {
+        PlaybackController::shutdown(self)
+    }
+}
+
 pub(crate) struct Playback {
-    controller: Option<PlaybackController>,
+    controller: Option<Box<dyn EngineController>>,
     command_tx: Option<Sender<PlaybackCommand>>,
     event_rx: Option<Receiver<PlaybackEvent>>,
     pub(crate) playback_state: PlaybackState,
@@ -350,6 +360,7 @@ pub(crate) struct Playback {
     staged_settings: Option<StagedSettings>,
     next_settings_generation: u64,
     last_settings_error: Option<String>,
+    shutdown_complete: bool,
 }
 
 impl Playback {
@@ -413,6 +424,7 @@ impl Playback {
             staged_settings: None,
             next_settings_generation: 0,
             last_settings_error: None,
+            shutdown_complete: false,
         };
         playback.initialize_output_inner();
         playback
@@ -475,6 +487,7 @@ impl Playback {
             staged_settings: None,
             next_settings_generation: 0,
             last_settings_error: None,
+            shutdown_complete: false,
         }
     }
 

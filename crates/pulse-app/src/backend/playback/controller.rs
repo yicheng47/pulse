@@ -14,7 +14,7 @@ impl Playback {
             self.error = Some("Playback engine disconnected.".to_string());
         }
         self.command_tx = Some(command_tx);
-        self.controller = Some(controller);
+        self.controller = Some(Box::new(controller));
     }
 
     pub(crate) fn volume_command(&self) -> PlaybackCommand {
@@ -715,6 +715,17 @@ impl Playback {
     }
 
     pub(crate) fn shutdown(&mut self) {
+        if self.shutdown_complete {
+            return;
+        }
+        self.shutdown_complete = true;
+
+        if let Some(controller) = &mut self.controller
+            && let Err(error) = controller.shutdown()
+        {
+            eprintln!("Playback engine shutdown did not complete cleanly: {error}");
+        }
+        self.controller = None;
         if let Err(error) = self.flush_settings_writer() {
             self.record_settings_error(error);
         }
@@ -727,7 +738,6 @@ impl Playback {
         self.sent_next = None;
         self.event_rx = None;
         self.command_tx = None;
-        self.controller = None;
     }
 
     fn apply_playing_source(

@@ -19,6 +19,10 @@ use crate::{
 const POSITION_EVENT_INTERVAL_MS: u64 = 100;
 const FEED_RETRY_DELAY: Duration = Duration::from_millis(2);
 const SHUTDOWN_POLL_INTERVAL: Duration = Duration::from_millis(100);
+// These bound the two waits independently; HAL teardown uses its own deadlines once begun.
+const SHUTDOWN_RELEASE_LOCK_TIMEOUT: Duration = Duration::from_secs(1);
+const SHUTDOWN_WORKER_JOIN_TIMEOUT: Duration = Duration::from_secs(1);
+const SHUTDOWN_JOIN_POLL_INTERVAL: Duration = Duration::from_millis(5);
 const OUTPUT_STALL_TIMEOUT: Duration = Duration::from_secs(2);
 
 type BackendFactory = Arc<
@@ -33,6 +37,52 @@ pub struct PlaybackController {
     subscribers: EventSubscribers,
     shutdown: Arc<AtomicBool>,
     worker: Option<JoinHandle<()>>,
+    backend_release: ActiveBackendRelease,
+}
+
+trait BackendRelease: Send + Sync {
+    fn release_before(&self, deadline: Instant) -> Result<(), EngineError>;
+}
+
+type BackendReleaseHandle = Arc<dyn BackendRelease>;
+
+enum BackendReleaseOutcome {
+    NoHandle,
+    Completed,
+    Failed(EngineError),
+}
+
+#[derive(Clone, Default)]
+struct ActiveBackendRelease {
+    handle: Arc<Mutex<Option<BackendReleaseHandle>>>,
+}
+
+impl ActiveBackendRelease {
+    fn replace(&self, handle: Option<BackendReleaseHandle>) {
+        *self
+            .handle
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = handle;
+    }
+
+    fn clear(&self) {
+        self.replace(None);
+    }
+
+    fn release_before(&self, deadline: Instant) -> BackendReleaseOutcome {
+        let handle = self
+            .handle
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        match handle {
+            Some(handle) => match handle.release_before(deadline) {
+                Ok(()) => BackendReleaseOutcome::Completed,
+                Err(error) => BackendReleaseOutcome::Failed(error),
+            },
+            None => BackendReleaseOutcome::NoHandle,
+        }
+    }
 }
 
 impl PlaybackController {
@@ -89,6 +139,8 @@ impl PlaybackController {
         let worker_subscribers = Arc::clone(&subscribers);
         let shutdown = Arc::new(AtomicBool::new(false));
         let worker_shutdown = Arc::clone(&shutdown);
+        let backend_release = ActiveBackendRelease::default();
+        let worker_backend_release = backend_release.clone();
 
         let worker = thread::Builder::new()
             .name("pulse-playback-controller".to_string())
@@ -107,6 +159,7 @@ impl PlaybackController {
                         backend_factory,
                         decoder_factory,
                         worker_shutdown,
+                        worker_backend_release,
                     )
                     .run();
                 }));
@@ -125,16 +178,76 @@ impl PlaybackController {
             subscribers,
             shutdown,
             worker: Some(worker),
+            backend_release,
+        }
+    }
+
+    pub fn shutdown(&mut self) -> Result<(), EngineError> {
+        self.shutdown_with_timeouts(SHUTDOWN_RELEASE_LOCK_TIMEOUT, SHUTDOWN_WORKER_JOIN_TIMEOUT)
+    }
+
+    fn shutdown_with_timeouts(
+        &mut self,
+        release_lock_timeout: Duration,
+        worker_join_timeout: Duration,
+    ) -> Result<(), EngineError> {
+        let Some(worker) = self.worker.take() else {
+            return Ok(());
+        };
+
+        self.shutdown.store(true, Ordering::Release);
+        let release_deadline = Instant::now() + release_lock_timeout;
+        let mut release_outcome = self.backend_release.release_before(release_deadline);
+        let join_deadline = Instant::now() + worker_join_timeout;
+        while !worker.is_finished() && Instant::now() < join_deadline {
+            thread::sleep(
+                SHUTDOWN_JOIN_POLL_INTERVAL
+                    .min(join_deadline.saturating_duration_since(Instant::now())),
+            );
+        }
+
+        let worker_error = if worker.is_finished() {
+            worker.join().err().map(|_| {
+                EngineError::BackendRelease("playback worker panicked during shutdown".to_string())
+            })
+        } else {
+            if matches!(release_outcome, BackendReleaseOutcome::NoHandle) {
+                release_outcome = self.backend_release.release_before(Instant::now());
+            }
+            drop(worker);
+            let release_status = match &release_outcome {
+                BackendReleaseOutcome::NoHandle => {
+                    "no independent device release handle was active"
+                }
+                BackendReleaseOutcome::Completed => {
+                    "device release completed on the shutdown thread"
+                }
+                BackendReleaseOutcome::Failed(_) => {
+                    "device release did not complete on the shutdown thread"
+                }
+            };
+            Some(EngineError::BackendRelease(format!(
+                "playback worker did not exit within {} ms after the device release attempt; {release_status}",
+                worker_join_timeout.as_millis()
+            )))
+        };
+
+        let release_error = match release_outcome {
+            BackendReleaseOutcome::Failed(error) => Some(error),
+            BackendReleaseOutcome::NoHandle | BackendReleaseOutcome::Completed => None,
+        };
+
+        match (release_error, worker_error) {
+            (None, None) => Ok(()),
+            (Some(error), None) | (None, Some(error)) => Err(error),
+            (Some(first), Some(second)) => Err(combine_backend_errors(first, second)),
         }
     }
 }
 
 impl Drop for PlaybackController {
     fn drop(&mut self) {
-        self.shutdown.store(true, Ordering::Release);
-        if let Some(worker) = self.worker.take() {
-            let _ = worker.join();
-        }
+        let _ = self.shutdown();
     }
 }
 
@@ -154,6 +267,9 @@ trait PlaybackBackend {
     }
     fn release(self: Box<Self>) -> Result<(), EngineError> {
         Ok(())
+    }
+    fn shutdown_handle(&self) -> Option<BackendReleaseHandle> {
+        None
     }
 }
 
@@ -201,6 +317,11 @@ impl PlaybackBackend for EngineBackend {
 
     fn stop(&mut self) -> Result<(), EngineError> {
         self.engine.pause()
+    }
+
+    fn shutdown_handle(&self) -> Option<BackendReleaseHandle> {
+        // Universal mode has no device lease shared outside its worker-owned Engine.
+        None
     }
 }
 
@@ -257,6 +378,16 @@ impl PlaybackBackend for IntegerBackend {
     fn release(self: Box<Self>) -> Result<(), EngineError> {
         let Self { engine } = *self;
         engine.release()
+    }
+
+    fn shutdown_handle(&self) -> Option<BackendReleaseHandle> {
+        Some(Arc::new(self.engine.release_handle()))
+    }
+}
+
+impl BackendRelease for crate::integer_engine::IntegerReleaseHandle {
+    fn release_before(&self, deadline: Instant) -> Result<(), EngineError> {
+        crate::integer_engine::IntegerReleaseHandle::release_before(self, deadline)
     }
 }
 
@@ -379,6 +510,7 @@ struct Worker {
     output_stall_timeout: Duration,
     now: Clock,
     shutdown: Arc<AtomicBool>,
+    backend_release: ActiveBackendRelease,
 }
 
 impl Worker {
@@ -389,6 +521,7 @@ impl Worker {
         backend_factory: BackendFactory,
         decoder_factory: DecoderFactory,
         shutdown: Arc<AtomicBool>,
+        backend_release: ActiveBackendRelease,
     ) -> Self {
         Self {
             state: PlaybackState::Idle,
@@ -414,6 +547,7 @@ impl Worker {
             output_stall_timeout: settings.output_stall_timeout,
             now: settings.now,
             shutdown,
+            backend_release,
         }
     }
 
@@ -844,15 +978,21 @@ impl Worker {
         };
         let hardware_volume_event = match backend.take_hardware_volume() {
             Some(_) if self.adopted_hardware_volume.contains(&self.output_device) => {
-                backend.set_volume(self.volume_level, self.muted)?;
+                if let Err(error) = backend.set_volume(self.volume_level, self.muted) {
+                    return Err(self.release_backend_after_start_error(backend, error));
+                }
                 None
             }
             Some((level, _)) => {
-                backend.set_volume(level, self.muted)?;
+                if let Err(error) = backend.set_volume(level, self.muted) {
+                    return Err(self.release_backend_after_start_error(backend, error));
+                }
                 Some((level, self.muted))
             }
             None => {
-                backend.set_volume(self.volume_level, self.muted)?;
+                if let Err(error) = backend.set_volume(self.volume_level, self.muted) {
+                    return Err(self.release_backend_after_start_error(backend, error));
+                }
                 None
             }
         };
@@ -870,10 +1010,10 @@ impl Worker {
                 Ok(())
             }
             Err(error) if exclusive_mode && exclusive_start_can_fallback(&error) => {
-                backend.release()?;
+                self.release_backend_value(backend)?;
                 self.start_shared_fallback(format)
             }
-            Err(error) => match backend.release() {
+            Err(error) => match self.release_backend_value(backend) {
                 Ok(()) => Err(error),
                 Err(release_error) => Err(combine_backend_errors(error, release_error)),
             },
@@ -893,15 +1033,32 @@ impl Worker {
         &mut self,
         engine_kind: EngineKind,
     ) -> Result<Box<dyn PlaybackBackend>, EngineError> {
-        match self
-            .backend
-            .take()
-            .filter(|(device_id, backend_engine_kind, _)| {
-                *device_id == self.output_device && *backend_engine_kind == engine_kind
-            }) {
-            Some((_, _, backend)) => Ok(backend),
-            None => (self.backend_factory)(self.output_device, engine_kind),
+        let mut release_error = None;
+        if let Some((device_id, backend_engine_kind, backend)) = self.backend.take() {
+            if device_id == self.output_device && backend_engine_kind == engine_kind {
+                return Ok(backend);
+            }
+            // A stale device teardown error is advisory; it must not block the selected device.
+            release_error = self.release_backend_value(backend).err();
         }
+        let backend = match (self.backend_factory)(self.output_device, engine_kind) {
+            Ok(backend) => backend,
+            Err(error) => {
+                return Err(match release_error {
+                    Some(release_error) => combine_backend_errors(error, release_error),
+                    None => error,
+                });
+            }
+        };
+        if let Some(error) = release_error {
+            self.broadcast(PlaybackEvent::Error {
+                attempt: self.attempt,
+                kind: (&error).into(),
+                message: error.to_string(),
+            });
+        }
+        self.backend_release.replace(backend.shutdown_handle());
+        Ok(backend)
     }
 
     fn start_shared_fallback(&mut self, format: PcmFormat) -> Result<(), EngineError> {
@@ -909,8 +1066,12 @@ impl Worker {
             exclusive_mode: false,
         };
         let mut backend = self.take_or_open_backend(shared)?;
-        backend.set_volume(self.volume_level, self.muted)?;
-        backend.start(format)?;
+        if let Err(error) = backend.set_volume(self.volume_level, self.muted) {
+            return Err(self.release_backend_after_start_error(backend, error));
+        }
+        if let Err(error) = backend.start(format) {
+            return Err(self.release_backend_after_start_error(backend, error));
+        }
         let volume_state = VolumeState::new(backend.volume_domain());
         self.shared_mode_fallback = true;
         self.backend = Some((self.output_device, shared, backend));
@@ -1288,13 +1449,30 @@ impl Worker {
         } else {
             None
         };
-        let release_error = backend.release().err();
+        let release_error = self.release_backend_value(backend).err();
         match (stop_error, release_error) {
             (None, None) => Ok(()),
             (Some(error), None) | (None, Some(error)) => Err(error),
             (Some(stop_error), Some(release_error)) => {
                 Err(combine_backend_errors(stop_error, release_error))
             }
+        }
+    }
+
+    fn release_backend_value(&self, backend: Box<dyn PlaybackBackend>) -> Result<(), EngineError> {
+        let result = backend.release();
+        self.backend_release.clear();
+        result
+    }
+
+    fn release_backend_after_start_error(
+        &self,
+        backend: Box<dyn PlaybackBackend>,
+        error: EngineError,
+    ) -> EngineError {
+        match self.release_backend_value(backend) {
+            Ok(()) => error,
+            Err(release_error) => combine_backend_errors(error, release_error),
         }
     }
 
@@ -1569,6 +1747,7 @@ mod tests {
         fail_bitperfect_start_device: Option<DeviceId>,
         fail_all_open_device: Option<DeviceId>,
         stop_error: bool,
+        release_error: bool,
         position_limit: u64,
         decoder_starved_after_first_chunk: bool,
         underrun_frames: u64,
@@ -1602,6 +1781,7 @@ mod tests {
                 fail_bitperfect_start_device: None,
                 fail_all_open_device: None,
                 stop_error: false,
+                release_error: false,
                 position_limit: 1_000,
                 decoder_starved_after_first_chunk: false,
                 underrun_frames: 0,
@@ -1744,8 +1924,15 @@ mod tests {
         }
 
         fn release(self: Box<Self>) -> Result<(), EngineError> {
-            self.log.lock().unwrap().releases += 1;
-            Ok(())
+            let mut log = self.log.lock().unwrap();
+            log.releases += 1;
+            if log.release_error {
+                Err(EngineError::BackendRelease(
+                    "backend release failed".to_string(),
+                ))
+            } else {
+                Ok(())
+            }
         }
     }
 
@@ -4274,6 +4461,237 @@ mod tests {
         let log = log.lock().unwrap();
         assert_eq!(log.stops, 1);
         assert_eq!(log.releases, 1);
+    }
+
+    #[test]
+    fn explicit_shutdown_releases_a_paused_bit_perfect_backend_once() {
+        let (mut controller, log) = fake_controller_with_kind(EngineKind::BitPerfect);
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("track.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            matches!(
+                event,
+                PlaybackEvent::Position {
+                    position_ms: 1_000,
+                    ..
+                }
+            )
+        });
+        commands.send(PlaybackCommand::Pause).unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Paused)
+        });
+
+        controller.shutdown().unwrap();
+        assert_eq!(log.lock().unwrap().releases, 1);
+
+        controller.shutdown().unwrap();
+        assert_eq!(log.lock().unwrap().releases, 1);
+    }
+
+    #[test]
+    fn rejected_backend_release_error_does_not_block_opening_the_selected_device() {
+        let log = Arc::new(Mutex::new(FakeLog {
+            release_error: true,
+            ..FakeLog::default()
+        }));
+        let old_kind = EngineKind::Universal {
+            exclusive_mode: true,
+        };
+        let new_kind = EngineKind::Universal {
+            exclusive_mode: false,
+        };
+        let old_backend = Box::new(FakeBackend {
+            log: Arc::clone(&log),
+            device_id: 7,
+            engine_kind: old_kind,
+            exclusive_mode: true,
+            retains_device: false,
+            fed_frames: 0,
+            format: None,
+            volume: (1.0, false),
+            hardware_volume: None,
+            hardware_volume_active: false,
+            hardware_volume_event_pending: false,
+        });
+        let factory_log = Arc::clone(&log);
+        let backend_factory: BackendFactory = Arc::new(move |device_id, engine_kind| {
+            factory_log.lock().unwrap().opened_devices.push(device_id);
+            Ok(Box::new(FakeBackend {
+                log: Arc::clone(&factory_log),
+                device_id,
+                engine_kind,
+                exclusive_mode: false,
+                retains_device: false,
+                fed_frames: 0,
+                format: None,
+                volume: (1.0, false),
+                hardware_volume: None,
+                hardware_volume_active: false,
+                hardware_volume_event_pending: false,
+            }))
+        });
+        let decoder_factory: DecoderFactory = Arc::new(|_| unreachable!());
+        let (_command_tx, command_rx) = mpsc::channel();
+        let (event_tx, event_rx) = mpsc::channel();
+        let subscribers = Arc::new(Mutex::new(vec![event_tx]));
+        let mut worker = Worker::new(
+            WorkerSettings {
+                output_device: 8,
+                engine_kind: new_kind,
+                output_stall_timeout: Duration::MAX,
+                now: Box::new(Instant::now),
+            },
+            command_rx,
+            subscribers,
+            backend_factory,
+            decoder_factory,
+            Arc::new(AtomicBool::new(false)),
+            ActiveBackendRelease::default(),
+        );
+        worker.backend = Some((7, old_kind, old_backend));
+
+        let replacement = worker.take_or_open_backend(new_kind).unwrap();
+
+        assert_eq!(replacement.volume_domain(), VolumeDomain::Software);
+        assert!(matches!(
+            event_rx.recv_timeout(Duration::from_secs(1)).unwrap(),
+            PlaybackEvent::Error { message, .. } if message.contains("backend release failed")
+        ));
+        let log = log.lock().unwrap();
+        assert_eq!(log.releases, 1);
+        assert_eq!(log.opened_devices, [8]);
+    }
+
+    struct RecordingRelease {
+        calls: Arc<std::sync::atomic::AtomicUsize>,
+        released: AtomicBool,
+        observed: Sender<()>,
+        delay: Duration,
+    }
+
+    impl BackendRelease for RecordingRelease {
+        fn release_before(&self, _deadline: Instant) -> Result<(), EngineError> {
+            if !self.released.swap(true, Ordering::AcqRel) {
+                self.calls.fetch_add(1, Ordering::Relaxed);
+                thread::sleep(self.delay);
+                self.observed.send(()).unwrap();
+            }
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn shutdown_completes_release_before_giving_the_worker_a_fresh_join_window() {
+        let (command_tx, _command_rx) = mpsc::channel();
+        let subscribers = Arc::new(Mutex::new(Vec::new()));
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let (unblock_tx, unblock_rx) = mpsc::channel();
+        let (done_tx, done_rx) = mpsc::channel();
+        let worker = thread::spawn(move || {
+            unblock_rx.recv().unwrap();
+            done_tx.send(()).unwrap();
+        });
+        let release_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let (release_observed_tx, release_observed_rx) = mpsc::channel();
+        let backend_release = ActiveBackendRelease::default();
+        backend_release.replace(Some(Arc::new(RecordingRelease {
+            calls: Arc::clone(&release_calls),
+            released: AtomicBool::new(false),
+            observed: release_observed_tx,
+            delay: Duration::from_millis(100),
+        })));
+        let mut controller = PlaybackController {
+            command_tx,
+            subscribers,
+            shutdown,
+            worker: Some(worker),
+            backend_release,
+        };
+        let (shutdown_result_tx, shutdown_result_rx) = mpsc::channel();
+        let shutdown_thread = thread::spawn(move || {
+            let started = Instant::now();
+            let result = controller
+                .shutdown_with_timeouts(Duration::from_millis(20), Duration::from_millis(250));
+            shutdown_result_tx
+                .send((started.elapsed(), result))
+                .unwrap();
+        });
+
+        release_observed_rx
+            .recv_timeout(Duration::from_millis(250))
+            .unwrap();
+        assert!(matches!(
+            shutdown_result_rx.try_recv(),
+            Err(TryRecvError::Empty)
+        ));
+        let (elapsed, error) = shutdown_result_rx
+            .recv_timeout(Duration::from_secs(1))
+            .unwrap();
+        let error = error.unwrap_err();
+
+        assert!(elapsed >= Duration::from_millis(300));
+        assert!(elapsed < Duration::from_millis(750));
+        assert_eq!(release_calls.load(Ordering::Relaxed), 1);
+        assert!(matches!(
+            error,
+            EngineError::BackendRelease(message)
+                if message.contains("playback worker did not exit within 250 ms after the device release attempt")
+                    && message.contains("device release completed on the shutdown thread")
+        ));
+
+        unblock_tx.send(()).unwrap();
+        done_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        shutdown_thread.join().unwrap();
+    }
+
+    #[test]
+    fn shutdown_bounds_release_lock_contention_and_an_unresponsive_worker() {
+        let (command_tx, _command_rx) = mpsc::channel();
+        let subscribers = Arc::new(Mutex::new(Vec::new()));
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let (unblock_tx, unblock_rx) = mpsc::channel();
+        let (done_tx, done_rx) = mpsc::channel();
+        let (locked_tx, locked_rx) = mpsc::channel();
+        let release_handle = crate::integer_engine::IntegerReleaseHandle::empty_for_test();
+        let worker_release_handle = release_handle.clone();
+        let worker = thread::spawn(move || {
+            worker_release_handle.hold_resources_for_test(locked_tx, unblock_rx);
+            done_tx.send(()).unwrap();
+        });
+        locked_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        let backend_release = ActiveBackendRelease::default();
+        backend_release.replace(Some(Arc::new(release_handle)));
+        let mut controller = PlaybackController {
+            command_tx,
+            subscribers,
+            shutdown,
+            worker: Some(worker),
+            backend_release,
+        };
+
+        let started = Instant::now();
+        let error = controller
+            .shutdown_with_timeouts(Duration::from_millis(20), Duration::from_millis(20))
+            .unwrap_err();
+
+        assert!(started.elapsed() < Duration::from_millis(250));
+        assert!(matches!(
+            error,
+            EngineError::BackendRelease(message)
+                if message.contains("timed out waiting for the integer device release lock")
+                    && message.contains("playback worker did not exit within 20 ms after the device release attempt")
+                    && message.contains("device release did not complete on the shutdown thread")
+        ));
+        controller.shutdown().unwrap();
+
+        unblock_tx.send(()).unwrap();
+        done_rx.recv_timeout(Duration::from_secs(1)).unwrap();
     }
 
     #[test]

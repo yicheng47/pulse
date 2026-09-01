@@ -117,10 +117,14 @@ impl HogGuard {
 
 impl Drop for HogGuard {
     fn drop(&mut self) {
-        if self.owns && hog_owner(self.device_id).ok() == Some(current_pid()) {
+        if should_release_hog(self.owns, hog_owner(self.device_id).ok(), current_pid()) {
             let _ = toggle_hog_mode(self.device_id);
         }
     }
+}
+
+fn should_release_hog(owns: bool, owner: Option<i32>, process_id: i32) -> bool {
+    owns && owner == Some(process_id)
 }
 
 struct SavedStreamFormats {
@@ -1140,6 +1144,14 @@ mod tests {
         assert!(!hardware_volume_level_is_valid(f32::NAN));
         assert!(!hardware_volume_level_is_valid(-0.1));
         assert!(!hardware_volume_level_is_valid(1.1));
+    }
+
+    #[test]
+    fn hog_release_rechecks_ownership_before_toggling() {
+        assert!(should_release_hog(true, Some(42), 42));
+        assert!(!should_release_hog(false, Some(42), 42));
+        assert!(!should_release_hog(true, Some(7), 42));
+        assert!(!should_release_hog(true, None, 42));
     }
 
     #[test]

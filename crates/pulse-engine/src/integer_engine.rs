@@ -1,3 +1,9 @@
+use std::{
+    sync::{Arc, Mutex, MutexGuard, TryLockError},
+    thread,
+    time::{Duration, Instant},
+};
+
 use objc2_core_audio::AudioStreamRangedDescription;
 use objc2_core_audio_types::{
     AudioStreamBasicDescription, kAudioFormatFlagIsAlignedHigh, kAudioFormatFlagIsBigEndian,
@@ -7,6 +13,8 @@ use objc2_core_audio_types::{
 use rtrb::{Consumer, Producer, RingBuffer};
 
 use crate::{EngineError, PcmFormat, device, event::VolumeDomain, hal, raw_sink};
+
+const RELEASE_LOCK_POLL_INTERVAL: Duration = Duration::from_millis(5);
 
 #[derive(Debug, Clone, Copy)]
 struct IntPacker {
@@ -108,17 +116,127 @@ impl IntPacker {
 
 pub(crate) struct IntegerEngine {
     device: device::DeviceId,
-    format_restore: Option<hal::FormatRestoreGuard>,
-    _hog: hal::HogGuard,
+    release_handle: IntegerReleaseHandle,
     hardware_volume: Option<hal::HardwareVolume>,
     hardware_volume_event_pending: bool,
     producer: Option<Producer<u8>>,
     consumer: Option<Consumer<u8>>,
-    sink: Option<raw_sink::RawSink>,
     format: Option<PcmFormat>,
     device_format: Option<AudioStreamBasicDescription>,
     packer: Option<IntPacker>,
     pack_buffer: Vec<u8>,
+}
+
+#[derive(Clone)]
+pub(crate) struct IntegerReleaseHandle {
+    resources: Arc<Mutex<IntegerDeviceResources>>,
+}
+
+struct IntegerDeviceResources {
+    sink: Option<raw_sink::RawSink>,
+    format_restore: Option<hal::FormatRestoreGuard>,
+    hog: Option<hal::HogGuard>,
+    released: bool,
+}
+
+impl IntegerDeviceResources {
+    fn begin_release(&mut self) -> bool {
+        if self.released {
+            return false;
+        }
+        self.released = true;
+        true
+    }
+}
+
+impl IntegerReleaseHandle {
+    fn new(format_restore: hal::FormatRestoreGuard, hog: hal::HogGuard) -> Self {
+        Self {
+            resources: Arc::new(Mutex::new(IntegerDeviceResources {
+                sink: None,
+                format_restore: Some(format_restore),
+                hog: Some(hog),
+                released: false,
+            })),
+        }
+    }
+
+    fn lock(&self) -> MutexGuard<'_, IntegerDeviceResources> {
+        self.resources
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    pub(crate) fn release(&self) -> Result<(), EngineError> {
+        let mut resources = self.lock();
+        Self::release_resources(&mut resources)
+    }
+
+    pub(crate) fn release_before(&self, deadline: Instant) -> Result<(), EngineError> {
+        loop {
+            match self.resources.try_lock() {
+                Ok(mut resources) => return Self::release_resources(&mut resources),
+                Err(TryLockError::Poisoned(error)) => {
+                    return Self::release_resources(&mut error.into_inner());
+                }
+                Err(TryLockError::WouldBlock) => {
+                    let now = Instant::now();
+                    if now >= deadline {
+                        return Err(EngineError::BackendRelease(
+                            "timed out waiting for the integer device release lock".to_string(),
+                        ));
+                    }
+                    thread::sleep(
+                        RELEASE_LOCK_POLL_INTERVAL.min(deadline.saturating_duration_since(now)),
+                    );
+                }
+            }
+        }
+    }
+
+    fn release_resources(resources: &mut IntegerDeviceResources) -> Result<(), EngineError> {
+        if !resources.begin_release() {
+            return Ok(());
+        }
+
+        let mut errors = Vec::new();
+        if let Some(sink) = &mut resources.sink
+            && let Err(error) = sink.stop()
+        {
+            errors.push(error);
+        }
+        resources.sink = None;
+        if let Some(guard) = resources.format_restore.take() {
+            errors.extend(guard.restore());
+        }
+        resources.hog = None;
+        collected_release_result(errors)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn empty_for_test() -> Self {
+        Self {
+            resources: Arc::new(Mutex::new(IntegerDeviceResources {
+                sink: None,
+                format_restore: None,
+                hog: None,
+                released: false,
+            })),
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn hold_resources_for_test(
+        &self,
+        locked: std::sync::mpsc::Sender<()>,
+        release: std::sync::mpsc::Receiver<()>,
+    ) {
+        let _resources = self.lock();
+        locked.send(()).expect("lock observer must remain alive");
+        release
+            .recv()
+            .expect("lock release sender must remain alive");
+    }
 }
 
 impl IntegerEngine {
@@ -136,13 +254,11 @@ impl IntegerEngine {
 
         Ok(Self {
             device,
-            format_restore: Some(format_restore),
-            _hog: hog,
+            release_handle: IntegerReleaseHandle::new(format_restore, hog),
             hardware_volume,
             hardware_volume_event_pending,
             producer: None,
             consumer: None,
-            sink: None,
             format: None,
             device_format: None,
             packer: None,
@@ -151,14 +267,24 @@ impl IntegerEngine {
     }
 
     pub(crate) fn set_format(&mut self, format: PcmFormat) -> Result<(), EngineError> {
+        let release_handle = self.release_handle.clone();
         if self.format == Some(format) {
-            return Ok(());
+            return if release_handle.lock().released {
+                Err(integer_engine_released())
+            } else {
+                Ok(())
+            };
         }
-
         let (stream_id, device_format) = select_integer_format(self.device, format)?;
         let packer = IntPacker::new(format, device_format)?;
-        self.pause()?;
-        self.sink = None;
+        let mut resources = release_handle.lock();
+        if resources.released {
+            return Err(integer_engine_released());
+        }
+        if let Some(sink) = &mut resources.sink {
+            sink.stop()?;
+        }
+        resources.sink = None;
         self.format = None;
         self.device_format = None;
         self.packer = None;
@@ -174,7 +300,12 @@ impl IntegerEngine {
     }
 
     pub(crate) fn play(&mut self) -> Result<(), EngineError> {
-        if let Some(sink) = &mut self.sink {
+        let release_handle = self.release_handle.clone();
+        let mut resources = release_handle.lock();
+        if resources.released {
+            return Err(integer_engine_released());
+        }
+        if let Some(sink) = &mut resources.sink {
             return sink.restart();
         }
         let format = self.format.ok_or_else(|| {
@@ -190,7 +321,7 @@ impl IntegerEngine {
         })?;
         match raw_sink::RawSink::start(self.device, consumer, device_format) {
             Ok(sink) => {
-                self.sink = Some(sink);
+                resources.sink = Some(sink);
                 Ok(())
             }
             Err(error) => {
@@ -202,13 +333,20 @@ impl IntegerEngine {
     }
 
     pub(crate) fn pause(&mut self) -> Result<(), EngineError> {
-        if let Some(sink) = &mut self.sink {
+        let release_handle = self.release_handle.clone();
+        let mut resources = release_handle.lock();
+        if let Some(sink) = &mut resources.sink {
             sink.stop()?;
         }
         Ok(())
     }
 
     pub(crate) fn feed(&mut self, pcm: &[u8]) -> usize {
+        let release_handle = self.release_handle.clone();
+        let resources = release_handle.lock();
+        if resources.released {
+            return 0;
+        }
         let Some(packer) = self.packer else {
             return 0;
         };
@@ -235,13 +373,17 @@ impl IntegerEngine {
     }
 
     pub(crate) fn position(&self) -> u64 {
-        self.sink
+        self.release_handle
+            .lock()
+            .sink
             .as_ref()
             .map_or(0, raw_sink::RawSink::position_frames)
     }
 
     pub(crate) fn underrun_frames(&self) -> u64 {
-        self.sink
+        self.release_handle
+            .lock()
+            .sink
             .as_ref()
             .map_or(0, raw_sink::RawSink::underrun_frames)
     }
@@ -265,22 +407,23 @@ impl IntegerEngine {
     }
 
     pub(crate) fn set_volume(&mut self, level: f32, muted: bool) -> Result<(), EngineError> {
+        let release_handle = self.release_handle.clone();
+        let resources = release_handle.lock();
+        if resources.released {
+            return Err(integer_engine_released());
+        }
         if let Some(hardware_volume) = &mut self.hardware_volume {
             hardware_volume.set_volume(level, muted)?;
         }
         Ok(())
     }
 
-    pub(crate) fn release(mut self) -> Result<(), EngineError> {
-        let mut errors = Vec::new();
-        if let Err(error) = self.pause() {
-            errors.push(error);
-        }
-        self.sink = None;
-        if let Some(guard) = self.format_restore.take() {
-            errors.extend(guard.restore());
-        }
-        collected_release_result(errors)
+    pub(crate) fn release_handle(&self) -> IntegerReleaseHandle {
+        self.release_handle.clone()
+    }
+
+    pub(crate) fn release(self) -> Result<(), EngineError> {
+        self.release_handle.release()
     }
 
     fn reset_ring(&mut self, format: PcmFormat, packer: IntPacker) -> Result<(), EngineError> {
@@ -301,9 +444,12 @@ impl IntegerEngine {
 
 impl Drop for IntegerEngine {
     fn drop(&mut self) {
-        let _ = self.pause();
-        self.sink = None;
+        let _ = self.release_handle.release();
     }
+}
+
+fn integer_engine_released() -> EngineError {
+    EngineError::BackendRelease("integer engine is already released".to_string())
 }
 
 fn select_integer_format(
@@ -418,6 +564,19 @@ mod tests {
     const ALIGNED_HIGH_NON_MIXABLE: u32 = kAudioFormatFlagIsSignedInteger
         | kAudioFormatFlagIsAlignedHigh
         | kAudioFormatFlagIsNonMixable;
+
+    #[test]
+    fn device_release_gate_arms_guard_teardown_once() {
+        let mut resources = IntegerDeviceResources {
+            sink: None,
+            format_restore: None,
+            hog: None,
+            released: false,
+        };
+
+        assert!(resources.begin_release());
+        assert!(!resources.begin_release());
+    }
 
     #[test]
     fn packer_copies_16_bit_into_16_bit_packed_0x4c() {

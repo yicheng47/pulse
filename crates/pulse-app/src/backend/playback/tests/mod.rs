@@ -5,6 +5,7 @@ mod devices;
 mod events;
 mod logic;
 mod queue;
+mod shutdown;
 
 fn output_device(id: device::DeviceId, uid: &str, name: &str) -> device::Device {
     device::Device {

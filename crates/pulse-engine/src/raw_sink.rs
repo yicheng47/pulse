@@ -36,6 +36,11 @@ pub(crate) struct RawSink {
     running: bool,
 }
 
+// SAFETY: IntegerDeviceResources serializes every mutable RawSink access across the worker and
+// shutdown threads. AudioDeviceStop does not return while the IOProc is executing, so Drop can
+// destroy the stopped IOProc and free its callback context without aliasing the callback's access.
+unsafe impl Send for RawSink {}
+
 impl RawSink {
     pub(crate) fn start(
         device_id: AudioObjectID,
