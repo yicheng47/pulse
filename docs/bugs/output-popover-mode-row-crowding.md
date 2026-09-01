@@ -31,6 +31,10 @@ The Mode row always keeps a visible minimum gap between the reset affordance and
 - Input file format: n/a (UI layout)
 - Pulse version: main post-`f50e040` (v0.3.0 + DSD), 2026-09-01
 
+## Decided Fix (2026-09-02, drawn in the Pencil pass)
+
+The row cannot fit `Reset to Auto` plus three segments in the popover's ~332px content width at any reasonable type size, so the popover's mode row becomes a **two-line stack**: line 1 is the `Mode` label plus the state slot (AUTO tag / NO INTEGER PATH tag / `Reset to Auto` link, gap 8), line 2 is the segmented control; 8px between lines, everything left-aligned. The Devices page call site keeps today's one-line layout — it has the width — via a `stacked` flag on `ui::output_mode_control`. Design updated in `Output Mode Row` (`m14ZyM`) inside the popover frame `vH78z`, showing the Reset-to-Auto state; **pending Jason's ⌘S** to persist the `.pen`, and his visual pass at the next smoke test since this layout call was made in drive mode.
+
 ## Verification
 
-Reproduced in Jason's screenshot 2026-09-01 (override = Bit-perfect, `Reset to Auto` flush against the Shared segment's border). Code inspected; not yet fixed.
+Reproduced in Jason's screenshot 2026-09-01 (override = Bit-perfect, `Reset to Auto` flush against the Shared segment's border). Code inspected. Fix decided and drawn; implementation pending.
