@@ -49,6 +49,12 @@ Detailed tactical plan: [`docs/impls/bit-perfect/`](../impls/bit-perfect/README.
 - Phase 4 DoP pass on the Matrix is the acceptance gate for the bit-perfect claim; without it the engine ships labeled experimental with no claim.
 - Manual: engine switch on the active device restarts playback cleanly; built-in speakers and Bluetooth show the Bit-perfect option disabled with the capability note; volume slider disabled or hardware-routed per device, per feature 31's indicator; while paused the device stays hogged (another app cannot open it) and resume is instant; after Stop or quit the device's prior formats are restored in Audio MIDI Setup.
 
+## Stage 5 acceptance results
+
+- **2026-09-01 — THE DoP TEST PASSES.** `04 - 暧昧 (DoP).flac` (DSD64-in-DoP, structurally verified source-exact by `script/dop_pack.py --verify`) played through the integer engine on the Matrix Mini-i Pro 4 (Auto-resolved Bit-perfect): the display reads **"DSD DoP 2.8MHz"** — the DAC detected intact DoP markers and unwrapped DSD64, proving bit-exact delivery through decode, `IntPacker`, ring, IOProc, Core Audio HAL, driver, and USB. Any single-bit corruption would have destroyed the markers. The bit-perfect claim in the UI is hereby legitimate.
+- Also verified 2026-08-31 during first hardware contact: plain FLAC plays clean through the integer engine; the Matrix has no settable volume scalar while hogged (feature 31's `FIXED` camp).
+- Remaining manual sweep (pending): Shared-mode control test on the same file (display must stay 176.4 kHz PCM), 44.1/16 and 96/24 rate checks, pause-hold observation, format restore in Audio MIDI Setup after quit, feature 31 UX pass.
+
 ## Stage 1 probe findings
 
 Run on macOS 26.5.2 arm64 on 2026-08-31 with `cargo run -p pulse-engine --example integer_probe`. The probe saved and restored each stream's physical and virtual ASBD plus the device mixing state when that property existed, verified every readback, released each hog, and exited successfully. The Matrix Mini-i Pro 4 appeared as `mini-i Series`; built-in output appeared as `Mac Studio Speakers`; the Lotoo was not docked. The exact per-candidate stdout, including device UIDs, full ASBD readbacks, flags words, and setter errors, is archived verbatim in [`stage-1-probe-output.md`](../impls/bit-perfect/stage-1-probe-output.md).
