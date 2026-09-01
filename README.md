@@ -1,6 +1,6 @@
 # Pulse
 
-Local music library player for macOS. PCM only (FLAC / ALAC / AIFF / WAV), native-rate Core Audio playback, native GPUI app shell.
+Local music library player for macOS with a **proven bit-perfect engine**. FLAC / ALAC / AIFF / WAV, plus DSF / DFF delivered as DoP; native GPUI app shell. Two Core Audio paths per device: a universal AUHAL engine that plays anywhere, and a hog-mode raw-HAL integer engine whose bit-exact delivery is hardware-proven — the DoP acceptance test lit up "DSD DoP 2.8MHz" on the DAC, which only intact bits can do.
 
 ## Stance
 
@@ -12,11 +12,11 @@ Bundled releases use Sparkle to fetch a signed `appcast.xml` from GitHub Release
 
 ## Layout
 
-- `crates/pulse-engine` — standalone, UI-agnostic audio engine: AUHAL playback through `coreaudio-rs`, direct `objc2-core-audio` HAL device control, `symphonia` decode, `rtrb` ring buffer.
+- `crates/pulse-engine` — standalone, UI-agnostic audio engine: two sinks (universal AUHAL via `coreaudio-rs`; bit-perfect raw-HAL integer IOProc), direct `objc2-core-audio` HAL device control, `symphonia` decode plus DSF/DFF-to-DoP packing, `rtrb` ring buffer. Architecture: [`docs/arch/pulse-engine.md`](docs/arch/pulse-engine.md).
 - `crates/pulse-app` — native GPUI desktop app shell; observes the engine in-process ([tech stack](docs/arch/tech-stack.md)).
 - `design/` — Pencil (`.pen`) design files.
 - `docs/` — project markdown: architecture, product scope, reference notes.
 
 ## Status
 
-All MVP stages (1–13) are built and v0.1.4 is shipped. Work now runs through feature specs in [`docs/features/`](docs/features/) and GitHub issues.
+v0.3.0 shipped 2026-09-01 — the bit-perfect release: the integer engine proven bit-exact by the DoP test, one-axis Output mode (Shared · Exclusive · Bit-perfect), volume transparency. DSD (DSF/DFF over DoP) landed on `main` right after. Work runs through feature specs in [`docs/features/`](docs/features/) with matching GitHub issues; current state lives in [`docs/roadmap.md`](docs/roadmap.md)'s `Now` section.
