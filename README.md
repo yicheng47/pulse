@@ -1,6 +1,6 @@
 # Pulse
 
-Local music library player for macOS with a **proven bit-perfect engine**. FLAC / ALAC / AIFF / WAV, plus DSF / DFF delivered as DoP; native GPUI app shell. Two Core Audio paths per device: a universal AUHAL engine that plays anywhere, and a hog-mode raw-HAL integer engine whose bit-exact delivery is hardware-proven — the DoP acceptance test lit up "DSD DoP 2.8MHz" on the DAC, which only intact bits can do.
+Local music library player for macOS with a **proven bit-perfect engine**. FLAC / ALAC / AIFF / WAV, plus DSD — DSF / DFF containers, DSD64 and DSD128, uncompressed only (no DST, no SACD ISO) — delivered as DoP; native GPUI app shell. Two Core Audio paths per device: a universal AUHAL engine that plays anywhere, and a hog-mode raw-HAL integer engine whose bit-exact delivery is hardware-proven — the DoP acceptance test lit up "DSD DoP 2.8MHz" on the DAC, which only intact bits can do.
 
 ## Stance
 

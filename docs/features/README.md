@@ -6,6 +6,7 @@ Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phase
 
 ## Active
 
+- [`75-scan-performance.md`](75-scan-performance.md) - P2. Scan speed: per-scan folder-art memo (one `read_dir` per directory, ends the artless-rescan re-probe), chunked writer transactions, and a bounded extractor pool feeding the single writer that owns the store; NAS roots are the motivating case.
 - [`73-scan-error-detail.md`](73-scan-error-detail.md) - P3. Persist per-file scan errors and open them from the Storage page's ISSUES badge — path, plain-language reason, Reveal in Finder. Filed after a zero-byte FLAC took a sqlite session to diagnose.
 - [`71-dsd-over-dop.md`](71-dsd-over-dop.md) - P2. Play `.dsf`/`.dff` by DoP-packing at decode time — a container parser and bit-packer, no DSD engine; refuses (never noise) off the bit-perfect path. Unblocked by the 2026-09-01 DoP acceptance pass.
 - [`72-metadata-enrichment.md`](72-metadata-enrichment.md) - P2. Artists identified against MusicBrainz with fanart.tv photos; opt-in Settings ▸ Metadata page owning the switch, API key, triggers (Enrich now, after scans, launch refresh, enabling, key paste) and status; `artist_metadata` keyed by mbid; unmapped stays visible. Design drafted 2026-08-30, awaiting approval.
@@ -14,6 +15,7 @@ Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phase
 
 ## Implemented
 
+- [`74-toast-notifications.md`](archive/74-toast-notifications.md) - P2. Floating toast primitive (Error / Error + Action / Warning, 6s hover-pausing timers, 3-stack) bottom-right above the player; migrated the library's red error box and the banner's `Skip`/`Stopped`/`ExclusiveFallback` — the banner keeps Dropouts/DeviceFailure; carried feature 71's refusal UI. `ee09b0c`.
 - [`32-integer-engine.md`](archive/32-integer-engine.md) - P2. The bit-perfect milestone (M3 → v0.3.0): raw-HAL integer engine (hog, mixing off, virtual = physical integer format), one-axis Output mode control (Shared·Exclusive·Bit-perfect, AUTO-resolved), pause holds the device. Proven 2026-09-01: the Matrix displayed "DSD DoP 2.8MHz" — bit-exact delivery end to end. `689bdbb`, `668e504`, `de5bf37`; journey log in [`impls/archive/bit-perfect/`](../impls/archive/bit-perfect/IMPL_LOG.md).
 - [`31-volume-transparency.md`](archive/31-volume-transparency.md) - P2. Volume domains (device/software/fixed) with events from both engines; the Signal Path popover (BIT-PERFECT / TRANSPARENT / PROCESSED verdicts, honest dynamic copy); sliders disabled at 100% in Fixed; "Device volume" on the Devices page. `0c44e08`.
 - [`30-interface-scale.md`](archive/30-interface-scale.md) - P2. Settings ▸ General Interface scale stepper (80–150%) with `Cmd-=`/`Cmd--`/`Cmd-0`, persisted; built on the `px` → `rems` migration (`theme::rpx`) that also closed 29. `05b9d08`, `56a120e`.

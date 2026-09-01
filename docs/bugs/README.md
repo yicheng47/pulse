@@ -4,6 +4,8 @@ One note per open bug, written with the `bug` skill's template (description, exp
 
 ## Open
 
+- [`device-not-released-on-quit.md`](device-not-released-on-quit.md) - P1. Quit can leave the hogged device unreleased / format unrestored; the RAII chain is right but runs inside the quit window after settings flushes and a thread join.
+- [`output-popover-mode-row-crowding.md`](output-popover-mode-row-crowding.md) - P2. With a manual override set, `Reset to Auto` runs flush into the Shared·Exclusive·Bit-perfect segments — the row's `flex_1` spacer collapses; worse at larger interface scales.
 - [`placeholder-album-artist.md`](placeholder-album-artist.md) - P3. Album artists with no name (`######`) should fall back to the track artist instead of becoming an artist.
 
 ## Fixed

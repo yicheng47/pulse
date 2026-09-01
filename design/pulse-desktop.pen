@@ -2623,6 +2623,282 @@
               ]
             }
           ]
+        },
+        {
+          "type": "frame",
+          "id": "istmO",
+          "name": "Toasts Row",
+          "gap": 28,
+          "children": [
+            {
+              "type": "frame",
+              "id": "x4nPhV",
+              "name": "Toast / Error",
+              "reusable": true,
+              "width": 400,
+              "fill": "$bg-elevated",
+              "cornerRadius": "$radius-lg",
+              "stroke": "$border-strong",
+              "strokeWidth": 1,
+              "gap": 12,
+              "padding": [
+                12,
+                14
+              ],
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "Oxe40",
+                  "name": "Icon",
+                  "width": 17,
+                  "height": 17,
+                  "icon": "circle-alert",
+                  "library": "lucide",
+                  "fill": "$danger"
+                },
+                {
+                  "type": "frame",
+                  "id": "qaZUK",
+                  "name": "Copy",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "pQAT2",
+                      "name": "Title",
+                      "fill": "$text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Couldn’t read this DSD file",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "cBBjX",
+                      "name": "Body",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "“04 - 暧昧.dff” looks damaged or isn’t a supported DSD container.",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "kx0lA",
+                  "name": "Dismiss",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "x",
+                  "library": "lucide",
+                  "fill": "$text-muted"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "l1ulu",
+              "name": "Toast / Error + Action",
+              "reusable": true,
+              "width": 400,
+              "fill": "$bg-elevated",
+              "cornerRadius": "$radius-lg",
+              "stroke": "$border-strong",
+              "strokeWidth": 1,
+              "gap": 12,
+              "padding": [
+                12,
+                14
+              ],
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "PHKMi",
+                  "name": "Icon",
+                  "width": 17,
+                  "height": 17,
+                  "icon": "circle-alert",
+                  "library": "lucide",
+                  "fill": "$danger"
+                },
+                {
+                  "type": "frame",
+                  "id": "z4eEtI",
+                  "name": "Copy",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "j5L14r",
+                      "name": "Title",
+                      "fill": "$text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "DSD needs Bit-perfect output",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "nkQPl",
+                      "name": "Body",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "DoP only survives the untouched integer path. Switch the output mode to play this track.",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "lRaEf",
+                      "name": "Actions",
+                      "gap": 8,
+                      "padding": [
+                        6,
+                        0,
+                        0,
+                        0
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "Rj1bb",
+                          "name": "Action / Switch",
+                          "fill": "$accent-soft",
+                          "cornerRadius": "$radius-md",
+                          "stroke": "$accent",
+                          "strokeWidth": 1,
+                          "gap": 8,
+                          "padding": [
+                            6,
+                            11
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "ePTVx",
+                              "name": "Icon",
+                              "width": 13,
+                              "height": 13,
+                              "icon": "lock",
+                              "library": "lucide",
+                              "fill": "$accent"
+                            },
+                            {
+                              "type": "text",
+                              "id": "OjAnw",
+                              "name": "Label",
+                              "fill": "$text-primary",
+                              "content": "Switch to Bit-perfect",
+                              "fontFamily": "$font-display",
+                              "fontSize": 12,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "sdsGs",
+                  "name": "Dismiss",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "x",
+                  "library": "lucide",
+                  "fill": "$text-muted"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "DqRnZ",
+              "name": "Toast / Warning",
+              "reusable": true,
+              "width": 400,
+              "fill": "$bg-elevated",
+              "cornerRadius": "$radius-lg",
+              "stroke": "$border-strong",
+              "strokeWidth": 1,
+              "gap": 12,
+              "padding": [
+                12,
+                14
+              ],
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "O2Sck",
+                  "name": "Icon",
+                  "width": 17,
+                  "height": 17,
+                  "icon": "triangle-alert",
+                  "library": "lucide",
+                  "fill": "$warning"
+                },
+                {
+                  "type": "frame",
+                  "id": "FcDCS",
+                  "name": "Copy",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Xi0r3",
+                      "name": "Title",
+                      "fill": "$text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Skipped “Newspaper” — file is missing",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "AAYef",
+                      "name": "Body",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "The file moved or was deleted since the last scan. Playback continues with the next track.",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "vqkKp",
+                  "name": "Dismiss",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "x",
+                  "library": "lucide",
+                  "fill": "$text-muted"
+                }
+              ]
+            }
+          ]
         }
       ]
     },
@@ -49690,6 +49966,3402 @@
               "fontFamily": "$font-sans",
               "fontSize": 11,
               "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "GGd35",
+      "x": 5376,
+      "y": -1380,
+      "name": "Spec — DSD Gate & Toasts",
+      "width": 760,
+      "fill": "$bg-page",
+      "cornerRadius": "$radius-lg",
+      "stroke": "$border",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 18,
+      "padding": 36,
+      "children": [
+        {
+          "type": "text",
+          "id": "b0K5N1",
+          "name": "Title",
+          "fill": "$text-primary",
+          "content": "DSD gate — toasts, refusal copy, library treatment",
+          "fontFamily": "$font-display",
+          "fontSize": 20,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "qeHYx",
+          "name": "Note",
+          "fill": "$text-muted",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "Feature 71 phase 3: an unplayable DSD track refuses with a toast — clear words, never noise. Toasts are a new floating primitive for one-shot verdicts; the notice banner above the player stays only for standing conditions that need persistent recovery actions. One-shot banner variants migrate to toasts (see Migration below).",
+          "fontFamily": "$font-sans",
+          "fontSize": 12,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "hgdER",
+          "name": "Toast Behavior",
+          "width": "fill_container",
+          "fill": "$bg-surface",
+          "cornerRadius": "$radius-lg",
+          "stroke": "$border",
+          "strokeWidth": 1,
+          "layout": "vertical",
+          "padding": [
+            0,
+            16
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "LbgSK",
+              "name": "Rule / PLACEMENT",
+              "width": "fill_container",
+              "stroke": "$border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                12,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "RhPS7",
+                  "name": "Label",
+                  "fill": "$accent",
+                  "content": "PLACEMENT",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 11,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "Wodx6",
+                  "name": "Body",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Bottom-right, 16px above the player bar, 20px from the window edge. Newest on top; at most 3 visible, older ones drop off.",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "r5mnKq",
+              "name": "Rule / DURATION",
+              "width": "fill_container",
+              "stroke": "$border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                12,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Y1Pt8",
+                  "name": "Label",
+                  "fill": "$accent",
+                  "content": "DURATION",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 11,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "cYL1Z",
+                  "name": "Body",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Plain toast: 6 s, timer pauses while hovered. Toast with an action: no timer — stays until acted on or dismissed.",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "yiLTe",
+              "name": "Rule / DISMISS",
+              "width": "fill_container",
+              "stroke": "$border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                12,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "FjHzu",
+                  "name": "Label",
+                  "fill": "$accent",
+                  "content": "DISMISS",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 11,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "fUHKl",
+                  "name": "Body",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "The × always dismisses. Clicking elsewhere never does; the toast must not be a click-trap.",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "hg7QW",
+              "name": "Rule / QUEUE ADVANCE",
+              "width": "fill_container",
+              "stroke": "$border",
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                12,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ArFNy",
+                  "name": "Label",
+                  "fill": "$accent",
+                  "content": "QUEUE ADVANCE",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 11,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "Q90B7f",
+                  "name": "Body",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "When auto-advance reaches an unplayable DSD track, skip it and keep playing, surfacing the plain toast (mirrors the missing-file skip). The stop-dead behavior on main today is replaced by this.",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "KOSaT",
+          "name": "Copy Heading",
+          "fill": "$text-primary",
+          "content": "Refusal copy — final strings for the four gate errors",
+          "fontFamily": "$font-display",
+          "fontSize": 15,
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "JG80Q",
+          "name": "Refusal Copy",
+          "width": "fill_container",
+          "fill": "$bg-surface",
+          "cornerRadius": "$radius-lg",
+          "stroke": "$border",
+          "strokeWidth": 1,
+          "layout": "vertical",
+          "padding": [
+            0,
+            16
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "t9Xb5s",
+              "name": "Copy / OUTPUT MODE ≠ BIT-PERFECT",
+              "width": "fill_container",
+              "stroke": "$border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                12,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "YDx1h",
+                  "name": "Condition",
+                  "fill": "$text-muted",
+                  "content": "OUTPUT MODE ≠ BIT-PERFECT",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 10,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "pITCi",
+                  "name": "Title",
+                  "fill": "$text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "DSD needs Bit-perfect output",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "E32fOf",
+                  "name": "Body",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "DoP only survives the untouched integer path. Switch the output mode to play this track.",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "FXvu3",
+                  "name": "Action Note",
+                  "fill": "$accent",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "→ [Switch to Bit-perfect] switches the mode and retries the same track.",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Em11U",
+              "name": "Copy / DEVICE RATE CEILING < DoP RATE",
+              "width": "fill_container",
+              "stroke": "$border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                12,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "I6QvN",
+                  "name": "Condition",
+                  "fill": "$text-muted",
+                  "content": "DEVICE RATE CEILING < DoP RATE",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 10,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "enDtO",
+                  "name": "Title",
+                  "fill": "$text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "This device can’t carry DSD128",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "bdamA",
+                  "name": "Body",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "DSD128 over DoP needs 352.8 kHz — {device} tops out at {rate}. DSD64 tracks still play.",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "wd0OC",
+              "name": "Copy / DEVICE CAPABILITIES UNKNOWN",
+              "width": "fill_container",
+              "stroke": "$border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                12,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "v1VxQW",
+                  "name": "Condition",
+                  "fill": "$text-muted",
+                  "content": "DEVICE CAPABILITIES UNKNOWN",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 10,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "m2UtJg",
+                  "name": "Title",
+                  "fill": "$text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Output device not verified yet",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "t0wln",
+                  "name": "Body",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Pulse hasn’t probed this device’s rates. Reconnect it or pick another output.",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "xzKeI",
+              "name": "Copy / DSD METADATA UNREADABLE",
+              "width": "fill_container",
+              "stroke": "$border",
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                12,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Wnv1I",
+                  "name": "Condition",
+                  "fill": "$text-muted",
+                  "content": "DSD METADATA UNREADABLE",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 10,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "Gzm1l",
+                  "name": "Title",
+                  "fill": "$text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Couldn’t read this DSD file",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "xEn3v",
+                  "name": "Body",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "“{filename}” looks damaged or isn’t a supported DSD container.",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "o4Q9M",
+          "name": "Library Heading",
+          "fill": "$text-primary",
+          "content": "Library treatment — unplayable DSD rows",
+          "fontFamily": "$font-display",
+          "fontSize": 15,
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "Rcea6",
+          "name": "Library Treatment",
+          "width": "fill_container",
+          "fill": "$bg-surface",
+          "cornerRadius": "$radius-lg",
+          "stroke": "$border",
+          "strokeWidth": 1,
+          "layout": "vertical",
+          "padding": [
+            0,
+            16
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "a92AB",
+              "name": "Lib / DIMMING",
+              "width": "fill_container",
+              "stroke": "$border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                12,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "DsNcD",
+                  "name": "Label",
+                  "fill": "$warning",
+                  "content": "DIMMING",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 11,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "SdqnF",
+                  "name": "Body",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Cover, title, artist, album, time, added dim to 55% opacity while the track is unplayable on the active output. Re-evaluated live when the output mode or device changes.",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "x8bFPv",
+              "name": "Lib / FORMAT BADGE",
+              "width": "fill_container",
+              "stroke": "$border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                12,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "h5MBR",
+                  "name": "Label",
+                  "fill": "$warning",
+                  "content": "FORMAT BADGE",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 11,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "zMpKt",
+                  "name": "Body",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "The FORMAT value stays full-strength and flips to $warning (DSD64 / DSD128) — it is the explanation, not decoration.",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "V3L1xU",
+              "name": "Lib / CLICK",
+              "width": "fill_container",
+              "stroke": "$border",
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                12,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "B3B6t",
+                  "name": "Label",
+                  "fill": "$warning",
+                  "content": "CLICK",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 11,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "ENNA7",
+                  "name": "Body",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Rows stay clickable — no dead zones. Clicking play on an unplayable DSD track fires the matching toast.",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "R04ZVB",
+          "name": "Migration Heading",
+          "fill": "$text-primary",
+          "content": "Migration — every error surface, audited",
+          "fontFamily": "$font-display",
+          "fontSize": 15,
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "m3XQZ",
+          "name": "Migration",
+          "width": "fill_container",
+          "fill": "$bg-surface",
+          "cornerRadius": "$radius-lg",
+          "stroke": "$border",
+          "strokeWidth": 1,
+          "layout": "vertical",
+          "padding": [
+            0,
+            16
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "vWMY4",
+              "name": "Mig / Library floating red box (playlist & store errors)",
+              "width": "fill_container",
+              "stroke": "$border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "gap": 16,
+              "padding": [
+                12,
+                0
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "uwypK",
+                  "name": "Verdict",
+                  "width": 118,
+                  "padding": [
+                    3,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "f3h7h",
+                      "name": "Label",
+                      "fill": "$accent",
+                      "content": "→ TOAST",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "V4L3v",
+                  "name": "Copy",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "BIu7i",
+                      "name": "Surface",
+                      "fill": "$text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Library floating red box (playlist & store errors)",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "WZi0D",
+                      "name": "Body",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "The bottom-right absolute red box in the library surface is an unstyled proto-toast with no dismiss and no timer. Replace with Toast / Error — same position, real anatomy. Playlist create/rename/delete/append failures, store-busy, reload errors.",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "vz7kD",
+              "name": "Mig / Banner: Stopped (could not play a track)",
+              "width": "fill_container",
+              "stroke": "$border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "gap": 16,
+              "padding": [
+                12,
+                0
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "XoSp9",
+                  "name": "Verdict",
+                  "width": 118,
+                  "padding": [
+                    3,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "DGWA8",
+                      "name": "Label",
+                      "fill": "$accent",
+                      "content": "→ TOAST",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "oKqDO",
+                  "name": "Copy",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "enlG7",
+                      "name": "Surface",
+                      "fill": "$text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Banner: Stopped (could not play a track)",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "yMG2u",
+                      "name": "Body",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "One-shot verdict — the transport already shows the stopped state. All Stopped emitters move, not just the DSD gate. Use Toast / Error, with the action variant where a fix exists.",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "o23ZV",
+              "name": "Mig / Banner: Skip (missing or unreadable file)",
+              "width": "fill_container",
+              "stroke": "$border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "gap": 16,
+              "padding": [
+                12,
+                0
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "BZuxf",
+                  "name": "Verdict",
+                  "width": 118,
+                  "padding": [
+                    3,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "LEgOU",
+                      "name": "Label",
+                      "fill": "$accent",
+                      "content": "→ TOAST",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "vWizH",
+                  "name": "Copy",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "pQkY9",
+                      "name": "Surface",
+                      "fill": "$text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Banner: Skip (missing or unreadable file)",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "NWeNa",
+                      "name": "Body",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "One-shot, playback continues. Toast / Warning. Same pattern as the DSD queue-advance skip.",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "S4y8qu",
+              "name": "Mig / Banner: ExclusiveFallback (fell back to shared)",
+              "width": "fill_container",
+              "stroke": "$border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "gap": 16,
+              "padding": [
+                12,
+                0
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Za1tk",
+                  "name": "Verdict",
+                  "width": 118,
+                  "padding": [
+                    3,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "GAFYJ",
+                      "name": "Label",
+                      "fill": "$accent",
+                      "content": "→ TOAST",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Clv1M",
+                  "name": "Copy",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ekdiz",
+                      "name": "Surface",
+                      "fill": "$text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Banner: ExclusiveFallback (fell back to shared)",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "FxKZi",
+                      "name": "Body",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "One-shot announcement, no recovery action; the signal path popover shows the standing truth. Toast / Warning.",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "CEjdX",
+              "name": "Mig / Banner: Dropouts · DeviceFailure",
+              "width": "fill_container",
+              "stroke": "$border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "gap": 16,
+              "padding": [
+                12,
+                0
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "uAJX3",
+                  "name": "Verdict",
+                  "width": 118,
+                  "padding": [
+                    3,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "KhlZY",
+                      "name": "Label",
+                      "fill": "$warning",
+                      "content": "BANNER",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Lh2uU",
+                  "name": "Copy",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "J1egf",
+                      "name": "Surface",
+                      "fill": "$text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Banner: Dropouts · DeviceFailure",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "cESTt",
+                      "name": "Body",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Standing conditions — audio is degraded or stopped until the user acts. Keep the banner with its Try again / Choose output buttons.",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "eRthr",
+              "name": "Mig / Everything contextual",
+              "width": "fill_container",
+              "stroke": "$border",
+              "gap": 16,
+              "padding": [
+                12,
+                0
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "FAjds",
+                  "name": "Verdict",
+                  "width": 118,
+                  "padding": [
+                    3,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "cjosq",
+                      "name": "Label",
+                      "fill": "$text-muted",
+                      "content": "INLINE",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "ZjLTv",
+                  "name": "Copy",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "OcHQ4",
+                      "name": "Surface",
+                      "fill": "$text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Everything contextual",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Kr9RI",
+                      "name": "Body",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Output popover device messages, Settings update FAILED status line, storage offline / scan-failure states, dialog validation. These live inside the surface the user is already looking at — not toasts.",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "V5k1T",
+      "x": 4317,
+      "y": 4556,
+      "name": "Library / Tracks — Unplayable DSD",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$bg-page",
+      "cornerRadius": "$radius-lg",
+      "stroke": "$border",
+      "strokeWidth": {
+        "top": 1,
+        "right": 1,
+        "left": 1
+      },
+      "strokeAlignment": "inner",
+      "strokeLinejoin": "round",
+      "children": [
+        {
+          "type": "frame",
+          "id": "M9KmqS",
+          "name": "Shell",
+          "width": 1440,
+          "height": 900,
+          "fill": "$bg-page",
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "bH32s",
+              "type": "ref",
+              "ref": "Y0hrAW",
+              "name": "Top Bar / App",
+              "width": "fill_container"
+            },
+            {
+              "type": "frame",
+              "id": "qgNFD",
+              "name": "Upper",
+              "width": "fill_container",
+              "height": "fill_container",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Prow6",
+                  "name": "Sidebar Island Slot",
+                  "height": "fill_container",
+                  "layout": "vertical",
+                  "padding": [
+                    12,
+                    0,
+                    12,
+                    12
+                  ],
+                  "children": [
+                    {
+                      "id": "E3EnE",
+                      "type": "ref",
+                      "ref": "IqX8X",
+                      "name": "Sidebar / Island",
+                      "width": 236,
+                      "height": "fill_container",
+                      "descendants": {
+                        "GWXPo": {
+                          "fill": "#00000000"
+                        },
+                        "bCZAw": {
+                          "fill": "$text-muted"
+                        },
+                        "LOfz0": {
+                          "fill": "$text-secondary"
+                        },
+                        "WNgrJ": {
+                          "fill": "$bg-elevated"
+                        },
+                        "Q98yur": {
+                          "fill": "$accent"
+                        },
+                        "cSYYH": {
+                          "fill": "$text-primary"
+                        },
+                        "sfVum": {
+                          "fill": "#00000000"
+                        },
+                        "w58Av2": {
+                          "fill": "$text-muted"
+                        },
+                        "d6a9c": {
+                          "fill": "$text-secondary"
+                        },
+                        "coGs2": {
+                          "fill": "#00000000"
+                        },
+                        "dvTbd": {
+                          "fill": "$text-muted"
+                        },
+                        "O9h6J1": {
+                          "fill": "$text-secondary"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "G2353",
+                  "name": "Main",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "fill": "$bg-page",
+                  "layout": "vertical",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "cENTe",
+                      "name": "Body",
+                      "width": "fill_container",
+                      "height": "fill_container",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "qQ3Nw",
+                          "name": "Tracks Content",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "fill": "#0F0F0F",
+                          "layout": "vertical",
+                          "gap": 18,
+                          "padding": [
+                            26,
+                            28,
+                            24,
+                            28
+                          ],
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "Wsv5l",
+                              "name": "Tracks Header",
+                              "width": "fill_container",
+                              "justifyContent": "space_between",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "j8gYk",
+                                  "name": "Copy",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "gpV0y",
+                                      "name": "Title",
+                                      "fill": "#F0F0EE",
+                                      "content": "Tracks",
+                                      "fontFamily": "Rajdhani",
+                                      "fontSize": 34,
+                                      "fontWeight": "700"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "nvUWx",
+                                      "name": "Meta",
+                                      "fill": "#9D9D99",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "12,482 tracks · 1,106 albums · artist available as filter",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 13,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "m8ql1F",
+                                  "name": "Header Actions",
+                                  "gap": 10,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "GPUWj",
+                                      "name": "Sort Control",
+                                      "fill": "#1E1E1C",
+                                      "cornerRadius": 4,
+                                      "stroke": "#312F2C",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "gap": 8,
+                                      "padding": [
+                                        7,
+                                        10
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "bXr7T",
+                                          "name": "Label",
+                                          "fill": "#6A6A66",
+                                          "content": "DATE ADDED",
+                                          "fontFamily": "Geist Mono",
+                                          "fontSize": 11,
+                                          "fontWeight": "700"
+                                        },
+                                        {
+                                          "type": "icon",
+                                          "id": "y3l7An",
+                                          "name": "Sort",
+                                          "width": 14,
+                                          "height": 14,
+                                          "icon": "arrow-up-down",
+                                          "library": "lucide",
+                                          "fill": "#6A6A66"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "gkw9M",
+                              "name": "Track Filters",
+                              "width": "fill_container",
+                              "justifyContent": "space_between",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "L9l40j",
+                                  "name": "Filters",
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "glef3",
+                                      "name": "Filter / All tracks",
+                                      "fill": "#2A0E1C",
+                                      "cornerRadius": 4,
+                                      "stroke": "#FF2D7E",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "padding": [
+                                        7,
+                                        10
+                                      ],
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "XU1aZ",
+                                          "name": "Label",
+                                          "fill": "#FF2D7E",
+                                          "content": "All tracks",
+                                          "fontFamily": "Inter",
+                                          "fontSize": 12,
+                                          "fontWeight": "600"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "Xshb2",
+                                      "name": "Filter / Hi-Res",
+                                      "fill": "#1E1E1C",
+                                      "cornerRadius": 4,
+                                      "stroke": "#312F2C",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "padding": [
+                                        7,
+                                        10
+                                      ],
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "FiDNs",
+                                          "name": "Label",
+                                          "fill": "#9D9D99",
+                                          "content": "Hi-Res",
+                                          "fontFamily": "Inter",
+                                          "fontSize": 12,
+                                          "fontWeight": "600"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "KL7L2",
+                                      "name": "Filter / Recently Added",
+                                      "fill": "#1E1E1C",
+                                      "cornerRadius": 4,
+                                      "stroke": "#312F2C",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "padding": [
+                                        7,
+                                        10
+                                      ],
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "hpn9r",
+                                          "name": "Label",
+                                          "fill": "#9D9D99",
+                                          "content": "Recently Added",
+                                          "fontFamily": "Inter",
+                                          "fontSize": 12,
+                                          "fontWeight": "600"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "mUf11",
+                                      "name": "Filter / Pop",
+                                      "fill": "#1E1E1C",
+                                      "cornerRadius": 4,
+                                      "stroke": "#312F2C",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "padding": [
+                                        7,
+                                        10
+                                      ],
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "WKnTm",
+                                          "name": "Label",
+                                          "fill": "#9D9D99",
+                                          "content": "Pop",
+                                          "fontFamily": "Inter",
+                                          "fontSize": 12,
+                                          "fontWeight": "600"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "XNXZD",
+                                      "name": "Filter / Liked",
+                                      "fill": "#1E1E1C",
+                                      "cornerRadius": 4,
+                                      "stroke": "#312F2C",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "padding": [
+                                        7,
+                                        10
+                                      ],
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "icKkI",
+                                          "name": "Label",
+                                          "fill": "#9D9D99",
+                                          "content": "Liked",
+                                          "fontFamily": "Inter",
+                                          "fontSize": 12,
+                                          "fontWeight": "600"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "dvx20",
+                                  "name": "Artist Filter Hint",
+                                  "fill": "$bg-surface-alt",
+                                  "cornerRadius": 4,
+                                  "stroke": "#312F2C",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner",
+                                  "gap": 8,
+                                  "padding": [
+                                    7,
+                                    10
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "id": "aUHgQ",
+                                      "name": "Icon",
+                                      "width": 14,
+                                      "height": 14,
+                                      "icon": "user-round-search",
+                                      "library": "lucide",
+                                      "fill": "#6A6A66"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "dzQMs",
+                                      "name": "Label",
+                                      "fill": "#6A6A66",
+                                      "content": "ARTIST FILTER",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 11,
+                                      "fontWeight": "700"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "Typ9v",
+                              "name": "Tracks Scroll Region",
+                              "clip": true,
+                              "width": "fill_container",
+                              "height": "fill_container",
+                              "layout": "none",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "lom6B",
+                                  "x": 0,
+                                  "y": 0,
+                                  "name": "Tracks Table",
+                                  "width": 1148,
+                                  "height": 556,
+                                  "fill": "#00000000",
+                                  "stroke": "#312F2C",
+                                  "strokeAlignment": "inner",
+                                  "layout": "vertical",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "T1jcO",
+                                      "name": "Table Header",
+                                      "width": "fill_container",
+                                      "fill": "#00000000",
+                                      "stroke": "#312F2C",
+                                      "strokeWidth": {
+                                        "bottom": 1
+                                      },
+                                      "strokeLinejoin": "round",
+                                      "gap": 12,
+                                      "padding": [
+                                        10,
+                                        14
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "xtAQi",
+                                          "name": "Track Header",
+                                          "width": "fill_container",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "crGYA",
+                                              "name": "Label",
+                                              "fill": "#6A6A66",
+                                              "content": "TRACK",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 10,
+                                              "fontWeight": "700",
+                                              "letterSpacing": 0.8
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "DnxDo",
+                                          "name": "Artist Header",
+                                          "width": 150,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "Jytev",
+                                              "name": "Label",
+                                              "fill": "#6A6A66",
+                                              "content": "ARTIST",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 10,
+                                              "fontWeight": "700",
+                                              "letterSpacing": 0.8
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "BeamM",
+                                          "name": "Album Header",
+                                          "width": 220,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "gIAc5",
+                                              "name": "Label",
+                                              "fill": "#6A6A66",
+                                              "content": "ALBUM",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 10,
+                                              "fontWeight": "700",
+                                              "letterSpacing": 0.8
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "KMSai",
+                                          "name": "Time Header",
+                                          "width": 58,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "r6ss4",
+                                              "name": "Label",
+                                              "fill": "#6A6A66",
+                                              "content": "TIME",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 10,
+                                              "fontWeight": "700",
+                                              "letterSpacing": 0.8
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "CZSay",
+                                          "name": "Format Header",
+                                          "width": 120,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "Af2db",
+                                              "name": "Label",
+                                              "fill": "#6A6A66",
+                                              "content": "FORMAT",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 10,
+                                              "fontWeight": "700",
+                                              "letterSpacing": 0.8
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "wVdYZ",
+                                          "name": "Added Header",
+                                          "width": 82,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "H22Av7",
+                                              "name": "Label",
+                                              "fill": "#6A6A66",
+                                              "content": "ADDED",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 10,
+                                              "fontWeight": "700",
+                                              "letterSpacing": 0.8
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "ufRKs",
+                                      "name": "Track Row / Nights",
+                                      "width": "fill_container",
+                                      "fill": [
+                                        "$bg-selected",
+                                        {
+                                          "type": "gradient",
+                                          "gradientType": "linear",
+                                          "enabled": true,
+                                          "rotation": 270,
+                                          "size": {
+                                            "height": 1
+                                          },
+                                          "colors": [
+                                            {
+                                              "color": "#FF2D7E26",
+                                              "position": 0
+                                            },
+                                            {
+                                              "color": "#FF2D7E00",
+                                              "position": 0.5
+                                            }
+                                          ]
+                                        }
+                                      ],
+                                      "stroke": "$border",
+                                      "strokeWidth": {
+                                        "bottom": 1
+                                      },
+                                      "strokeLinejoin": "round",
+                                      "gap": 12,
+                                      "padding": [
+                                        8,
+                                        14
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "g3RySB",
+                                          "name": "Track Cell",
+                                          "width": "fill_container",
+                                          "gap": 12,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "frame",
+                                              "id": "Dl42j",
+                                              "name": "Cover",
+                                              "clip": true,
+                                              "width": 42,
+                                              "height": 42,
+                                              "fill": {
+                                                "type": "image",
+                                                "enabled": true,
+                                                "url": "album-covers/pop/blonde.jpg",
+                                                "mode": "fill"
+                                              },
+                                              "cornerRadius": 4,
+                                              "stroke": "#403D39",
+                                              "strokeWidth": 1,
+                                              "strokeAlignment": "inner",
+                                              "layout": "none"
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "NvHqZ",
+                                              "name": "Copy",
+                                              "width": "fill_container",
+                                              "layout": "vertical",
+                                              "gap": 3,
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "RMMF1",
+                                                  "name": "Title",
+                                                  "fill": "#F0F0EE",
+                                                  "textGrowth": "fixed-width",
+                                                  "width": "fill_container",
+                                                  "content": "Nights",
+                                                  "fontFamily": "Rajdhani",
+                                                  "fontSize": 15,
+                                                  "fontWeight": "700"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "id": "CeOwn",
+                                                  "name": "Artist",
+                                                  "fill": "#9D9D99",
+                                                  "textGrowth": "fixed-width",
+                                                  "width": "fill_container",
+                                                  "content": "Frank Ocean",
+                                                  "fontFamily": "Inter",
+                                                  "fontSize": 12,
+                                                  "fontWeight": "normal"
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "N8wjv",
+                                          "name": "Artist Cell",
+                                          "width": 150,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "hO8Q4",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Frank Ocean",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "l5NY7",
+                                          "name": "Album Cell",
+                                          "width": 220,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "R2oEi4",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Blonde",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "iC7Rt",
+                                          "name": "Duration Cell",
+                                          "width": 58,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "NXs1b",
+                                              "name": "Value",
+                                              "fill": "#F0F0EE",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "5:07",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "JJq7F",
+                                          "name": "Format Cell",
+                                          "width": 120,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "t384tN",
+                                              "name": "Value",
+                                              "fill": "#9DE23A",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "FLAC 16 / 44.1",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "pgk0K",
+                                          "name": "Added Cell",
+                                          "width": 82,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "IQ5GS",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "2 min",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "rectangle",
+                                          "id": "pmEHQ",
+                                          "layoutPosition": "absolute",
+                                          "x": 0,
+                                          "y": 0,
+                                          "name": "Accent Bar",
+                                          "fill": "$accent",
+                                          "width": 4,
+                                          "height": 57
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "ZjUwQ",
+                                      "name": "Track Row / Supercut",
+                                      "width": "fill_container",
+                                      "fill": "#00000000",
+                                      "stroke": "#312F2C",
+                                      "strokeWidth": {
+                                        "bottom": 1
+                                      },
+                                      "strokeLinejoin": "round",
+                                      "gap": 12,
+                                      "padding": [
+                                        8,
+                                        14
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "OIWuJ",
+                                          "name": "Track Cell",
+                                          "width": "fill_container",
+                                          "gap": 12,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "frame",
+                                              "id": "LFFqz",
+                                              "name": "Cover",
+                                              "clip": true,
+                                              "width": 42,
+                                              "height": 42,
+                                              "fill": {
+                                                "type": "image",
+                                                "enabled": true,
+                                                "url": "album-covers/pop/melodrama.jpg",
+                                                "mode": "fill"
+                                              },
+                                              "cornerRadius": 4,
+                                              "stroke": "#403D39",
+                                              "strokeWidth": 1,
+                                              "strokeAlignment": "inner",
+                                              "layout": "none"
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "l0XjPv",
+                                              "name": "Copy",
+                                              "width": "fill_container",
+                                              "layout": "vertical",
+                                              "gap": 3,
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "B1XtQ0",
+                                                  "name": "Title",
+                                                  "fill": "#F0F0EE",
+                                                  "textGrowth": "fixed-width",
+                                                  "width": "fill_container",
+                                                  "content": "Supercut",
+                                                  "fontFamily": "Rajdhani",
+                                                  "fontSize": 15,
+                                                  "fontWeight": "700"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "id": "esBxg",
+                                                  "name": "Artist",
+                                                  "fill": "#9D9D99",
+                                                  "textGrowth": "fixed-width",
+                                                  "width": "fill_container",
+                                                  "content": "Lorde",
+                                                  "fontFamily": "Inter",
+                                                  "fontSize": 12,
+                                                  "fontWeight": "normal"
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "u5KoP",
+                                          "name": "Artist Cell",
+                                          "width": 150,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "KDnAE",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Lorde",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "VsX2K",
+                                          "name": "Album Cell",
+                                          "width": 220,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "T5SPv",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Melodrama",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "bE9m2",
+                                          "name": "Duration Cell",
+                                          "width": 58,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "Flj8x",
+                                              "name": "Value",
+                                              "fill": "#F0F0EE",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "4:37",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "GaZKB",
+                                          "name": "Format Cell",
+                                          "width": 120,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "uYDUM",
+                                              "name": "Value",
+                                              "fill": "#B15CFF",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "FLAC 24 / 48",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "c9xkE",
+                                          "name": "Added Cell",
+                                          "width": 82,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "cZpnq",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "6 min",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "l1QNc",
+                                      "name": "Track Row / B2b",
+                                      "width": "fill_container",
+                                      "fill": "#00000000",
+                                      "stroke": "#312F2C",
+                                      "strokeWidth": {
+                                        "bottom": 1
+                                      },
+                                      "strokeLinejoin": "round",
+                                      "gap": 12,
+                                      "padding": [
+                                        8,
+                                        14
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "DFdSG",
+                                          "name": "Track Cell",
+                                          "width": "fill_container",
+                                          "gap": 12,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "frame",
+                                              "id": "QB7Ga",
+                                              "name": "Cover",
+                                              "clip": true,
+                                              "width": 42,
+                                              "height": 42,
+                                              "fill": {
+                                                "type": "image",
+                                                "enabled": true,
+                                                "url": "album-covers/pop/brat.jpg",
+                                                "mode": "fill"
+                                              },
+                                              "cornerRadius": 4,
+                                              "stroke": "#403D39",
+                                              "strokeWidth": 1,
+                                              "strokeAlignment": "inner",
+                                              "layout": "none"
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "G9eYs",
+                                              "name": "Copy",
+                                              "width": "fill_container",
+                                              "layout": "vertical",
+                                              "gap": 3,
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "v9NoO",
+                                                  "name": "Title",
+                                                  "fill": "#F0F0EE",
+                                                  "textGrowth": "fixed-width",
+                                                  "width": "fill_container",
+                                                  "content": "B2b",
+                                                  "fontFamily": "Rajdhani",
+                                                  "fontSize": 15,
+                                                  "fontWeight": "700"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "id": "UwXBL",
+                                                  "name": "Artist",
+                                                  "fill": "#9D9D99",
+                                                  "textGrowth": "fixed-width",
+                                                  "width": "fill_container",
+                                                  "content": "Charli xcx",
+                                                  "fontFamily": "Inter",
+                                                  "fontSize": 12,
+                                                  "fontWeight": "normal"
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "Wyeef",
+                                          "name": "Artist Cell",
+                                          "width": 150,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "ywAMv",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Charli xcx",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "eWF8p",
+                                          "name": "Album Cell",
+                                          "width": 220,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "Br8g2",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "BRAT",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "PLfVG",
+                                          "name": "Duration Cell",
+                                          "width": 58,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "L9HpfI",
+                                              "name": "Value",
+                                              "fill": "#F0F0EE",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "2:58",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "TWf2q",
+                                          "name": "Format Cell",
+                                          "width": 120,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "COii2",
+                                              "name": "Value",
+                                              "fill": "#9DE23A",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "ALAC 16 / 44.1",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "T2c4e",
+                                          "name": "Added Cell",
+                                          "width": 82,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "hElmI",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "today",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "A20jM6",
+                                      "name": "Track Row / Running Up That Hill",
+                                      "width": "fill_container",
+                                      "fill": "#00000000",
+                                      "stroke": "#312F2C",
+                                      "strokeWidth": {
+                                        "bottom": 1
+                                      },
+                                      "strokeLinejoin": "round",
+                                      "gap": 12,
+                                      "padding": [
+                                        8,
+                                        14
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "ghg5Q",
+                                          "name": "Track Cell",
+                                          "width": "fill_container",
+                                          "gap": 12,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "frame",
+                                              "id": "M3Tt2Y",
+                                              "name": "Cover",
+                                              "clip": true,
+                                              "width": 42,
+                                              "height": 42,
+                                              "fill": {
+                                                "type": "image",
+                                                "enabled": true,
+                                                "url": "album-covers/pop/hounds-of-love.jpg",
+                                                "mode": "fill"
+                                              },
+                                              "cornerRadius": 4,
+                                              "stroke": "#403D39",
+                                              "strokeWidth": 1,
+                                              "strokeAlignment": "inner",
+                                              "layout": "none"
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "I0jMFo",
+                                              "name": "Copy",
+                                              "width": "fill_container",
+                                              "layout": "vertical",
+                                              "gap": 3,
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "S9p9Dy",
+                                                  "name": "Title",
+                                                  "fill": "#F0F0EE",
+                                                  "textGrowth": "fixed-width",
+                                                  "width": "fill_container",
+                                                  "content": "Running Up That Hill",
+                                                  "fontFamily": "Rajdhani",
+                                                  "fontSize": 15,
+                                                  "fontWeight": "700"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "id": "y670W",
+                                                  "name": "Artist",
+                                                  "fill": "#9D9D99",
+                                                  "textGrowth": "fixed-width",
+                                                  "width": "fill_container",
+                                                  "content": "Kate Bush",
+                                                  "fontFamily": "Inter",
+                                                  "fontSize": 12,
+                                                  "fontWeight": "normal"
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "w9TAC",
+                                          "name": "Artist Cell",
+                                          "width": 150,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "KmGj3",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Kate Bush",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "Fv510",
+                                          "name": "Album Cell",
+                                          "width": 220,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "iEhiX",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Hounds of Love",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "s5puP",
+                                          "name": "Duration Cell",
+                                          "width": 58,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "BImfo",
+                                              "name": "Value",
+                                              "fill": "#F0F0EE",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "5:00",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "De78B",
+                                          "name": "Format Cell",
+                                          "width": 120,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "awWUG",
+                                              "name": "Value",
+                                              "fill": "#9DE23A",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "FLAC 16 / 44.1",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "x92EO5",
+                                          "name": "Added Cell",
+                                          "width": 82,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "tnR0N",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "1 day",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "xjFkU",
+                                      "name": "Track Row / Off the Wall",
+                                      "width": "fill_container",
+                                      "fill": "#00000000",
+                                      "stroke": "#312F2C",
+                                      "strokeWidth": {
+                                        "bottom": 1
+                                      },
+                                      "strokeLinejoin": "round",
+                                      "gap": 12,
+                                      "padding": [
+                                        8,
+                                        14
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "Bcqra",
+                                          "name": "Track Cell",
+                                          "opacity": 0.55,
+                                          "width": "fill_container",
+                                          "gap": 12,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "frame",
+                                              "id": "k2JDn",
+                                              "name": "Cover",
+                                              "clip": true,
+                                              "width": 42,
+                                              "height": 42,
+                                              "fill": {
+                                                "type": "image",
+                                                "enabled": true,
+                                                "url": "album-covers/pop/off-the-wall.jpg",
+                                                "mode": "fill"
+                                              },
+                                              "cornerRadius": 4,
+                                              "stroke": "#403D39",
+                                              "strokeWidth": 1,
+                                              "strokeAlignment": "inner",
+                                              "layout": "none"
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "JXBfi",
+                                              "name": "Copy",
+                                              "width": "fill_container",
+                                              "layout": "vertical",
+                                              "gap": 3,
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "EOSjU",
+                                                  "name": "Title",
+                                                  "fill": "#F0F0EE",
+                                                  "textGrowth": "fixed-width",
+                                                  "width": "fill_container",
+                                                  "content": "Off the Wall",
+                                                  "fontFamily": "Rajdhani",
+                                                  "fontSize": 15,
+                                                  "fontWeight": "700"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "id": "m50Iif",
+                                                  "name": "Artist",
+                                                  "fill": "#9D9D99",
+                                                  "textGrowth": "fixed-width",
+                                                  "width": "fill_container",
+                                                  "content": "Michael Jackson",
+                                                  "fontFamily": "Inter",
+                                                  "fontSize": 12,
+                                                  "fontWeight": "normal"
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "JaD9x",
+                                          "name": "Artist Cell",
+                                          "opacity": 0.55,
+                                          "width": 150,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "pV6mx",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Michael Jackson",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "N9nJk",
+                                          "name": "Album Cell",
+                                          "opacity": 0.55,
+                                          "width": 220,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "qLrBv",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Off the Wall",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "j4QlA",
+                                          "name": "Duration Cell",
+                                          "opacity": 0.55,
+                                          "width": 58,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "mCmSA",
+                                              "name": "Value",
+                                              "fill": "#F0F0EE",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "4:06",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "XXaKc",
+                                          "name": "Format Cell",
+                                          "width": 120,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "o84MhT",
+                                              "name": "Value",
+                                              "fill": "$warning",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "DSD64",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "Dk81X",
+                                          "name": "Added Cell",
+                                          "opacity": 0.55,
+                                          "width": 82,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "W81VUr",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "2 days",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "z4hGzW",
+                                      "name": "Track Row / On & On",
+                                      "width": "fill_container",
+                                      "fill": "#00000000",
+                                      "stroke": "#312F2C",
+                                      "strokeWidth": {
+                                        "bottom": 1
+                                      },
+                                      "strokeLinejoin": "round",
+                                      "gap": 12,
+                                      "padding": [
+                                        8,
+                                        14
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "aocKf",
+                                          "name": "Track Cell",
+                                          "opacity": 0.55,
+                                          "width": "fill_container",
+                                          "gap": 12,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "frame",
+                                              "id": "yzk7x",
+                                              "name": "Cover",
+                                              "clip": true,
+                                              "width": 42,
+                                              "height": 42,
+                                              "fill": {
+                                                "type": "image",
+                                                "enabled": true,
+                                                "url": "album-covers/pop/voodoo.jpg",
+                                                "mode": "fill"
+                                              },
+                                              "cornerRadius": 4,
+                                              "stroke": "#403D39",
+                                              "strokeWidth": 1,
+                                              "strokeAlignment": "inner",
+                                              "layout": "none"
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "o8TClL",
+                                              "name": "Copy",
+                                              "width": "fill_container",
+                                              "layout": "vertical",
+                                              "gap": 3,
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "qrWcY",
+                                                  "name": "Title",
+                                                  "fill": "#F0F0EE",
+                                                  "textGrowth": "fixed-width",
+                                                  "width": "fill_container",
+                                                  "content": "On & On",
+                                                  "fontFamily": "Rajdhani",
+                                                  "fontSize": 15,
+                                                  "fontWeight": "700"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "id": "C1F1Sv",
+                                                  "name": "Artist",
+                                                  "fill": "#9D9D99",
+                                                  "textGrowth": "fixed-width",
+                                                  "width": "fill_container",
+                                                  "content": "D'Angelo",
+                                                  "fontFamily": "Inter",
+                                                  "fontSize": 12,
+                                                  "fontWeight": "normal"
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "MlIWn",
+                                          "name": "Artist Cell",
+                                          "opacity": 0.55,
+                                          "width": 150,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "N1VuDn",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "D'Angelo",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "DMRc4",
+                                          "name": "Album Cell",
+                                          "opacity": 0.55,
+                                          "width": 220,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "AEWVM",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Voodoo",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "LNFJM",
+                                          "name": "Duration Cell",
+                                          "opacity": 0.55,
+                                          "width": 58,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "QWuJ3",
+                                              "name": "Value",
+                                              "fill": "#F0F0EE",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "3:46",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "fXfkJ",
+                                          "name": "Format Cell",
+                                          "width": 120,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "DxQ7X",
+                                              "name": "Value",
+                                              "fill": "$warning",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "DSD128",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "xMpGQ",
+                                          "name": "Added Cell",
+                                          "opacity": 0.55,
+                                          "width": 82,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "Q0i0j",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "3 days",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "M9Lywk",
+                                      "name": "Track Row / Venice Bitch",
+                                      "width": "fill_container",
+                                      "fill": "#00000000",
+                                      "stroke": "#312F2C",
+                                      "strokeWidth": {
+                                        "bottom": 1
+                                      },
+                                      "strokeLinejoin": "round",
+                                      "gap": 12,
+                                      "padding": [
+                                        8,
+                                        14
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "hHcS4",
+                                          "name": "Track Cell",
+                                          "width": "fill_container",
+                                          "gap": 12,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "frame",
+                                              "id": "DdR2W",
+                                              "name": "Cover",
+                                              "clip": true,
+                                              "width": 42,
+                                              "height": 42,
+                                              "fill": {
+                                                "type": "image",
+                                                "enabled": true,
+                                                "url": "album-covers/pop/norman-fucking-rockwell.jpg",
+                                                "mode": "fill"
+                                              },
+                                              "cornerRadius": 4,
+                                              "stroke": "#403D39",
+                                              "strokeWidth": 1,
+                                              "strokeAlignment": "inner",
+                                              "layout": "none"
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "y5VIKt",
+                                              "name": "Copy",
+                                              "width": "fill_container",
+                                              "layout": "vertical",
+                                              "gap": 3,
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "B3QUoK",
+                                                  "name": "Title",
+                                                  "fill": "#F0F0EE",
+                                                  "textGrowth": "fixed-width",
+                                                  "width": "fill_container",
+                                                  "content": "Venice Bitch",
+                                                  "fontFamily": "Rajdhani",
+                                                  "fontSize": 15,
+                                                  "fontWeight": "700"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "id": "Qlmk3",
+                                                  "name": "Artist",
+                                                  "fill": "#9D9D99",
+                                                  "textGrowth": "fixed-width",
+                                                  "width": "fill_container",
+                                                  "content": "Lana Del Rey",
+                                                  "fontFamily": "Inter",
+                                                  "fontSize": 12,
+                                                  "fontWeight": "normal"
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "jnJHl",
+                                          "name": "Artist Cell",
+                                          "width": 150,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "zO4VR",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Lana Del Rey",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "VvGOt",
+                                          "name": "Album Cell",
+                                          "width": 220,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "BY1Hh",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Norman Fucking Rockwell!",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "HLvcz",
+                                          "name": "Duration Cell",
+                                          "width": 58,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "JlIwU",
+                                              "name": "Value",
+                                              "fill": "#F0F0EE",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "9:37",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "k8jY4Q",
+                                          "name": "Format Cell",
+                                          "width": 120,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "M0xtSo",
+                                              "name": "Value",
+                                              "fill": "#9DE23A",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "ALAC 16 / 44.1",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "mSq1b",
+                                          "name": "Added Cell",
+                                          "width": 82,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "xr7Ct",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "4 days",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "qVzwH",
+                                      "name": "Track Row / Fetch the Bolt Cutters",
+                                      "width": "fill_container",
+                                      "fill": "#00000000",
+                                      "stroke": "#312F2C",
+                                      "strokeWidth": {
+                                        "bottom": 1
+                                      },
+                                      "strokeLinejoin": "round",
+                                      "gap": 12,
+                                      "padding": [
+                                        8,
+                                        14
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "EUdqt",
+                                          "name": "Track Cell",
+                                          "width": "fill_container",
+                                          "gap": 12,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "frame",
+                                              "id": "lAAja",
+                                              "name": "Cover",
+                                              "clip": true,
+                                              "width": 42,
+                                              "height": 42,
+                                              "fill": {
+                                                "type": "image",
+                                                "enabled": true,
+                                                "url": "album-covers/pop/fetch-the-bolt-cutters.jpg",
+                                                "mode": "fill"
+                                              },
+                                              "cornerRadius": 4,
+                                              "stroke": "#403D39",
+                                              "strokeWidth": 1,
+                                              "strokeAlignment": "inner",
+                                              "layout": "none"
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "Q2Dzu1",
+                                              "name": "Copy",
+                                              "width": "fill_container",
+                                              "layout": "vertical",
+                                              "gap": 3,
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "XQGbT",
+                                                  "name": "Title",
+                                                  "fill": "#F0F0EE",
+                                                  "textGrowth": "fixed-width",
+                                                  "width": "fill_container",
+                                                  "content": "Fetch the Bolt Cutters",
+                                                  "fontFamily": "Rajdhani",
+                                                  "fontSize": 15,
+                                                  "fontWeight": "700"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "id": "N9f0FL",
+                                                  "name": "Artist",
+                                                  "fill": "#9D9D99",
+                                                  "textGrowth": "fixed-width",
+                                                  "width": "fill_container",
+                                                  "content": "Fiona Apple",
+                                                  "fontFamily": "Inter",
+                                                  "fontSize": 12,
+                                                  "fontWeight": "normal"
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "ljBQK",
+                                          "name": "Artist Cell",
+                                          "width": 150,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "f7AYG",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Fiona Apple",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "g6NvKB",
+                                          "name": "Album Cell",
+                                          "width": 220,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "WAOrt",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Fetch the Bolt Cutters",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "KekYF",
+                                          "name": "Duration Cell",
+                                          "width": 58,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "U62aT",
+                                              "name": "Value",
+                                              "fill": "#F0F0EE",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "4:58",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "z0mym",
+                                          "name": "Format Cell",
+                                          "width": 120,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "tolxB",
+                                              "name": "Value",
+                                              "fill": "#9DE23A",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "FLAC 16 / 44.1",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "ItYW6",
+                                          "name": "Added Cell",
+                                          "width": 82,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "PFMVI",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "5 days",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "V4IEC",
+                                      "name": "Track Row / Newspaper",
+                                      "width": "fill_container",
+                                      "fill": "#00000000",
+                                      "stroke": "#312F2C",
+                                      "strokeWidth": {
+                                        "bottom": 1
+                                      },
+                                      "strokeLinejoin": "round",
+                                      "gap": 12,
+                                      "padding": [
+                                        8,
+                                        14
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "r7m8OR",
+                                          "name": "Track Cell",
+                                          "width": "fill_container",
+                                          "gap": 12,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "frame",
+                                              "id": "PjW71",
+                                              "name": "Cover",
+                                              "clip": true,
+                                              "width": 42,
+                                              "height": 42,
+                                              "fill": {
+                                                "type": "image",
+                                                "enabled": true,
+                                                "url": "album-covers/pop/fetch-the-bolt-cutters.jpg",
+                                                "mode": "fill"
+                                              },
+                                              "cornerRadius": 4,
+                                              "stroke": "#403D39",
+                                              "strokeWidth": 1,
+                                              "strokeAlignment": "inner",
+                                              "layout": "none"
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "Yr7VD",
+                                              "name": "Copy",
+                                              "width": "fill_container",
+                                              "layout": "vertical",
+                                              "gap": 3,
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "id": "xVBac",
+                                                  "name": "Title",
+                                                  "fill": "#F0F0EE",
+                                                  "textGrowth": "fixed-width",
+                                                  "width": "fill_container",
+                                                  "content": "Newspaper",
+                                                  "fontFamily": "Rajdhani",
+                                                  "fontSize": 15,
+                                                  "fontWeight": "700"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "id": "xCvEX",
+                                                  "name": "Artist",
+                                                  "fill": "#9D9D99",
+                                                  "textGrowth": "fixed-width",
+                                                  "width": "fill_container",
+                                                  "content": "Fiona Apple",
+                                                  "fontFamily": "Inter",
+                                                  "fontSize": 12,
+                                                  "fontWeight": "normal"
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "c8Lrh9",
+                                          "name": "Artist Cell",
+                                          "width": 150,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "meD9M",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Fiona Apple",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "J8xGXw",
+                                          "name": "Album Cell",
+                                          "width": 220,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "Q30eRs",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Fetch the Bolt Cutters",
+                                              "fontFamily": "Inter",
+                                              "fontSize": 12,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "kSypR",
+                                          "name": "Duration Cell",
+                                          "width": 58,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "u6su75",
+                                              "name": "Value",
+                                              "fill": "#F0F0EE",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "5:32",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "Nducs",
+                                          "name": "Format Cell",
+                                          "width": 120,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "j3Qcb",
+                                              "name": "Value",
+                                              "fill": "#9DE23A",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "FLAC 16 / 44.1",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "oU7s2",
+                                          "name": "Added Cell",
+                                          "width": 82,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "nZvRj",
+                                              "name": "Value",
+                                              "fill": "#9D9D99",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "5 days",
+                                              "fontFamily": "Geist Mono",
+                                              "fontSize": 11,
+                                              "fontWeight": "700"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "iEu1o",
+                                  "x": 1140,
+                                  "y": 37,
+                                  "name": "Scrollbar / Track",
+                                  "width": 4,
+                                  "height": 515,
+                                  "fill": "#1E1E1C",
+                                  "cornerRadius": 2,
+                                  "layout": "none",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "aAo3j",
+                                      "x": 0,
+                                      "y": 0,
+                                      "name": "Scrollbar / Thumb",
+                                      "width": 4,
+                                      "height": 64,
+                                      "fill": "#6A6A66",
+                                      "cornerRadius": 2
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "LYjWJ",
+              "type": "ref",
+              "ref": "l6NrTs",
+              "name": "Bottom Player",
+              "width": "fill_container"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Tm6cI",
+          "layoutPosition": "absolute",
+          "x": 1020,
+          "y": 688,
+          "name": "Toast Overlay",
+          "width": 400,
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "u2Fjsd",
+              "type": "ref",
+              "ref": "l1ulu",
+              "name": "Toast / DSD Refusal"
             }
           ]
         }

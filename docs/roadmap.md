@@ -6,9 +6,9 @@ The active-development tracker for Pulse. Since 2026-08-29 this file — not Git
 
 The cursor for a fresh session — current state of `main` in one glance; details in the milestone tables below. Updated 2026-09-01.
 
-- **Just landed**: feature 71 phases 1–2 (`f50e040`) — DSF/DFF decode + DoP packer, library support, and the DSD refusal gate at the engine dispatch choke point.
-- **In flight**: feature 71 phase 3 — Pencil pass for the unplayable-DSD treatment; the gate's four error strings are placeholder copy until it lands.
-- **Waiting on Jason**: feature 71 phase 4 — Matrix Mini-i Pro 4 acceptance (device at home); closes [#71](https://github.com/yicheng47/pulse/issues/71).
+- **Just landed**: feature 74 + feature 71 phase 3 (`ee09b0c`) — the toast primitive, error-surface migration, and the DSD refusal UI (typed gate errors, Switch-to-Bit-perfect retry, library dimming, queue skip). Jason's smoke test caught one design mismatch (action button), fixed before merge.
+- **In flight**: [bug — device not released on quit](bugs/device-not-released-on-quit.md) (P1) — mission running in drive mode; merge on lead review.
+- **Waiting on Jason**: feature 71 phase 4 remainder — pause-lock / seek-relock / refusal checks on the Matrix; closes [#71](https://github.com/yicheng47/pulse/issues/71). Open product pick: pause-release flavor (grace period vs immediate) for the exclusive device.
 - **Up next**: feature 56 — now-playing page (design pinned, mission-ready).
 
 ## How this board works
@@ -61,11 +61,15 @@ DSD playback first, then the now-playing page, then integrations and polish; art
 
 | Item | Priority | Status | Notes |
 |---|---|---|---|
-| [Feature 71 — DSD playback over DoP](features/71-dsd-over-dop.md) | P2 | in progress | Phases 1–2 landed (`f50e040`, codex peer mission, 2026-09-01): decode + library + the send_command refusal gate. Remaining: phase 3 Pencil pass + designed copy, phase 4 Matrix acceptance (Jason, hardware at home). Impl note: [`impls/71-dsd-over-dop.md`](impls/71-dsd-over-dop.md). |
+| [Feature 71 — DSD playback over DoP](features/71-dsd-over-dop.md) | P2 | in progress | Phases 1–2 `f50e040`; phase 3 (refusal UI on the toast primitive) `ee09b0c`. Remaining: phase 4 Matrix acceptance (Jason, hardware at home). Impl note: [`impls/71-dsd-over-dop.md`](impls/71-dsd-over-dop.md). |
+| [Feature 74 — toast notifications](features/archive/74-toast-notifications.md) | P2 | done | `ee09b0c`, codex crew mission 2026-09-01: primitive + migration + 71's refusal UI; smoke-tested by Jason (one design fix round on the action button). |
 | [Feature 56 — now playing page](features/56-now-playing-page.md) | P2 | planned | Design pinned. |
 | [Feature 55 — MCP server](features/55-mcp-server.md) | P2 | planned | Needs 25's ops layer; the trigger for splitting `backend/` into a crate. |
+| [Feature 75 — scan performance](features/75-scan-performance.md) | P2 | planned | Folder-art memo, chunked writer transactions, bounded extractor pool; single-connection ownership model unchanged. Backend-only, no design gate; filed 2026-09-01. |
 | [Feature 73 — scan error detail](features/73-scan-error-detail.md) | P3 | planned | Persist per-file scan errors; ISSUES badge opens path + plain-language reason + Reveal in Finder. Pencil pass before the UI phase. |
 | [Feature 72 — metadata enrichment](features/72-metadata-enrichment.md) | P2 | designing | Postponed (Jason, 2026-09-01). Spec + Settings ▸ Metadata design drafted 2026-08-30; awaiting approval. Phase 1 backend + enrich dry-run flag, phase 2 settings page, triggers, photos. Carries the placeholder-artist bug. |
+| [Bug — device not released on quit](bugs/device-not-released-on-quit.md) | P1 | planned | Quit must deterministically unhog + restore format before exit; investigate which drop in the teardown chain gets skipped. Pairs naturally with the pause-release decision when it's made. |
+| [Bug — output popover mode row crowding](bugs/output-popover-mode-row-crowding.md) | P2 | planned | `Reset to Auto` collides with the mode segments in the output popover when an override is set; scale-sensitive. Layout fix in `ui::output_mode_control`; Pencil pass only if the row wraps to two lines. |
 | [Bug — placeholder album artist becomes an artist](bugs/placeholder-album-artist.md) | P3 | planned | `######` and similar name-less album artists fall back to the track artist in the scanner; files already fixed at the source. Small; rides with feature 72 when it un-postpones. |
 
 ## Parking lot
