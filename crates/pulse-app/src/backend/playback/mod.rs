@@ -33,7 +33,7 @@ use super::{
 
 use session::SessionSaveCadence;
 
-const SUPPORTED_EXTENSIONS: &[&str] = &["flac", "m4a", "aif", "aiff", "wav"];
+const SUPPORTED_EXTENSIONS: &[&str] = &["flac", "m4a", "aif", "aiff", "wav", "dsf", "dff"];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum VolumeIconState {

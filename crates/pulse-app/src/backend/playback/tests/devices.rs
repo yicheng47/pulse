@@ -127,6 +127,115 @@ fn auto_output_mode_uses_the_transport_and_format_ladder() {
 }
 
 #[test]
+fn dsd_play_file_refuses_before_dispatch_on_an_unsafe_output() {
+    let path = PathBuf::from("/Music/test.dff");
+    let mut row = Playback::initial();
+    row.output_mode = StoredOutputMode::Shared;
+    row.playback_output_mode = StoredOutputMode::Shared;
+    row.device_capabilities = Some(device::OutputDeviceCapabilities {
+        max_bits_per_channel: Some(24),
+        max_sample_rate: 192_000.0,
+        transport: device::DeviceTransport::Usb,
+    });
+    let (command_tx, command_rx) = std::sync::mpsc::channel();
+    row.command_tx = Some(command_tx);
+
+    row.play_file(path.clone());
+
+    assert!(matches!(
+        command_rx.try_recv(),
+        Err(std::sync::mpsc::TryRecvError::Empty)
+    ));
+    assert_eq!(row.playback_state, PlaybackState::Error);
+    assert_eq!(
+        row.error.as_deref(),
+        Some("DSD playback requires Bit-perfect output mode")
+    );
+
+    row.toggle_playback();
+
+    assert!(matches!(
+        command_rx.try_recv(),
+        Err(std::sync::mpsc::TryRecvError::Empty)
+    ));
+    assert_eq!(row.playback_state, PlaybackState::Error);
+
+    row.current_play = None;
+    row.source_path = Some(path);
+    row.playback_state = PlaybackState::Ended;
+    row.toggle_playback();
+
+    assert!(matches!(
+        command_rx.try_recv(),
+        Err(std::sync::mpsc::TryRecvError::Empty)
+    ));
+    assert_eq!(row.playback_state, PlaybackState::Error);
+}
+
+#[test]
+fn dsd_resume_stops_instead_of_dispatching_on_an_unsafe_output() {
+    let mut row = Playback::initial();
+    row.source_path = Some(PathBuf::from("/Music/test.dsf"));
+    row.playback_state = PlaybackState::Paused;
+    row.playback_output_mode = StoredOutputMode::Shared;
+    row.device_capabilities = Some(device::OutputDeviceCapabilities {
+        max_bits_per_channel: Some(24),
+        max_sample_rate: 192_000.0,
+        transport: device::DeviceTransport::Usb,
+    });
+    let (command_tx, command_rx) = std::sync::mpsc::channel();
+    row.command_tx = Some(command_tx);
+
+    assert!(!row.send_command(PlaybackCommand::Resume));
+
+    assert_eq!(command_rx.recv().unwrap(), PlaybackCommand::Stop);
+    assert!(matches!(
+        command_rx.try_recv(),
+        Err(std::sync::mpsc::TryRecvError::Empty)
+    ));
+    assert_eq!(row.playback_state, PlaybackState::Error);
+}
+
+#[test]
+fn unsafe_output_mode_change_stops_dsd_before_reconfiguring() {
+    let path = PathBuf::from(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../pulse-engine/tests/fixtures/dsd-interleave.dff"
+    ));
+    let mut row = Playback::initial();
+    row.active_device = Some(output_device(9, "matrix", "mini-i Series"));
+    row.output_mode = StoredOutputMode::BitPerfect;
+    row.playback_output_mode = StoredOutputMode::BitPerfect;
+    row.device_capabilities = Some(device::OutputDeviceCapabilities {
+        max_bits_per_channel: Some(24),
+        max_sample_rate: 192_000.0,
+        transport: device::DeviceTransport::Usb,
+    });
+    row.source_path = Some(path.clone());
+    row.playback_state = PlaybackState::Playing;
+    row.record_play_attempt(&path);
+    let (command_tx, command_rx) = std::sync::mpsc::channel();
+    row.command_tx = Some(command_tx);
+
+    row.apply_output_mode_if_active("matrix", StoredOutputMode::Shared);
+
+    assert_eq!(command_rx.recv().unwrap(), PlaybackCommand::Stop);
+    assert_eq!(
+        command_rx.recv().unwrap(),
+        PlaybackCommand::SetOutputDevice {
+            device_id: 9,
+            kind: EngineKind::Universal {
+                exclusive_mode: false,
+            },
+        }
+    );
+    assert_eq!(
+        row.error.as_deref(),
+        Some("DSD playback requires Bit-perfect output mode")
+    );
+}
+
+#[test]
 fn exclusive_fallback_notice_names_the_device_and_marks_playback_shared() {
     let mut row = Playback::initial();
     row.active_device = Some(output_device(9, "matrix", "mini-i Series"));
@@ -352,6 +461,7 @@ fn selecting_a_library_track_loads_the_idle_row_for_playback() {
         artist: "Frank Ocean".to_string(),
         album: "Blonde".to_string(),
         duration_ms: Some(268_000),
+        sample_rate_hz: Some(44_100),
         cover_art_path: Some(cover.clone()),
     };
 
@@ -384,6 +494,7 @@ fn selecting_a_row_does_not_replace_the_active_playback_source() {
         artist: "Frank Ocean".to_string(),
         album: "Blonde".to_string(),
         duration_ms: None,
+        sample_rate_hz: Some(44_100),
         cover_art_path: Some(PathBuf::from("/Cache/solo.cover")),
     };
 

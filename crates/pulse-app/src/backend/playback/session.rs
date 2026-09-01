@@ -326,6 +326,44 @@ mod tests {
     }
 
     #[test]
+    fn restore_refuses_unsafe_dsd_before_loading_or_restarting_it() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut playback = Playback::initial();
+        playback.settings_path = directory.path().join("settings.json");
+        playback.playback_output_mode = StoredOutputMode::Shared;
+        playback.device_capabilities = Some(device::OutputDeviceCapabilities {
+            max_bits_per_channel: Some(24),
+            max_sample_rate: 192_000.0,
+            transport: device::DeviceTransport::Usb,
+        });
+        let (command_tx, command_rx) = std::sync::mpsc::channel();
+        playback.command_tx = Some(command_tx);
+        let mut dsd = track(2);
+        dsd.path = PathBuf::from("/2.dff");
+        dsd.sample_rate_hz = Some(2_822_400);
+        dsd.bit_depth = Some(1);
+
+        playback.restore_session(&session(1), vec![Some(track(1)), Some(dsd), Some(track(3))]);
+
+        assert!(matches!(
+            command_rx.try_recv(),
+            Err(std::sync::mpsc::TryRecvError::Empty)
+        ));
+        assert_eq!(playback.playback_state, PlaybackState::Error);
+        assert_eq!(
+            playback.error.as_deref(),
+            Some("DSD playback requires Bit-perfect output mode")
+        );
+
+        playback.toggle_playback();
+
+        assert!(matches!(
+            command_rx.try_recv(),
+            Err(std::sync::mpsc::TryRecvError::Empty)
+        ));
+    }
+
+    #[test]
     fn late_restore_does_not_replace_user_started_playback_or_shift_attempts() {
         let directory = tempfile::tempdir().unwrap();
         let live_path = directory.path().join("live.wav");

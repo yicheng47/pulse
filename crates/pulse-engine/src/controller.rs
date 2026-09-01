@@ -12,8 +12,8 @@ use std::{
 
 use crate::{
     Engine, EngineError, EngineKind, PcmFormat, PlayableSource, PlaybackCommand, PlaybackEvent,
-    PlaybackState, VolumeDomain, VolumeState, decode::PcmDecoder, device::DeviceId,
-    integer_engine::IntegerEngine,
+    PlaybackState, VolumeDomain, VolumeState, decode::PcmDecoder, decode_dsd::DsdDopDecoder,
+    device::DeviceId, integer_engine::IntegerEngine,
 };
 
 const POSITION_EVENT_INTERVAL_MS: u64 = 100;
@@ -49,7 +49,15 @@ impl PlaybackController {
                     Ok(Box::new(IntegerBackend::open(device_id)?) as Box<dyn PlaybackBackend>)
                 }
             }),
-            Arc::new(|path| Ok(Box::new(PcmDecoder::open(path)?))),
+            Arc::new(|path| {
+                if path.extension().is_some_and(|extension| {
+                    extension.eq_ignore_ascii_case("dsf") || extension.eq_ignore_ascii_case("dff")
+                }) {
+                    Ok(Box::new(DsdDopDecoder::open(path)?) as Box<dyn SourceDecoder>)
+                } else {
+                    Ok(Box::new(PcmDecoder::open(path)?) as Box<dyn SourceDecoder>)
+                }
+            }),
             OUTPUT_STALL_TIMEOUT,
             Box::new(Instant::now),
         )
@@ -266,6 +274,24 @@ impl SourceDecoder for PcmDecoder {
 
     fn duration_ms(&self) -> Option<u64> {
         self.duration_ms()
+    }
+
+    fn seek(&mut self, position_ms: u64) -> Result<u64, EngineError> {
+        self.seek(position_ms)
+    }
+
+    fn next_pcm(&mut self, pcm: &mut Vec<u8>) -> Result<Option<u64>, EngineError> {
+        self.next_pcm(pcm)
+    }
+}
+
+impl SourceDecoder for DsdDopDecoder {
+    fn format(&self) -> PcmFormat {
+        self.format()
+    }
+
+    fn duration_ms(&self) -> Option<u64> {
+        Some(self.duration_ms())
     }
 
     fn seek(&mut self, position_ms: u64) -> Result<u64, EngineError> {

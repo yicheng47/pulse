@@ -144,6 +144,14 @@ pub(crate) fn format_quality(path: Option<&Path>, format: PcmFormat) -> String {
         .and_then(|extension| extension.to_str())
         .map(str::to_ascii_uppercase)
         .unwrap_or_else(|| "PCM".to_string());
+    if matches!(container.as_str(), "DSF" | "DFF") {
+        let dsd = match format.sample_rate {
+            176_400 => "DSD64",
+            352_800 => "DSD128",
+            _ => "DSD",
+        };
+        return format!("{container} · {dsd}");
+    }
     format!("{container} · {}-bit", format.bits_per_sample)
 }
 
@@ -169,6 +177,60 @@ pub(crate) fn is_supported_audio(path: &Path) -> bool {
                 .iter()
                 .any(|supported| extension.eq_ignore_ascii_case(supported))
         })
+}
+
+pub(crate) fn dsd_playback_error(
+    path: &Path,
+    output_mode: StoredOutputMode,
+    capabilities: Option<device::OutputDeviceCapabilities>,
+) -> Option<String> {
+    dsd_playback_error_with_sample_rate(path, None, output_mode, capabilities)
+}
+
+pub(crate) fn dsd_playback_error_with_sample_rate(
+    path: &Path,
+    sample_rate_hz: Option<u32>,
+    output_mode: StoredOutputMode,
+    capabilities: Option<device::OutputDeviceCapabilities>,
+) -> Option<String> {
+    let is_dsd = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| {
+            extension.eq_ignore_ascii_case("dsf") || extension.eq_ignore_ascii_case("dff")
+        });
+    if !is_dsd {
+        return None;
+    }
+    if output_mode != StoredOutputMode::BitPerfect {
+        return Some("DSD playback requires Bit-perfect output mode".to_string());
+    }
+    let dsd_rate = match sample_rate_hz {
+        Some(sample_rate) => sample_rate,
+        None => match crate::backend::scan::metadata::dsd_sample_rate(path) {
+            Ok(sample_rate) => sample_rate,
+            Err(error) => return Some(format!("Could not read DSD metadata: {error}")),
+        },
+    };
+    if !matches!(dsd_rate, 2_822_400 | 5_644_800) {
+        return Some(format!("Unsupported DSD sample rate {dsd_rate}"));
+    }
+    let dop_rate = dsd_rate / 16;
+    let Some(capabilities) = capabilities else {
+        return Some("DSD playback requires verified output-device rate capabilities".to_string());
+    };
+    if capabilities.max_sample_rate < f64::from(dop_rate) {
+        let dsd_label = match dsd_rate {
+            2_822_400 => "DSD64",
+            5_644_800 => "DSD128",
+            _ => "DSD",
+        };
+        return Some(format!(
+            "{dsd_label} playback requires a {}-capable output device",
+            format_sample_rate(dop_rate)
+        ));
+    }
+    None
 }
 
 pub(crate) fn format_capability_ceiling(

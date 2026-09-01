@@ -126,6 +126,62 @@ fn gapless_lookahead_advances_the_queue_without_dispatching_play_file() {
 }
 
 #[test]
+fn unsafe_dsd_lookahead_is_cleared_before_it_can_advance() {
+    let temp = tempfile::tempdir().unwrap();
+    let first = library_track(1, temp.path().join("first.wav"), "first");
+    crate::backend::scan::metadata::write_test_wav(&first.path, "first", "Artist", "Album")
+        .unwrap();
+    let dff_path = temp.path().join("second.dff");
+    let mut second = library_track(2, dff_path.clone(), "second");
+    second.sample_rate_hz = Some(2_822_400);
+    let mut row = Playback::initial();
+    row.seed_queue(QueueState::from_tracks(&[first, second], 0));
+    row.playback_state = PlaybackState::Playing;
+    row.output_mode = StoredOutputMode::Shared;
+    row.playback_output_mode = StoredOutputMode::Shared;
+    row.device_capabilities = Some(device::OutputDeviceCapabilities {
+        max_bits_per_channel: Some(24),
+        max_sample_rate: 192_000.0,
+        transport: device::DeviceTransport::Usb,
+    });
+    row.sent_next = Some(dff_path);
+    let command_rx = command_sink(&mut row);
+
+    row.sync_next_source();
+
+    assert_eq!(command_rx.recv().unwrap(), PlaybackCommand::ClearNext);
+}
+
+#[test]
+fn safe_dsd_lookahead_uses_the_stored_rate_without_reopening_the_file() {
+    let temp = tempfile::tempdir().unwrap();
+    let first = library_track(1, temp.path().join("first.wav"), "first");
+    crate::backend::scan::metadata::write_test_wav(&first.path, "first", "Artist", "Album")
+        .unwrap();
+    let dff_path = temp.path().join("not-on-disk.dff");
+    let mut second = library_track(2, dff_path.clone(), "second");
+    second.sample_rate_hz = Some(2_822_400);
+    second.bit_depth = Some(1);
+    let mut row = Playback::initial();
+    row.seed_queue(QueueState::from_tracks(&[first, second], 0));
+    row.playback_state = PlaybackState::Playing;
+    row.playback_output_mode = StoredOutputMode::BitPerfect;
+    row.device_capabilities = Some(device::OutputDeviceCapabilities {
+        max_bits_per_channel: Some(24),
+        max_sample_rate: 192_000.0,
+        transport: device::DeviceTransport::Usb,
+    });
+    let command_rx = command_sink(&mut row);
+
+    row.sync_next_source();
+
+    assert_eq!(
+        command_rx.recv().unwrap(),
+        PlaybackCommand::SetNext { path: dff_path }
+    );
+}
+
+#[test]
 fn repeat_modes_resync_the_effective_next_track() {
     let temp = tempfile::tempdir().unwrap();
     let tracks = wav_tracks(temp.path(), &["a", "b", "c"]);

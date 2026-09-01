@@ -12,6 +12,7 @@ pub(crate) struct TrackRef {
     pub artist: String,
     pub album: String,
     pub duration_ms: Option<u64>,
+    pub sample_rate_hz: Option<u32>,
     pub cover_art_path: Option<PathBuf>,
 }
 
@@ -48,6 +49,7 @@ impl From<&Track> for TrackRef {
                 .unwrap_or(UNKNOWN_ALBUM)
                 .to_string(),
             duration_ms: track.duration_ms.and_then(|ms| u64::try_from(ms).ok()),
+            sample_rate_hz: track.sample_rate_hz,
             cover_art_path: track.cover_art_path.clone(),
         }
     }

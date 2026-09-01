@@ -440,6 +440,7 @@ fn transport_play_from_an_idle_selection_records_the_attempt() {
         artist: "Artist".to_string(),
         album: "Album".to_string(),
         duration_ms: None,
+        sample_rate_hz: Some(44_100),
         cover_art_path: None,
     };
     assert!(row.apply_track_selection(&track));

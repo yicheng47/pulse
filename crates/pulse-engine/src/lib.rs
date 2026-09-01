@@ -5,6 +5,7 @@ mod auhal;
 pub mod command;
 pub mod controller;
 pub mod decode;
+mod decode_dsd;
 pub mod device;
 mod engine;
 mod error;

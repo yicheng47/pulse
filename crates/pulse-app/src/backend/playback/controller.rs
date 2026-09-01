@@ -68,7 +68,6 @@ impl Playback {
             }
         }
 
-        self.record_play_attempt(&path);
         self.send_command(PlaybackCommand::PlayFile { path });
     }
 
@@ -135,6 +134,10 @@ impl Playback {
     }
 
     pub(crate) fn send_command(&mut self, command: PlaybackCommand) -> bool {
+        if self.refuse_unsafe_dsd_command(&command) {
+            return false;
+        }
+        self.record_command_attempt(&command);
         let reset_next = matches!(
             &command,
             PlaybackCommand::PlayFile { .. }
@@ -170,6 +173,50 @@ impl Playback {
         true
     }
 
+    fn record_command_attempt(&mut self, command: &PlaybackCommand) {
+        match command {
+            PlaybackCommand::PlayFile { path } => self.record_play_attempt(path),
+            PlaybackCommand::Load { path, position_ms } => {
+                self.current_play = Some(PlayAttempt {
+                    target: RetryTarget {
+                        path: path.clone(),
+                        position_ms: *position_ms,
+                    },
+                    confirmed: false,
+                    load: true,
+                });
+            }
+            _ => {}
+        }
+    }
+
+    fn refuse_unsafe_dsd_command(&mut self, command: &PlaybackCommand) -> bool {
+        let path = match command {
+            PlaybackCommand::PlayFile { path } | PlaybackCommand::Load { path, .. } => path.clone(),
+            PlaybackCommand::Resume => match &self.source_path {
+                Some(path) => path.clone(),
+                None => return false,
+            },
+            _ => return false,
+        };
+        let Some(message) =
+            dsd_playback_error(&path, self.playback_output_mode, self.device_capabilities)
+        else {
+            return false;
+        };
+        if self.active_playback_needs_stop() {
+            self.send_command(PlaybackCommand::Stop);
+        }
+        self.record_command_attempt(command);
+        self.sent_next = None;
+        self.playback_state = PlaybackState::Error;
+        self.notice = Some(PlaybackNotice::Stopped {
+            text: format!("Could not play “{}” — {message}.", track_title(&path)),
+        });
+        self.error = Some(message);
+        true
+    }
+
     pub(crate) fn sync_next_source(&mut self) {
         if !matches!(
             self.playback_state,
@@ -177,7 +224,16 @@ impl Playback {
         ) {
             return;
         }
-        let next = self.effective_next_track().map(|track| track.path.clone());
+        let next = self.effective_next_track().and_then(|track| {
+            dsd_playback_error_with_sample_rate(
+                &track.path,
+                track.sample_rate_hz,
+                self.playback_output_mode,
+                self.device_capabilities,
+            )
+            .is_none()
+            .then(|| track.path.clone())
+        });
         if next == self.sent_next {
             return;
         }
@@ -698,5 +754,33 @@ impl Playback {
             self.missing_track_ids.contains(&track.id)
                 || self.rejected_next_track_ids.contains(&track.id)
         })
+    }
+
+    pub(super) fn stop_before_unsafe_dsd_output_change(
+        &mut self,
+        output_mode: StoredOutputMode,
+        capabilities: Option<device::OutputDeviceCapabilities>,
+    ) {
+        if !matches!(
+            self.playback_state,
+            PlaybackState::Loading | PlaybackState::Playing | PlaybackState::Paused
+        ) {
+            return;
+        }
+        let Some(path) = self.source_path.clone() else {
+            return;
+        };
+        let Some(message) = dsd_playback_error(&path, output_mode, capabilities) else {
+            return;
+        };
+        self.retry = self
+            .current_play
+            .as_ref()
+            .map(|attempt| attempt.target.clone());
+        self.notice = Some(PlaybackNotice::Stopped {
+            text: format!("Playback stopped — {message}."),
+        });
+        self.error = Some(message);
+        self.send_command(PlaybackCommand::Stop);
     }
 }

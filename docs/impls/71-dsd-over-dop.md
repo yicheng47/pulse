@@ -22,6 +22,7 @@ DSF and DFF/DSDIFF are the DSD market: every download store (NativeDSD, Blue Coa
 - Marker phase always starts at `0x05` after open and after every seek; both DoP start bytes are legal, a fixed choice keeps fixtures deterministic.
 - DSD64→DSD64 gapless works unchanged (`SetNext` sees identical `PcmFormat`); a DSD↔PCM or DSD64↔DSD128 boundary takes the existing format-change rebuild path. No special casing.
 - DSD128 ships in the same pass but stays untested-on-hardware until a device with a ≥352.8kHz integer ceiling confirms it; the gate already refuses where the ceiling is lower.
+- Phases 1–2 deliberately leave separate DSF/DFF header parsers in `pulse-engine` and `pulse-app`; follow-up consolidation is required because the duplicated rate table, bits-per-sample rules, and `DSF_BLOCK_SIZE` versus the app's hardcoded `4_096` can drift until scanning accepts a track the decoder refuses, or the reverse.
 
 ## Phases
 

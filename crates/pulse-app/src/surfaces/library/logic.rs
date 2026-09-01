@@ -243,6 +243,11 @@ pub fn format_label(path: &Path) -> &'static str {
 }
 
 pub fn quality_label(bit_depth: Option<u8>, sample_rate_hz: Option<u32>) -> Option<String> {
+    match sample_rate_hz {
+        Some(2_822_400) => return Some("DSD64".to_string()),
+        Some(5_644_800) => return Some("DSD128".to_string()),
+        _ => {}
+    }
     Some(format!(
         "{}/{}",
         bit_depth?,
@@ -595,6 +600,14 @@ mod tests {
         assert_eq!(
             quality_label(Some(16), Some(44_100)).as_deref(),
             Some("16/44.1")
+        );
+        assert_eq!(
+            quality_label(Some(1), Some(2_822_400)).as_deref(),
+            Some("DSD64")
+        );
+        assert_eq!(
+            quality_label(Some(1), Some(5_644_800)).as_deref(),
+            Some("DSD128")
         );
         assert!(!is_hi_res(Some(16), Some(48_000)));
         assert!(is_hi_res(Some(24), Some(48_000)));

@@ -153,12 +153,52 @@ fn accepts_only_supported_audio_extensions() {
         "track.aif",
         "track.aiff",
         "track.wav",
+        "track.dsf",
+        "track.DFF",
     ] {
         assert!(is_supported_audio(Path::new(path)), "{path}");
     }
     for path in ["track.mp3", "track.aac", "track"] {
         assert!(!is_supported_audio(Path::new(path)), "{path}");
     }
+}
+
+#[test]
+fn dsd_gate_requires_bit_perfect_mode_and_the_dop_rate() {
+    let dff = Path::new(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../pulse-engine/tests/fixtures/dsd-interleave.dff"
+    ));
+    let capabilities = |max_sample_rate| device::OutputDeviceCapabilities {
+        max_bits_per_channel: Some(24),
+        max_sample_rate,
+        transport: device::DeviceTransport::Usb,
+    };
+
+    assert_eq!(
+        dsd_playback_error(dff, StoredOutputMode::Shared, Some(capabilities(192_000.0))),
+        Some("DSD playback requires Bit-perfect output mode".to_string())
+    );
+    assert_eq!(
+        dsd_playback_error(
+            dff,
+            StoredOutputMode::BitPerfect,
+            Some(capabilities(96_000.0))
+        ),
+        Some("DSD64 playback requires a 176.4 kHz-capable output device".to_string())
+    );
+    assert_eq!(
+        dsd_playback_error(dff, StoredOutputMode::BitPerfect, None),
+        Some("DSD playback requires verified output-device rate capabilities".to_string())
+    );
+    assert_eq!(
+        dsd_playback_error(
+            dff,
+            StoredOutputMode::BitPerfect,
+            Some(capabilities(192_000.0))
+        ),
+        None
+    );
 }
 
 #[test]
@@ -276,6 +316,28 @@ fn formats_reported_pcm_without_inventing_codec_details() {
         "M4A · 24-bit"
     );
     assert_eq!(format_sample_rate(format.sample_rate), "44.1 kHz");
+    assert_eq!(
+        format_quality(
+            Some(Path::new("track.dff")),
+            PcmFormat {
+                sample_rate: 176_400,
+                bits_per_sample: 24,
+                channels: 2,
+            }
+        ),
+        "DFF · DSD64"
+    );
+    assert_eq!(
+        format_quality(
+            Some(Path::new("track.dsf")),
+            PcmFormat {
+                sample_rate: 352_800,
+                bits_per_sample: 24,
+                channels: 2,
+            }
+        ),
+        "DSF · DSD128"
+    );
 }
 
 #[test]

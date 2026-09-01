@@ -95,12 +95,10 @@ impl Playback {
             .settings
             .output_mode_preferences
             .effective_mode(&active_device.uid, self.automatic_output_mode);
-        self.playback_output_mode = self.output_mode;
+        let engine_kind = engine_kind_for_output_mode(self.output_mode);
+        self.playback_output_mode = output_mode_for_engine_kind(engine_kind);
         self.apply_device_capabilities_result(&active_device, capabilities);
-        self.install_controller(
-            active_device.id,
-            engine_kind_for_output_mode(self.output_mode),
-        );
+        self.install_controller(active_device.id, engine_kind);
     }
 
     pub(super) fn initialize_output(&mut self) {
@@ -290,6 +288,7 @@ impl Playback {
             return;
         };
         let device_id = active_device.id;
+        self.stop_before_unsafe_dsd_output_change(mode, self.device_capabilities);
         self.output_mode = mode;
         self.send_command(PlaybackCommand::SetOutputDevice {
             device_id,
@@ -489,6 +488,7 @@ impl Playback {
             .settings
             .output_mode_preferences
             .effective_mode(&output_device.uid, automatic_mode);
+        self.stop_before_unsafe_dsd_output_change(output_mode, capabilities.as_ref().ok().copied());
         self.pending_device_change = Some(PendingDeviceChange {
             device: output_device.clone(),
             persist,

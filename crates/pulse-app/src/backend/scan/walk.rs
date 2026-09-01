@@ -199,7 +199,7 @@ fn is_supported_music_file(path: &Path) -> bool {
         .map(|extension| {
             matches!(
                 extension.to_ascii_lowercase().as_str(),
-                "flac" | "m4a" | "aif" | "aiff" | "wav"
+                "flac" | "m4a" | "aif" | "aiff" | "wav" | "dsf" | "dff"
             )
         })
         .unwrap_or(false)
@@ -224,8 +224,9 @@ mod tests {
             nested.join("three.aif"),
             nested.join("four.aiff"),
             nested.join("five.wav"),
+            nested.join("six.dsf"),
+            nested.join("seven.DFF"),
             nested.join("ignore.mp3"),
-            nested.join("ignore.dsf"),
             nested.join("ignore.mp4"),
         ] {
             File::create(path).unwrap();
@@ -247,7 +248,15 @@ mod tests {
 
         assert_eq!(
             names,
-            ["five.wav", "four.aiff", "three.aif", "one.FLAC", "two.m4a"]
+            [
+                "five.wav",
+                "four.aiff",
+                "seven.DFF",
+                "six.dsf",
+                "three.aif",
+                "one.FLAC",
+                "two.m4a"
+            ]
         );
         assert!(result.errors.is_empty());
     }

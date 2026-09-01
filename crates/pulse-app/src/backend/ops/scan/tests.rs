@@ -321,6 +321,40 @@ fn unsupported_pcm_container_codec_is_counted_without_failing_the_scan() {
 }
 
 #[test]
+fn scan_stores_true_dsd_rate_and_skips_dst() {
+    let temp = tempdir().unwrap();
+    let music = temp.path().join("music");
+    fs::create_dir(&music).unwrap();
+    fs::copy(
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../pulse-engine/tests/fixtures/dsd-interleave.dff"
+        ),
+        music.join("Tagless DSD.dff"),
+    )
+    .unwrap();
+    fs::copy(
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../pulse-engine/tests/fixtures/dst-refusal.dff"
+        ),
+        music.join("Compressed.dff"),
+    )
+    .unwrap();
+    let mut store = LibraryStore::open_in_memory().unwrap();
+    let root = crate::backend::repo::storage_roots::add(&mut store, &music, "Music").unwrap();
+
+    let report = storage_root(&mut store, root.id, temp.path().join("covers"), |_| {}).unwrap();
+    let tracks = crate::backend::repo::tracks::for_root(&store, root.id).unwrap();
+
+    assert_eq!((report.added, report.unsupported), (1, 1));
+    assert_eq!(tracks.len(), 1);
+    assert_eq!(tracks[0].title.as_deref(), Some("Tagless DSD"));
+    assert_eq!(tracks[0].sample_rate_hz, Some(2_822_400));
+    assert_eq!(tracks[0].bit_depth, Some(1));
+}
+
+#[test]
 fn walk_errors_surface_that_missing_track_removals_were_suppressed() {
     let temp = tempdir().unwrap();
     let music = temp.path().join("music");
