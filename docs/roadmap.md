@@ -2,11 +2,21 @@
 
 The active-development tracker for Pulse. Since 2026-08-29 this file — not GitHub issues — is where unfinished work lives (Jason: the repo is private and in active development; a local doc is the more efficient tracker). Features are specs in [`docs/features/`](features/README.md), bugs are notes in [`docs/bugs/`](bugs/README.md), and this board orders both into milestones. Durable product and architecture decisions go to `docs/product/` and `docs/arch/`; the MVP-era stage history lives in [`docs/impls/archive/`](impls/archive/).
 
+## Now
+
+The cursor for a fresh session — current state of `main` in one glance; details in the milestone tables below. Updated 2026-09-01.
+
+- **Just landed**: feature 71 phases 1–2 (`f50e040`) — DSF/DFF decode + DoP packer, library support, and the DSD refusal gate at the engine dispatch choke point.
+- **In flight**: feature 71 phase 3 — Pencil pass for the unplayable-DSD treatment; the gate's four error strings are placeholder copy until it lands.
+- **Waiting on Jason**: feature 71 phase 4 — Matrix Mini-i Pro 4 acceptance (device at home); closes [#71](https://github.com/yicheng47/pulse/issues/71).
+- **Up next**: feature 56 — now-playing page (design pinned, mission-ready).
+
 ## How this board works
 
 - A milestone is a release. When its rows are done, bump the version (`release` skill) and move the milestone to Shipped with the version and date.
 - Row status is one of `planned` · `designing` · `in progress` · `review` · `done`. Priority is the spec's or note's P0–P3.
-- New work is filed first (`feature` skill → spec, `bug` skill → note), then gets a row here. Crews never edit this file: a mission reports deferred work in its final Runner message and the human adds the row.
+- New work is filed first (`feature` skill → issue + spec, `bug` skill → note), then gets a row here. Crews never edit this file: a mission reports deferred work in its final Runner message and the human adds the row.
+- The `## Now` section above is the cursor: refresh it whenever work lands on `main` or a new slice starts, so a fresh agent reads one section instead of reconstructing state from git and three indexes.
 - Order within a milestone is build order. Reorder freely; the milestones themselves are the commitment.
 
 ## Shipped
@@ -51,7 +61,7 @@ DSD playback first, then the now-playing page, then integrations and polish; art
 
 | Item | Priority | Status | Notes |
 |---|---|---|---|
-| [Feature 71 — DSD playback over DoP](features/71-dsd-over-dop.md) | P2 | planned | DSF/DFF parsers + DoP packer at decode time; refuses (never noise) off the bit-perfect path. Unblocked by the v0.3.0 DoP pass; test material staged in `~/qobuz/test/`. Impl note: [`impls/71-dsd-over-dop.md`](impls/71-dsd-over-dop.md). |
+| [Feature 71 — DSD playback over DoP](features/71-dsd-over-dop.md) | P2 | in progress | Phases 1–2 landed (`f50e040`, codex peer mission, 2026-09-01): decode + library + the send_command refusal gate. Remaining: phase 3 Pencil pass + designed copy, phase 4 Matrix acceptance (Jason, hardware at home). Impl note: [`impls/71-dsd-over-dop.md`](impls/71-dsd-over-dop.md). |
 | [Feature 56 — now playing page](features/56-now-playing-page.md) | P2 | planned | Design pinned. |
 | [Feature 55 — MCP server](features/55-mcp-server.md) | P2 | planned | Needs 25's ops layer; the trigger for splitting `backend/` into a crate. |
 | [Feature 73 — scan error detail](features/73-scan-error-detail.md) | P3 | planned | Persist per-file scan errors; ISSUES badge opens path + plain-language reason + Reveal in Finder. Pencil pass before the UI phase. |
