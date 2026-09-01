@@ -66,7 +66,7 @@ impl LibraryView {
             return;
         }
         let Some(store) = self.store.as_mut() else {
-            self.error = Some(self.store_busy_message());
+            self.show_error(self.store_busy_message(), cx);
             self.modal = Some(Modal::PlaylistName { mode });
             cx.notify();
             return;
@@ -88,7 +88,7 @@ impl LibraryView {
                 self.persist_route(cx);
             }
             Err(error) => {
-                self.error = Some(error.to_string());
+                self.show_error(error.to_string(), cx);
                 self.modal = Some(Modal::PlaylistName { mode });
             }
         }
@@ -126,7 +126,7 @@ impl LibraryView {
             return;
         };
         let Some(store) = self.store.as_mut() else {
-            self.error = Some(self.store_busy_message());
+            self.show_error(self.store_busy_message(), cx);
             self.modal = Some(Modal::DeletePlaylist {
                 playlist_id,
                 name,
@@ -144,7 +144,7 @@ impl LibraryView {
                 self.reload_or_show_error(cx);
                 self.persist_route(cx);
             }
-            Err(error) => self.error = Some(error.to_string()),
+            Err(error) => self.show_error(error.to_string(), cx),
         }
         cx.notify();
     }
@@ -173,7 +173,7 @@ impl LibraryView {
         };
         let album = album.clone();
         let Some(mut store) = self.store.take() else {
-            self.error = Some(self.store_busy_message());
+            self.show_error(self.store_busy_message(), cx);
             cx.notify();
             return;
         };
@@ -206,12 +206,12 @@ impl LibraryView {
         cx: &mut Context<Self>,
     ) {
         let Some(store) = self.store.as_mut() else {
-            self.error = Some(self.store_busy_message());
+            self.show_error(self.store_busy_message(), cx);
             cx.notify();
             return;
         };
         if let Err(error) = ops::playlists::append_tracks(store, playlist_id, &[track_id]) {
-            self.error = Some(error.to_string());
+            self.show_error(error.to_string(), cx);
         } else {
             self.reload_or_show_error(cx);
         }
@@ -226,12 +226,12 @@ impl LibraryView {
         cx: &mut Context<Self>,
     ) {
         let Some(store) = self.store.as_mut() else {
-            self.error = Some(self.store_busy_message());
+            self.show_error(self.store_busy_message(), cx);
             cx.notify();
             return;
         };
         if let Err(error) = ops::playlists::remove_entry(store, playlist_id, position) {
-            self.error = Some(error.to_string());
+            self.show_error(error.to_string(), cx);
         } else {
             self.selected_playlist_position = None;
             self.reload_or_show_error(cx);
@@ -248,14 +248,14 @@ impl LibraryView {
         cx: &mut Context<Self>,
     ) {
         let Some(store) = self.store.as_mut() else {
-            self.error = Some(self.store_busy_message());
+            self.show_error(self.store_busy_message(), cx);
             cx.notify();
             return;
         };
         if let Err(error) =
             ops::playlists::move_entry(store, playlist_id, from_position, to_position)
         {
-            self.error = Some(error.to_string());
+            self.show_error(error.to_string(), cx);
         } else {
             self.selected_playlist_position = Some(to_position);
             self.reload_or_show_error(cx);

@@ -43,7 +43,7 @@ use gpui::{
     IntoElement, KeyDownEvent, PathPromptOptions, Pixels, Point, Render, ScrollHandle,
     Subscription, UTF16Selection, Window, canvas, div, prelude::*,
 };
-use pulse_engine::PlaybackState;
+use pulse_engine::{PlaybackState, device};
 
 use crate::{
     app_store::{AppStore, StoreRevisions, global_app_store},
@@ -51,8 +51,9 @@ use crate::{
         Album, AlbumSortOrder, Artist, ArtistDetail, BackfillProgress, DeleteAlbumOutcome,
         LibraryError, LibrarySearchResults, LibrarySummary, PlaybackAction, PlaylistId,
         PlaylistSummary, PlaylistTrack, ScanHistoryEntry, ScanOutcome, ScanProgress,
-        SessionAlbumKey, SessionRoute, StorageRoot, StorageRootId, Track, TrackId, TrackSortOrder,
-        cover_cache_directory, library_database_path, ops,
+        SessionAlbumKey, SessionRoute, StorageRoot, StorageRootId, StoredOutputMode, Track,
+        TrackId, TrackSortOrder, cover_cache_directory, dsd_playback_error_with_sample_rate,
+        library_database_path, ops,
     },
     surfaces::Destination,
     text_input::{self, TextInput},
@@ -212,6 +213,8 @@ pub(crate) struct LibraryView {
     playback_source_path: Option<PathBuf>,
     playback_state: PlaybackState,
     missing_track_ids: Arc<HashSet<TrackId>>,
+    dsd_output_mode: StoredOutputMode,
+    dsd_device_capabilities: Option<device::OutputDeviceCapabilities>,
     store: Option<ops::Store>,
     boot: LibraryBoot,
     database_path: PathBuf,
@@ -269,7 +272,6 @@ pub(crate) struct LibraryView {
     playlist_menu: Option<PlaylistMenu>,
     text_input: TextInput,
     input_focus: FocusHandle,
-    error: Option<String>,
     launch_state_restored: bool,
     _store_subscription: Subscription,
 }
@@ -326,6 +328,8 @@ impl LibraryView {
             playback_source_path: playback.source_path,
             playback_state: playback.playback_state,
             missing_track_ids: playback.missing_track_ids,
+            dsd_output_mode: playback.playback_output_mode,
+            dsd_device_capabilities: playback.device_capabilities,
             store: None,
             boot: LibraryBoot::Opening { backfill: None },
             database_path,
@@ -381,20 +385,23 @@ impl LibraryView {
             playlist_menu: None,
             text_input: TextInput::default(),
             input_focus: cx.focus_handle(),
-            error: None,
             launch_state_restored: false,
             _store_subscription: cx.observe(&app_store, |this, _, cx| {
                 let revisions = this.app_store.read(cx).revisions;
                 let reactions = revisions.reactions_since(this.store_revisions);
                 this.store_revisions = revisions;
-                if reactions.playback {
+                if reactions.playback || reactions.devices || reactions.settings {
                     let playback = this.app_store.read(cx).playback_snapshot();
-                    if this.playback_source_path != playback.source_path {
-                        this.reconcile_selection_for_playback(playback.source_path.as_deref());
+                    if reactions.playback {
+                        if this.playback_source_path != playback.source_path {
+                            this.reconcile_selection_for_playback(playback.source_path.as_deref());
+                        }
+                        this.playback_source_path = playback.source_path;
+                        this.playback_state = playback.playback_state;
+                        this.missing_track_ids = playback.missing_track_ids;
                     }
-                    this.playback_source_path = playback.source_path;
-                    this.playback_state = playback.playback_state;
-                    this.missing_track_ids = playback.missing_track_ids;
+                    this.dsd_output_mode = playback.playback_output_mode;
+                    this.dsd_device_capabilities = playback.device_capabilities;
                     cx.notify();
                 }
             }),
@@ -518,25 +525,6 @@ impl Render for LibraryView {
             })
             .when(self.playlist_menu.is_some(), |view| {
                 view.child(self.render_playlist_context_menu(window, cx))
-            })
-            .when_some(self.error.clone(), |view, error| {
-                view.child(
-                    div()
-                        .absolute()
-                        .right_4()
-                        .bottom_4()
-                        .max_w(rpx(520.))
-                        .px(rpx(12.))
-                        .py(rpx(9.))
-                        .rounded(rpx(theme::RADIUS_MD))
-                        .border_1()
-                        .border_color(theme::danger())
-                        .bg(theme::danger_soft())
-                        .font_family(theme::FONT_SANS)
-                        .text_size(theme::text::BODY)
-                        .text_color(theme::danger())
-                        .child(error),
-                )
             })
             .when(self.modal.is_some(), |view| {
                 view.child(self.render_modal(window, cx))

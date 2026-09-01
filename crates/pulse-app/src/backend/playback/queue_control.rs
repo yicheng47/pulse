@@ -33,6 +33,10 @@ impl Playback {
         self.last_dropout_at = None;
     }
 
+    pub(crate) fn take_toasts(&mut self) -> Vec<PlaybackToast> {
+        self.toasts.drain(..).collect()
+    }
+
     pub(crate) fn play_library_tracks(&mut self, tracks: &[Track], start_index: usize) {
         self.queue.rebuild(tracks, start_index);
         self.refresh_queue_snapshot();
@@ -174,7 +178,7 @@ impl Playback {
             Some(path) => self.play_file(path),
             // The queue exhausted through unplayable entries. A user-initiated
             // jump or Next can land here while the superseded track is still
-            // audible; stop it so the Stopped notice is truthful.
+            // audible; stop it so the error toast is truthful.
             None => {
                 if self.active_playback_needs_stop() {
                     self.send_command(PlaybackCommand::Stop);
@@ -229,18 +233,44 @@ impl Playback {
     }
 
     pub(crate) fn next_playable(&mut self, first: TrackRef) -> Option<TrackRef> {
+        self.next_playable_for(first, false)
+    }
+
+    pub(crate) fn next_auto_playable(&mut self, first: TrackRef) -> Option<TrackRef> {
+        self.next_playable_for(first, true)
+    }
+
+    fn next_playable_for(&mut self, first: TrackRef, skip_unsafe_dsd: bool) -> Option<TrackRef> {
         let mut candidate = first;
         loop {
-            if candidate.path.is_file() {
+            let dsd_error = skip_unsafe_dsd
+                .then(|| {
+                    dsd_playback_error_with_sample_rate(
+                        &candidate.path,
+                        candidate.sample_rate_hz,
+                        self.playback_output_mode,
+                        self.device_capabilities,
+                    )
+                })
+                .flatten();
+            if candidate.path.is_file() && dsd_error.is_none() {
                 return Some(candidate);
             }
-            self.missing_track_ids.insert(candidate.id);
-            self.refresh_missing_track_ids_snapshot();
+            let reason = if let Some(error) = dsd_error {
+                Err(error)
+            } else {
+                self.missing_track_ids.insert(candidate.id);
+                self.refresh_missing_track_ids_snapshot();
+                Ok(SkipReason::Missing)
+            };
             let next = self.queue.skip_failed();
             self.refresh_queue_snapshot();
             match next {
                 Some(next) => {
-                    self.note_skip(&candidate, SkipReason::Missing);
+                    match reason {
+                        Ok(reason) => self.note_skip(&candidate, reason),
+                        Err(error) => self.note_dsd_skip(&candidate, &error),
+                    }
                     candidate = next;
                 }
                 None => {
@@ -289,7 +319,44 @@ impl Playback {
             };
             format!("Skipped “{}” — {reason}.", track.title)
         };
-        self.notice = Some(PlaybackNotice::Skip { text });
+        if self
+            .toasts
+            .back()
+            .is_some_and(|toast| toast.title == "Track skipped")
+        {
+            self.toasts.pop_back();
+        }
+        self.toasts
+            .push_back(PlaybackToast::warning("Track skipped", text));
+    }
+
+    pub(super) fn note_dsd_skip(&mut self, track: &TrackRef, error: &DsdPlaybackError) {
+        if self
+            .toasts
+            .back()
+            .is_some_and(|toast| toast.title == "DSD track skipped")
+        {
+            self.toasts.pop_back();
+        }
+        self.toasts.push_back(PlaybackToast::warning(
+            "DSD track skipped",
+            format!("Skipped “{}” — {}.", track.title, error.title()),
+        ));
+    }
+
+    pub(super) fn note_dsd_skips(&mut self, tracks: &[TrackRef]) {
+        let body = match tracks {
+            [track] => format!(
+                "Skipped “{}” — it can't play on the active output.",
+                track.title
+            ),
+            tracks => format!(
+                "Skipped {} DSD tracks that can't play on the active output.",
+                tracks.len()
+            ),
+        };
+        self.toasts
+            .push_back(PlaybackToast::warning("DSD track skipped", body));
     }
 
     pub(crate) fn note_queue_stopped(&mut self, last: &TrackRef) {
@@ -303,7 +370,8 @@ impl Playback {
         } else {
             format!("Playback stopped — “{}” could not be played.", last.title)
         };
-        self.notice = Some(PlaybackNotice::Stopped { text });
+        self.toasts
+            .push_back(PlaybackToast::error("Playback stopped", text));
     }
 
     pub(crate) fn handle_device_failure(&mut self, message: &str, hog_pid: Option<i32>) {

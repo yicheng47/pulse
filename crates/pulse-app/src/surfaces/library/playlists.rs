@@ -484,6 +484,8 @@ impl LibraryView {
         let track_id = track.id;
         let playing = self.is_now_playing(&track.path);
         let missing = self.is_track_missing(track.id);
+        let dsd_unplayable = self.is_dsd_unplayable(&track);
+        let content_opacity = if dsd_unplayable { 0.55 } else { 1.0 };
         let selected = self.selected_playlist_position == Some(position);
         let quality = quality_label(track.bit_depth, track.sample_rate_hz)
             .unwrap_or_else(|| format_label(&track.path).to_string());
@@ -532,6 +534,7 @@ impl LibraryView {
                     .flex_1()
                     .min_w_0()
                     .gap(rpx(3.))
+                    .opacity(content_opacity)
                     .child(
                         div()
                             .flex()
@@ -570,6 +573,7 @@ impl LibraryView {
                 div()
                     .w(rpx(150.))
                     .truncate()
+                    .opacity(content_opacity)
                     .font_family(theme::FONT_SANS)
                     .text_size(theme::text::SMALL)
                     .text_color(theme::text_secondary())
@@ -578,12 +582,13 @@ impl LibraryView {
             .child(
                 div()
                     .w(rpx(52.))
+                    .opacity(content_opacity)
                     .font_family(theme::FONT_MONO)
                     .text_size(theme::text::CAPTION)
                     .text_color(theme::text_secondary())
                     .child(format_duration(track.duration_ms)),
             )
-            .child(crate::ui::Badge::new(quality))
+            .child(crate::ui::Badge::new(quality).warning(dsd_unplayable))
     }
 
     pub(super) fn render_playlist_name_modal(

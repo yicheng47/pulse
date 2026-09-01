@@ -23,7 +23,7 @@ impl LibraryView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        if self.should_load_more_tracks(window.rem_size()) && self.load_more_tracks() {
+        if self.should_load_more_tracks(window.rem_size()) && self.load_more_tracks(cx) {
             cx.notify();
         }
         let now_ms = current_time_ms();
@@ -436,6 +436,8 @@ impl LibraryView {
     ) -> impl IntoElement {
         let playing = self.is_now_playing(&track.path);
         let missing = self.is_track_missing(track.id);
+        let dsd_unplayable = self.is_dsd_unplayable(&track);
+        let content_opacity = if dsd_unplayable { 0.55 } else { 1.0 };
         let selected = self.selected_track_id == Some(track.id);
         let track_id = track.id;
         let artist = track_artist(&track).to_string();
@@ -487,6 +489,7 @@ impl LibraryView {
                     .w(rpx(456.))
                     .h_full()
                     .pl(rpx(14.))
+                    .opacity(content_opacity)
                     .child(super::albums::render_cover(
                         track.cover_art_path.as_deref(),
                         42.,
@@ -542,6 +545,7 @@ impl LibraryView {
                     .id(format!("track-artist-{index}"))
                     .w(rpx(162.))
                     .truncate()
+                    .opacity(content_opacity)
                     .cursor_pointer()
                     .on_click(cx.listener(move |this, _, _, cx| {
                         this.set_artist_filter(Some(artist_for_filter.clone()), cx);
@@ -555,6 +559,7 @@ impl LibraryView {
                 div()
                     .w(rpx(232.))
                     .truncate()
+                    .opacity(content_opacity)
                     .font_family(theme::FONT_SANS)
                     .text_size(theme::text::BODY)
                     .text_color(theme::text_secondary())
@@ -563,6 +568,7 @@ impl LibraryView {
             .child(
                 div()
                     .w(rpx(70.))
+                    .opacity(content_opacity)
                     .font_family(theme::FONT_MONO)
                     .text_size(theme::text::SMALL)
                     .text_color(theme::text_primary())
@@ -574,7 +580,9 @@ impl LibraryView {
                     .truncate()
                     .font_family(theme::FONT_MONO)
                     .text_size(theme::text::SMALL)
-                    .text_color(if is_hi_res(track.bit_depth, track.sample_rate_hz) {
+                    .text_color(if dsd_unplayable {
+                        theme::warning()
+                    } else if is_hi_res(track.bit_depth, track.sample_rate_hz) {
                         theme::primary()
                     } else {
                         theme::quality()
@@ -585,6 +593,7 @@ impl LibraryView {
                 div()
                     .w(rpx(82.))
                     .truncate()
+                    .opacity(content_opacity)
                     .font_family(theme::FONT_MONO)
                     .text_size(theme::text::SMALL)
                     .text_color(theme::text_secondary())

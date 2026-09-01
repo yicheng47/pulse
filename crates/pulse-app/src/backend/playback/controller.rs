@@ -199,21 +199,24 @@ impl Playback {
             },
             _ => return false,
         };
-        let Some(message) =
+        let Some(error) =
             dsd_playback_error(&path, self.playback_output_mode, self.device_capabilities)
         else {
             return false;
         };
+        self.error = None;
         if self.active_playback_needs_stop() {
             self.send_command(PlaybackCommand::Stop);
         }
         self.record_command_attempt(command);
+        self.retry = self
+            .current_play
+            .as_ref()
+            .map(|attempt| attempt.target.clone());
         self.sent_next = None;
+        self.pending_dsd_skips.clear();
         self.playback_state = PlaybackState::Error;
-        self.notice = Some(PlaybackNotice::Stopped {
-            text: format!("Could not play “{}” — {message}.", track_title(&path)),
-        });
-        self.error = Some(message);
+        self.push_dsd_refusal_toast(error);
         true
     }
 
@@ -224,17 +227,9 @@ impl Playback {
         ) {
             return;
         }
-        let next = self.effective_next_track().and_then(|track| {
-            dsd_playback_error_with_sample_rate(
-                &track.path,
-                track.sample_rate_hz,
-                self.playback_output_mode,
-                self.device_capabilities,
-            )
-            .is_none()
-            .then(|| track.path.clone())
-        });
-        if next == self.sent_next {
+        let (next_track, dsd_skips) = self.effective_next_track_with_dsd_skips();
+        let next = next_track.map(|track| track.path.clone());
+        if next == self.sent_next && dsd_skips == self.pending_dsd_skips {
             return;
         }
         let command = match &next {
@@ -248,6 +243,7 @@ impl Playback {
             self.error = Some("Playback engine disconnected.".to_string());
         } else {
             self.sent_next = next;
+            self.pending_dsd_skips = dsd_skips;
         }
     }
 
@@ -360,6 +356,7 @@ impl Playback {
                 }
                 self.start_dropout_track();
                 self.sent_next = None;
+                let dsd_skips = std::mem::take(&mut self.pending_dsd_skips);
                 let expected_next = self.effective_next_track().map(|track| track.path.clone());
                 if expected_next.as_ref() == Some(&source.path) {
                     let advanced = self.queue.advance_on_end();
@@ -372,7 +369,13 @@ impl Playback {
                 } else {
                     self.queue.position_on_path(&source.path);
                 }
+                for _ in &dsd_skips {
+                    self.queue.note_skipped_ahead();
+                }
                 self.refresh_queue_snapshot();
+                if !dsd_skips.is_empty() {
+                    self.note_dsd_skips(&dsd_skips);
+                }
                 self.current_play = Some(PlayAttempt {
                     target: RetryTarget {
                         path: source.path.clone(),
@@ -414,7 +417,13 @@ impl Playback {
             }
             PlaybackEvent::OutputDeviceChanged { device_id, kind } => {
                 self.complete_output_device_change(device_id, kind);
-                self.sync_next_source();
+                let retry_now = std::mem::take(&mut self.retry_after_output_mode_change)
+                    && self.playback_output_mode == StoredOutputMode::BitPerfect;
+                if retry_now {
+                    self.retry_after_output_mode_change();
+                } else {
+                    self.sync_next_source();
+                }
             }
             PlaybackEvent::BitPerfectStateChanged { active } => {
                 self.bit_perfect_active = active;
@@ -442,11 +451,12 @@ impl Playback {
                             .map(|device| device.name.as_str())
                     })
                     .unwrap_or("The output device");
-                self.notice = Some(PlaybackNotice::ExclusiveFallback {
-                    text: format!(
+                self.toasts.push_back(PlaybackToast::warning(
+                    "Exclusive mode unavailable",
+                    format!(
                         "{device_name} could not start in exclusive mode. Playback continues in shared mode."
                     ),
-                });
+                ));
             }
             PlaybackEvent::HardwareVolume { level, muted } => {
                 self.volume_level = level;
@@ -466,9 +476,10 @@ impl Playback {
                 if let Some(duration_ms) = self.duration_ms {
                     self.position_ms = duration_ms;
                 }
+                self.pending_dsd_skips.clear();
                 let next = self.queue.advance_on_end();
                 self.refresh_queue_snapshot();
-                return next;
+                return next.and_then(|track| self.next_auto_playable(track));
             }
             PlaybackEvent::CommandRejected {
                 command: "SetNext" | "ClearNext",
@@ -567,9 +578,10 @@ impl Playback {
                             .as_ref()
                             .map(|attempt| track_title(&attempt.target.path))
                             .unwrap_or_else(|| self.title.clone());
-                        self.notice = Some(PlaybackNotice::Stopped {
-                            text: format!("Could not play “{name}” — {message}."),
-                        });
+                        self.toasts.push_back(PlaybackToast::error(
+                            "Couldn't play this track",
+                            format!("Could not play “{name}” — {message}."),
+                        ));
                         self.error = Some(message);
                     }
                     PlaybackErrorKind::Device { hog_pid } => {
@@ -750,10 +762,69 @@ impl Playback {
     }
 
     fn effective_next_track(&self) -> Option<&TrackRef> {
-        self.queue.peek_advance_on_end_skipping(|track| {
-            self.missing_track_ids.contains(&track.id)
-                || self.rejected_next_track_ids.contains(&track.id)
-        })
+        self.effective_next_track_with_dsd_skips().0
+    }
+
+    fn effective_next_track_with_dsd_skips(&self) -> (Option<&TrackRef>, Vec<TrackRef>) {
+        let mut dsd_skips = Vec::new();
+        let next = self.queue.peek_advance_on_end_skipping(|track| {
+            let rejected = self.missing_track_ids.contains(&track.id)
+                || self.rejected_next_track_ids.contains(&track.id);
+            if rejected {
+                return true;
+            }
+            let unsafe_dsd = dsd_playback_error_with_sample_rate(
+                &track.path,
+                track.sample_rate_hz,
+                self.playback_output_mode,
+                self.device_capabilities,
+            )
+            .is_some();
+            if unsafe_dsd {
+                dsd_skips.push(track.clone());
+            }
+            unsafe_dsd
+        });
+        (next, dsd_skips)
+    }
+
+    fn push_dsd_refusal_toast(&mut self, error: DsdPlaybackError) {
+        let title = error.title();
+        let body = error.body(
+            self.active_device
+                .as_ref()
+                .map(|device| device.name.as_str()),
+        );
+        let action_available = self.retry.is_some()
+            && self.device_capabilities.is_some_and(|capabilities| {
+                capabilities.max_bits_per_channel.is_some()
+                    && capabilities.transport.supports_bit_perfect()
+            });
+        let toast = if error.needs_bit_perfect() && action_available {
+            match &self.active_device {
+                Some(device) => PlaybackToast::error_with_action(
+                    title,
+                    body,
+                    PlaybackToastAction::SwitchToBitPerfect {
+                        device_uid: device.uid.clone(),
+                    },
+                ),
+                None => PlaybackToast::error(title, body),
+            }
+        } else {
+            PlaybackToast::error(title, body)
+        };
+        self.toasts.push_back(toast);
+    }
+
+    fn retry_after_output_mode_change(&mut self) {
+        let Some(retry) = self.retry.take() else {
+            return;
+        };
+        self.notice = None;
+        self.error = None;
+        self.pending_seek_ms = (retry.position_ms > 0).then_some(retry.position_ms);
+        self.play_file(retry.path);
     }
 
     pub(super) fn stop_before_unsafe_dsd_output_change(
@@ -770,17 +841,15 @@ impl Playback {
         let Some(path) = self.source_path.clone() else {
             return;
         };
-        let Some(message) = dsd_playback_error(&path, output_mode, capabilities) else {
+        let Some(error) = dsd_playback_error(&path, output_mode, capabilities) else {
             return;
         };
         self.retry = self
             .current_play
             .as_ref()
             .map(|attempt| attempt.target.clone());
-        self.notice = Some(PlaybackNotice::Stopped {
-            text: format!("Playback stopped — {message}."),
-        });
-        self.error = Some(message);
+        self.push_dsd_refusal_toast(error);
+        self.error = None;
         self.send_command(PlaybackCommand::Stop);
     }
 }

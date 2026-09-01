@@ -964,10 +964,7 @@ impl Render for PlaybackRow {
 impl PlaybackRow {
     fn render_notice(&self, notice: PlaybackNotice, cx: &mut Context<Self>) -> impl IntoElement {
         let (text, color, recovery) = match notice {
-            PlaybackNotice::Skip { text } => (text, theme::warning(), false),
-            PlaybackNotice::ExclusiveFallback { text } => (text, theme::warning(), false),
             PlaybackNotice::Dropouts { text } => (text, theme::warning(), false),
-            PlaybackNotice::Stopped { text } => (text, theme::danger(), false),
             PlaybackNotice::DeviceFailure { text } => (text, theme::danger(), true),
         };
         div()

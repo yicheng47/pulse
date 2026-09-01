@@ -38,7 +38,7 @@ impl LibraryView {
     fn render_album_grid(&mut self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
         // Infinite scroll: fetch the next backend page when the grid is
         // scrolled near its bottom (or does not fill the viewport yet).
-        if self.should_load_more_albums(window.rem_size()) && self.load_more_albums() {
+        if self.should_load_more_albums(window.rem_size()) && self.load_more_albums(cx) {
             cx.notify();
         }
         let library_empty = self.album_total == 0 && self.album_filter == FilterChip::All;
@@ -652,6 +652,8 @@ impl LibraryView {
     ) -> impl IntoElement {
         let playing = self.is_now_playing(&track.path);
         let missing = self.is_track_missing(track.id);
+        let dsd_unplayable = self.is_dsd_unplayable(&track);
+        let content_opacity = if dsd_unplayable { 0.55 } else { 1.0 };
         let selected = self.selected_album_track_id == Some(track.id);
         let track_id = track.id;
         let number = track
@@ -700,6 +702,7 @@ impl LibraryView {
                     .items_center()
                     .w(rpx(56.))
                     .pl(rpx(16.))
+                    .opacity(content_opacity)
                     .when(playing, |cell| {
                         cell.child(
                             svg()
@@ -724,6 +727,7 @@ impl LibraryView {
                     .items_center()
                     .gap(rpx(8.))
                     .w(rpx(700.))
+                    .opacity(content_opacity)
                     .child(
                         div()
                             .min_w_0()
@@ -745,6 +749,7 @@ impl LibraryView {
                 div()
                     .w(rpx(234.))
                     .truncate()
+                    .opacity(content_opacity)
                     .font_family(theme::FONT_SANS)
                     .text_size(theme::text::BODY)
                     .text_color(theme::text_secondary())
@@ -753,12 +758,13 @@ impl LibraryView {
             .child(
                 div()
                     .w(rpx(66.))
+                    .opacity(content_opacity)
                     .font_family(theme::FONT_MONO)
                     .text_size(theme::text::SMALL)
                     .text_color(theme::text_secondary())
                     .child(format_duration(track.duration_ms)),
             )
-            .child(crate::ui::Badge::new(quality))
+            .child(crate::ui::Badge::new(quality).warning(dsd_unplayable))
     }
 
     fn render_album_menu(&self, cx: &mut Context<Self>) -> impl IntoElement {

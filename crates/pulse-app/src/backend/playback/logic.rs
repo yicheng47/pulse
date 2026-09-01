@@ -179,11 +179,64 @@ pub(crate) fn is_supported_audio(path: &Path) -> bool {
         })
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum DsdPlaybackError {
+    NeedsBitPerfect,
+    Unreadable {
+        detail: String,
+    },
+    DeviceNotVerified,
+    RateCeiling {
+        dsd_label: &'static str,
+        required_rate_hz: u32,
+        device_ceiling_hz: u32,
+    },
+}
+
+impl DsdPlaybackError {
+    pub(crate) fn title(&self) -> String {
+        match self {
+            Self::NeedsBitPerfect => "DSD needs Bit-perfect output".to_string(),
+            Self::Unreadable { .. } => "Couldn't read this DSD file".to_string(),
+            Self::DeviceNotVerified => "Output device not verified yet".to_string(),
+            Self::RateCeiling { dsd_label, .. } => {
+                format!("This device can't carry {dsd_label}")
+            }
+        }
+    }
+
+    pub(crate) fn body(&self, device_name: Option<&str>) -> String {
+        let device_name = device_name.unwrap_or("The active output device");
+        match self {
+            Self::NeedsBitPerfect => {
+                "DSD can play only through Pulse's bit-perfect output path.".to_string()
+            }
+            Self::Unreadable { detail } => detail.clone(),
+            Self::DeviceNotVerified => {
+                format!("Pulse hasn't verified {device_name}'s sample-rate ceiling yet.")
+            }
+            Self::RateCeiling {
+                dsd_label,
+                required_rate_hz,
+                device_ceiling_hz,
+            } => format!(
+                "{device_name} supports up to {}; {dsd_label} needs {} for DoP.",
+                format_sample_rate(*device_ceiling_hz),
+                format_sample_rate(*required_rate_hz),
+            ),
+        }
+    }
+
+    pub(crate) fn needs_bit_perfect(&self) -> bool {
+        matches!(self, Self::NeedsBitPerfect)
+    }
+}
+
 pub(crate) fn dsd_playback_error(
     path: &Path,
     output_mode: StoredOutputMode,
     capabilities: Option<device::OutputDeviceCapabilities>,
-) -> Option<String> {
+) -> Option<DsdPlaybackError> {
     dsd_playback_error_with_sample_rate(path, None, output_mode, capabilities)
 }
 
@@ -192,7 +245,7 @@ pub(crate) fn dsd_playback_error_with_sample_rate(
     sample_rate_hz: Option<u32>,
     output_mode: StoredOutputMode,
     capabilities: Option<device::OutputDeviceCapabilities>,
-) -> Option<String> {
+) -> Option<DsdPlaybackError> {
     let is_dsd = path
         .extension()
         .and_then(|extension| extension.to_str())
@@ -203,21 +256,30 @@ pub(crate) fn dsd_playback_error_with_sample_rate(
         return None;
     }
     if output_mode != StoredOutputMode::BitPerfect {
-        return Some("DSD playback requires Bit-perfect output mode".to_string());
+        return Some(DsdPlaybackError::NeedsBitPerfect);
     }
     let dsd_rate = match sample_rate_hz {
         Some(sample_rate) => sample_rate,
         None => match crate::backend::scan::metadata::dsd_sample_rate(path) {
             Ok(sample_rate) => sample_rate,
-            Err(error) => return Some(format!("Could not read DSD metadata: {error}")),
+            Err(error) => {
+                return Some(DsdPlaybackError::Unreadable {
+                    detail: format!("Pulse couldn't read the DSD sample rate: {error}."),
+                });
+            }
         },
     };
     if !matches!(dsd_rate, 2_822_400 | 5_644_800) {
-        return Some(format!("Unsupported DSD sample rate {dsd_rate}"));
+        return Some(DsdPlaybackError::Unreadable {
+            detail: format!(
+                "Pulse supports DSD64 and DSD128, not a {} DSD stream.",
+                format_sample_rate(dsd_rate)
+            ),
+        });
     }
     let dop_rate = dsd_rate / 16;
     let Some(capabilities) = capabilities else {
-        return Some("DSD playback requires verified output-device rate capabilities".to_string());
+        return Some(DsdPlaybackError::DeviceNotVerified);
     };
     if capabilities.max_sample_rate < f64::from(dop_rate) {
         let dsd_label = match dsd_rate {
@@ -225,10 +287,11 @@ pub(crate) fn dsd_playback_error_with_sample_rate(
             5_644_800 => "DSD128",
             _ => "DSD",
         };
-        return Some(format!(
-            "{dsd_label} playback requires a {}-capable output device",
-            format_sample_rate(dop_rate)
-        ));
+        return Some(DsdPlaybackError::RateCeiling {
+            dsd_label,
+            required_rate_hz: dop_rate,
+            device_ceiling_hz: capabilities.max_sample_rate.round() as u32,
+        });
     }
     None
 }

@@ -18,6 +18,7 @@ pub(crate) enum BadgeSize {
 pub(crate) struct Badge {
     label: SharedString,
     size: BadgeSize,
+    warning: bool,
 }
 
 impl Badge {
@@ -25,11 +26,17 @@ impl Badge {
         Self {
             label: label.into(),
             size: BadgeSize::Small,
+            warning: false,
         }
     }
 
     pub(crate) fn size(mut self, size: BadgeSize) -> Self {
         self.size = size;
+        self
+    }
+
+    pub(crate) fn warning(mut self, warning: bool) -> Self {
+        self.warning = warning;
         self
     }
 }
@@ -45,13 +52,25 @@ impl RenderOnce for Badge {
             .when(!large, |badge| badge.flex_none())
             .rounded(rpx(theme::RADIUS_SM))
             .border_1()
-            .border_color(theme::quality_border())
-            .bg(theme::quality_soft())
+            .border_color(if self.warning {
+                theme::warning()
+            } else {
+                theme::quality_border()
+            })
+            .bg(if self.warning {
+                theme::bg_elevated()
+            } else {
+                theme::quality_soft()
+            })
             .font_family(theme::FONT_MONO)
             .font_weight(FontWeight::BOLD)
             .text_size(theme::text::CAPTION_XS)
             .when(large, |badge| badge.text_size(theme::text::CAPTION))
-            .text_color(theme::quality())
+            .text_color(if self.warning {
+                theme::warning()
+            } else {
+                theme::quality()
+            })
             .child(self.label)
     }
 }

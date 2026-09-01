@@ -175,22 +175,35 @@ fn dsd_gate_requires_bit_perfect_mode_and_the_dop_rate() {
         transport: device::DeviceTransport::Usb,
     };
 
+    let wrong_mode =
+        dsd_playback_error(dff, StoredOutputMode::Shared, Some(capabilities(192_000.0))).unwrap();
+    assert_eq!(wrong_mode.title(), "DSD needs Bit-perfect output");
+    assert!(wrong_mode.needs_bit_perfect());
+
+    let rate_ceiling = dsd_playback_error_with_sample_rate(
+        Path::new("track.dsf"),
+        Some(5_644_800),
+        StoredOutputMode::BitPerfect,
+        Some(capabilities(192_000.0)),
+    )
+    .unwrap();
+    assert_eq!(rate_ceiling.title(), "This device can't carry DSD128");
     assert_eq!(
-        dsd_playback_error(dff, StoredOutputMode::Shared, Some(capabilities(192_000.0))),
-        Some("DSD playback requires Bit-perfect output mode".to_string())
+        rate_ceiling.body(Some("Matrix mini-i")),
+        "Matrix mini-i supports up to 192 kHz; DSD128 needs 352.8 kHz for DoP."
     );
-    assert_eq!(
-        dsd_playback_error(
-            dff,
-            StoredOutputMode::BitPerfect,
-            Some(capabilities(96_000.0))
-        ),
-        Some("DSD64 playback requires a 176.4 kHz-capable output device".to_string())
-    );
-    assert_eq!(
-        dsd_playback_error(dff, StoredOutputMode::BitPerfect, None),
-        Some("DSD playback requires verified output-device rate capabilities".to_string())
-    );
+
+    let unknown = dsd_playback_error(dff, StoredOutputMode::BitPerfect, None).unwrap();
+    assert_eq!(unknown.title(), "Output device not verified yet");
+
+    let unreadable = dsd_playback_error(
+        Path::new("missing.dff"),
+        StoredOutputMode::BitPerfect,
+        Some(capabilities(192_000.0)),
+    )
+    .unwrap();
+    assert_eq!(unreadable.title(), "Couldn't read this DSD file");
+
     assert_eq!(
         dsd_playback_error(
             dff,

@@ -6,6 +6,7 @@ mod settings;
 mod surfaces;
 mod text_input;
 mod theme;
+mod toast;
 mod ui;
 
 use app_store::{AppStore, GlobalAppStore};

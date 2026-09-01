@@ -43,7 +43,7 @@ impl LibraryView {
             Ok(route) => self.apply_restored_route(route),
             Err(error) => {
                 self.apply_restored_route(RestoredRoute::Albums(None));
-                self.error = Some(error.to_string());
+                self.show_error(error.to_string(), cx);
             }
         }
         match tracks {
@@ -57,7 +57,7 @@ impl LibraryView {
                 self.app_store.update(cx, |store, store_cx| {
                     store.abandon_launch_session_restore(store_cx);
                 });
-                self.error = Some(error.to_string());
+                self.show_error(error.to_string(), cx);
             }
         }
         cx.notify();
@@ -399,7 +399,10 @@ mod tests {
         cx.update_entity(&harness.view, |view, cx| view.restore_launch_state(cx));
         cx.read_entity(&harness.view, |view, _| {
             assert!(view.launch_state_restored);
-            assert!(view.error.is_some());
+        });
+        cx.read_entity(&harness.app_store, |store, _| {
+            assert_eq!(store.toasts().len(), 1);
+            assert_eq!(store.toasts()[0].toast.title, "Library error");
         });
         assert_blob_unchanged_after_shutdown(&harness, cx);
     }

@@ -67,15 +67,63 @@ pub(crate) struct DeviceMessage {
     pub(crate) is_error: bool,
 }
 
-/// A visible report shown above the playback row. `Skip`, `ExclusiveFallback`, and `Dropouts`
-/// leave playback running; `Stopped` and `DeviceFailure` mean it stopped.
+/// A standing playback condition rendered above the row with persistent recovery controls.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum PlaybackNotice {
-    Skip { text: String },
-    ExclusiveFallback { text: String },
     Dropouts { text: String },
-    Stopped { text: String },
     DeviceFailure { text: String },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum PlaybackToastKind {
+    Error,
+    Warning,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum PlaybackToastAction {
+    SwitchToBitPerfect { device_uid: String },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct PlaybackToast {
+    pub(crate) kind: PlaybackToastKind,
+    pub(crate) title: String,
+    pub(crate) body: String,
+    pub(crate) action: Option<PlaybackToastAction>,
+}
+
+impl PlaybackToast {
+    fn error(title: impl Into<String>, body: impl Into<String>) -> Self {
+        Self {
+            kind: PlaybackToastKind::Error,
+            title: title.into(),
+            body: body.into(),
+            action: None,
+        }
+    }
+
+    fn warning(title: impl Into<String>, body: impl Into<String>) -> Self {
+        Self {
+            kind: PlaybackToastKind::Warning,
+            title: title.into(),
+            body: body.into(),
+            action: None,
+        }
+    }
+
+    fn error_with_action(
+        title: impl Into<String>,
+        body: impl Into<String>,
+        action: PlaybackToastAction,
+    ) -> Self {
+        Self {
+            kind: PlaybackToastKind::Error,
+            title: title.into(),
+            body: body.into(),
+            action: Some(action),
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -278,14 +326,17 @@ pub(crate) struct Playback {
     pub(crate) dropout_frames: u64,
     pub(crate) error: Option<String>,
     pub(crate) notice: Option<PlaybackNotice>,
+    toasts: VecDeque<PlaybackToast>,
     pub(crate) missing_track_ids: HashSet<TrackId>,
     missing_track_ids_snapshot: Arc<HashSet<TrackId>>,
     rejected_next_track_ids: HashSet<TrackId>,
     dispatched_plays: u64,
     /// Mirrors the engine's `next_source`, which the engine consumes at the transition.
     sent_next: Option<PathBuf>,
+    pending_dsd_skips: Vec<TrackRef>,
     current_play: Option<PlayAttempt>,
     retry: Option<RetryTarget>,
+    retry_after_output_mode_change: bool,
     pending_seek_ms: Option<u64>,
     recent_dropouts: VecDeque<Instant>,
     last_dropout_at: Option<Instant>,
@@ -341,13 +392,16 @@ impl Playback {
             dropout_frames: 0,
             error: None,
             notice: None,
+            toasts: VecDeque::new(),
             missing_track_ids: HashSet::new(),
             missing_track_ids_snapshot: Arc::new(HashSet::new()),
             rejected_next_track_ids: HashSet::new(),
             dispatched_plays: 0,
             sent_next: None,
+            pending_dsd_skips: Vec::new(),
             current_play: None,
             retry: None,
+            retry_after_output_mode_change: false,
             pending_seek_ms: None,
             recent_dropouts: VecDeque::new(),
             last_dropout_at: None,
@@ -399,13 +453,16 @@ impl Playback {
             dropout_frames: 0,
             error: None,
             notice: None,
+            toasts: VecDeque::new(),
             missing_track_ids: HashSet::new(),
             missing_track_ids_snapshot: Arc::new(HashSet::new()),
             rejected_next_track_ids: HashSet::new(),
             dispatched_plays: 0,
             sent_next: None,
+            pending_dsd_skips: Vec::new(),
             current_play: None,
             retry: None,
+            retry_after_output_mode_change: false,
             pending_seek_ms: None,
             recent_dropouts: VecDeque::new(),
             last_dropout_at: None,

@@ -350,9 +350,10 @@ mod tests {
             Err(std::sync::mpsc::TryRecvError::Empty)
         ));
         assert_eq!(playback.playback_state, PlaybackState::Error);
+        assert!(playback.error.is_none());
         assert_eq!(
-            playback.error.as_deref(),
-            Some("DSD playback requires Bit-perfect output mode")
+            playback.toasts.back().unwrap().title,
+            "DSD needs Bit-perfect output"
         );
 
         playback.toggle_playback();

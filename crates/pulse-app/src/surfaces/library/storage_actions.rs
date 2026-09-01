@@ -38,7 +38,6 @@ impl LibraryView {
                             let fill_display_name = this.text_input.text().trim().is_empty();
                             if let Some(Modal::AddStorage(draft)) = &mut this.modal {
                                 draft.path = Some(path);
-                                this.error = None;
                             }
                             if fill_display_name {
                                 this.text_input.reset(display_name);
@@ -46,8 +45,8 @@ impl LibraryView {
                         }
                     }
                     Ok(Ok(None)) => {}
-                    Ok(Err(error)) => this.error = Some(error.to_string()),
-                    Err(error) => this.error = Some(error.to_string()),
+                    Ok(Err(error)) => this.show_error(error.to_string(), cx),
+                    Err(error) => this.show_error(error.to_string(), cx),
                 }
                 cx.notify();
             });
@@ -57,7 +56,7 @@ impl LibraryView {
 
     pub(super) fn confirm_add_storage(&mut self, cx: &mut Context<Self>) {
         if self.store.is_none() {
-            self.error = Some(self.store_busy_message());
+            self.show_error(self.store_busy_message(), cx);
             cx.notify();
             return;
         }
@@ -85,7 +84,7 @@ impl LibraryView {
                 }
             }
             Err(error) => {
-                self.error = Some(error.to_string());
+                self.show_error(error.to_string(), cx);
                 self.modal = Some(Modal::AddStorage(draft));
             }
         }
@@ -112,7 +111,7 @@ impl LibraryView {
 
     pub(super) fn confirm_remove_storage(&mut self, cx: &mut Context<Self>) {
         if self.store.is_none() {
-            self.error = Some(self.store_busy_message());
+            self.show_error(self.store_busy_message(), cx);
             cx.notify();
             return;
         }
@@ -126,10 +125,13 @@ impl LibraryView {
                     if let Err(error) = fs::remove_file(&path)
                         && error.kind() != io::ErrorKind::NotFound
                     {
-                        self.error = Some(format!(
-                            "Removed the storage root, but could not delete {}: {error}",
-                            path.display()
-                        ));
+                        self.show_error(
+                            format!(
+                                "Removed the storage root, but could not delete {}: {error}",
+                                path.display()
+                            ),
+                            cx,
+                        );
                     }
                 }
                 self.app_store.update(cx, |store, store_cx| {
@@ -137,7 +139,7 @@ impl LibraryView {
                 });
                 self.reload_or_show_error(cx);
             }
-            Err(error) => self.error = Some(error.to_string()),
+            Err(error) => self.show_error(error.to_string(), cx),
         }
         cx.notify();
     }
@@ -157,7 +159,7 @@ impl LibraryView {
 
     pub(super) fn commit_rename_storage(&mut self, cx: &mut Context<Self>) {
         if self.store.is_none() {
-            self.error = Some(self.store_busy_message());
+            self.show_error(self.store_busy_message(), cx);
             cx.notify();
             return;
         }
@@ -167,7 +169,7 @@ impl LibraryView {
         let display_name = self.text_input.text().trim().to_string();
         let store = self.store.as_mut().expect("store availability checked");
         if let Err(error) = ops::storage::rename(store, draft.root_id, &display_name) {
-            self.error = Some(error.to_string());
+            self.show_error(error.to_string(), cx);
             self.rename_draft = Some(draft);
         } else {
             self.reload_or_show_error(cx);
@@ -182,7 +184,7 @@ impl LibraryView {
         // Defense in depth: a worker (album delete) may own the store even
         // with no scan active.
         let Some(mut store) = self.store.take() else {
-            self.error = Some(self.store_busy_message());
+            self.show_error(self.store_busy_message(), cx);
             cx.notify();
             return;
         };

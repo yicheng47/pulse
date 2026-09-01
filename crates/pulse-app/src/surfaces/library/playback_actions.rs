@@ -80,8 +80,7 @@ impl LibraryView {
         let tracks = match self.matching_tracks() {
             Ok(tracks) => tracks,
             Err(error) => {
-                self.error = Some(error.to_string());
-                cx.notify();
+                self.show_error(error.to_string(), cx);
                 return;
             }
         };
@@ -207,8 +206,9 @@ impl LibraryView {
     }
 
     pub(crate) fn show_error(&mut self, error: String, cx: &mut Context<Self>) {
-        self.error = Some(error);
-        cx.notify();
+        self.app_store.update(cx, |store, store_cx| {
+            store.push_toast(crate::toast::Toast::error("Library error", error), store_cx);
+        });
     }
 
     pub(crate) fn open_search_album(&mut self, album: Album, cx: &mut Context<Self>) {
@@ -228,8 +228,7 @@ impl LibraryView {
             match ops::catalog::album_tracks(store, &album_artist, &album) {
                 Ok(tracks) => tracks,
                 Err(error) => {
-                    self.error = Some(error.to_string());
-                    cx.notify();
+                    self.show_error(error.to_string(), cx);
                     return;
                 }
             }

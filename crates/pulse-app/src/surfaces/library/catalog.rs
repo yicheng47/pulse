@@ -5,15 +5,14 @@ use super::*;
 impl LibraryView {
     pub(super) fn open_artist(&mut self, artist: Artist, cx: &mut Context<Self>) {
         let Some(store) = self.store.as_ref() else {
-            self.error = Some(self.store_busy_message());
+            self.show_error(self.store_busy_message(), cx);
             cx.notify();
             return;
         };
         let detail = match ops::catalog::artist_detail(store, artist, self.album_sort) {
             Ok(detail) => detail,
             Err(error) => {
-                self.error = Some(error.to_string());
-                cx.notify();
+                self.show_error(error.to_string(), cx);
                 return;
             }
         };
@@ -58,7 +57,7 @@ impl LibraryView {
 
     /// Returns true when a page was appended; false on failure (which latches
     /// the stall flag) or with no store.
-    pub(super) fn load_more_albums(&mut self) -> bool {
+    pub(super) fn load_more_albums(&mut self, cx: &mut Context<Self>) -> bool {
         let Some(store) = self.store.as_ref() else {
             return false;
         };
@@ -77,7 +76,7 @@ impl LibraryView {
             }
             Err(error) => {
                 self.album_load_stalled = true;
-                self.error = Some(error.to_string());
+                self.show_error(error.to_string(), cx);
                 false
             }
         }
@@ -157,7 +156,7 @@ impl LibraryView {
         -offset.y >= max_offset.y - rpx(TRACK_PREFETCH).to_pixels(rem_size)
     }
 
-    pub(super) fn load_more_tracks(&mut self) -> bool {
+    pub(super) fn load_more_tracks(&mut self, cx: &mut Context<Self>) -> bool {
         let Some(store) = self.store.as_ref() else {
             return false;
         };
@@ -176,7 +175,7 @@ impl LibraryView {
             }
             Err(error) => {
                 self.track_load_stalled = true;
-                self.error = Some(error.to_string());
+                self.show_error(error.to_string(), cx);
                 false
             }
         }
@@ -197,8 +196,7 @@ impl LibraryView {
             match ops::catalog::album_tracks(store, &album.artist, &album.title) {
                 Ok(tracks) => tracks,
                 Err(error) => {
-                    self.error = Some(error.to_string());
-                    cx.notify();
+                    self.show_error(error.to_string(), cx);
                     return;
                 }
             }

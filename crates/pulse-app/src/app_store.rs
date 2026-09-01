@@ -1,16 +1,17 @@
 use std::{
     path::PathBuf,
     sync::Arc,
-    time::{Duration, SystemTime},
+    time::{Duration, Instant, SystemTime},
 };
 
 use gpui::{App, Context, Entity, Global};
 use pulse_engine::device;
 
 use crate::backend::{
-    AppSettings, ManagedDeviceGroups, Playback, PlaybackAction, PlaybackSnapshot, SessionRoute,
-    SessionState, Track, UpdateInfo, Updater,
+    AppSettings, ManagedDeviceGroups, Playback, PlaybackAction, PlaybackSnapshot, PlaybackToast,
+    PlaybackToastAction, PlaybackToastKind, SessionRoute, SessionState, Track, UpdateInfo, Updater,
 };
+use crate::toast::{Toast, ToastAction, ToastEntry, ToastId, ToastState, ToastTimerSchedule};
 
 const EVENT_POLL_INTERVAL: Duration = Duration::from_millis(16);
 const DEVICE_WATCH_POLLS: u32 = 125;
@@ -26,6 +27,7 @@ pub(crate) struct StoreRevisions {
     pub(crate) devices: u64,
     pub(crate) playback: u64,
     pub(crate) queue: u64,
+    pub(crate) toasts: u64,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -34,6 +36,7 @@ pub(crate) struct StoreReactions {
     pub(crate) devices: bool,
     pub(crate) playback: bool,
     pub(crate) queue: bool,
+    pub(crate) toasts: bool,
     pub(crate) notify: bool,
 }
 
@@ -44,6 +47,7 @@ impl StoreRevisions {
             devices: self.devices != previous.devices,
             playback: self.playback != previous.playback,
             queue: self.queue != previous.queue,
+            toasts: self.toasts != previous.toasts,
             notify: self != previous,
         }
     }
@@ -61,6 +65,9 @@ impl StoreRevisions {
         if changes.queue {
             self.queue = self.queue.wrapping_add(1);
         }
+        if changes.toasts {
+            self.toasts = self.toasts.wrapping_add(1);
+        }
         changes.any()
     }
 }
@@ -71,11 +78,12 @@ struct StoreChanges {
     devices: bool,
     playback: bool,
     queue: bool,
+    toasts: bool,
 }
 
 impl StoreChanges {
     fn any(self) -> bool {
-        self.settings || self.devices || self.playback || self.queue
+        self.settings || self.devices || self.playback || self.queue || self.toasts
     }
 }
 
@@ -89,6 +97,8 @@ pub(crate) struct AppStore {
     playback: Playback,
     revision_snapshot: RevisionSnapshot,
     pub(crate) revisions: StoreRevisions,
+    toasts: ToastState,
+    toast_clock: Instant,
 }
 
 impl AppStore {
@@ -119,6 +129,8 @@ impl AppStore {
             playback,
             revision_snapshot,
             revisions: StoreRevisions::default(),
+            toasts: ToastState::default(),
+            toast_clock: Instant::now(),
         }
     }
 
@@ -138,7 +150,76 @@ impl AppStore {
             playback,
             revision_snapshot,
             revisions: StoreRevisions::default(),
+            toasts: ToastState::default(),
+            toast_clock: Instant::now(),
         }
+    }
+
+    pub(crate) fn toasts(&self) -> &[ToastEntry] {
+        self.toasts.entries()
+    }
+
+    pub(crate) fn push_toast(&mut self, toast: Toast, cx: &mut Context<Self>) {
+        self.enqueue_toast(toast, cx);
+        self.bump_toast_revision();
+        cx.notify();
+    }
+
+    fn enqueue_toast(&mut self, toast: Toast, cx: &mut Context<Self>) {
+        if let Some(schedule) = self.toasts.push(toast, self.toast_clock.elapsed()) {
+            Self::schedule_toast_expiry(schedule, cx);
+        }
+    }
+
+    pub(crate) fn dismiss_toast(&mut self, id: ToastId, cx: &mut Context<Self>) {
+        if self.toasts.dismiss(id) {
+            self.bump_toast_revision();
+            cx.notify();
+        }
+    }
+
+    pub(crate) fn set_toast_hovered(&mut self, id: ToastId, hovered: bool, cx: &mut Context<Self>) {
+        if let Some(schedule) = self
+            .toasts
+            .set_hovered(id, hovered, self.toast_clock.elapsed())
+        {
+            Self::schedule_toast_expiry(schedule, cx);
+        }
+    }
+
+    pub(crate) fn activate_toast_action(&mut self, id: ToastId, cx: &mut Context<Self>) {
+        let Some(action) = self.toasts.take_action(id) else {
+            return;
+        };
+        match action {
+            ToastAction::SwitchToBitPerfect { device_uid } => {
+                self.playback.switch_to_bit_perfect_and_retry(device_uid);
+            }
+        }
+        self.bump_toast_revision();
+        self.finish_update(cx);
+        cx.notify();
+    }
+
+    fn schedule_toast_expiry(schedule: ToastTimerSchedule, cx: &mut Context<Self>) {
+        cx.spawn(async move |weak, cx| {
+            cx.background_executor().timer(schedule.after).await;
+            let _ = weak.update(cx, |store, cx| {
+                if store.toasts.expire(
+                    schedule.id,
+                    schedule.generation,
+                    store.toast_clock.elapsed(),
+                ) {
+                    store.bump_toast_revision();
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
+    }
+
+    fn bump_toast_revision(&mut self) {
+        self.revisions.toasts = self.revisions.toasts.wrapping_add(1);
     }
 
     pub(crate) fn launch_session(&self) -> Option<SessionState> {
@@ -321,6 +402,11 @@ impl AppStore {
     }
 
     fn finish_update(&mut self, cx: &mut Context<Self>) {
+        let playback_toasts = self.playback.take_toasts();
+        let toasts_changed = !playback_toasts.is_empty();
+        for toast in playback_toasts {
+            self.enqueue_toast(toast_from_playback(toast), cx);
+        }
         let after = self.revision_snapshot();
         let changes = StoreChanges {
             settings: self.revision_snapshot.settings != after.settings,
@@ -330,11 +416,27 @@ impl AppStore {
                 &self.revision_snapshot.playback.queue,
                 &after.playback.queue,
             ),
+            toasts: toasts_changed,
         };
         self.revision_snapshot = after;
         if self.revisions.apply(changes) {
             cx.notify();
         }
+    }
+}
+
+fn toast_from_playback(toast: PlaybackToast) -> Toast {
+    match (toast.kind, toast.action) {
+        (PlaybackToastKind::Error, None) => Toast::error(toast.title, toast.body),
+        (PlaybackToastKind::Warning, _) => Toast::warning(toast.title, toast.body),
+        (
+            PlaybackToastKind::Error,
+            Some(PlaybackToastAction::SwitchToBitPerfect { device_uid }),
+        ) => Toast::error_with_action(
+            toast.title,
+            toast.body,
+            ToastAction::SwitchToBitPerfect { device_uid },
+        ),
     }
 }
 
@@ -556,6 +658,17 @@ mod tests {
                     ..StoreReactions::default()
                 },
             ),
+            (
+                StoreRevisions {
+                    toasts: 1,
+                    ..before
+                },
+                StoreReactions {
+                    toasts: true,
+                    notify: true,
+                    ..StoreReactions::default()
+                },
+            ),
         ] {
             assert_eq!(after.reactions_since(before), expected);
         }
@@ -581,6 +694,10 @@ mod tests {
                 queue: true,
                 ..StoreChanges::default()
             },
+            StoreChanges {
+                toasts: true,
+                ..StoreChanges::default()
+            },
         ];
         for changes in cases {
             let mut revisions = StoreRevisions::default();
@@ -592,6 +709,7 @@ mod tests {
                     devices: u64::from(changes.devices),
                     playback: u64::from(changes.playback),
                     queue: u64::from(changes.queue),
+                    toasts: u64::from(changes.toasts),
                 }
             );
         }
@@ -612,6 +730,7 @@ mod tests {
             devices: true,
             playback: true,
             queue: true,
+            toasts: true,
         }));
         assert_eq!(
             after,
@@ -620,6 +739,7 @@ mod tests {
                 devices: 1,
                 playback: 1,
                 queue: 1,
+                toasts: 1,
             }
         );
         assert_eq!(
@@ -629,6 +749,7 @@ mod tests {
                 devices: true,
                 playback: true,
                 queue: true,
+                toasts: true,
                 notify: true,
             }
         );

@@ -231,19 +231,37 @@ impl Playback {
             .is_none_or(|device| !self.settings.output_mode_preferences.is_pinned(&device.uid))
     }
 
-    pub(crate) fn set_device_output_mode(&mut self, device_uid: String, mode: StoredOutputMode) {
+    pub(crate) fn set_device_output_mode(
+        &mut self,
+        device_uid: String,
+        mode: StoredOutputMode,
+    ) -> bool {
         let mut updated_preferences = self.settings.output_mode_preferences.clone();
         updated_preferences.set_mode(&device_uid, mode);
         if let Err(error) = self.set_output_mode_preferences(updated_preferences) {
+            self.retry_after_output_mode_change = false;
             self.device_message = Some(DeviceMessage {
                 text: format!("Could not save the output-mode preference: {error}"),
                 is_error: true,
             });
 
-            return;
+            return false;
         }
         self.device_sightings_writable = true;
-        self.apply_output_mode_if_active(&device_uid, mode);
+        self.apply_output_mode_if_active(&device_uid, mode)
+    }
+
+    pub(crate) fn switch_to_bit_perfect_and_retry(&mut self, device_uid: String) {
+        if self.retry.is_none()
+            || !self
+                .active_device
+                .as_ref()
+                .is_some_and(|device| device.uid == device_uid)
+        {
+            return;
+        }
+        self.retry_after_output_mode_change =
+            self.set_device_output_mode(device_uid, StoredOutputMode::BitPerfect);
     }
 
     pub(crate) fn reset_device_output_mode_to_auto(&mut self, device_uid: String) {
@@ -279,13 +297,17 @@ impl Playback {
         )
     }
 
-    pub(crate) fn apply_output_mode_if_active(&mut self, device_uid: &str, mode: StoredOutputMode) {
+    pub(crate) fn apply_output_mode_if_active(
+        &mut self,
+        device_uid: &str,
+        mode: StoredOutputMode,
+    ) -> bool {
         let Some(active_device) = self
             .active_device
             .as_ref()
             .filter(|device| device.uid == device_uid)
         else {
-            return;
+            return false;
         };
         let device_id = active_device.id;
         self.stop_before_unsafe_dsd_output_change(mode, self.device_capabilities);
@@ -293,7 +315,7 @@ impl Playback {
         self.send_command(PlaybackCommand::SetOutputDevice {
             device_id,
             kind: engine_kind_for_output_mode(mode),
-        });
+        })
     }
 
     pub(crate) fn forget_managed_device(&mut self, device_uid: &str) -> bool {

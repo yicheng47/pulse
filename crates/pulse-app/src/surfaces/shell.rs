@@ -1,15 +1,17 @@
 use gpui::{
-    AnyElement, Context, Entity, ExternalPaths, FocusHandle, IntoElement, MouseButton,
-    MouseMoveEvent, MouseUpEvent, Render, ScrollHandle, Window, WindowControlArea, div, prelude::*,
+    AnyElement, Context, Entity, ExternalPaths, FocusHandle, FontWeight, IntoElement, MouseButton,
+    MouseMoveEvent, MouseUpEvent, Render, ScrollHandle, Subscription, Window, WindowControlArea,
+    div, prelude::*, svg,
 };
 
 use crate::{
-    app_store::{UpdaterBridge, global_app_store},
+    app_store::{StoreRevisions, UpdaterBridge, global_app_store},
     backend::{PlaybackAction, SessionRoute, SessionState},
     settings::SettingsSection,
     surfaces::{Destination, DeviceManagementPage, LibraryView, PlaybackRow, SearchViewModel},
     text_input::TextInput,
-    theme,
+    theme::{self, rpx},
+    toast::{ToastEntry, ToastKind},
 };
 
 pub(crate) const TOP_BAR_HEIGHT: f32 = 74.0;
@@ -21,6 +23,8 @@ fn launch_settings_section(session: Option<&SessionState>) -> Option<SettingsSec
 }
 
 pub struct Shell {
+    pub(super) app_store: Entity<crate::app_store::AppStore>,
+    pub(super) store_revisions: StoreRevisions,
     pub(super) destination: Destination,
     pub(super) row: Entity<PlaybackRow>,
     pub(super) devices: Entity<DeviceManagementPage>,
@@ -36,6 +40,7 @@ pub struct Shell {
     pub(super) updater: Entity<UpdaterBridge>,
     pub(super) update_check_poll_generation: u64,
     pub(super) titlebar_drag_armed: bool,
+    pub(super) _store_subscription: Subscription,
 }
 
 impl Shell {
@@ -46,13 +51,23 @@ impl Shell {
         })
         .detach();
 
-        let launch_session = global_app_store(cx).read(cx).launch_session();
+        let app_store = global_app_store(cx);
+        let store_revisions = app_store.read(cx).revisions;
+        let launch_session = app_store.read(cx).launch_session();
         let launch_settings_section = launch_settings_section(launch_session.as_ref());
         let restore_output = launch_settings_section == Some(SettingsSection::Output);
         let row = cx.new(PlaybackRow::new);
         let devices = cx.new(DeviceManagementPage::new);
         let library = cx.new(LibraryView::new);
         let updater = cx.new(UpdaterBridge::new);
+        let store_subscription = cx.observe(&app_store, |this, _, cx| {
+            let revisions = this.app_store.read(cx).revisions;
+            let reactions = revisions.reactions_since(this.store_revisions);
+            this.store_revisions = revisions;
+            if reactions.toasts {
+                cx.notify();
+            }
+        });
         cx.observe(&library, |this, library, cx| {
             this.destination = library.read(cx).destination();
             cx.notify();
@@ -67,6 +82,8 @@ impl Shell {
             });
         }
         Self {
+            app_store,
+            store_revisions,
             destination: Destination::Albums,
             row,
             devices,
@@ -82,6 +99,7 @@ impl Shell {
             updater,
             update_check_poll_generation: 0,
             titlebar_drag_armed: false,
+            _store_subscription: store_subscription,
         }
     }
 
@@ -124,6 +142,131 @@ impl Shell {
     fn render_body(&self) -> AnyElement {
         self.library.clone().into_any_element()
     }
+
+    fn render_toasts(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let toasts = self.app_store.read(cx).toasts().to_vec();
+        div()
+            .absolute()
+            .right(rpx(20.))
+            .bottom(rpx(16.))
+            .flex()
+            .flex_col()
+            .gap(rpx(8.))
+            .children(toasts.into_iter().map(|entry| self.render_toast(entry, cx)))
+    }
+
+    fn render_toast(&self, entry: ToastEntry, cx: &mut Context<Self>) -> AnyElement {
+        let ToastEntry { id, toast, .. } = entry;
+        let (color, icon) = match toast.kind {
+            ToastKind::Error => (theme::danger(), "icons/circle-alert.svg"),
+            ToastKind::Warning => (theme::warning(), "icons/triangle-alert.svg"),
+        };
+        let action = toast.action.clone();
+        div()
+            .id(format!("toast-{id:?}"))
+            .flex()
+            .items_start()
+            .gap(rpx(12.))
+            .w(rpx(400.))
+            .px(rpx(14.))
+            .py(rpx(12.))
+            .rounded(rpx(theme::RADIUS_LG))
+            .border_1()
+            .border_color(theme::border_strong())
+            .bg(theme::bg_elevated())
+            .occlude()
+            .on_hover(cx.listener(move |this, &hovered, _, cx| {
+                this.app_store.update(cx, |store, store_cx| {
+                    store.set_toast_hovered(id, hovered, store_cx);
+                });
+            }))
+            .child(
+                svg()
+                    .path(icon)
+                    .size(rpx(18.))
+                    .flex_none()
+                    .text_color(color),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .flex_1()
+                    .min_w_0()
+                    .gap(rpx(4.))
+                    .child(
+                        div()
+                            .font_family(theme::FONT_SANS)
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_size(theme::text::BODY_LARGE)
+                            .text_color(theme::text_primary())
+                            .child(toast.title),
+                    )
+                    .child(
+                        div()
+                            .font_family(theme::FONT_SANS)
+                            .text_size(theme::text::BODY)
+                            .text_color(theme::text_secondary())
+                            .child(toast.body),
+                    )
+                    .children(action.map(|action| {
+                        div()
+                            .id(format!("toast-action-{id:?}"))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .self_start()
+                            .gap(rpx(6.))
+                            .h(rpx(30.))
+                            .mt(rpx(6.))
+                            .px(rpx(11.))
+                            .rounded(rpx(theme::RADIUS_MD))
+                            .border_1()
+                            .border_color(theme::accent())
+                            .bg(theme::accent_soft())
+                            .cursor_pointer()
+                            .hover(|style| style.bg(theme::bg_selected()))
+                            .font_family(theme::FONT_DISPLAY)
+                            .font_weight(FontWeight::BOLD)
+                            .text_size(theme::text::BODY)
+                            .text_color(theme::text_primary())
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                this.app_store.update(cx, |store, store_cx| {
+                                    store.activate_toast_action(id, store_cx);
+                                });
+                            }))
+                            .child(
+                                svg()
+                                    .path("icons/lock.svg")
+                                    .size(rpx(13.))
+                                    .text_color(theme::accent()),
+                            )
+                            .child(action.label())
+                    })),
+            )
+            .child(
+                div()
+                    .id(format!("toast-dismiss-{id:?}"))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .size(rpx(20.))
+                    .flex_none()
+                    .cursor_pointer()
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.app_store.update(cx, |store, store_cx| {
+                            store.dismiss_toast(id, store_cx);
+                        });
+                    }))
+                    .child(
+                        svg()
+                            .path("icons/x.svg")
+                            .size(rpx(13.))
+                            .text_color(theme::text_muted()),
+                    ),
+            )
+            .into_any_element()
+    }
 }
 
 impl Render for Shell {
@@ -160,7 +303,7 @@ impl Render for Shell {
                 }),
             );
 
-        let body = if self.settings_section.is_some() {
+        let surface = if self.settings_section.is_some() {
             self.render_settings_shell(cx).into_any_element()
         } else {
             div()
@@ -180,6 +323,14 @@ impl Render for Shell {
                 )
                 .into_any_element()
         };
+        let body = div()
+            .relative()
+            .flex()
+            .flex_1()
+            .min_h_0()
+            .w_full()
+            .child(surface)
+            .child(self.render_toasts(cx));
 
         root.child(self.render_header(window, cx))
             .child(body)

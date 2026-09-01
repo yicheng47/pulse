@@ -178,10 +178,11 @@ fn a_decode_failure_mid_queue_skips_to_the_next_entry_and_reports() {
     assert_eq!(next.title, "good");
     assert_eq!(row.next_playable(next).unwrap().title, "good");
     assert_eq!(
-        row.notice,
-        Some(PlaybackNotice::Skip {
-            text: "Skipped “corrupt” — its file could not be decoded.".to_string()
-        })
+        row.toasts.back(),
+        Some(&PlaybackToast::warning(
+            "Track skipped",
+            "Skipped “corrupt” — its file could not be decoded."
+        ))
     );
     assert!(!row.is_track_missing(1), "a corrupt file is not missing");
     assert!(row.error.is_none(), "the queue keeps playing");
@@ -247,10 +248,11 @@ fn missing_files_are_marked_and_skipped_at_play_time() {
     assert!(row.is_track_missing(2));
     assert!(!row.is_track_missing(3));
     assert_eq!(
-        row.notice,
-        Some(PlaybackNotice::Skip {
-            text: "Skipped 2 tracks that could not be played.".to_string()
-        })
+        row.toasts.back(),
+        Some(&PlaybackToast::warning(
+            "Track skipped",
+            "Skipped 2 tracks that could not be played."
+        ))
     );
 }
 
@@ -268,10 +270,11 @@ fn a_queue_where_every_file_is_gone_stops_with_a_poison_message() {
     assert!(row.is_track_missing(1));
     assert!(row.is_track_missing(2));
     assert_eq!(
-        row.notice,
-        Some(PlaybackNotice::Stopped {
-            text: "Playback stopped — none of the queued tracks could be played.".to_string()
-        })
+        row.toasts.back(),
+        Some(&PlaybackToast::error(
+            "Playback stopped",
+            "Playback stopped — none of the queued tracks could be played."
+        ))
     );
 }
 
@@ -284,15 +287,16 @@ fn a_trailing_failure_after_played_tracks_is_not_reported_as_poison() {
     row.seed_queue(QueueState::from_tracks(&tracks, 0));
     row.queue.mark_started();
 
-    let next = row
-        .handle_event(PlaybackEvent::Ended { attempt: 0 })
-        .expect("the queue advances past the ended track");
-    assert!(row.next_playable(next).is_none());
+    assert!(
+        row.handle_event(PlaybackEvent::Ended { attempt: 0 })
+            .is_none()
+    );
     assert_eq!(
-        row.notice,
-        Some(PlaybackNotice::Stopped {
-            text: "Playback stopped — “gone” could not be played.".to_string()
-        })
+        row.toasts.back(),
+        Some(&PlaybackToast::error(
+            "Playback stopped",
+            "Playback stopped — “gone” could not be played."
+        ))
     );
 }
 

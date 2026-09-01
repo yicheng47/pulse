@@ -147,9 +147,10 @@ fn dsd_play_file_refuses_before_dispatch_on_an_unsafe_output() {
         Err(std::sync::mpsc::TryRecvError::Empty)
     ));
     assert_eq!(row.playback_state, PlaybackState::Error);
+    assert!(row.error.is_none());
     assert_eq!(
-        row.error.as_deref(),
-        Some("DSD playback requires Bit-perfect output mode")
+        row.toasts.back().unwrap().title,
+        "DSD needs Bit-perfect output"
     );
 
     row.toggle_playback();
@@ -229,10 +230,132 @@ fn unsafe_output_mode_change_stops_dsd_before_reconfiguring() {
             },
         }
     );
+    assert!(row.error.is_none());
     assert_eq!(
-        row.error.as_deref(),
-        Some("DSD playback requires Bit-perfect output mode")
+        row.toasts.back().unwrap().title,
+        "DSD needs Bit-perfect output"
     );
+}
+
+#[test]
+fn dsd_action_persists_bit_perfect_mode_and_retries_after_reconfiguration() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = PathBuf::from(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../pulse-engine/tests/fixtures/dsd-interleave.dff"
+    ));
+    let mut row = Playback::initial();
+    row.settings_path = directory.path().join("settings.json");
+    row.active_device = Some(output_device(9, "matrix", "mini-i Series"));
+    row.output_mode = StoredOutputMode::Shared;
+    row.playback_output_mode = StoredOutputMode::Shared;
+    row.device_capabilities = Some(device::OutputDeviceCapabilities {
+        max_bits_per_channel: Some(24),
+        max_sample_rate: 192_000.0,
+        transport: device::DeviceTransport::Usb,
+    });
+    let (command_tx, command_rx) = std::sync::mpsc::channel();
+    row.command_tx = Some(command_tx);
+
+    row.play_file(path.clone());
+    assert!(matches!(
+        row.toasts.back().unwrap().action,
+        Some(PlaybackToastAction::SwitchToBitPerfect { ref device_uid })
+            if device_uid == "matrix"
+    ));
+
+    row.switch_to_bit_perfect_and_retry("matrix".to_string());
+    assert_eq!(
+        command_rx.recv().unwrap(),
+        PlaybackCommand::SetOutputDevice {
+            device_id: 9,
+            kind: EngineKind::BitPerfect,
+        }
+    );
+    assert_eq!(
+        row.settings
+            .output_mode_preferences
+            .effective_mode("matrix", StoredOutputMode::Shared),
+        StoredOutputMode::BitPerfect
+    );
+
+    row.handle_event(PlaybackEvent::OutputDeviceChanged {
+        device_id: 9,
+        kind: EngineKind::BitPerfect,
+    });
+    assert_eq!(
+        command_rx.recv().unwrap(),
+        PlaybackCommand::PlayFile { path }
+    );
+    assert!(row.retry.is_none());
+}
+
+#[test]
+fn dsd_refusal_has_no_action_when_the_device_cannot_use_bit_perfect() {
+    let path = PathBuf::from("/Music/test.dff");
+    let mut row = Playback::initial();
+    row.active_device = Some(output_device(9, "bluetooth", "Bluetooth DAC"));
+    row.output_mode = StoredOutputMode::Shared;
+    row.playback_output_mode = StoredOutputMode::Shared;
+    row.device_capabilities = Some(device::OutputDeviceCapabilities {
+        max_bits_per_channel: Some(24),
+        max_sample_rate: 192_000.0,
+        transport: device::DeviceTransport::Bluetooth,
+    });
+    let (command_tx, _command_rx) = std::sync::mpsc::channel();
+    row.command_tx = Some(command_tx);
+
+    row.play_file(path);
+
+    assert!(row.toasts.back().unwrap().action.is_none());
+}
+
+#[test]
+fn dsd_mode_retry_is_consumed_by_a_universal_fallback() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = PathBuf::from(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../pulse-engine/tests/fixtures/dsd-interleave.dff"
+    ));
+    let mut row = Playback::initial();
+    row.settings_path = directory.path().join("settings.json");
+    row.active_device = Some(output_device(9, "matrix", "mini-i Series"));
+    row.output_mode = StoredOutputMode::Shared;
+    row.playback_output_mode = StoredOutputMode::Shared;
+    row.device_capabilities = Some(device::OutputDeviceCapabilities {
+        max_bits_per_channel: Some(24),
+        max_sample_rate: 192_000.0,
+        transport: device::DeviceTransport::Usb,
+    });
+    let (command_tx, command_rx) = std::sync::mpsc::channel();
+    row.command_tx = Some(command_tx);
+
+    row.play_file(path);
+    row.switch_to_bit_perfect_and_retry("matrix".to_string());
+    assert!(matches!(
+        command_rx.recv().unwrap(),
+        PlaybackCommand::SetOutputDevice {
+            device_id: 9,
+            kind: EngineKind::BitPerfect,
+        }
+    ));
+
+    row.handle_event(PlaybackEvent::OutputDeviceChanged {
+        device_id: 9,
+        kind: EngineKind::Universal {
+            exclusive_mode: false,
+        },
+    });
+    assert!(!row.retry_after_output_mode_change);
+
+    row.handle_event(PlaybackEvent::OutputDeviceChanged {
+        device_id: 9,
+        kind: EngineKind::BitPerfect,
+    });
+    assert!(matches!(
+        command_rx.try_recv(),
+        Err(std::sync::mpsc::TryRecvError::Empty)
+    ));
 }
 
 #[test]
@@ -245,11 +368,11 @@ fn exclusive_fallback_notice_names_the_device_and_marks_playback_shared() {
 
     assert_eq!(row.playback_output_mode, StoredOutputMode::Shared);
     assert_eq!(
-        row.notice,
-        Some(PlaybackNotice::ExclusiveFallback {
-            text: "mini-i Series could not start in exclusive mode. Playback continues in shared mode."
-                .to_string(),
-        })
+        row.toasts.back(),
+        Some(&PlaybackToast::warning(
+            "Exclusive mode unavailable",
+            "mini-i Series could not start in exclusive mode. Playback continues in shared mode."
+        ))
     );
 }
 

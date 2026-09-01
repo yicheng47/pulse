@@ -263,7 +263,7 @@ impl LibraryView {
                             });
                         }
                         Ok(_) => {}
-                        Err(error) => self.error = Some(error.clone()),
+                        Err(error) => self.show_error(error.clone(), cx),
                     }
                     self.reload_or_show_error(cx);
                     changed = true;
@@ -291,12 +291,12 @@ impl LibraryView {
                                     );
                                 });
                             }
-                            self.error = None;
-                            self.reload_or_show_error(cx);
-                            let reload_error = self.error.take();
-                            self.error = delete_album_notice(&outcome, reload_error);
+                            let reload_error = self.reload_error(cx);
+                            if let Some(notice) = delete_album_notice(&outcome, reload_error) {
+                                self.show_error(notice, cx);
+                            }
                         }
-                        Err(error) => self.error = Some(error),
+                        Err(error) => self.show_error(error, cx),
                     }
                     changed = true;
                 }
@@ -305,8 +305,10 @@ impl LibraryView {
                     if matches!(self.modal, Some(Modal::DeleteAlbum { .. })) {
                         self.modal = None;
                     }
-                    self.error =
-                        Some("The album delete crashed. Reopening the library.".to_string());
+                    self.show_error(
+                        "The album delete crashed. Reopening the library.".to_string(),
+                        cx,
+                    );
                     self.begin_open_store();
                     changed = true;
                 }
@@ -318,14 +320,16 @@ impl LibraryView {
                     {
                         self.scan = None;
                     }
-                    self.error =
-                        Some("The library scan crashed. Reopening the library.".to_string());
+                    self.show_error(
+                        "The library scan crashed. Reopening the library.".to_string(),
+                        cx,
+                    );
                     self.begin_open_store();
                     changed = true;
                 }
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => {
-                    self.error = Some("Library worker disconnected.".to_string());
+                    self.show_error("Library worker disconnected.".to_string(), cx);
                     changed = true;
                     break;
                 }
@@ -337,13 +341,18 @@ impl LibraryView {
     }
 
     pub(super) fn reload_or_show_error(&mut self, cx: &mut Context<Self>) {
-        let route = self.session_route();
-        if let Err(error) = self.reload() {
-            self.error = Some(error.to_string());
+        if let Some(error) = self.reload_error(cx) {
+            self.show_error(error, cx);
         }
+    }
+
+    fn reload_error(&mut self, cx: &mut Context<Self>) -> Option<String> {
+        let route = self.session_route();
+        let error = self.reload().err().map(|error| error.to_string());
         if self.session_route() != route {
             self.persist_route(cx);
         }
+        error
     }
 
     pub(super) fn select_root(&mut self, root_id: StorageRootId, cx: &mut Context<Self>) {
@@ -509,5 +518,29 @@ impl LibraryView {
 
     pub(super) fn is_track_missing(&self, track_id: TrackId) -> bool {
         self.missing_track_ids.contains(&track_id)
+    }
+
+    pub(super) fn is_dsd_unplayable(&self, track: &Track) -> bool {
+        let is_dsd = track
+            .path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| {
+                extension.eq_ignore_ascii_case("dsf") || extension.eq_ignore_ascii_case("dff")
+            });
+        if !is_dsd {
+            return false;
+        }
+        // Scanned DSD rows without a rate stay gated; rendering must never reopen audio files.
+        let Some(sample_rate_hz) = track.sample_rate_hz else {
+            return true;
+        };
+        dsd_playback_error_with_sample_rate(
+            &track.path,
+            Some(sample_rate_hz),
+            self.dsd_output_mode,
+            self.dsd_device_capabilities,
+        )
+        .is_some()
     }
 }

@@ -153,6 +153,82 @@ fn unsafe_dsd_lookahead_is_cleared_before_it_can_advance() {
 }
 
 #[test]
+fn unsafe_dsd_lookahead_skips_to_the_next_playable_track_with_a_warning() {
+    let temp = tempfile::tempdir().unwrap();
+    let tracks = wav_tracks(temp.path(), &["first", "ignored", "third"]);
+    let mut dsd = tracks[1].clone();
+    dsd.path = temp.path().join("second.dff");
+    dsd.title = Some("second".to_string());
+    dsd.sample_rate_hz = Some(2_822_400);
+    dsd.bit_depth = Some(1);
+    let queue_tracks = [tracks[0].clone(), dsd, tracks[2].clone()];
+    let mut row = Playback::initial();
+    row.seed_queue(QueueState::from_tracks(&queue_tracks, 0));
+    row.playback_state = PlaybackState::Playing;
+    row.dispatched_plays = 1;
+    row.playback_output_mode = StoredOutputMode::Shared;
+    row.device_capabilities = Some(device::OutputDeviceCapabilities {
+        max_bits_per_channel: Some(24),
+        max_sample_rate: 192_000.0,
+        transport: device::DeviceTransport::Usb,
+    });
+    row.sent_next = Some(queue_tracks[1].path.clone());
+    let command_rx = command_sink(&mut row);
+
+    row.sync_next_source();
+    assert_eq!(
+        command_rx.recv().unwrap(),
+        PlaybackCommand::SetNext {
+            path: queue_tracks[2].path.clone()
+        }
+    );
+    assert!(
+        row.handle_event(advanced(&queue_tracks[2].path, 1))
+            .is_none()
+    );
+
+    assert_eq!(row.queue.current().unwrap().id, queue_tracks[2].id);
+    assert_eq!(row.queue.skipped_count(), 1);
+    assert_eq!(
+        row.toasts.back(),
+        Some(&PlaybackToast::warning(
+            "DSD track skipped",
+            "Skipped “second” — it can't play on the active output."
+        ))
+    );
+}
+
+#[test]
+fn an_all_dsd_tail_stops_after_one_pass_without_looping() {
+    let temp = tempfile::tempdir().unwrap();
+    let first = wav_tracks(temp.path(), &["first"]).remove(0);
+    let mut second = library_track(2, temp.path().join("second.dff"), "second");
+    second.sample_rate_hz = Some(2_822_400);
+    second.bit_depth = Some(1);
+    let mut third = library_track(3, temp.path().join("third.dsf"), "third");
+    third.sample_rate_hz = Some(5_644_800);
+    third.bit_depth = Some(1);
+    let mut row = Playback::initial();
+    row.seed_queue(QueueState::from_tracks(&[first, second, third], 0));
+    row.playback_state = PlaybackState::Playing;
+    row.dispatched_plays = 1;
+    row.playback_output_mode = StoredOutputMode::Shared;
+    let command_rx = command_sink(&mut row);
+
+    row.sync_next_source();
+    assert_eq!(command_rx.recv().unwrap(), PlaybackCommand::ClearNext);
+    assert!(
+        row.handle_event(PlaybackEvent::Ended { attempt: 1 })
+            .is_none()
+    );
+
+    assert_eq!(row.queue.skipped_count(), 2);
+    assert_eq!(row.queue.current().unwrap().title, "third");
+    assert_eq!(row.toasts.back().unwrap().kind, PlaybackToastKind::Error);
+    assert_eq!(row.toasts.back().unwrap().title, "Playback stopped");
+}
+
+#[test]
 fn safe_dsd_lookahead_uses_the_stored_rate_without_reopening_the_file() {
     let temp = tempfile::tempdir().unwrap();
     let first = library_track(1, temp.path().join("first.wav"), "first");
@@ -476,10 +552,11 @@ fn rejected_next_is_skipped_for_preload_but_remains_explicitly_playable() {
     assert_eq!(command_rx.recv().unwrap(), PlaybackCommand::ClearNext);
     assert_eq!(row.queue.skipped_count(), 2);
     assert_eq!(
-        row.notice,
-        Some(PlaybackNotice::Skip {
-            text: "Skipped 2 tracks that could not be played.".to_string()
-        })
+        row.toasts.back(),
+        Some(&PlaybackToast::warning(
+            "Track skipped",
+            "Skipped 2 tracks that could not be played."
+        ))
     );
 
     row.jump_to_queue_entry(1);
@@ -672,13 +749,10 @@ fn a_direct_file_decode_failure_before_now_playing_names_the_attempted_file() {
         message: message.clone(),
     });
 
-    match &row.notice {
-        Some(PlaybackNotice::Stopped { text }) => {
-            assert!(text.contains("“corrupt”"), "{text}");
-            assert!(!text.contains("No track loaded"), "{text}");
-        }
-        other => panic!("expected a Stopped notice, got {other:?}"),
-    }
+    let toast = row.toasts.back().expect("expected an error toast");
+    assert_eq!(toast.title, "Couldn't play this track");
+    assert!(toast.body.contains("“corrupt”"), "{}", toast.body);
+    assert!(!toast.body.contains("No track loaded"), "{}", toast.body);
 }
 
 #[test]
@@ -754,9 +828,10 @@ fn advisory_errors_after_teardown_do_not_disturb_the_queue_report() {
     let mut row = Playback::initial();
     row.seed_queue(QueueState::from_tracks(&tracks, 0));
     row.playback_state = PlaybackState::Ended;
-    row.notice = Some(PlaybackNotice::Skip {
-        text: "Skipped “gone” — its file is missing.".to_string(),
-    });
+    row.toasts.push_back(PlaybackToast::warning(
+        "Track skipped",
+        "Skipped “gone” — its file is missing.",
+    ));
 
     let outcome = row.handle_event(PlaybackEvent::Error {
         attempt: 0,
@@ -766,10 +841,11 @@ fn advisory_errors_after_teardown_do_not_disturb_the_queue_report() {
 
     assert!(outcome.is_none());
     assert_eq!(
-        row.notice,
-        Some(PlaybackNotice::Skip {
-            text: "Skipped “gone” — its file is missing.".to_string()
-        })
+        row.toasts.back(),
+        Some(&PlaybackToast::warning(
+            "Track skipped",
+            "Skipped “gone” — its file is missing."
+        ))
     );
     assert_eq!(row.error.as_deref(), Some("decode: backend stop failed"));
 }
@@ -791,10 +867,11 @@ fn a_jump_to_a_marked_missing_entry_skips_and_reports() {
     assert_eq!(row.queue.current().unwrap().title, "after");
     assert!(row.is_track_missing(2));
     assert_eq!(
-        row.notice,
-        Some(PlaybackNotice::Skip {
-            text: "Skipped “gone” — its file is missing.".to_string()
-        })
+        row.toasts.back(),
+        Some(&PlaybackToast::warning(
+            "Track skipped",
+            "Skipped “gone” — its file is missing."
+        ))
     );
 }
 
@@ -817,13 +894,14 @@ fn a_jump_into_an_all_missing_tail_stops_the_active_track() {
     assert!(row.prepare_queue_play(target).is_none());
 
     // `play_queue_track` must stop the still-audible superseded track so
-    // the Stopped notice is truthful.
+    // the error toast is truthful.
     assert!(row.active_playback_needs_stop());
     assert_eq!(
-        row.notice,
-        Some(PlaybackNotice::Stopped {
-            text: "Playback stopped — 2 tracks could not be played.".to_string()
-        })
+        row.toasts.back(),
+        Some(&PlaybackToast::error(
+            "Playback stopped",
+            "Playback stopped — 2 tracks could not be played."
+        ))
     );
     assert!(row.is_track_missing(2));
     assert!(row.is_track_missing(3));
@@ -855,10 +933,10 @@ fn a_natural_queue_end_does_not_ask_for_a_stop() {
     row.queue.mark_started();
     row.playback_state = PlaybackState::Ended;
 
-    let next = row
-        .handle_event(PlaybackEvent::Ended { attempt: 0 })
-        .expect("the queue advances past the ended track");
-    assert!(row.prepare_queue_play(next).is_none());
+    assert!(
+        row.handle_event(PlaybackEvent::Ended { attempt: 0 })
+            .is_none()
+    );
     assert!(
         !row.active_playback_needs_stop(),
         "nothing is audible after a natural end; no Stop command is due"
