@@ -17,7 +17,7 @@ Four gaps, each needing a Pencil pass before implementation (standing roadmap ru
 
 ## Decisions (2026-08-07, during implementation)
 
-- Page queries stay synchronous on the UI thread; the query-time list loading state from item 1 is therefore dead by construction and only the app-open state exists. Rationale, measurements, and escape hatches: [`../arch/thread-model.md`](../arch/thread-model.md).
+- Page queries stay synchronous on the UI thread; the query-time list loading state from item 1 is therefore dead by construction and only the app-open state exists. Rationale, measurements, and escape hatches: [`../../arch/thread-model.md`](../../arch/thread-model.md).
 - Playback errors carry a structured `PlaybackErrorKind` on the event (Option A) rather than the app parsing display strings; auhal start failures got their own `EngineError::AudioUnit` variant in the process.
 - Missing-file handling: cheap existence check at play time plus mark-on-play-failure. Marks clear on root removal and after a scan that actually verified presence (completed, removals not suppressed) — cancelled, offline, or failed scans keep them. Rows are never deleted, per the offline-root guarantee.
 

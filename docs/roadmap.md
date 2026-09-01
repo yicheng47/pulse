@@ -45,18 +45,18 @@ A challenge milestone (Jason, 2026-08-31): prove a bit-exact delivery path exist
 | [Feature 31 — volume transparency](features/archive/31-volume-transparency.md) | P2 | done | `0c44e08`: volume domains, Signal Path popover, FIXED slider disable, Devices line. |
 
 
-## M4 — Metadata, now playing, integrations → v0.4.0
+## M4 — DSD, now playing, integrations → v0.4.0
 
-Artist metadata first, then the now-playing page, then integrations and polish. Build order below.
+DSD playback first, then the now-playing page, then integrations and polish; artist metadata postponed (Jason, 2026-09-01) — it keeps its bottom row until re-prioritized. Build order below.
 
 | Item | Priority | Status | Notes |
 |---|---|---|---|
-| [Feature 71 — DSD playback over DoP](features/71-dsd-over-dop.md) | P2 | planned | DSF/DFF parsers + DoP packer at decode time; refuses (never noise) off the bit-perfect path. Unblocked by the v0.3.0 DoP pass; test material staged in `~/qobuz/test/`. |
-| [Feature 72 — metadata enrichment](features/72-metadata-enrichment.md) | P2 | designing | Spec + Settings ▸ Metadata design drafted 2026-08-30; awaiting Jason's approval. Phase 1 backend + enrich dry-run flag, phase 2 settings page, triggers, photos. Carries the placeholder-artist bug. |
+| [Feature 71 — DSD playback over DoP](features/71-dsd-over-dop.md) | P2 | planned | DSF/DFF parsers + DoP packer at decode time; refuses (never noise) off the bit-perfect path. Unblocked by the v0.3.0 DoP pass; test material staged in `~/qobuz/test/`. Impl note: [`impls/71-dsd-over-dop.md`](impls/71-dsd-over-dop.md). |
 | [Feature 56 — now playing page](features/56-now-playing-page.md) | P2 | planned | Design pinned. |
 | [Feature 55 — MCP server](features/55-mcp-server.md) | P2 | planned | Needs 25's ops layer; the trigger for splitting `backend/` into a crate. |
-| [Bug — placeholder album artist becomes an artist](bugs/placeholder-album-artist.md) | P3 | planned | `######` and similar name-less album artists fall back to the track artist in the scanner; files already fixed at the source. Small; can ride with feature 72. |
 | [Feature 73 — scan error detail](features/73-scan-error-detail.md) | P3 | planned | Persist per-file scan errors; ISSUES badge opens path + plain-language reason + Reveal in Finder. Pencil pass before the UI phase. |
+| [Feature 72 — metadata enrichment](features/72-metadata-enrichment.md) | P2 | designing | Postponed (Jason, 2026-09-01). Spec + Settings ▸ Metadata design drafted 2026-08-30; awaiting approval. Phase 1 backend + enrich dry-run flag, phase 2 settings page, triggers, photos. Carries the placeholder-artist bug. |
+| [Bug — placeholder album artist becomes an artist](bugs/placeholder-album-artist.md) | P3 | planned | `######` and similar name-less album artists fall back to the track artist in the scanner; files already fixed at the source. Small; rides with feature 72 when it un-postpones. |
 
 ## Parking lot
 

@@ -4,10 +4,9 @@ Implementation notes are tactical plans for concrete build slices. Architecture 
 
 Notes stay here while their stage is in flight. Once a stage ships — or a decision note's decision is applied — it moves to [`archive/`](archive/) keeping its number, so the directory listing answers "what is being worked on right now". Enduring decisions should not be left behind in an archived note; fold them into `docs/arch/` before archiving.
 
-Active notes:
+Active notes (numbered by feature issue since 2026-09-01; the 0001–0015 stage sequence is closed):
 
-- [`MANUAL_ACCEPTANCE_CHECKLIST.md`](MANUAL_ACCEPTANCE_CHECKLIST.md) - the human-only MVP acceptance gate; 96 checks across playback, hardware, library, queue, playlists, and search.
-- [`0015-mvp-states-and-hardening.md`](0015-mvp-states-and-hardening.md) - stage 13: loading states, decode failure, hogged/unavailable device, and missing-file handling.
+- [`71-dsd-over-dop.md`](71-dsd-over-dop.md) - feature 71 build plan: DSF/DFF parsers + DoP packer behind the engine's `DecoderFactory`, library extensions, the refusal gate, Matrix acceptance.
 
 Archived notes:
 
@@ -26,3 +25,5 @@ Archived notes:
 - [`archive/0012-library-scan-and-store.md`](archive/0012-library-scan-and-store.md) - stages 9-10: storage roots, scanner, SQLite store.
 - [`archive/0013-library-ui.md`](archive/0013-library-ui.md) - stage 11: Albums, Album Detail, Tracks, Storage surfaces.
 - [`archive/0014-queue-playlists-search.md`](archive/0014-queue-playlists-search.md) - stage 12: queue, playlists, search.
+- [`archive/0015-mvp-states-and-hardening.md`](archive/0015-mvp-states-and-hardening.md) - stage 13: loading states, decode failure, hogged/unavailable device, missing-file handling. Merged as PR #21; archived 2026-09-01.
+- [`archive/MANUAL_ACCEPTANCE_CHECKLIST.md`](archive/MANUAL_ACCEPTANCE_CHECKLIST.md) - the v0 MVP acceptance gate (96 human-only checks), walked for the v0.1 ship. Frozen as history 2026-09-01; acceptance now lives in each spec's Verification section.
