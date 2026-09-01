@@ -11,6 +11,7 @@ The active-development tracker for Pulse. Since 2026-08-29 this file — not Git
 
 ## Shipped
 
+- **v0.3.0** (2026-09-01) — The bit-perfect release: raw-HAL integer engine proven bit-exact by the DoP test (the Matrix read "DSD DoP 2.8MHz") ([32](features/archive/32-integer-engine.md)); one-axis Output mode control (Shared·Exclusive·Bit-perfect, AUTO-resolved, supersedes feature 08's toggle); pause holds the device; volume transparency — domains, the Signal Path popover, honest FIXED slider ([31](features/archive/31-volume-transparency.md)). Filed-to-shipped in ~30 hours across six crew missions; journey log in [`impls/archive/bit-perfect/`](impls/archive/bit-perfect/IMPL_LOG.md).
 - **v0.2.0** (2026-08-30) — App shell overhaul: full-width header, island sidebars, Settings sections with Output ([28](features/archive/28-app-shell-overhaul.md)); interface scale 80–150% on a `px` → `rems` migration ([30](features/archive/30-interface-scale.md), [29](features/archive/29-type-scale.md)); gapless playback ([16](features/archive/16-gapless-playback.md)); launch state restore ([21](features/archive/21-launch-state-restore.md)); dropout reporting ([17](features/archive/17-playback-dropout-reporting.md)); hardware volume while hogged, accurate seek, stale-selection fix.
 - **v0.1.8** (2026-08-29) — Backend foundations: `backend/{model.rs, repo/, ops/, scan/}` with gpui and SQL boundary gates ([25](features/archive/25-library-repo-layer.md), [27](features/archive/27-flatten-backend-layout.md)); transport buttons with hover/pressed feedback and a stable play button; app menu items and ⌘M / ⌘W working without focus; rounded album covers; one track-artist SQL fragment; macOS 13 floor.
 - **v0.1.7** (2026-08-29) — Artists page with the v5 `artists` table ([11](features/archive/11-artists-page.md)); app architecture parity with Runner: `ui/` kit, `settings.json` + migration, `AppStore`, surfaces split ([24](features/archive/24-app-architecture-parity.md)).
@@ -34,15 +35,14 @@ Kept as the record of what v0.2.0 contained; every row is done.
 | [Feature 29 — type scale](features/archive/29-type-scale.md) | P3 | done | 05b9d08, with feature 30 phase 1. |
 | [Feature 21 — launch state restore](features/archive/21-launch-state-restore.md) | P2 | done | `1c7880f`: session blob in `settings.json`, engine `Load` (paused, no sink), route restore; smoke: quit mid-album and relaunch. |
 
-## M3 — Bit-perfect engine → v0.3.0
+## M3 — Bit-perfect engine → v0.3.0 (shipped 2026-09-01)
 
-A challenge milestone (Jason, 2026-08-31): prove a bit-exact delivery path exists, as a second engine the user can pick — not a new default.
+A challenge milestone (Jason, 2026-08-31): prove a bit-exact delivery path exists, as a second engine the user can pick. Kept as the record; every row is done. The DoP acceptance passed 2026-09-01: the Matrix read "DSD DoP 2.8MHz".
 
 | Item | Priority | Status | Notes |
 |---|---|---|---|
-| [Feature 32 — integer bit-perfect engine](features/32-integer-engine.md) | P2 | review | All five stages merged 2026-08-31 (probe gate PASS, restore guard, engine `689bdbb`, app wiring `668e504`, DoP payload `de5bf37`); plain FLAC already plays clean on the Matrix. Awaiting Jason's hardware acceptance — the DoP flip — 2026-09-01. |
-| [Feature 31 — volume transparency](features/31-volume-transparency.md) | P2 | review | `0c44e08` merged 2026-08-31: volume domains, Signal Path popover, FIXED slider disable, Devices line. Awaiting Jason's smoke test 2026-09-01. |
-| [Feature 33 — DSD playback over DoP](features/33-dsd-over-dop.md) | P2 | planned | DSF/DFF parsers + DoP packer at decode time; refuses (never noise) off the bit-perfect path. Gated on 32's DoP acceptance pass. |
+| [Feature 32 — integer bit-perfect engine](features/archive/32-integer-engine.md) | P2 | done | Five staged missions 2026-08-31 (probe gate PASS, restore guard, engine `689bdbb`, app wiring `668e504`, DoP payload `de5bf37`); DoP acceptance passed on the Matrix 2026-09-01. |
+| [Feature 31 — volume transparency](features/archive/31-volume-transparency.md) | P2 | done | `0c44e08`: volume domains, Signal Path popover, FIXED slider disable, Devices line. |
 
 
 ## M4 — Metadata, now playing, integrations → v0.4.0
@@ -51,6 +51,7 @@ Artist metadata first, then the now-playing page, then integrations and polish. 
 
 | Item | Priority | Status | Notes |
 |---|---|---|---|
+| [Feature 33 — DSD playback over DoP](features/33-dsd-over-dop.md) | P2 | planned | DSF/DFF parsers + DoP packer at decode time; refuses (never noise) off the bit-perfect path. Unblocked by the v0.3.0 DoP pass; test material staged in `~/qobuz/test/`. |
 | [Feature 26 — metadata enrichment](features/26-metadata-enrichment.md) | P2 | designing | Spec + Settings ▸ Metadata design drafted 2026-08-30; awaiting Jason's approval. Phase 1 backend + enrich dry-run flag, phase 2 settings page, triggers, photos. Carries the placeholder-artist bug. |
 | [Feature 20 — now playing page](features/20-now-playing-page.md) | P2 | planned | Design pinned. |
 | [Feature 19 — MCP server](features/19-mcp-server.md) | P2 | planned | Needs 25's ops layer; the trigger for splitting `backend/` into a crate. |

@@ -8,10 +8,10 @@ Active notes:
 
 - [`MANUAL_ACCEPTANCE_CHECKLIST.md`](MANUAL_ACCEPTANCE_CHECKLIST.md) - the human-only MVP acceptance gate; 96 checks across playback, hardware, library, queue, playlists, and search.
 - [`0015-mvp-states-and-hardening.md`](0015-mvp-states-and-hardening.md) - stage 13: loading states, decode failure, hogged/unavailable device, and missing-file handling.
-- [`bit-perfect/`](bit-perfect/README.md) - the M3 milestone (feature 32): raw-HAL integer engine split into five staged mission docs — probe gate, hal guards, engine, app wiring, DoP acceptance — with a journey log ([`IMPL_LOG.md`](bit-perfect/IMPL_LOG.md)). Supersedes 0016.
 
 Archived notes:
 
+- [`archive/bit-perfect/`](archive/bit-perfect/README.md) - the M3 milestone (features 31–32 → v0.3.0, shipped 2026-09-01): raw-HAL integer engine in five staged mission docs — probe gate, hal guards, engine, app wiring, DoP acceptance — with the journey log ([`IMPL_LOG.md`](archive/bit-perfect/IMPL_LOG.md)). DoP-proven on the Matrix. Superseded 0016.
 - [`archive/0001-engine-validation-cli.md`](archive/0001-engine-validation-cli.md) - first stage: prove `pulse-engine` through `pulse-cli`.
 - [`archive/0002-hal-format-validation.md`](archive/0002-hal-format-validation.md) - second stage: prove hog mode and physical format switching.
 - [`archive/0003-auhal-playback.md`](archive/0003-auhal-playback.md) - third stage: AUHAL playback from decoded PCM.
