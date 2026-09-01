@@ -1,6 +1,6 @@
 # DSD Playback over DoP
 
-P2. Decided by Jason, 2026-08-31: with the integer engine delivering bits exactly, DSD support becomes cheap — a container parser and a bit-packer, not a DSD engine. Gated on feature 32's phase-4 DoP acceptance pass.
+Feature 71 · P2 · GitHub issue [#71](https://github.com/yicheng47/pulse/issues/71). Decided by Jason, 2026-08-31: with the integer engine delivering bits exactly, DSD support becomes cheap — a container parser and a bit-packer, not a DSD engine. Gated on feature 32's phase-4 DoP acceptance pass.
 
 ## Motivation
 
@@ -8,7 +8,7 @@ Feature 32's acceptance test already proves the pipeline can carry DSD-in-DoP in
 
 ## Scope
 
-- **Decode**: `.dsf` and `.dff` parsers behind the existing `SourceDecoder` seam, uncompressed DSD only. DSF stores 4096-byte per-channel blocks with LSB-first bit order (per-byte bit reversal required); DFF is FRM8/PROP/DSD chunks, MSB-first. Output is DoP frames: DSD64 → 176.4kHz/24, DSD128 → 352.8kHz/24 where the device's rate ceiling allows. The DoP packer is shared with (graduates from) the [stage 5 payload script](../impls/bit-perfect/stage-5-acceptance.md).
+- **Decode**: `.dsf` and `.dff` parsers behind the existing `SourceDecoder` seam, uncompressed DSD only. DSF stores 4096-byte per-channel blocks with LSB-first bit order (per-byte bit reversal required); DFF is FRM8/PROP/DSD chunks, MSB-first. Output is DoP frames: DSD64 → 176.4kHz/24, DSD128 → 352.8kHz/24 where the device's rate ceiling allows. The DoP packer is shared with (graduates from) the [stage 5 payload script](../impls/archive/bit-perfect/stage-5-acceptance.md).
 - **Library**: scan indexes `.dsf`/`.dff`; metadata from DSF's trailing ID3v2 tag, filename fallback for tagless DFF; the quality badge reads DSD64/DSD128.
 - **Gating — a safety rule, not polish**: DoP survives only the bit-perfect path. A corrupted DoP stream plays as loud hiss, so a DSD track refuses to play — clear error, never noise — when the active device's engine is Universal, or its rate ceiling cannot carry the DoP rate. UI treatment of unplayable DSD tracks (dimming, badge, error copy) is a Pencil-pass decision.
 - **Purity**: feature 32's rules apply unchanged — hardware volume or fixed at 100%; the integer engine structurally cannot multiply samples, which is exactly what DoP requires.

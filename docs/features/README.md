@@ -2,15 +2,15 @@
 
 Product features that are not part of a numbered roadmap stage. Roadmap stages live in [`docs/impls/`](../impls/); this folder is for features discovered outside that sequence — usually during acceptance passes.
 
-Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phases, and verification. Numbering is global and never reused; implemented specs move to [`archive/`](archive/). Dropped: 09 collapsible library sidebar (Jason, 2026-08-30 — not needed).
+Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phases, and verification. Since 2026-09-01 the number **is** the spec's GitHub issue number — file the issue first, then name the spec after it — so gaps in the sequence belong to bugs and PRs, never to skipped specs. Specs 01–34 predate the alignment and keep their numbers in [`archive/`](archive/); the five then-active specs were renumbered to their issues (19→55, 20→56, 26→72, 33→71, 34→73). Dropped: 09 collapsible library sidebar (Jason, 2026-08-30 — not needed).
 
 ## Active
 
-- [`34-scan-error-detail.md`](34-scan-error-detail.md) - P3. Persist per-file scan errors and open them from the Storage page's ISSUES badge — path, plain-language reason, Reveal in Finder. Filed after a zero-byte FLAC took a sqlite session to diagnose.
-- [`33-dsd-over-dop.md`](33-dsd-over-dop.md) - P2. Play `.dsf`/`.dff` by DoP-packing at decode time — a container parser and bit-packer, no DSD engine; refuses (never noise) off the bit-perfect path. Unblocked by the 2026-09-01 DoP acceptance pass.
-- [`26-metadata-enrichment.md`](26-metadata-enrichment.md) - P2. Artists identified against MusicBrainz with fanart.tv photos; opt-in Settings ▸ Metadata page owning the switch, API key, triggers (Enrich now, after scans, launch refresh, enabling, key paste) and status; `artist_metadata` keyed by mbid; unmapped stays visible. Design drafted 2026-08-30, awaiting approval.
-- [`20-now-playing-page.md`](20-now-playing-page.md) - P2, issue #56. Click the playback row's track cluster to open an immersive now-playing view: full-size album art, track identity, quality badge; playback row stays as the transport. Lyrics land here later.
-- [`19-mcp-server.md`](19-mcp-server.md) - P2, issue #55. `pulse mcp` stdio server on the app binary, Quill-style: library reads always on; playlist CRUD and rescan behind a Settings write gate; WAL for cross-process safety.
+- [`73-scan-error-detail.md`](73-scan-error-detail.md) - P3. Persist per-file scan errors and open them from the Storage page's ISSUES badge — path, plain-language reason, Reveal in Finder. Filed after a zero-byte FLAC took a sqlite session to diagnose.
+- [`71-dsd-over-dop.md`](71-dsd-over-dop.md) - P2. Play `.dsf`/`.dff` by DoP-packing at decode time — a container parser and bit-packer, no DSD engine; refuses (never noise) off the bit-perfect path. Unblocked by the 2026-09-01 DoP acceptance pass.
+- [`72-metadata-enrichment.md`](72-metadata-enrichment.md) - P2. Artists identified against MusicBrainz with fanart.tv photos; opt-in Settings ▸ Metadata page owning the switch, API key, triggers (Enrich now, after scans, launch refresh, enabling, key paste) and status; `artist_metadata` keyed by mbid; unmapped stays visible. Design drafted 2026-08-30, awaiting approval.
+- [`56-now-playing-page.md`](56-now-playing-page.md) - P2. Click the playback row's track cluster to open an immersive now-playing view: full-size album art, track identity, quality badge; playback row stays as the transport. Lyrics land here later.
+- [`55-mcp-server.md`](55-mcp-server.md) - P2. `pulse mcp` stdio server on the app binary, Quill-style: library reads always on; playlist CRUD and rescan behind a Settings write gate; WAL for cross-process safety.
 
 ## Implemented
 

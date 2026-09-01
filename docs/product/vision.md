@@ -19,7 +19,7 @@ GPL-compatible dependencies are the constraint now (every current dependency —
 ## Scope
 
 - Local and NAS music libraries.
-- PCM formats: FLAC, ALAC, AIFF, WAV; DSF/DFF carried as DoP-packed PCM on the bit-perfect engine (feature 33).
+- PCM formats: FLAC, ALAC, AIFF, WAV; DSF/DFF carried as DoP-packed PCM on the bit-perfect engine (feature 71).
 - Native-rate playback through Core Audio AUHAL, with direct HAL control for hog mode, sample-rate switching, and physical-format diagnostics.
 - Fast scanning and sub-100ms search across large libraries.
 - Grid/list browsing, collections, smart collections, and metadata editing.
@@ -29,7 +29,7 @@ GPL-compatible dependencies are the constraint now (every current dependency —
 
 ## Non-Goals
 
-- No DSD processing: DSD rides only as DoP passthrough (feature 33) — no DST decompression, no SACD ISO, no native/raw DSD output, no DSD→PCM conversion.
+- No DSD processing: DSD rides only as DoP passthrough (feature 71) — no DST decompression, no SACD ISO, no native/raw DSD output, no DSD→PCM conversion.
 - No video playback or video library support.
 - No streaming-service integration.
 - No libmpv.

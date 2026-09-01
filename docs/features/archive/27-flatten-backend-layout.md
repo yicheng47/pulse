@@ -4,7 +4,7 @@
 
 ## Motivation
 
-Feature 25 moved the old top-level `library/` module under `backend/` wholesale and then built `model.rs`, `repo/`, and `ops/` inside it. The `library` directory is now a wrapper: nothing outside `backend/` names it, and `ops/` reads as library-only when feature 19's MCP server will want playback and queue use cases beside the catalog ones. Jason, 2026-08-29: "maybe we could just remove that layer? just backend/ops, and backend/repos". Runner's `runner-backend/src/{model.rs, repo/, ops/}` is the shape.
+Feature 25 moved the old top-level `library/` module under `backend/` wholesale and then built `model.rs`, `repo/`, and `ops/` inside it. The `library` directory is now a wrapper: nothing outside `backend/` names it, and `ops/` reads as library-only when feature 55's MCP server will want playback and queue use cases beside the catalog ones. Jason, 2026-08-29: "maybe we could just remove that layer? just backend/ops, and backend/repos". Runner's `runner-backend/src/{model.rs, repo/, ops/}` is the shape.
 
 ## Scope
 
@@ -26,7 +26,7 @@ backend/
 ## Non-Goals
 
 - Renaming `LibraryStore`, `LibraryError`, or `LibraryTransaction` — the types keep their names.
-- Moving playback / queue / settings use cases into `ops/` — that starts with feature 19.
+- Moving playback / queue / settings use cases into `ops/` — that starts with feature 55.
 - Splitting `backend/` into a crate.
 - Any change to `surfaces/library/` — it is one surface with sub-pages and stays a directory, like `surfaces/settings/`.
 

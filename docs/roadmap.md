@@ -51,12 +51,12 @@ Artist metadata first, then the now-playing page, then integrations and polish. 
 
 | Item | Priority | Status | Notes |
 |---|---|---|---|
-| [Feature 33 — DSD playback over DoP](features/33-dsd-over-dop.md) | P2 | planned | DSF/DFF parsers + DoP packer at decode time; refuses (never noise) off the bit-perfect path. Unblocked by the v0.3.0 DoP pass; test material staged in `~/qobuz/test/`. |
-| [Feature 26 — metadata enrichment](features/26-metadata-enrichment.md) | P2 | designing | Spec + Settings ▸ Metadata design drafted 2026-08-30; awaiting Jason's approval. Phase 1 backend + enrich dry-run flag, phase 2 settings page, triggers, photos. Carries the placeholder-artist bug. |
-| [Feature 20 — now playing page](features/20-now-playing-page.md) | P2 | planned | Design pinned. |
-| [Feature 19 — MCP server](features/19-mcp-server.md) | P2 | planned | Needs 25's ops layer; the trigger for splitting `backend/` into a crate. |
-| [Bug — placeholder album artist becomes an artist](bugs/placeholder-album-artist.md) | P3 | planned | `######` and similar name-less album artists fall back to the track artist in the scanner; files already fixed at the source. Small; can ride with feature 26. |
-| [Feature 34 — scan error detail](features/34-scan-error-detail.md) | P3 | planned | Persist per-file scan errors; ISSUES badge opens path + plain-language reason + Reveal in Finder. Pencil pass before the UI phase. |
+| [Feature 71 — DSD playback over DoP](features/71-dsd-over-dop.md) | P2 | planned | DSF/DFF parsers + DoP packer at decode time; refuses (never noise) off the bit-perfect path. Unblocked by the v0.3.0 DoP pass; test material staged in `~/qobuz/test/`. |
+| [Feature 72 — metadata enrichment](features/72-metadata-enrichment.md) | P2 | designing | Spec + Settings ▸ Metadata design drafted 2026-08-30; awaiting Jason's approval. Phase 1 backend + enrich dry-run flag, phase 2 settings page, triggers, photos. Carries the placeholder-artist bug. |
+| [Feature 56 — now playing page](features/56-now-playing-page.md) | P2 | planned | Design pinned. |
+| [Feature 55 — MCP server](features/55-mcp-server.md) | P2 | planned | Needs 25's ops layer; the trigger for splitting `backend/` into a crate. |
+| [Bug — placeholder album artist becomes an artist](bugs/placeholder-album-artist.md) | P3 | planned | `######` and similar name-less album artists fall back to the track artist in the scanner; files already fixed at the source. Small; can ride with feature 72. |
+| [Feature 73 — scan error detail](features/73-scan-error-detail.md) | P3 | planned | Persist per-file scan errors; ISSUES badge opens path + plain-language reason + Reveal in Finder. Pencil pass before the UI phase. |
 
 ## Parking lot
 

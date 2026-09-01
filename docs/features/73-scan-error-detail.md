@@ -1,6 +1,6 @@
 # Scan Error Detail
 
-P3. Filed 2026-08-31 after a live case: the Storage page said `ISSUES · 1 file errors` and the only way to learn *which* file and *why* was to query `scan_history` and probe file signatures by hand — the culprit was a zero-byte FLAC from a dead download.
+Feature 73 · P3 · GitHub issue [#73](https://github.com/yicheng47/pulse/issues/73). Filed 2026-08-31 after a live case: the Storage page said `ISSUES · 1 file errors` and the only way to learn *which* file and *why* was to query `scan_history` and probe file signatures by hand — the culprit was a zero-byte FLAC from a dead download.
 
 ## Motivation
 
@@ -17,7 +17,7 @@ Per-file scan errors (`ScanFileError { path, message }`) exist only in the in-se
 
 - No auto-repair, quarantine, or deletion of failing files.
 - No re-download or store integration (the music flow owns acquisition).
-- No change to what counts as unsupported vs error; unknown extensions stay silently skipped until [feature 33](33-dsd-over-dop.md) claims the DSD ones.
+- No change to what counts as unsupported vs error; unknown extensions stay silently skipped until [feature 71](71-dsd-over-dop.md) claims the DSD ones.
 
 ## Implementation Phases
 

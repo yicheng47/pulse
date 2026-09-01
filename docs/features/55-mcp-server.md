@@ -1,6 +1,6 @@
 # MCP Server
 
-> Feature 19 · P2 · GitHub issue [#55](https://github.com/yicheng47/pulse-src/issues/55). Agents cannot see or manage the Pulse library; an MCP server over stdio exposes library reads, playlist CRUD, and library maintenance, following the Quill pattern.
+> Feature 55 · P2 · GitHub issue [#55](https://github.com/yicheng47/pulse/issues/55). Agents cannot see or manage the Pulse library; an MCP server over stdio exposes library reads, playlist CRUD, and library maintenance, following the Quill pattern.
 
 ## Motivation
 

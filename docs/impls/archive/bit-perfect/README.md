@@ -1,6 +1,6 @@
 # Bit-perfect engine (M3 → v0.3.0)
 
-The staged implementation of [feature 32](../../features/32-integer-engine.md), with [feature 31](../../features/31-volume-transparency.md) (volume transparency) beside it and [feature 33](../../features/33-dsd-over-dop.md) (DSD over DoP) layered on top after acceptance. This directory supersedes the single-file plan 0016 — the milestone is big enough to run stage by stage, each stage a doc and a mission. The journey is logged in [`IMPL_LOG.md`](IMPL_LOG.md).
+The staged implementation of [feature 32](../../../features/archive/32-integer-engine.md), with [feature 31](../../../features/archive/31-volume-transparency.md) (volume transparency) beside it and [feature 71](../../../features/71-dsd-over-dop.md) (DSD over DoP) layered on top after acceptance. This directory supersedes the single-file plan 0016 — the milestone is big enough to run stage by stage, each stage a doc and a mission. The journey is logged in [`IMPL_LOG.md`](IMPL_LOG.md).
 
 ## Goal
 

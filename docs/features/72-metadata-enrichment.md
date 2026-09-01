@@ -1,6 +1,6 @@
 # Metadata Enrichment
 
-> Feature 26 · P2. Identify each library artist against MusicBrainz, fetch an artist photo from fanart.tv, and show the photo on the Artists grid and detail pages — opt-in, cached on disk, refreshed by age, never on the render path. A new **Settings ▸ Metadata** page owns the switch, the API key, the triggers, and the status. Design drafted 2026-08-30, awaiting Jason's approval. Reference: [`docs/reference/lidarr-library-model.md`](../reference/lidarr-library-model.md).
+> Feature 72 · P2 · GitHub issue [#72](https://github.com/yicheng47/pulse/issues/72). Identify each library artist against MusicBrainz, fetch an artist photo from fanart.tv, and show the photo on the Artists grid and detail pages — opt-in, cached on disk, refreshed by age, never on the render path. A new **Settings ▸ Metadata** page owns the switch, the API key, the triggers, and the status. Design drafted 2026-08-30, awaiting Jason's approval. Reference: [`docs/reference/lidarr-library-model.md`](../reference/lidarr-library-model.md).
 
 ## Motivation
 

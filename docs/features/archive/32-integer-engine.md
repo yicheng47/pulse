@@ -29,7 +29,7 @@ Reference clones live read-only in `~/repos/audio/`, kept outside pulse-src so G
 ## Non-Goals
 
 - No bit-perfect claims in the UI before the phase-4 DoP pass — Auto may select the engine, the wording still waits for the proof.
-- No DSD playback in this feature (the DoP test file is a verification payload here); DSD-over-DoP support is [feature 33](33-dsd-over-dop.md), layered on this engine after the phase-4 acceptance pass.
+- No DSD playback in this feature (the DoP test file is a verification payload here); DSD-over-DoP support is [feature 71](../71-dsd-over-dop.md), layered on this engine after the phase-4 acceptance pass.
 - No gapless guarantees in v1 of this engine (same-format splice may come later; format changes rebuild as today).
 - No attempt to keep software volume, EQ, or fades working in bit-perfect mode.
 
