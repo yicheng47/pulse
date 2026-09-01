@@ -34,3 +34,7 @@ Quit releases the device deterministically: hog dropped and the captured format 
 ## Verification
 
 Reported by Jason 2026-09-01; teardown chain read and mapped (above), root cause not yet isolated — first step of the fix mission is instrumenting the quit path to see which drop (if any) is skipped and measuring how long `shutdown()` + join take against GPUI's quit window.
+
+## Fixed
+
+`f5150fd`, codex crew mission 2026-09-02. Phase-1 trace showed the quit callback does complete (flushes in microseconds, controller join ~107ms) — the risk was ordering and unboundedness, not a skipped drop. The fix releases the device first (sink stop, format+mixing restore, unhog) under a 1s try-lock deadline before any persistence, bounds the worker join with its own 1s budget, and makes both `Playback::shutdown` and the controller `Drop` idempotent. Hardware ⌘Q check pending: quit during bit-perfect DSD playback, then confirm another app can claim the Matrix and Audio MIDI Setup shows the pre-Pulse rate.
