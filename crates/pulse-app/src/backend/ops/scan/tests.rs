@@ -192,6 +192,63 @@ fn scan_adds_updates_and_prunes_materialized_artists() {
 }
 
 #[test]
+fn scan_drops_placeholder_album_artist_and_uses_track_artist_fallback() {
+    let temp = tempdir().unwrap();
+    let music = temp.path().join("music");
+    let cache = temp.path().join("covers");
+    fs::create_dir(&music).unwrap();
+    metadata::write_test_wav_with_album_artist(
+        &music.join("track.wav"),
+        "Track",
+        "王菲",
+        "######",
+        "######",
+    )
+    .unwrap();
+    metadata::write_test_wav(
+        &music.join("unknown.wav"),
+        "Unknown Artist Track",
+        "----",
+        "######",
+    )
+    .unwrap();
+    let mut store = LibraryStore::open_in_memory().unwrap();
+    let root = crate::backend::repo::storage_roots::add(&mut store, &music, "Music").unwrap();
+
+    storage_root(&mut store, root.id, &cache, |_| {}).unwrap();
+
+    let stored = crate::backend::repo::tracks::for_root(&store, root.id).unwrap();
+    assert_eq!(stored.len(), 2);
+    assert!(
+        stored
+            .iter()
+            .all(|track| track.album.as_deref() == Some("######"))
+    );
+    let track = stored
+        .iter()
+        .find(|track| track.title.as_deref() == Some("Track"))
+        .unwrap();
+    assert!(track.album_artist.is_none());
+    let unknown_artist_track = stored
+        .iter()
+        .find(|track| track.title.as_deref() == Some("Unknown Artist Track"))
+        .unwrap();
+    assert!(unknown_artist_track.artist.is_none());
+
+    let effective = crate::backend::repo::tracks::for_album(&store, "王菲", "######").unwrap();
+    assert_eq!(effective.len(), 1);
+    assert_eq!(effective[0].title.as_deref(), Some("Track"));
+    let unknown_effective =
+        crate::backend::repo::tracks::for_album(&store, crate::backend::UNKNOWN_ARTIST, "######")
+            .unwrap();
+    assert_eq!(unknown_effective.len(), 1);
+    assert_eq!(
+        unknown_effective[0].title.as_deref(),
+        Some("Unknown Artist Track")
+    );
+}
+
+#[test]
 fn sequential_and_parallel_extraction_produce_identical_scan_results() {
     let temp = tempdir().unwrap();
     let music = temp.path().join("music");

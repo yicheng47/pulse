@@ -72,9 +72,9 @@ pub(in crate::backend) fn extract_metadata(path: &Path) -> Result<AudioMetadata,
 
     Ok(AudioMetadata {
         title: tag_text(&tagged_file, ItemKey::TrackTitle),
-        artist: tag_text(&tagged_file, ItemKey::TrackArtist),
+        artist: name_tag_text(&tagged_file, ItemKey::TrackArtist),
         album: tag_text(&tagged_file, ItemKey::AlbumTitle),
-        album_artist: tag_text(&tagged_file, ItemKey::AlbumArtist),
+        album_artist: name_tag_text(&tagged_file, ItemKey::AlbumArtist),
         year: tags_in_priority_order(&tagged_file)
             .find_map(Accessor::date)
             .map(|date| u32::from(date.year)),
@@ -121,13 +121,13 @@ fn extract_dsd_metadata(path: &Path) -> Result<AudioMetadata, MetadataError> {
             .or(fallback_title),
         artist: tagged_file
             .as_ref()
-            .and_then(|tagged| tag_text(tagged, ItemKey::TrackArtist)),
+            .and_then(|tagged| name_tag_text(tagged, ItemKey::TrackArtist)),
         album: tagged_file
             .as_ref()
             .and_then(|tagged| tag_text(tagged, ItemKey::AlbumTitle)),
         album_artist: tagged_file
             .as_ref()
-            .and_then(|tagged| tag_text(tagged, ItemKey::AlbumArtist)),
+            .and_then(|tagged| name_tag_text(tagged, ItemKey::AlbumArtist)),
         year: tagged_file
             .as_ref()
             .and_then(|tagged| tags_in_priority_order(tagged).find_map(Accessor::date))
@@ -668,12 +668,28 @@ fn tags_in_priority_order(file: &TaggedFile) -> impl Iterator<Item = &Tag> {
 }
 
 fn tag_text(file: &TaggedFile, key: ItemKey) -> Option<String> {
+    tag_text_matching(file, key, |_| true)
+}
+
+fn name_tag_text(file: &TaggedFile, key: ItemKey) -> Option<String> {
+    tag_text_matching(file, key, has_name)
+}
+
+fn tag_text_matching(
+    file: &TaggedFile,
+    key: ItemKey,
+    predicate: impl Fn(&str) -> bool,
+) -> Option<String> {
     tags_in_priority_order(file).find_map(|tag| {
         tag.get_string(key).and_then(|value| {
             let value = value.trim();
-            (!value.is_empty()).then(|| value.to_owned())
+            (!value.is_empty() && predicate(value)).then(|| value.to_owned())
         })
     })
+}
+
+fn has_name(value: &str) -> bool {
+    value.chars().any(char::is_alphanumeric)
 }
 
 fn embedded_artwork(file: &TaggedFile) -> Option<EmbeddedArtwork> {
@@ -704,6 +720,21 @@ pub(crate) fn write_test_wav(
     album: &str,
 ) -> std::io::Result<()> {
     write_test_wav_with_format(path, title, artist, album, 1)
+}
+
+#[cfg(test)]
+pub(in crate::backend) fn write_test_wav_with_album_artist(
+    path: &Path,
+    title: &str,
+    artist: &str,
+    album: &str,
+    album_artist: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    write_test_wav(path, title, artist, album)?;
+    let mut tag = Tag::new(TagType::Id3v2);
+    tag.insert_text(ItemKey::AlbumArtist, album_artist.to_string());
+    tag.save_to_path(path, WriteOptions::default())?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -815,6 +846,33 @@ mod tests {
         assert_eq!(metadata.duration_ms, Some(10));
         assert_eq!(metadata.duration_ms, Some(engine_duration_ms as i64));
         assert!(metadata.artwork.is_none());
+    }
+
+    #[test]
+    fn name_tags_require_an_alphanumeric_character() {
+        for placeholder in ["######", "----", "???", "*", "   "] {
+            assert!(!has_name(placeholder));
+        }
+        for name in ["Various Artists", "王菲"] {
+            assert!(has_name(name));
+        }
+
+        // `!!!` the band is the accepted false negative of the name-tag rule.
+        assert!(!has_name("!!!"));
+    }
+
+    #[test]
+    fn placeholder_artist_tags_do_not_change_titles_or_albums() {
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("placeholders.wav");
+        write_test_wav_with_album_artist(&path, "######", "----", "???", "*").unwrap();
+
+        let metadata = extract_metadata(&path).unwrap();
+
+        assert_eq!(metadata.title.as_deref(), Some("######"));
+        assert!(metadata.artist.is_none());
+        assert_eq!(metadata.album.as_deref(), Some("???"));
+        assert!(metadata.album_artist.is_none());
     }
 
     #[test]
