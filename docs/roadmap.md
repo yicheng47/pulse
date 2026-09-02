@@ -7,8 +7,8 @@ The active-development tracker for Pulse. Since 2026-08-29 this file — not Git
 The cursor for a fresh session — current state of `main` in one glance; details in the milestone tables below. Updated 2026-09-01.
 
 - **Just landed**: the 2026-09-02 self-drive queue — feature 75 scan performance (`54231a1`), the popover mode-row stack (`95f9756`), the placeholder-artist scanner rule (`bc84dd2`); plus the quit device-release fix (`f5150fd`) and toasts + DSD refusal UI (`ee09b0c`).
-- **In flight**: nothing — every remaining M4 row needs Jason (feature 56 design gate, feature 72 approval, feature 55 build order) or his hardware/visual pass.
-- **Waiting on Jason**: feature 71 phase 4 remainder — pause-lock / seek-relock / refusal checks on the Matrix; closes [#71](https://github.com/yicheng47/pulse/issues/71). Open product pick: pause-release flavor (grace period vs immediate) for the exclusive device. Hardware ⌘Q check for the quit fix (`f5150fd`) rides the same session.
+- **In flight**: feature 76 seamless in-track transport (spec filed, mission queued pending Runner.app); feature 77 manual device unlock (spec + Pencil pass in progress, design gate is Jason's).
+- **Waiting on Jason**: feature 71 phase 4 remainder — pause-lock / seek-relock / refusal checks on the Matrix; closes [#71](https://github.com/yicheng47/pulse/issues/71). Hardware ⌘Q check for the quit fix (`f5150fd`) rides the same session. NAS scan timing for 75. (UI smoke test of the 09-01/02 merges: passed 2026-09-02. Pause-release question: resolved — hold-on-pause stays, manual unlock ships as feature 77.)
 - **Up next**: feature 56 — now-playing page (design pinned, mission-ready).
 
 ## How this board works
@@ -64,6 +64,8 @@ DSD playback first, then the now-playing page, then integrations and polish; art
 | [Feature 71 — DSD playback over DoP](features/71-dsd-over-dop.md) | P2 | in progress | Phases 1–2 `f50e040`; phase 3 (refusal UI on the toast primitive) `ee09b0c`. Remaining: phase 4 Matrix acceptance (Jason, hardware at home). Impl note: [`impls/71-dsd-over-dop.md`](impls/71-dsd-over-dop.md). |
 | [Feature 74 — toast notifications](features/archive/74-toast-notifications.md) | P2 | done | `ee09b0c`, codex crew mission 2026-09-01: primitive + migration + 71's refusal UI; smoke-tested by Jason (one design fix round on the action button). |
 | [Feature 56 — now playing page](features/56-now-playing-page.md) | P2 | planned | Design pinned. |
+| [Feature 76 — seamless in-track transport](features/76-seamless-transport.md) | P2 | planned | Spec filed 2026-09-02; engine-only, mission queued pending Runner.app. |
+| [Feature 77 — manual device unlock](features/77-manual-device-unlock.md) | P2 | designing | Filed 2026-09-02 from Jason's ask; resolves the pause-release question. Pencil pass drafted, awaiting Jason's design approval. |
 | [Feature 55 — MCP server](features/55-mcp-server.md) | P2 | planned | Needs 25's ops layer; the trigger for splitting `backend/` into a crate. |
 | [Feature 75 — scan performance](features/archive/75-scan-performance.md) | P2 | done | `54231a1`, codex crew 2026-09-02 (drive mode): memo + chunked transactions + extractor pool; fixture parity pinned. Before/after NAS timing is Jason's when convenient. |
 | [Feature 73 — scan error detail](features/73-scan-error-detail.md) | P3 | planned | Persist per-file scan errors; ISSUES badge opens path + plain-language reason + Reveal in Finder. Pencil pass before the UI phase. |

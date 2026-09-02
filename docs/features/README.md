@@ -6,6 +6,8 @@ Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phase
 
 ## Active
 
+- [`77-manual-device-unlock.md`](77-manual-device-unlock.md) - P2. Lock/unlock control on the output popover's active device: release hog + restore format on click, session kept, next play re-acquires; resolves the pause-release question (hold-on-pause stays, no auto-release). Pencil pass gates the mission.
+- [`76-seamless-transport.md`](76-seamless-transport.md) - P2. Same-track seek and pause/resume keep the live decoder and running sink — no factory rebuild, no IOProc stop/start on seek; ring flushed producer-side, refill gap not counted as dropout; rebuild demoted to the recovery path.
 - [`73-scan-error-detail.md`](73-scan-error-detail.md) - P3. Persist per-file scan errors and open them from the Storage page's ISSUES badge — path, plain-language reason, Reveal in Finder. Filed after a zero-byte FLAC took a sqlite session to diagnose.
 - [`71-dsd-over-dop.md`](71-dsd-over-dop.md) - P2. Play `.dsf`/`.dff` by DoP-packing at decode time — a container parser and bit-packer, no DSD engine; refuses (never noise) off the bit-perfect path. Unblocked by the 2026-09-01 DoP acceptance pass.
 - [`72-metadata-enrichment.md`](72-metadata-enrichment.md) - P2. Artists identified against MusicBrainz with fanart.tv photos; opt-in Settings ▸ Metadata page owning the switch, API key, triggers (Enrich now, after scans, launch refresh, enabling, key paste) and status; `artist_metadata` keyed by mbid; unmapped stays visible. Design drafted 2026-08-30, awaiting approval.

@@ -41,4 +41,4 @@ Reproduced in Jason's screenshot 2026-09-01 (override = Bit-perfect, `Reset to A
 
 ## Fixed
 
-`95f9756`, codex crew mission 2026-09-02 in drive mode. Two-line stacked layout in the popover per the Decided Fix; Devices page unchanged. Jason's visual pass pending at the next smoke test.
+`95f9756`, codex crew mission 2026-09-02 in drive mode. Two-line stacked layout in the popover per the Decided Fix; Devices page unchanged. Visual pass: Jason smoke-tested and passed it 2026-09-02.
