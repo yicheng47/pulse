@@ -38,3 +38,7 @@ The row cannot fit `Reset to Auto` plus three segments in the popover's ~332px c
 ## Verification
 
 Reproduced in Jason's screenshot 2026-09-01 (override = Bit-perfect, `Reset to Auto` flush against the Shared segment's border). Code inspected. Fix decided and drawn; implementation pending.
+
+## Fixed
+
+`95f9756`, codex crew mission 2026-09-02 in drive mode. Two-line stacked layout in the popover per the Decided Fix; Devices page unchanged. Jason's visual pass pending at the next smoke test.

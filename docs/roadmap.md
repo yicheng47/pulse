@@ -69,7 +69,7 @@ DSD playback first, then the now-playing page, then integrations and polish; art
 | [Feature 73 — scan error detail](features/73-scan-error-detail.md) | P3 | planned | Persist per-file scan errors; ISSUES badge opens path + plain-language reason + Reveal in Finder. Pencil pass before the UI phase. |
 | [Feature 72 — metadata enrichment](features/72-metadata-enrichment.md) | P2 | designing | Postponed (Jason, 2026-09-01). Spec + Settings ▸ Metadata design drafted 2026-08-30; awaiting approval. Phase 1 backend + enrich dry-run flag, phase 2 settings page, triggers, photos. Carries the placeholder-artist bug. |
 | [Bug — device not released on quit](bugs/archive/device-not-released-on-quit.md) | P1 | done | `f5150fd`, codex crew 2026-09-02: release-first idempotent shutdown, bounded 1s deadlines for device lease + worker join. Hardware ⌘Q check pending (Jason). |
-| [Bug — output popover mode row crowding](bugs/output-popover-mode-row-crowding.md) | P2 | planned | `Reset to Auto` collides with the mode segments in the output popover when an override is set; scale-sensitive. Layout fix in `ui::output_mode_control`; Pencil pass only if the row wraps to two lines. |
+| [Bug — output popover mode row crowding](bugs/archive/output-popover-mode-row-crowding.md) | P2 | done | `95f9756`, codex crew 2026-09-02 (drive mode): stacked two-line mode row in the popover, Devices unchanged; Jason's visual pass pending. |
 | [Bug — placeholder album artist becomes an artist](bugs/placeholder-album-artist.md) | P3 | planned | `######` and similar name-less album artists fall back to the track artist in the scanner; files already fixed at the source. Small; rides with feature 72 when it un-postpones. |
 
 ## Parking lot
