@@ -129,54 +129,67 @@ pub(crate) fn output_mode_control(
     bit_perfect_available: bool,
     reset_link: AnyElement,
     segments: AnyElement,
+    stacked: bool,
 ) -> Div {
-    div()
-        .flex()
-        .items_center()
-        .w_full()
-        .child(
-            div()
-                .font_family(theme::FONT_SANS)
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_size(theme::text::BODY)
-                .text_color(theme::text_primary())
-                .child(label),
-        )
-        .child(if !automatic {
-            reset_link
-        } else if !bit_perfect_available {
-            div()
-                .ml(rpx(8.))
-                .px(rpx(5.))
-                .py(rpx(2.))
-                .rounded(rpx(theme::RADIUS_SM))
-                .border_1()
-                .border_color(theme::border_strong())
-                .bg(theme::bg_elevated())
-                .font_family(theme::FONT_MONO)
-                .font_weight(FontWeight::BOLD)
-                .text_size(theme::text::CAPTION_XS)
-                .text_color(theme::text_muted())
-                .child("NO INTEGER PATH")
-                .into_any_element()
-        } else {
-            div()
-                .ml(rpx(8.))
-                .px(rpx(5.))
-                .py(rpx(2.))
-                .rounded(rpx(theme::RADIUS_SM))
-                .border_1()
-                .border_color(theme::border_strong())
-                .bg(theme::bg_elevated())
-                .font_family(theme::FONT_MONO)
-                .font_weight(FontWeight::BOLD)
-                .text_size(theme::text::CAPTION_XS)
-                .text_color(theme::text_secondary())
-                .child("AUTO")
-                .into_any_element()
-        })
-        .child(div().flex_1())
-        .child(segments)
+    let label = div()
+        .font_family(theme::FONT_SANS)
+        .font_weight(FontWeight::SEMIBOLD)
+        .text_size(theme::text::BODY)
+        .text_color(theme::text_primary())
+        .child(label);
+    let state = if !automatic {
+        reset_link
+    } else if !bit_perfect_available {
+        div()
+            .ml(rpx(8.))
+            .px(rpx(5.))
+            .py(rpx(2.))
+            .rounded(rpx(theme::RADIUS_SM))
+            .border_1()
+            .border_color(theme::border_strong())
+            .bg(theme::bg_elevated())
+            .font_family(theme::FONT_MONO)
+            .font_weight(FontWeight::BOLD)
+            .text_size(theme::text::CAPTION_XS)
+            .text_color(theme::text_muted())
+            .child("NO INTEGER PATH")
+            .into_any_element()
+    } else {
+        div()
+            .ml(rpx(8.))
+            .px(rpx(5.))
+            .py(rpx(2.))
+            .rounded(rpx(theme::RADIUS_SM))
+            .border_1()
+            .border_color(theme::border_strong())
+            .bg(theme::bg_elevated())
+            .font_family(theme::FONT_MONO)
+            .font_weight(FontWeight::BOLD)
+            .text_size(theme::text::CAPTION_XS)
+            .text_color(theme::text_secondary())
+            .child("AUTO")
+            .into_any_element()
+    };
+
+    if stacked {
+        div()
+            .flex()
+            .flex_col()
+            .items_start()
+            .gap(rpx(8.))
+            .w_full()
+            .child(div().flex().items_center().child(label).child(state))
+            .child(segments)
+    } else {
+        div()
+            .flex()
+            .items_center()
+            .w_full()
+            .child(label)
+            .child(state)
+            .child(div().flex_1())
+            .child(segments)
+    }
 }
 
 pub(crate) fn output_mode_segments(

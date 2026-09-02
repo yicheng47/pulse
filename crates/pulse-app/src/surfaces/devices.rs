@@ -318,6 +318,7 @@ impl DeviceManagementPage {
                     })
                     .into_any_element(),
                 ui::output_mode_segments(shared, exclusive, bit_perfect).into_any_element(),
+                false,
             ))
             .into_any_element()
     }
