@@ -1,6 +1,6 @@
 # Metadata Enrichment
 
-> Feature 72 · P2 · GitHub issue [#72](https://github.com/yicheng47/pulse/issues/72). Identify each library artist against MusicBrainz, fetch an artist photo from fanart.tv, and show the photo on the Artists grid and detail pages — opt-in, cached on disk, refreshed by age, never on the render path. A new **Settings ▸ Metadata** page owns the switch, the API key, the triggers, and the status. Design drafted 2026-08-30, awaiting Jason's approval. Reference: [`docs/reference/lidarr-library-model.md`](../reference/lidarr-library-model.md).
+> Feature 72 · P2 · GitHub issue [#72](https://github.com/yicheng47/pulse/issues/72). Identify each library artist against MusicBrainz, fetch an artist photo from fanart.tv, and show the photo on the Artists grid and detail pages — opt-in, cached on disk, refreshed by age, never on the render path. A new **Settings ▸ Metadata** page owns the switch, the API key, the triggers, and the status. Design drafted 2026-08-30, merged 2026-09-02 via PR #70 (re-applied onto the live canvas; node ids regenerated). Reference: [`docs/reference/lidarr-library-model.md`](../reference/lidarr-library-model.md).
 
 ## Motivation
 
@@ -10,11 +10,11 @@ The Artists page (feature 11) shows an album cover where an artist photo belongs
 
 `design/pulse-desktop.pen`:
 
-- `Settings / Metadata` — `s5Q1ti`. Same shell as the other Settings pages; the settings island (`qPd6E`) gains `Nav / Metadata` (`sU7Ok`, lucide `globe`) as the third SETTINGS item after General and Output.
-- Page title "Metadata"; `Column` `ssaSe` (820 wide, gap 22):
-  - **ONLINE SOURCES** (`bctYx`, card `sWbc9`): `Row / Enrich artists` `Y801zQ` — "Enrich artists from MusicBrainz" / "Looks up each artist's identity and photo online. Off by default — nothing leaves this Mac until you turn it on." · Toggle. `Row / fanart.tv API key` `qCkzS` — "fanart.tv API key" / "Needed for artist photos. Get a personal key at fanart.tv/get-an-api-key; identity still works without one." · `Key Field` `P5Yp8G` (300 × 36, `bg-inset`, 1 px `border`, radius 6, `key-round` icon, masked mono value).
-  - **ENRICHMENT** (`R5WLp`, card `hPcm4`): `Row / After scans` `h6XeQ2` — "Run after library scans" / "Identifies artists added or changed by a scan as soon as the scan finishes." · Toggle. `Row / Refresh` `VPwVF` — "Refresh cached facts" / "Identity and photos are checked again after 30 days; a rescan never re-fetches metadata." · value "30 days" (informational, no control). `Row / Status` `waqpX` — "Status" / "142 of 160 artists identified · 12 unmapped · 6 waiting · last run 2 h ago" · `Button / Secondary` "Clear cache" (`trash-2`) · `Button / Primary` "Enrich now" (`sparkles`).
-  - `Attribution` `sB8dt`: "Artist data from MusicBrainz (CC0). Photos from fanart.tv, used under its API terms." (11 px `text-muted`).
+- `Settings / Metadata` — `k2Bnn`. Same shell as the other Settings pages; the settings island (`qPd6E`) gains `Nav / Metadata` (`zxv9t`, lucide `globe`) as the third SETTINGS item after General and Output.
+- Page title "Metadata"; `Column` `EjOpY` (820 wide, gap 22):
+  - **ONLINE SOURCES** (`qB3GN`, card `b21uOY`): `Row / Enrich artists` `HGysT` — "Enrich artists from MusicBrainz" / "Looks up each artist's identity and photo online. Off by default — nothing leaves this Mac until you turn it on." · Toggle. `Row / fanart.tv API key` `Z7UW3Q` — "fanart.tv API key" / "Needed for artist photos. Get a personal key at fanart.tv/get-an-api-key; identity still works without one." · `Key Field` `vSue9` (300 × 36, `bg-inset`, 1 px `border`, radius 6, `key-round` icon, masked mono value).
+  - **ENRICHMENT** (`LRj2W`, card `SP79K`): `Row / After scans` `qVkN0` — "Run after library scans" / "Identifies artists added or changed by a scan as soon as the scan finishes." · Toggle. `Row / Refresh` `NDxJk` — "Refresh cached facts" / "Identity and photos are checked again after 30 days; a rescan never re-fetches metadata." · value "30 days" (informational, no control). `Row / Status` `JUIZ9` — "Status" / "142 of 160 artists identified · 12 unmapped · 6 waiting · last run 2 h ago" · `Button / Secondary` "Clear cache" (`trash-2`) · `Button / Primary` "Enrich now" (`sparkles`).
+  - `Attribution` `VVJah`: "Artist data from MusicBrainz (CC0). Photos from fanart.tv, used under its API terms." (11 px `text-muted`).
 - Artists grid (`ixG6j`) and detail (`rA7SD`) are unchanged: the avatar slot already draws `photo → album cover → empty`; this feature fills the photo.
 
 ## Scope
