@@ -6,6 +6,7 @@ Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phase
 
 ## Active
 
+- [`78-integer-engine-hardening.md`](78-integer-engine-hardening.md) - P2. Follow-ups from the 2026-09-02 review of the bit-perfect path: format-change track boundaries renegotiate on the held device instead of releasing and re-hogging; the AUTO gate uses the engine's own integer-wire-format predicate; the IOProc fills only the negotiated stream's buffer. Sample path untouched. Review record: [`impls/78-integer-engine-review.md`](../impls/78-integer-engine-review.md).
 - [`77-manual-device-unlock.md`](77-manual-device-unlock.md) - P2. Lock/unlock control on the output popover's active device: release hog + restore format on click, session kept, next play re-acquires; resolves the pause-release question (hold-on-pause stays, no auto-release). Pencil pass gates the mission.
 - [`76-seamless-transport.md`](76-seamless-transport.md) - P2. Same-track seek and pause/resume keep the live decoder and running sink — no factory rebuild, no IOProc stop/start on seek; ring flushed producer-side, refill gap not counted as dropout; rebuild demoted to the recovery path.
 - [`73-scan-error-detail.md`](73-scan-error-detail.md) - P3. Persist per-file scan errors and open them from the Storage page's ISSUES badge — path, plain-language reason, Reveal in Finder. Filed after a zero-byte FLAC took a sqlite session to diagnose.

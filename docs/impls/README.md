@@ -6,6 +6,7 @@ Notes stay here while their stage is in flight. Once a stage ships — or a deci
 
 Active notes (numbered by feature issue since 2026-09-01; the 0001–0015 stage sequence is closed):
 
+- [`78-integer-engine-review.md`](78-integer-engine-review.md) - feature 78's review record and build plan: the bit-perfect path byte by byte, device state call by call, verified dependencies, four findings with mechanism and fix, a four-phase plan.
 - [`71-dsd-over-dop.md`](71-dsd-over-dop.md) - feature 71 build plan: DSF/DFF parsers + DoP packer behind the engine's `DecoderFactory`, library extensions, the refusal gate, Matrix acceptance.
 
 Archived notes:
