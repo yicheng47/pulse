@@ -6,8 +6,8 @@ The active-development tracker for Pulse. Since 2026-08-29 this file — not Git
 
 The cursor for a fresh session — current state of `main` in one glance; details in the milestone tables below. Updated 2026-09-01.
 
-- **Just landed**: the quit device-release fix (`f5150fd`) — shutdown releases the device before persistence under bounded 1s deadlines; and feature 74 + 71 phase 3 (`ee09b0c`) — toasts + the DSD refusal UI.
-- **In flight**: nothing — next slice starts on Jason's word (feature 56 now-playing is mission-ready; feature 75 scan performance is filed).
+- **Just landed**: feature 75 scan performance (`54231a1`) — folder-art memo, chunked writer, extractor pool; plus the quit device-release fix (`f5150fd`) and toasts + DSD refusal UI (`ee09b0c`).
+- **In flight**: self-drive queue (Jason, 2026-09-02): bug — output-popover mode-row crowding, then bug — placeholder album artist; merge on lead review.
 - **Waiting on Jason**: feature 71 phase 4 remainder — pause-lock / seek-relock / refusal checks on the Matrix; closes [#71](https://github.com/yicheng47/pulse/issues/71). Open product pick: pause-release flavor (grace period vs immediate) for the exclusive device. Hardware ⌘Q check for the quit fix (`f5150fd`) rides the same session.
 - **Up next**: feature 56 — now-playing page (design pinned, mission-ready).
 
@@ -65,7 +65,7 @@ DSD playback first, then the now-playing page, then integrations and polish; art
 | [Feature 74 — toast notifications](features/archive/74-toast-notifications.md) | P2 | done | `ee09b0c`, codex crew mission 2026-09-01: primitive + migration + 71's refusal UI; smoke-tested by Jason (one design fix round on the action button). |
 | [Feature 56 — now playing page](features/56-now-playing-page.md) | P2 | planned | Design pinned. |
 | [Feature 55 — MCP server](features/55-mcp-server.md) | P2 | planned | Needs 25's ops layer; the trigger for splitting `backend/` into a crate. |
-| [Feature 75 — scan performance](features/75-scan-performance.md) | P2 | planned | Folder-art memo, chunked writer transactions, bounded extractor pool; single-connection ownership model unchanged. Backend-only, no design gate; filed 2026-09-01. |
+| [Feature 75 — scan performance](features/archive/75-scan-performance.md) | P2 | done | `54231a1`, codex crew 2026-09-02 (drive mode): memo + chunked transactions + extractor pool; fixture parity pinned. Before/after NAS timing is Jason's when convenient. |
 | [Feature 73 — scan error detail](features/73-scan-error-detail.md) | P3 | planned | Persist per-file scan errors; ISSUES badge opens path + plain-language reason + Reveal in Finder. Pencil pass before the UI phase. |
 | [Feature 72 — metadata enrichment](features/72-metadata-enrichment.md) | P2 | designing | Postponed (Jason, 2026-09-01). Spec + Settings ▸ Metadata design drafted 2026-08-30; awaiting approval. Phase 1 backend + enrich dry-run flag, phase 2 settings page, triggers, photos. Carries the placeholder-artist bug. |
 | [Bug — device not released on quit](bugs/archive/device-not-released-on-quit.md) | P1 | done | `f5150fd`, codex crew 2026-09-02: release-first idempotent shutdown, bounded 1s deadlines for device lease + worker join. Hardware ⌘Q check pending (Jason). |
