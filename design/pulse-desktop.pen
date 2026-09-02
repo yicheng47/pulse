@@ -3051,8 +3051,8 @@
               "id": "m14ZyM",
               "name": "Output Mode Row",
               "width": "fill_container",
-              "justifyContent": "space_between",
-              "alignItems": "center",
+              "layout": "vertical",
+              "gap": 8,
               "children": [
                 {
                   "type": "frame",
@@ -3072,31 +3072,14 @@
                       "fontWeight": "600"
                     },
                     {
-                      "type": "frame",
-                      "id": "R8pHSf",
-                      "name": "Auto Tag",
-                      "fill": "$bg-elevated",
-                      "cornerRadius": "$radius-sm",
-                      "stroke": "$border-strong",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "padding": [
-                        2,
-                        6
-                      ],
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "TAlyU",
-                          "name": "Auto Label",
-                          "fill": "$text-secondary",
-                          "content": "AUTO",
-                          "fontFamily": "$font-mono",
-                          "fontSize": 9,
-                          "fontWeight": "700",
-                          "letterSpacing": 0.5
-                        }
-                      ]
+                      "type": "text",
+                      "id": "F1PqH",
+                      "name": "Reset Link",
+                      "fill": "$accent",
+                      "content": "Reset to Auto",
+                      "fontFamily": "$font-sans",
+                      "fontSize": 12,
+                      "fontWeight": "600"
                     }
                   ]
                 },
