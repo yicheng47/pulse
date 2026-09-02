@@ -22,6 +22,38 @@ fn test_art(marker: u8) -> Vec<u8> {
     art
 }
 
+#[derive(Default)]
+struct CountingExtractor {
+    metadata_calls: std::sync::atomic::AtomicUsize,
+    folder_artwork_calls: std::sync::atomic::AtomicUsize,
+}
+
+impl ScanExtractor for CountingExtractor {
+    fn extract_metadata(
+        &self,
+        path: &Path,
+    ) -> Result<metadata::AudioMetadata, metadata::MetadataError> {
+        self.metadata_calls
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        metadata::extract_metadata(path)
+    }
+
+    fn folder_artwork(&self, path: &Path) -> io::Result<Option<metadata::EmbeddedArtwork>> {
+        self.folder_artwork_calls
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        metadata::folder_artwork(path)
+    }
+}
+
+fn test_scan_options(worker_count: usize) -> ScanOptions {
+    ScanOptions {
+        worker_count,
+        queue_capacity: 2,
+        files_per_transaction: 2,
+        transaction_max_age: Duration::MAX,
+    }
+}
+
 #[test]
 fn scan_is_incremental_removes_missing_tracks_and_preserves_offline_roots() {
     let temp = tempdir().unwrap();
@@ -160,7 +192,227 @@ fn scan_adds_updates_and_prunes_materialized_artists() {
 }
 
 #[test]
-fn cancellation_keeps_partial_commits_without_recording_a_failed_scan() {
+fn sequential_and_parallel_extraction_produce_identical_scan_results() {
+    let temp = tempdir().unwrap();
+    let music = temp.path().join("music");
+    let first_album = music.join("first-album");
+    let second_album = music.join("second-album");
+    fs::create_dir_all(&first_album).unwrap();
+    fs::create_dir(&second_album).unwrap();
+    metadata::write_test_wav(
+        &first_album.join("01-first.wav"),
+        "First",
+        "Artist",
+        "First Album",
+    )
+    .unwrap();
+    metadata::write_test_wav(
+        &first_album.join("02-second.wav"),
+        "Second",
+        "Artist",
+        "First Album",
+    )
+    .unwrap();
+    fs::write(first_album.join("folder.png"), test_art(7)).unwrap();
+    metadata::write_test_wav(
+        &second_album.join("01-third.wav"),
+        "Third",
+        "Other Artist",
+        "Second Album",
+    )
+    .unwrap();
+    metadata::write_test_wav_with_format(
+        &second_album.join("02-unsupported.wav"),
+        "Unsupported",
+        "Other Artist",
+        "Second Album",
+        3,
+    )
+    .unwrap();
+    fs::write(second_album.join("03-invalid.wav"), b"not audio").unwrap();
+
+    let mut sequential_store = LibraryStore::open_in_memory().unwrap();
+    let sequential_root =
+        crate::backend::repo::storage_roots::add(&mut sequential_store, &music, "Sequential")
+            .unwrap();
+    let mut parallel_store = LibraryStore::open_in_memory().unwrap();
+    let parallel_root =
+        crate::backend::repo::storage_roots::add(&mut parallel_store, &music, "Parallel").unwrap();
+    let extractor = FilesystemExtractor;
+
+    let sequential = storage_root_until_with(
+        &mut sequential_store,
+        sequential_root.id,
+        temp.path().join("sequential-covers"),
+        |_| {},
+        || false,
+        &extractor,
+        test_scan_options(1),
+    )
+    .unwrap()
+    .unwrap();
+    let parallel = storage_root_until_with(
+        &mut parallel_store,
+        parallel_root.id,
+        temp.path().join("parallel-covers"),
+        |_| {},
+        || false,
+        &extractor,
+        test_scan_options(4),
+    )
+    .unwrap()
+    .unwrap();
+
+    let report_semantics = |report: &ScanReport| {
+        (
+            report.discovered,
+            report.added,
+            report.updated,
+            report.removed,
+            report.unsupported,
+            report.skipped,
+            report.removals_suppressed,
+            report.errors.clone(),
+            report.outcome,
+        )
+    };
+    assert_eq!(report_semantics(&parallel), report_semantics(&sequential));
+
+    let library_semantics = |store: &LibraryStore, root_id| {
+        crate::backend::repo::tracks::for_root(store, root_id)
+            .unwrap()
+            .into_iter()
+            .map(|track| {
+                let cover = track
+                    .cover_art_path
+                    .as_ref()
+                    .map(fs::read)
+                    .transpose()
+                    .unwrap();
+                (
+                    track.path,
+                    track.title,
+                    track.artist,
+                    track.album,
+                    track.sample_rate_hz,
+                    track.bit_depth,
+                    track.channels,
+                    track.cover_art_mime_type,
+                    cover,
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        library_semantics(&parallel_store, parallel_root.id),
+        library_semantics(&sequential_store, sequential_root.id)
+    );
+}
+
+#[test]
+fn folder_artwork_is_listed_once_per_directory_per_scan() {
+    let temp = tempdir().unwrap();
+    let music = temp.path().join("music");
+    fs::create_dir(&music).unwrap();
+    for index in 0..8 {
+        metadata::write_test_wav(
+            &music.join(format!("{index:02}.wav")),
+            &format!("Track {index}"),
+            "Artist",
+            "Album",
+        )
+        .unwrap();
+    }
+    let mut store = LibraryStore::open_in_memory().unwrap();
+    let root = crate::backend::repo::storage_roots::add(&mut store, &music, "Music").unwrap();
+    let extractor = CountingExtractor::default();
+    let options = ScanOptions {
+        files_per_transaction: 200,
+        ..test_scan_options(4)
+    };
+
+    let first = storage_root_until_with(
+        &mut store,
+        root.id,
+        temp.path().join("covers"),
+        |_| {},
+        || false,
+        &extractor,
+        options,
+    )
+    .unwrap()
+    .unwrap();
+    assert_eq!(first.added, 8);
+    assert_eq!(
+        extractor
+            .folder_artwork_calls
+            .load(std::sync::atomic::Ordering::Relaxed),
+        1
+    );
+    assert_eq!(
+        extractor
+            .metadata_calls
+            .load(std::sync::atomic::Ordering::Relaxed),
+        8
+    );
+
+    extractor
+        .metadata_calls
+        .store(0, std::sync::atomic::Ordering::Relaxed);
+    let second = storage_root_until_with(
+        &mut store,
+        root.id,
+        temp.path().join("covers"),
+        |_| {},
+        || false,
+        &extractor,
+        options,
+    )
+    .unwrap()
+    .unwrap();
+    assert_eq!(second.skipped, 8);
+    assert_eq!(
+        extractor
+            .folder_artwork_calls
+            .load(std::sync::atomic::Ordering::Relaxed),
+        2
+    );
+    assert_eq!(
+        extractor
+            .metadata_calls
+            .load(std::sync::atomic::Ordering::Relaxed),
+        0,
+        "mtime-matched artless tracks must not reread audio metadata"
+    );
+}
+
+#[test]
+fn folder_artwork_memo_releases_a_directory_after_its_last_file() {
+    let temp = tempdir().unwrap();
+    let music = temp.path().join("music");
+    fs::create_dir(&music).unwrap();
+    metadata::write_test_wav(&music.join("first.wav"), "First", "Artist", "Album").unwrap();
+    metadata::write_test_wav(&music.join("second.wav"), "Second", "Artist", "Album").unwrap();
+    let walk = walk::walk_music_files(&music, true, |_, _| {}).unwrap();
+    let extractor = CountingExtractor::default();
+    let memo = FolderArtworkMemo::new(&extractor, &walk.files);
+
+    assert_eq!(memo.entry_count(), 1);
+    assert!(memo.get(&walk.files[0].path).unwrap().is_none());
+    memo.release(&walk.files[0].path);
+    assert_eq!(memo.entry_count(), 1);
+    memo.release(&walk.files[1].path);
+    assert_eq!(memo.entry_count(), 0);
+    assert_eq!(
+        extractor
+            .folder_artwork_calls
+            .load(std::sync::atomic::Ordering::Relaxed),
+        1
+    );
+}
+
+#[test]
+fn cancellation_after_batch_progress_keeps_the_committed_batch_without_history() {
     let temp = tempdir().unwrap();
     let music = temp.path().join("music");
     fs::create_dir(&music).unwrap();
@@ -170,7 +422,7 @@ fn cancellation_keeps_partial_commits_without_recording_a_failed_scan() {
     let root = crate::backend::repo::storage_roots::add(&mut store, &music, "Music").unwrap();
     let cancelled = Cell::new(false);
 
-    let report = storage_root_cancellable(
+    let report = storage_root_until_with(
         &mut store,
         root.id,
         temp.path().join("covers"),
@@ -180,6 +432,8 @@ fn cancellation_keeps_partial_commits_without_recording_a_failed_scan() {
             }
         },
         || cancelled.get(),
+        &FilesystemExtractor,
+        test_scan_options(2),
     )
     .unwrap();
 
@@ -188,12 +442,12 @@ fn cancellation_keeps_partial_commits_without_recording_a_failed_scan() {
         crate::backend::repo::tracks::for_root(&store, root.id)
             .unwrap()
             .len(),
-        1
+        2
     );
     let artists = crate::backend::repo::artists::index(&store).unwrap();
     assert_eq!(artists.len(), 1);
     assert_eq!(artists[0].name_key, "Artist");
-    assert_eq!((artists[0].album_count, artists[0].track_count), (1, 1));
+    assert_eq!((artists[0].album_count, artists[0].track_count), (1, 2));
     assert!(
         crate::backend::repo::scan_history::recent(&store, root.id, 1)
             .unwrap()
@@ -202,7 +456,122 @@ fn cancellation_keeps_partial_commits_without_recording_a_failed_scan() {
 }
 
 #[test]
-fn failed_artist_refresh_rolls_back_the_current_scan_track() {
+fn cancellation_commits_finished_files_in_the_open_chunk() {
+    let temp = tempdir().unwrap();
+    let music = temp.path().join("music");
+    fs::create_dir(&music).unwrap();
+    for index in 0..5 {
+        metadata::write_test_wav(
+            &music.join(format!("{index:02}.wav")),
+            &format!("Track {index}"),
+            "Artist",
+            "Album",
+        )
+        .unwrap();
+    }
+    let mut store = LibraryStore::open_in_memory().unwrap();
+    let root = crate::backend::repo::storage_roots::add(&mut store, &music, "Music").unwrap();
+    let walk = walk::walk_music_files(&music, root.is_case_sensitive, |_, _| {}).unwrap();
+    let started_at_ms = system_time_ms(SystemTime::now()).unwrap();
+    let scan_id =
+        crate::backend::repo::scan_history::begin(&mut store, root.id, started_at_ms).unwrap();
+    let cancellation_checks = Cell::new(0);
+    let mut progress = Vec::new();
+
+    let report = apply_reachable_scan_with(
+        &mut store,
+        (scan_id, started_at_ms),
+        &root,
+        walk,
+        &temp.path().join("covers"),
+        &mut |event| progress.push(event),
+        &mut || {
+            let check = cancellation_checks.get();
+            cancellation_checks.set(check + 1);
+            check == 3
+        },
+        &FilesystemExtractor,
+        test_scan_options(2),
+    )
+    .unwrap();
+
+    assert!(report.is_none());
+    assert_eq!(
+        crate::backend::repo::tracks::for_root(&store, root.id)
+            .unwrap()
+            .len(),
+        3,
+        "the two-file completed chunk and the finished file in the open chunk commit"
+    );
+    assert_eq!(
+        progress
+            .iter()
+            .filter(|event| matches!(event, ScanProgress::Processing { .. }))
+            .count(),
+        3
+    );
+    assert!(
+        crate::backend::repo::scan_history::recent(&store, root.id, 1)
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+fn cancellation_bounds_extractor_work_in_flight() {
+    let temp = tempdir().unwrap();
+    let music = temp.path().join("music");
+    fs::create_dir(&music).unwrap();
+    for index in 0..24 {
+        metadata::write_test_wav(
+            &music.join(format!("{index:02}.wav")),
+            &format!("Track {index}"),
+            "Artist",
+            "Album",
+        )
+        .unwrap();
+    }
+    let mut store = LibraryStore::open_in_memory().unwrap();
+    let root = crate::backend::repo::storage_roots::add(&mut store, &music, "Music").unwrap();
+    let walk = walk::walk_music_files(&music, root.is_case_sensitive, |_, _| {}).unwrap();
+    let started_at_ms = system_time_ms(SystemTime::now()).unwrap();
+    let scan_id =
+        crate::backend::repo::scan_history::begin(&mut store, root.id, started_at_ms).unwrap();
+    let extractor = CountingExtractor::default();
+    let options = test_scan_options(2);
+
+    let report = apply_reachable_scan_with(
+        &mut store,
+        (scan_id, started_at_ms),
+        &root,
+        walk,
+        &temp.path().join("covers"),
+        &mut |_| {},
+        &mut || true,
+        &extractor,
+        options,
+    )
+    .unwrap();
+
+    let started = extractor
+        .metadata_calls
+        .load(std::sync::atomic::Ordering::Relaxed);
+    let in_flight_bound = options.worker_count + options.queue_capacity * 2 + 1;
+    assert!(report.is_none());
+    assert!(started > 0);
+    assert!(
+        started <= in_flight_bound,
+        "started {started} extractions with an in-flight bound of {in_flight_bound}"
+    );
+    assert!(
+        crate::backend::repo::tracks::for_root(&store, root.id)
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+fn failed_artist_refresh_rolls_back_the_open_writer_chunk() {
     let temp = tempdir().unwrap();
     let music = temp.path().join("music");
     let cache = temp.path().join("covers");
@@ -229,12 +598,9 @@ fn failed_artist_refresh_rolls_back_the_current_scan_track() {
 
     assert!(error.to_string().contains("artist refresh failed"));
     let tracks = crate::backend::repo::tracks::for_root(&store, root.id).unwrap();
-    assert_eq!(tracks.len(), 1);
-    assert_eq!(tracks[0].artist.as_deref(), Some("First Artist"));
+    assert!(tracks.is_empty());
     let artists = crate::backend::repo::artists::index(&store).unwrap();
-    assert_eq!(artists.len(), 1);
-    assert_eq!(artists[0].name_key, "First Artist");
-    assert_eq!((artists[0].album_count, artists[0].track_count), (1, 1));
+    assert!(artists.is_empty());
     assert_eq!(
         crate::backend::repo::scan_history::recent(&store, root.id, 1).unwrap()[0].outcome,
         Some(ScanOutcome::Failed)
@@ -600,7 +966,7 @@ fn cover_cache_paths_are_content_unique_and_deterministic() {
             &transaction,
             &cache,
             track_id,
-            metadata::EmbeddedArtwork {
+            &metadata::EmbeddedArtwork {
                 data,
                 mime_type: Some(mime.to_string()),
             },
