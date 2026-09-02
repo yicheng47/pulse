@@ -6,8 +6,8 @@ The active-development tracker for Pulse. Since 2026-08-29 this file — not Git
 
 The cursor for a fresh session — current state of `main` in one glance; details in the milestone tables below. Updated 2026-09-01.
 
-- **Just landed**: feature 75 scan performance (`54231a1`) — folder-art memo, chunked writer, extractor pool; plus the quit device-release fix (`f5150fd`) and toasts + DSD refusal UI (`ee09b0c`).
-- **In flight**: self-drive queue (Jason, 2026-09-02): bug — output-popover mode-row crowding, then bug — placeholder album artist; merge on lead review.
+- **Just landed**: the 2026-09-02 self-drive queue — feature 75 scan performance (`54231a1`), the popover mode-row stack (`95f9756`), the placeholder-artist scanner rule (`bc84dd2`); plus the quit device-release fix (`f5150fd`) and toasts + DSD refusal UI (`ee09b0c`).
+- **In flight**: nothing — every remaining M4 row needs Jason (feature 56 design gate, feature 72 approval, feature 55 build order) or his hardware/visual pass.
 - **Waiting on Jason**: feature 71 phase 4 remainder — pause-lock / seek-relock / refusal checks on the Matrix; closes [#71](https://github.com/yicheng47/pulse/issues/71). Open product pick: pause-release flavor (grace period vs immediate) for the exclusive device. Hardware ⌘Q check for the quit fix (`f5150fd`) rides the same session.
 - **Up next**: feature 56 — now-playing page (design pinned, mission-ready).
 
@@ -70,7 +70,7 @@ DSD playback first, then the now-playing page, then integrations and polish; art
 | [Feature 72 — metadata enrichment](features/72-metadata-enrichment.md) | P2 | designing | Postponed (Jason, 2026-09-01). Spec + Settings ▸ Metadata design drafted 2026-08-30; awaiting approval. Phase 1 backend + enrich dry-run flag, phase 2 settings page, triggers, photos. Carries the placeholder-artist bug. |
 | [Bug — device not released on quit](bugs/archive/device-not-released-on-quit.md) | P1 | done | `f5150fd`, codex crew 2026-09-02: release-first idempotent shutdown, bounded 1s deadlines for device lease + worker join. Hardware ⌘Q check pending (Jason). |
 | [Bug — output popover mode row crowding](bugs/archive/output-popover-mode-row-crowding.md) | P2 | done | `95f9756`, codex crew 2026-09-02 (drive mode): stacked two-line mode row in the popover, Devices unchanged; Jason's visual pass pending. |
-| [Bug — placeholder album artist becomes an artist](bugs/placeholder-album-artist.md) | P3 | planned | `######` and similar name-less album artists fall back to the track artist in the scanner; files already fixed at the source. Small; rides with feature 72 when it un-postpones. |
+| [Bug — placeholder album artist becomes an artist](bugs/archive/placeholder-album-artist.md) | P3 | done | `bc84dd2`, codex crew 2026-09-02 (drive mode): artists-only normalization at one scan choke point; album titles untouched (no album fallback exists — note corrected). |
 
 ## Parking lot
 

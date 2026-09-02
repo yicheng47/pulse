@@ -8,7 +8,7 @@ Pulse groups the Artists page and the album card's artist line by album artist, 
 
 ## Expected Behavior
 
-An album artist that carries no name — no alphanumeric character in any script (`char::is_alphanumeric` is Unicode-aware, so CJK counts as a name) — is treated as unset: the track's album artist is stored as `NULL` and the existing fallback picks the track artist. `######`, `----`, `???`, `*` all fall through; `王菲`, `Various Artists`, `!!!` (the band) do not — `!!!` is the known false negative and is accepted. The same rule applies to the track artist (falls to `Unknown Artist`) and to the album title (falls to the folder-name fallback). Titles are left alone.
+An album artist that carries no name — no alphanumeric character in any script (`char::is_alphanumeric` is Unicode-aware, so CJK counts as a name) — is treated as unset: the track's album artist is stored as `NULL` and the existing fallback picks the track artist. `######`, `----`, `???`, `*` all fall through; `王菲`, `Various Artists`, `!!!` (the band) do not — `!!!` is the known false negative and is accepted. The same rule applies to the track artist (falls to `Unknown Artist`). Album titles and track titles are left verbatim — this note originally claimed albums fall to "the folder-name fallback", but no such fallback exists in Pulse (caught by the fix mission's reviewer, 2026-09-02); normalizing albums without one would have nulled titles with nothing to catch them.
 
 ## Steps To Reproduce
 
@@ -33,3 +33,7 @@ An album artist that carries no name — no alphanumeric character in any script
 
 - `sqlite3 library.sqlite "select album_artist, hex(album_artist), count(*) from tracks group by 1"` showed `######` (`23×6`) on exactly 61 tracks, all under `华语/王菲/`; `metaflac --show-tag=ALBUMARTIST` confirmed the tag in the files.
 - Fix verification: a `metadata.rs` test that `######`, `---`, and whitespace map to `None` for artist / album artist / album while `王菲` and `!!!`-style names are kept; rescan of a tagged fixture lands the track under the track artist.
+
+## Fixed
+
+`bc84dd2`, codex crew mission 2026-09-02 in drive mode: one Unicode-alphanumeric `name_tag_text` choke point in `scan/metadata.rs` for track artist + album artist across the PCM and DSD paths; scan-level test proves `######` lands as NULL and the effective-artist fallback resolves to the track artist. Forward-looking only — unchanged files keep their rows (mtime fast path), which is fine: the affected files were fixed at the source.

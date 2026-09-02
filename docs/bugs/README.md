@@ -4,10 +4,10 @@ One note per open bug, written with the `bug` skill's template (description, exp
 
 ## Open
 
-- [`placeholder-album-artist.md`](placeholder-album-artist.md) - P3. Album artists with no name (`######`) should fall back to the track artist instead of becoming an artist.
 
 ## Fixed
 
+- [`archive/placeholder-album-artist.md`](archive/placeholder-album-artist.md) - P3. Name-less artist tags stored as NULL so the effective-artist fallback resolves them; albums left verbatim (the note's folder-name-fallback claim was wrong); `bc84dd2`.
 - [`archive/output-popover-mode-row-crowding.md`](archive/output-popover-mode-row-crowding.md) - P2. The popover's mode row stacks (label + state over segments); Devices keeps one line; `95f9756`, visual pass pending.
 - [`archive/device-not-released-on-quit.md`](archive/device-not-released-on-quit.md) - P1. Quit now releases the device (unhog + format/mixing restore) before persistence under bounded deadlines; `f5150fd`, hardware ⌘Q check pending.
 - [`archive/builtin-speakers-exclusive-volume.md`](archive/builtin-speakers-exclusive-volume.md) - P2. Hogged devices: Pulse drives the hardware volume and mute controls, adopting the device level once per session; `38734b8`, validated on hardware 2026-08-30.
