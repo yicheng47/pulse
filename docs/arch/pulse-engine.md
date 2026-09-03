@@ -141,7 +141,7 @@ Design-level summary of the M3 milestone; the staged record with hardware findin
 - **Probe gate**: not every device accepts an integer virtual format. A capability probe answers per device; devices that refuse resolve to the universal engine under AUTO. The milestone's stage 1 was explicitly a gate — "not possible on this OS/device" would have been recorded as the honest outcome rather than shipping a float engine with the label.
 - **Device state discipline**: hog, mixing, and both formats are mutated under RAII guards (`HogGuard`, `FormatRestoreGuard`) that restore prior state on release. Hog dies with the process; formats can persist across a crash — a documented, accepted risk.
 - **Purity**: the integer path has no multiply. Volume is the device's hardware control or fixed at 100% (feature 31's volume domains and Signal Path verdicts surface this honestly in the app).
-- **Pause holds the device** (`retains_device_when_paused`): pausing keeps hog, the negotiated format, and — for DoP — the DAC's DSD lock, instead of tearing the sink down.
+- **Pause holds the device** (`retains_device_when_paused`): pausing keeps hog and the negotiated format instead of tearing the sink down. Whether a DAC holds its DSD lock through the data gap of a pause is the DAC's business, not the engine's — feature 71 phase 4 still owes that observation on the Matrix.
 - **Proof**: the DoP acceptance. A DSD64 stream DoP-packed into ordinary PCM frames played end to end and the Matrix reported the DSD stream intact. DSD playback (feature 71) now rides this property in production: DSD tracks are refused on any path that cannot guarantee bit-exact delivery, because corrupted DoP is loud hiss.
 
 ## 10. Backpressure And Underruns

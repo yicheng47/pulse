@@ -4,12 +4,12 @@ The active-development tracker for Pulse. Since 2026-08-29 this file — not Git
 
 ## Now
 
-The cursor for a fresh session — current state of `main` in one glance; details in the milestone tables below. Updated 2026-09-02.
+The cursor for a fresh session — current state of `main` in one glance; details in the milestone tables below. Updated 2026-09-03.
 
 - **Just landed**: the 2026-09-02 self-drive queue — feature 75 scan performance (`54231a1`), the popover mode-row stack (`95f9756`), the placeholder-artist scanner rule (`bc84dd2`); plus the quit device-release fix (`f5150fd`) and toasts + DSD refusal UI (`ee09b0c`).
-- **In flight**: feature 76 seamless in-track transport (spec filed, mission queued pending Runner.app); feature 77 manual device unlock (spec + Pencil pass in progress, design gate is Jason's).
+- **In flight**: feature 78 integer engine hardening — staged plan filed 2026-09-03 ([`impls/78-integer-engine-plan.md`](impls/78-integer-engine-plan.md)), stage 1 (boundary reuse) mission running on `codex-crew`, PR per stage, Jason reviews each personally; feature 76 seamless in-track transport (spec filed, mission queued behind 78); feature 77 manual device unlock (spec + Pencil pass in progress, design gate is Jason's).
 - **Waiting on Jason**: feature 71 phase 4 remainder — pause-lock / seek-relock / refusal checks on the Matrix; closes [#71](https://github.com/yicheng47/pulse/issues/71). Hardware ⌘Q check for the quit fix (`f5150fd`) rides the same session. NAS scan timing for 75. (UI smoke test of the 09-01/02 merges: passed 2026-09-02. Pause-release question: resolved — hold-on-pause stays, manual unlock ships as feature 77.)
-- **Up next**: feature 56 — now-playing page (design pinned, mission-ready); feature 78 — integer engine hardening (review filed 2026-09-02, engine-only, mission-ready).
+- **Up next**: feature 56 — now-playing page (design pinned, mission-ready); feature 78 stages 2–4 after each merge, stage 5 (mono sources) on Jason's decision.
 
 ## How this board works
 
@@ -66,7 +66,7 @@ DSD playback first, then the now-playing page, then integrations and polish; art
 | [Feature 56 — now playing page](features/56-now-playing-page.md) | P2 | planned | Design pinned. |
 | [Feature 76 — seamless in-track transport](features/76-seamless-transport.md) | P2 | planned | Spec filed 2026-09-02; engine-only, mission queued pending Runner.app. |
 | [Feature 77 — manual device unlock](features/77-manual-device-unlock.md) | P2 | designing | Filed 2026-09-02 from Jason's ask; resolves the pause-release question. Pencil pass drafted, awaiting Jason's design approval. |
-| [Feature 78 — integer engine hardening](features/78-integer-engine-hardening.md) | P2 | planned | Filed 2026-09-02 from the engine review: in-place format change at track boundaries, AUTO gate parity, stream-indexed IOProc fill; engine-only, mission-ready. Review + plan: [`impls/78-integer-engine-review.md`](impls/78-integer-engine-review.md). |
+| [Feature 78 — integer engine hardening](features/78-integer-engine-hardening.md) | P2 | in flight | Filed 2026-09-02 from the engine review: in-place format change at track boundaries, AUTO gate parity, stream-indexed IOProc fill. Staged 2026-09-03 as five PRs, Jason reviews each: [`impls/78-integer-engine-plan.md`](impls/78-integer-engine-plan.md); review record [`impls/78-integer-engine-review.md`](impls/78-integer-engine-review.md). Stage 1 in flight. |
 | [Feature 55 — MCP server](features/55-mcp-server.md) | P2 | planned | Needs 25's ops layer; the trigger for splitting `backend/` into a crate. |
 | [Feature 75 — scan performance](features/archive/75-scan-performance.md) | P2 | done | `54231a1`, codex crew 2026-09-02 (drive mode): memo + chunked transactions + extractor pool; fixture parity pinned. Before/after NAS timing is Jason's when convenient. |
 | [Feature 73 — scan error detail](features/73-scan-error-detail.md) | P3 | planned | Persist per-file scan errors; ISSUES badge opens path + plain-language reason + Reveal in Finder. Pencil pass before the UI phase. |
