@@ -2,12 +2,12 @@
 //! Driven in-process by `pulse-app`.
 
 mod auhal;
+mod auhal_engine;
 pub mod command;
 pub mod controller;
 pub mod decode;
 mod decode_dsd;
 pub mod device;
-mod engine;
 mod error;
 pub mod event;
 mod gain;
@@ -19,10 +19,10 @@ mod raw_sink;
 pub mod source;
 pub mod state;
 
+pub use auhal_engine::AuhalEngine;
 pub use command::EngineKind;
 pub use command::PlaybackCommand;
 pub use controller::PlaybackController;
-pub use engine::Engine;
 pub use error::EngineError;
 pub use event::{PlaybackErrorKind, PlaybackEvent, VolumeDomain, VolumeState};
 pub use gain::volume_gain_for_level;

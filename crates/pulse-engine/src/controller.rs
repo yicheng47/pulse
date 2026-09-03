@@ -3,7 +3,7 @@
 //!
 //! Three layers live here. `PlaybackController` is the public handle (command sender, event
 //! subscriptions, shutdown). `Worker` is the state machine on its own thread. `PlaybackBackend` is
-//! the one trait both engines sit behind — `EngineBackend` (AUHAL, universal) and `IntegerBackend`
+//! the one trait both engines sit behind — `AuhalBackend` (AUHAL, universal) and `IntegerBackend`
 //! (raw HAL, bit-perfect) — so the worker never knows which one it is driving.
 //!
 //! The worker moves bytes: `SourceDecoder::next_pcm` fills a chunk, `PlaybackBackend::feed` takes as
@@ -28,9 +28,9 @@ use std::{
 };
 
 use crate::{
-    Engine, EngineError, EngineKind, PcmFormat, PlayableSource, PlaybackCommand, PlaybackEvent,
-    PlaybackState, VolumeDomain, VolumeState, decode::PcmDecoder, decode_dsd::DsdDopDecoder,
-    device::DeviceId, integer_engine::IntegerEngine,
+    AuhalEngine, EngineError, EngineKind, PcmFormat, PlayableSource, PlaybackCommand,
+    PlaybackEvent, PlaybackState, VolumeDomain, VolumeState, decode::PcmDecoder,
+    decode_dsd::DsdDopDecoder, device::DeviceId, integer_engine::IntegerEngine,
 };
 
 const POSITION_EVENT_INTERVAL_MS: u64 = 100;
@@ -116,7 +116,7 @@ impl PlaybackController {
             engine_kind,
             Arc::new(|device_id, kind| match kind {
                 EngineKind::Universal { exclusive_mode } => {
-                    Ok(Box::new(EngineBackend::open(device_id, exclusive_mode)?)
+                    Ok(Box::new(AuhalBackend::open(device_id, exclusive_mode)?)
                         as Box<dyn PlaybackBackend>)
                 }
                 EngineKind::BitPerfect => {
@@ -313,20 +313,20 @@ trait PlaybackBackend {
     }
 }
 
-/// The universal engine behind the trait: AUHAL, float32 client format, shared or exclusive.
-struct EngineBackend {
-    engine: Engine,
+/// The AUHAL engine behind the trait — Universal mode: float32 client format, shared or exclusive.
+struct AuhalBackend {
+    engine: AuhalEngine,
 }
 
-impl EngineBackend {
+impl AuhalBackend {
     fn open(device_id: DeviceId, exclusive_mode: bool) -> Result<Self, EngineError> {
         Ok(Self {
-            engine: Engine::open(device_id, exclusive_mode)?,
+            engine: AuhalEngine::open(device_id, exclusive_mode)?,
         })
     }
 }
 
-impl PlaybackBackend for EngineBackend {
+impl PlaybackBackend for AuhalBackend {
     fn start(&mut self, format: PcmFormat) -> Result<(), EngineError> {
         self.engine.set_format(format)?;
         self.engine.play()
@@ -361,7 +361,7 @@ impl PlaybackBackend for EngineBackend {
     }
 
     fn shutdown_handle(&self) -> Option<BackendReleaseHandle> {
-        // Universal mode has no device lease shared outside its worker-owned Engine.
+        // Universal mode has no device lease shared outside its worker-owned AuhalEngine.
         None
     }
 }

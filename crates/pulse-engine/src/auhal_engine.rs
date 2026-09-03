@@ -41,8 +41,9 @@ impl FloatPacker {
     }
 }
 
-/// Playback engine for one output device.
-pub struct Engine {
+/// The AUHAL engine behind Universal mode: samples cross into a float32 client format and
+/// Core Audio owns the conversion to the device; shared, or exclusive with the hog held.
+pub struct AuhalEngine {
     device: device::DeviceId,
     exclusive_mode: bool,
     _hog: Option<hal::HogGuard>,
@@ -57,7 +58,7 @@ pub struct Engine {
     gain_control: GainControl,
 }
 
-impl Engine {
+impl AuhalEngine {
     pub fn open(device: device::DeviceId, exclusive_mode: bool) -> Result<Self, EngineError> {
         let hog = exclusive_mode
             .then(|| hal::HogGuard::acquire(device))
@@ -254,7 +255,7 @@ fn configure_device_format(
     Ok(())
 }
 
-impl Drop for Engine {
+impl Drop for AuhalEngine {
     fn drop(&mut self) {
         let _ = self.pause();
     }
