@@ -4,7 +4,7 @@ One note per open bug, written with the `bug` skill's template (description, exp
 
 ## Open
 
-- [`volume-lock-lags-bit-perfect-switch.md`](volume-lock-lags-bit-perfect-switch.md) - P2. The volume control locks only when the next play starts, not when Bit-perfect is selected; the domain is emitted only from a backend start.
+- [`volume-lock-lags-bit-perfect-switch.md`](volume-lock-lags-bit-perfect-switch.md) - P2. The volume control locks only when the next play starts, not when Exclusive resolves to the integer engine; the domain is emitted only from a backend start.
 
 
 ## Fixed
