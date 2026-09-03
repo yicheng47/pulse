@@ -8,7 +8,7 @@
 
 There are **two engines** behind one controller, selected per device through the one-axis Output mode (Shared · Exclusive · Bit-perfect, AUTO-resolved from a capability probe):
 
-- The **universal engine** (`engine.rs` + `auhal.rs`) plays through Core Audio's Hardware AudioUnit (AUHAL). Pulse feeds an interleaved float32 client stream and Core Audio converts to the device's physical format. It works on every output — Bluetooth, AirPods, float-only devices — and runs shared (polite, no device-wide rate switching) or exclusive (hog + native rate). Its honest claim is native-rate playback with no Pulse-side DSP. It is **not** bit-perfect: the float32 client boundary is a deliberate transform.
+- The **universal engine** (`auhal_engine.rs` + `auhal.rs`) plays through Core Audio's Hardware AudioUnit (AUHAL). Pulse feeds an interleaved float32 client stream and Core Audio converts to the device's physical format. It works on every output — Bluetooth, AirPods, float-only devices — and runs shared (polite, no device-wide rate switching) or exclusive (hog + native rate). Its honest claim is native-rate playback with no Pulse-side DSP. It is **not** bit-perfect: the float32 client boundary is a deliberate transform.
 - The **integer engine** (`integer_engine.rs` + `raw_sink.rs`) is a raw HAL sink: `AudioDeviceCreateIOProcID` with hog mode, mixing disabled, an integer physical format, and — the decisive part — the **virtual format set equal to the integer physical format**, so the IOProc buffer takes source integers directly. Samples are never converted to float and the engine structurally cannot multiply them; volume is hardware or fixed. **This path is bit-perfect, and since 2026-09-01 the claim is proven, not aspirational**: a DoP-packed DSD64 stream played through the full path and the Matrix Mini-i Pro 4 displayed "DSD DoP 2.8MHz" — DoP markers survive only bit-exact delivery, so a single flipped bit would have broken the DSD lock.
 
 The two-engine shape is the resolution of an old failure. Stage 0003's raw-HAL attempt produced heavy noise and forced the AUHAL pivot; the root cause, understood only during M3, was integer bytes written into a buffer whose *virtual* format was still float32. The integer engine fixes that cause instead of avoiding it, and the universal engine remains the compatibility path rather than a fallback wearing the bit-perfect label.
@@ -36,7 +36,7 @@ The runtime is a long-lived controller inside the Rust process, not a separate O
                 ▼                                   ▼
 ┌───────────────────────────────┐   ┌──────────────────────────────────────────┐
 │ universal engine              │   │ integer engine                           │
-│ engine.rs + auhal.rs          │   │ integer_engine.rs + raw_sink.rs          │
+│ auhal_engine.rs + auhal.rs          │   │ integer_engine.rs + raw_sink.rs          │
 │ PCM → f32 → rtrb ring         │   │ PCM → IntPacker → rtrb ring              │
 │ AUHAL render callback drains  │   │ raw IOProc drains integer bytes          │
 │ float32 client stream;        │   │ virtual = physical integer format;       │
@@ -96,7 +96,7 @@ crates/pulse-engine/src/
   decode_dsd.rs     DSF/DFF parsers + DoP packer (feature 71)
   device.rs         output-device discovery and identity
   hal.rs            all unsafe Core Audio property FFI: hog, formats, rates, listeners
-  engine.rs         universal engine: format negotiation + AUHAL lifecycle
+  auhal_engine.rs         universal engine: format negotiation + AUHAL lifecycle
   auhal.rs          AudioUnit render-callback sink (float32 client stream)
   integer_engine.rs bit-perfect engine: probe-gated open, IntPacker, IOProc lifecycle
   raw_sink.rs       raw IOProc callback + ring consumer
@@ -128,7 +128,7 @@ Both traits are deliberately private: the controller is their only consumer, and
 - **`decode.rs`** — symphonia: open, probe native format, decode to interleaved integer PCM, accurate seek, `EngineError::Decode` on failure.
 - **`decode_dsd.rs`** — DSF (planar blocks, LSB-first bit reversal) and DFF (chunked, MSB-first) to DoP frames; refuses DST and MSB-first DSF with clear errors rather than risking noise.
 - **`hal.rs`** — the entire unsafe Core Audio property surface behind typed `Result` helpers: hog acquire/release, nominal rate, physical/virtual formats, mixing, listeners. Rate and format switches are async; the wrappers wait on property listeners before trusting new state.
-- **`engine.rs` / `auhal.rs`** — the universal engine: nominal-rate handling per mode, float32 packing, AUHAL sink lifecycle, software gain hook.
+- **`auhal_engine.rs` / `auhal.rs`** — the universal engine: nominal-rate handling per mode, float32 packing, AUHAL sink lifecycle, software gain hook.
 - **`integer_engine.rs` / `raw_sink.rs`** — the bit-perfect engine; see §9.
 - **`gain.rs`** — software volume for the universal path only; the integer path has no gain stage by construction.
 - **`levels.rs`** — analysis tap; must never slow playback.

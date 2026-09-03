@@ -13,7 +13,7 @@ A separate playback process was considered and rejected (2026-08-07). To be prec
 | Thread | Spawned by | Owns | Lifetime |
 | --- | --- | --- | --- |
 | Main / UI | gpui runtime | All views, view models, the `LibraryStore` (when not lent to a worker), all SQLite queries, playback event drain, device watchdog | Process |
-| `pulse-playback-controller` | `PlaybackController::spawn` (`controller.rs`) | Command loop, symphonia decode, `Engine` (hog guard, ring producer), position/state bookkeeping | One per controller; joined on `Drop` via a shutdown flag |
+| `pulse-playback-controller` | `PlaybackController::spawn` (`controller.rs`) | Command loop, symphonia decode, `AuhalEngine` (hog guard, ring producer), position/state bookkeeping | One per controller; joined on `Drop` via a shutdown flag |
 | Core Audio realtime IO | AUHAL (`AuhalSink::start`) | The render callback: drains the ring buffer to the device | While the sink is playing |
 | `pulse-library-open` | `LibraryView::begin_open_store` | `LibraryStore::open` and the v1→v2 metadata backfill, reporting `BackfillProgress` | Until the store opens or fails |
 | `pulse-library-scan` | `LibraryView::start_scan` | The `LibraryStore` (moved in), file walk, metadata extraction, cover cache writes | Until scan completes or is cancelled |
@@ -26,7 +26,7 @@ Main / UI thread
   │  PlaybackCommand (mpsc)                 ▲  PlaybackEvent (mpsc, drained every 16 ms)
   ▼                                         │
 pulse-playback-controller ──────────────────┘
-  │  decode (symphonia) → Engine::feed → float32 pack
+  │  decode (symphonia) → AuhalEngine::feed → float32 pack
   ▼
 rtrb SPSC ring buffer (~4 s of audio)
   │
