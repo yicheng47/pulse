@@ -1341,7 +1341,7 @@ impl Worker {
     }
 
     fn rebuild_for_preloaded(&mut self, next: PreloadedSource) -> Result<(), EngineError> {
-        self.release_backend()?;
+        self.stop_active()?;
         self.start_backend(next.format)?;
         let source = next.source.clone();
         self.current = Some(CurrentTrack {
@@ -4878,7 +4878,7 @@ mod tests {
     fn format_mismatch_rebuilds_backend_and_still_advances() {
         let (controller, log) = fake_controller();
         configure_decoder(&log, "a.flac", TEST_FORMAT, 2_000, 2_000);
-        configure_decoder(&log, "b.flac", ALT_FORMAT, 1_000, 2_000);
+        configure_decoder(&log, "b.flac", ALT_FORMAT, 1_000, 4_000);
         log.lock().unwrap().position_limit = 0;
         let events = controller.subscribe();
         let commands = controller.command_sender();
@@ -4897,12 +4897,19 @@ mod tests {
             .unwrap();
         wait_for_log(&log, |log| log.backend_fed_frames == 2_000);
 
-        log.lock().unwrap().position_limit = u64::MAX;
-        assert_eq!(
-            wait_for(&events, |event| matches!(
+        log.lock().unwrap().position_limit = 2_000;
+        let advanced = loop {
+            let event = events.recv_timeout(Duration::from_secs(1)).unwrap();
+            assert!(!matches!(
                 event,
-                PlaybackEvent::Advanced { .. }
-            )),
+                PlaybackEvent::BitPerfectStateChanged { .. } | PlaybackEvent::VolumeStateChanged(_)
+            ));
+            if matches!(event, PlaybackEvent::Advanced { .. }) {
+                break event;
+            }
+        };
+        assert_eq!(
+            advanced,
             PlaybackEvent::Advanced {
                 attempt: 1,
                 source: PlayableSource {
@@ -4921,8 +4928,219 @@ mod tests {
             }
         );
         let log = log.lock().unwrap();
+        assert_eq!(log.releases, 0);
+        assert_eq!(log.opened_devices, [7]);
         assert_eq!(log.backend_starts, [TEST_FORMAT, ALT_FORMAT]);
         assert!(log.stops >= 1);
+    }
+
+    #[test]
+    fn bitperfect_format_mismatch_reuses_backend_without_state_flicker() {
+        let (controller, log) = fake_controller_with_kind(EngineKind::BitPerfect);
+        configure_decoder(&log, "a.flac", TEST_FORMAT, 2_000, 2_000);
+        configure_decoder(&log, "b.flac", ALT_FORMAT, 1_000, 4_000);
+        log.lock().unwrap().position_limit = 0;
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("a.flac"),
+            })
+            .unwrap();
+
+        let mut bit_perfect_states = Vec::new();
+        let mut volume_state_changes = 0;
+        loop {
+            match events.recv_timeout(Duration::from_secs(1)).unwrap() {
+                PlaybackEvent::BitPerfectStateChanged { active } => {
+                    bit_perfect_states.push(active);
+                }
+                PlaybackEvent::VolumeStateChanged(_) => volume_state_changes += 1,
+                PlaybackEvent::StateChanged(PlaybackState::Playing) => break,
+                _ => {}
+            }
+        }
+
+        commands
+            .send(PlaybackCommand::SetNext {
+                path: PathBuf::from("b.flac"),
+            })
+            .unwrap();
+        wait_for_log(&log, |log| log.backend_fed_frames == 2_000);
+        log.lock().unwrap().position_limit = 2_000;
+
+        let advanced = loop {
+            match events.recv_timeout(Duration::from_secs(1)).unwrap() {
+                PlaybackEvent::BitPerfectStateChanged { active } => {
+                    bit_perfect_states.push(active);
+                }
+                PlaybackEvent::VolumeStateChanged(_) => volume_state_changes += 1,
+                event @ PlaybackEvent::Advanced { .. } => break event,
+                _ => {}
+            }
+        };
+        assert_eq!(
+            advanced,
+            PlaybackEvent::Advanced {
+                attempt: 1,
+                source: PlayableSource {
+                    path: PathBuf::from("b.flac"),
+                    duration_ms: Some(1_000),
+                },
+                format: ALT_FORMAT,
+            }
+        );
+        assert_eq!(bit_perfect_states, [true]);
+        assert_eq!(volume_state_changes, 1);
+
+        let log = log.lock().unwrap();
+        assert_eq!(log.releases, 0);
+        assert_eq!(log.opened_devices, [7]);
+        assert_eq!(log.backend_starts, [TEST_FORMAT, ALT_FORMAT]);
+        assert!(log.stops >= 1);
+    }
+
+    #[test]
+    fn bitperfect_boundary_start_failure_releases_the_reused_backend() {
+        let (controller, log) = fake_controller_with_kind(EngineKind::BitPerfect);
+        configure_decoder(&log, "a.flac", TEST_FORMAT, 2_000, 2_000);
+        configure_decoder(&log, "b.flac", ALT_FORMAT, 1_000, 4_000);
+        log.lock().unwrap().position_limit = 0;
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("a.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::BitPerfectStateChanged { active: true }
+        });
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+
+        commands
+            .send(PlaybackCommand::SetNext {
+                path: PathBuf::from("b.flac"),
+            })
+            .unwrap();
+        wait_for_log(&log, |log| log.backend_fed_frames == 2_000);
+        {
+            let mut log = log.lock().unwrap();
+            log.fail_bitperfect_start_device = Some(7);
+            log.position_limit = 2_000;
+        }
+
+        assert_eq!(
+            wait_for(&events, |event| {
+                *event == PlaybackEvent::BitPerfectStateChanged { active: false }
+            }),
+            PlaybackEvent::BitPerfectStateChanged { active: false }
+        );
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Error)
+        });
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::Error { .. }
+            )),
+            PlaybackEvent::Error {
+                attempt: 1,
+                kind: crate::PlaybackErrorKind::Device { hog_pid: None },
+                message: "AudioDeviceStart failed (OSStatus -1)".to_string(),
+            }
+        );
+        {
+            let log = log.lock().unwrap();
+            assert_eq!(log.releases, 1);
+            assert_eq!(log.opened_devices, [7]);
+            assert_eq!(log.backend_starts, [TEST_FORMAT]);
+        }
+
+        commands.send(PlaybackCommand::Stop).unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Idle)
+        });
+        log.lock().unwrap().fail_bitperfect_start_device = None;
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("c.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+        assert_eq!(log.lock().unwrap().opened_devices, [7, 7]);
+    }
+
+    #[test]
+    fn exclusive_boundary_start_failure_falls_back_to_a_fresh_shared_backend() {
+        let (controller, log) = fake_controller();
+        configure_decoder(&log, "a.flac", TEST_FORMAT, 2_000, 2_000);
+        configure_decoder(&log, "b.flac", ALT_FORMAT, 1_000, 4_000);
+        log.lock().unwrap().position_limit = 0;
+        let events = controller.subscribe();
+        let commands = controller.command_sender();
+        commands
+            .send(PlaybackCommand::PlayFile {
+                path: PathBuf::from("a.flac"),
+            })
+            .unwrap();
+        wait_for(&events, |event| {
+            *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
+        });
+
+        commands
+            .send(PlaybackCommand::SetNext {
+                path: PathBuf::from("b.flac"),
+            })
+            .unwrap();
+        wait_for_log(&log, |log| log.backend_fed_frames == 2_000);
+        {
+            let mut log = log.lock().unwrap();
+            log.fail_exclusive_start_device = Some(7);
+            log.position_limit = 2_000;
+        }
+
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::ExclusiveModeFallback { .. }
+            )),
+            PlaybackEvent::ExclusiveModeFallback { device_id: 7 }
+        );
+        assert_eq!(
+            wait_for(&events, |event| matches!(
+                event,
+                PlaybackEvent::Advanced { .. }
+            )),
+            PlaybackEvent::Advanced {
+                attempt: 1,
+                source: PlayableSource {
+                    path: PathBuf::from("b.flac"),
+                    duration_ms: Some(1_000),
+                },
+                format: ALT_FORMAT,
+            }
+        );
+
+        let log = log.lock().unwrap();
+        assert_eq!(log.releases, 1);
+        assert_eq!(log.opened_devices, [7, 7]);
+        assert_eq!(
+            log.engine_kinds,
+            [
+                EngineKind::Universal {
+                    exclusive_mode: true,
+                },
+                EngineKind::Universal {
+                    exclusive_mode: false,
+                },
+            ]
+        );
+        assert_eq!(log.backend_starts, [TEST_FORMAT, ALT_FORMAT]);
     }
 
     #[test]
