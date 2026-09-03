@@ -14,6 +14,8 @@ The bit-perfect engine hogs the device and holds it across pause by design — i
 - **While playing**: whether the lock is disabled during active playback or acts as stop-then-release is a Pencil-pass decision.
 - **Universal engine**: shared-mode devices are never held; the affordance renders only where holding actually happens (bit-perfect / exclusive with hog).
 
+**Refinement, Jason 2026-09-03** (from using `main` at `0a2e3ad`): the affordance is a lock *button* on the active-device card of the Choose audio output popover — the card carrying the device name, `CoreAudio · Bit-perfect`, the capability line, and the Mode row — so the hold is visible and releasable in one place. After a manual unlock the device stays free until the user plays a new track: no timer, no re-acquire on device sighting or mode change. Whether Resume of the unlocked track re-acquires, or the user must start a track, is the Pencil pass's call. This is the device hold, not the volume lock — the volume-domain lag is a separate bug (`bugs/volume-lock-lags-bit-perfect-switch.md`).
+
 ## Non-Goals
 
 - No auto-release timer or idle-based release — explicitly rejected in favor of manual control.
