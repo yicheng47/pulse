@@ -248,7 +248,7 @@ impl Playback {
                     dsd_playback_error_with_sample_rate(
                         &candidate.path,
                         candidate.sample_rate_hz,
-                        self.playback_output_mode,
+                        self.dsd_gate_engine_kind(),
                         self.device_capabilities,
                     )
                 })

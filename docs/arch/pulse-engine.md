@@ -6,7 +6,7 @@
 
 `pulse-engine` is the UI-agnostic playback engine. It owns the complete playback behavior: device discovery, decode (including DSD-to-DoP packing), format negotiation, the output sinks, transport state, queue-adjacent source handling, and progress/events. The GPUI app (`pulse-app`) drives the engine in-process as an adapter, not a playback owner.
 
-There are **two engines** behind one controller, selected per device through the one-axis Output mode (Shared · Exclusive · Bit-perfect, AUTO-resolved from a capability probe):
+There are **two engines** behind one controller. The app exposes Shared and Exclusive output modes: Shared uses the universal engine without a device hog, while Exclusive resolves to the integer engine when the device probe finds a safe integer path and otherwise uses the universal engine with a hog. Bit-perfect is a runtime verdict for the verified integer path, not a selectable mode.
 
 - The **universal engine** (`auhal_engine.rs` + `auhal.rs`) plays through Core Audio's Hardware AudioUnit (AUHAL). Pulse feeds an interleaved float32 client stream and Core Audio converts to the device's physical format. It works on every output — Bluetooth, AirPods, float-only devices — and runs shared (polite, no device-wide rate switching) or exclusive (hog + native rate). Its honest claim is native-rate playback with no Pulse-side DSP. It is **not** bit-perfect: the float32 client boundary is a deliberate transform.
 - The **integer engine** (`integer_engine.rs` + `raw_sink.rs`) is a raw HAL sink: `AudioDeviceCreateIOProcID` with hog mode, mixing disabled, an integer physical format, and — the decisive part — the **virtual format set equal to the integer physical format**, so the IOProc buffer takes source integers directly. Samples are never converted to float and the engine structurally cannot multiply them; volume is hardware or fixed. **This path is bit-perfect, and since 2026-09-01 the claim is proven, not aspirational**: a DoP-packed DSD64 stream played through the full path and the Matrix Mini-i Pro 4 displayed "DSD DoP 2.8MHz" — DoP markers survive only bit-exact delivery, so a single flipped bit would have broken the DSD lock.
@@ -50,7 +50,7 @@ SQLite, app view state, library scanning, artwork, and metadata belong outside t
 
 **PCM** is an array of samples, interleaved for stereo. A "frame" is one sample per channel.
 
-**Sample rate** is frames per second the DAC consumes. If file and device rates differ, something must resample; Pulse treats native-rate switching as core behavior (exclusive/bit-perfect modes switch the device; shared mode leaves the device clock alone and lets AUHAL resample).
+**Sample rate** is frames per second the DAC consumes. If file and device rates differ, something must resample; Pulse treats native-rate switching as core behavior (Exclusive switches the device; Shared leaves the device clock alone and lets AUHAL resample).
 
 **Bit depth** is the integer width of each source sample — 16 or 24 for the PCM library formats.
 
@@ -98,7 +98,7 @@ crates/pulse-engine/src/
   hal.rs            all unsafe Core Audio property FFI: hog, formats, rates, listeners
   auhal_engine.rs   universal engine: format negotiation + AUHAL lifecycle
   auhal.rs          AudioUnit render-callback sink (float32 client stream)
-  integer_engine.rs bit-perfect engine: probe-gated open, IntPacker, IOProc lifecycle
+  integer_engine.rs integer engine: probe-gated open, IntPacker, IOProc lifecycle
   raw_sink.rs       raw IOProc callback + ring consumer
   gain.rs           software volume for the universal path (unity default)
   levels.rs         playback analysis tap
@@ -109,7 +109,7 @@ crates/pulse-engine/src/
 
 The product API is controller-oriented: `PlaybackController::spawn`, commands in, events out. Command, event, and state shapes live in `command.rs`, `event.rs`, and `state.rs` — this doc deliberately doesn't duplicate them. The behavior contract is the stable part: commands are imperative, events are observable facts, and UI state is derived from events.
 
-`EngineKind` is part of the command surface: the app resolves each device's stored Output mode to a kind, and the controller opens the matching backend.
+`EngineKind` is part of the command surface: the app resolves Shared to `Universal { exclusive_mode: false }` and resolves Exclusive to `Integer` when the capability probe and transport gate admit a safe integer path, otherwise to `Universal { exclusive_mode: true }`. The controller opens the matching backend.
 
 ## 7. The Two Seams Inside The Controller
 
@@ -142,7 +142,7 @@ PlaybackController  (controller.rs)             public handle, held by pulse-app
       ├─ prepared_decoder: Option<PreparedDecoder>  seeked while paused, consumed by Resume
       ├─ backend: Option<(DeviceId, EngineKind, Box<dyn PlaybackBackend>)>
       │  ├─ AuhalBackend   { engine: AuhalEngine }    ← EngineKind::Universal { exclusive_mode }
-      │  └─ IntegerBackend { engine: IntegerEngine }  ← EngineKind::BitPerfect
+      │  └─ IntegerBackend { engine: IntegerEngine }  ← EngineKind::Integer
       ├─ backend_factory: (DeviceId, EngineKind) → Box<dyn PlaybackBackend>
       └─ decoder_factory: &Path → Box<dyn SourceDecoder>   .dsf/.dff → DsdDopDecoder, else PcmDecoder
 
@@ -154,7 +154,7 @@ AuhalEngine  (auhal_engine.rs)                  universal engine
 ├─ producer / consumer: rtrb ring<u8>           ~4 s of f32 frames; the consumer moves into the sink on play
 └─ sink: Option<AuhalSink>  (auhal.rs)          AudioUnit render callback drains the ring; position + underrun atomics
 
-IntegerEngine  (integer_engine.rs)              bit-perfect engine
+IntegerEngine  (integer_engine.rs)              integer engine
 ├─ release_handle: IntegerReleaseHandle         Arc<Mutex<IntegerDeviceResources>>, shared with the quit path
 │  └─ IntegerDeviceResources
 │     ├─ sink: Option<RawSink>  (raw_sink.rs)   AudioDeviceIOProc; CallbackContext { consumer, position, underrun }
@@ -177,7 +177,7 @@ Three things cross a thread boundary, and nothing else does: the ring (producer 
 - **`decode_dsd.rs`** — DSF (planar blocks, LSB-first bit reversal) and DFF (chunked, MSB-first) to DoP frames; refuses DST and MSB-first DSF with clear errors rather than risking noise.
 - **`hal.rs`** — the entire unsafe Core Audio property surface behind typed `Result` helpers: hog acquire/release, nominal rate, physical/virtual formats, mixing, listeners. Rate and format switches are async; the wrappers wait on property listeners before trusting new state.
 - **`auhal_engine.rs` / `auhal.rs`** — the universal engine: nominal-rate handling per mode, float32 packing, AUHAL sink lifecycle, software gain hook.
-- **`integer_engine.rs` / `raw_sink.rs`** — the bit-perfect engine; see §9.
+- **`integer_engine.rs` / `raw_sink.rs`** — the integer engine; see §9.
 - **`gain.rs`** — software volume for the universal path only; the integer path has no gain stage by construction.
 - **`levels.rs`** — analysis tap; must never slow playback.
 

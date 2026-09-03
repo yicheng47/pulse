@@ -43,7 +43,7 @@ use gpui::{
     IntoElement, KeyDownEvent, PathPromptOptions, Pixels, Point, Render, ScrollHandle,
     Subscription, UTF16Selection, Window, canvas, div, prelude::*,
 };
-use pulse_engine::{PlaybackState, device};
+use pulse_engine::{EngineKind, PlaybackState, device};
 
 use crate::{
     app_store::{AppStore, StoreRevisions, global_app_store},
@@ -51,9 +51,8 @@ use crate::{
         Album, AlbumSortOrder, Artist, ArtistDetail, BackfillProgress, DeleteAlbumOutcome,
         LibraryError, LibrarySearchResults, LibrarySummary, PlaybackAction, PlaylistId,
         PlaylistSummary, PlaylistTrack, ScanHistoryEntry, ScanOutcome, ScanProgress,
-        SessionAlbumKey, SessionRoute, StorageRoot, StorageRootId, StoredOutputMode, Track,
-        TrackId, TrackSortOrder, cover_cache_directory, dsd_playback_error_with_sample_rate,
-        library_database_path, ops,
+        SessionAlbumKey, SessionRoute, StorageRoot, StorageRootId, Track, TrackId, TrackSortOrder,
+        cover_cache_directory, dsd_playback_error_with_sample_rate, library_database_path, ops,
     },
     surfaces::Destination,
     text_input::{self, TextInput},
@@ -213,7 +212,7 @@ pub(crate) struct LibraryView {
     playback_source_path: Option<PathBuf>,
     playback_state: PlaybackState,
     missing_track_ids: Arc<HashSet<TrackId>>,
-    dsd_output_mode: StoredOutputMode,
+    dsd_engine_kind: EngineKind,
     dsd_device_capabilities: Option<device::OutputDeviceCapabilities>,
     store: Option<ops::Store>,
     boot: LibraryBoot,
@@ -328,7 +327,7 @@ impl LibraryView {
             playback_source_path: playback.source_path,
             playback_state: playback.playback_state,
             missing_track_ids: playback.missing_track_ids,
-            dsd_output_mode: playback.playback_output_mode,
+            dsd_engine_kind: playback.resolved_engine_kind,
             dsd_device_capabilities: playback.device_capabilities,
             store: None,
             boot: LibraryBoot::Opening { backfill: None },
@@ -400,7 +399,7 @@ impl LibraryView {
                         this.playback_state = playback.playback_state;
                         this.missing_track_ids = playback.missing_track_ids;
                     }
-                    this.dsd_output_mode = playback.playback_output_mode;
+                    this.dsd_engine_kind = playback.resolved_engine_kind;
                     this.dsd_device_capabilities = playback.device_capabilities;
                     cx.notify();
                 }

@@ -341,6 +341,7 @@ fn parse_stored_capabilities(
     Ok(Some(StoredDeviceCapabilities {
         max_bits_per_channel,
         max_sample_rate,
+        integer_wire_formats: None,
         transport: None,
     }))
 }
@@ -440,7 +441,7 @@ mod tests {
         assert_eq!(
             migrated
                 .output_mode_preferences
-                .effective_mode("matrix\\uid", StoredOutputMode::BitPerfect),
+                .effective_mode("matrix\\uid", StoredOutputMode::Exclusive),
             StoredOutputMode::Shared
         );
         let stored = migrated
@@ -454,6 +455,7 @@ mod tests {
             Some(StoredDeviceCapabilities {
                 max_bits_per_channel: Some(24),
                 max_sample_rate: 192_000,
+                integer_wire_formats: None,
                 transport: None,
             })
         );

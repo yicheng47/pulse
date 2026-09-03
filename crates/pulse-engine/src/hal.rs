@@ -36,8 +36,9 @@ use objc2_core_audio::{
 };
 use objc2_core_audio_types::{
     AudioBuffer, AudioBufferList, AudioStreamBasicDescription, AudioValueRange,
-    kAudioFormatFlagIsFloat, kAudioFormatFlagIsNonMixable, kAudioFormatFlagIsSignedInteger,
-    kAudioFormatLinearPCM, kAudioStreamAnyRate,
+    kAudioFormatFlagIsBigEndian, kAudioFormatFlagIsFloat, kAudioFormatFlagIsNonInterleaved,
+    kAudioFormatFlagIsNonMixable, kAudioFormatFlagIsSignedInteger, kAudioFormatLinearPCM,
+    kAudioStreamAnyRate,
 };
 use objc2_core_foundation::{CFRetained, CFString};
 
@@ -580,18 +581,25 @@ pub(crate) fn set_matching_physical_format(
     Err(EngineError::NoMatchingPhysicalFormat(format))
 }
 
-/// Maximum integer bit depth and sample rate across all output streams, for
-/// the capability line in the device UI. `(None, rate)` means the device only
-/// offers mixable float (e.g. built-in speakers), where bit depth is
-/// meaningless.
+/// Maximum integer bit depth and sample rate across all output streams, plus
+/// whether any format is safe for the integer engine and the transport type.
+/// A missing bit depth means the device only offers mixable float, where bit
+/// depth is meaningless.
+pub(crate) struct ProbedOutputDeviceCapabilities {
+    pub(crate) max_bits_per_channel: Option<u32>,
+    pub(crate) max_sample_rate: f64,
+    pub(crate) integer_wire_formats: bool,
+    pub(crate) transport_type: u32,
+}
+
 pub(crate) fn output_device_capabilities(
     device_id: AudioObjectID,
-) -> Result<Option<(Option<u32>, f64, u32)>, EngineError> {
+) -> Result<Option<ProbedOutputDeviceCapabilities>, EngineError> {
     let mut formats = Vec::new();
     for stream_id in output_streams(device_id)? {
         formats.extend(available_physical_formats(stream_id)?);
     }
-    let Some((max_bits_per_channel, max_sample_rate)) =
+    let Some((max_bits_per_channel, max_sample_rate, integer_wire_formats)) =
         maximum_physical_format_capabilities(&formats)
     else {
         return Ok(None);
@@ -609,11 +617,12 @@ pub(crate) fn output_device_capabilities(
     } else {
         kAudioDeviceTransportTypeUnknown
     };
-    Ok(Some((
+    Ok(Some(ProbedOutputDeviceCapabilities {
         max_bits_per_channel,
         max_sample_rate,
+        integer_wire_formats,
         transport_type,
-    )))
+    }))
 }
 
 /// Sums output channels from raw `AudioBufferList` bytes. The C struct ends
@@ -922,11 +931,29 @@ fn matching_physical_format(
     Some(format)
 }
 
+pub(crate) fn is_integer_wire_format(format: &AudioStreamBasicDescription) -> bool {
+    format.mFormatID == kAudioFormatLinearPCM
+        && format.mFormatFlags & kAudioFormatFlagIsSignedInteger != 0
+        && format.mFormatFlags & kAudioFormatFlagIsFloat == 0
+        && format.mFormatFlags & kAudioFormatFlagIsNonMixable != 0
+        && format.mFormatFlags & kAudioFormatFlagIsBigEndian == 0
+        && format.mFormatFlags & kAudioFormatFlagIsNonInterleaved == 0
+        && format.mBitsPerChannel > 0
+        && format.mBitsPerChannel.is_multiple_of(8)
+        && format.mChannelsPerFrame > 0
+        && format.mBytesPerFrame > 0
+        && format
+            .mBytesPerFrame
+            .is_multiple_of(format.mChannelsPerFrame)
+        && format.mBytesPerFrame / format.mChannelsPerFrame <= 4
+}
+
 fn maximum_physical_format_capabilities(
     formats: &[AudioStreamRangedDescription],
-) -> Option<(Option<u32>, f64)> {
+) -> Option<(Option<u32>, f64, bool)> {
     let mut maximum: Option<(u32, f64)> = None;
     let mut maximum_mixable_float_rate: Option<f64> = None;
+    let mut integer_wire_formats = false;
 
     for ranged_format in formats {
         let format = ranged_format.mFormat;
@@ -940,6 +967,8 @@ fn maximum_physical_format_capabilities(
         if !sample_rate.is_finite() || sample_rate <= 0.0 {
             continue;
         }
+
+        integer_wire_formats |= is_integer_wire_format(&format);
 
         if format.mFormatFlags & kAudioFormatFlagIsFloat != 0
             && format.mFormatFlags & kAudioFormatFlagIsNonMixable == 0
@@ -965,8 +994,8 @@ fn maximum_physical_format_capabilities(
     }
 
     maximum
-        .map(|(bits, rate)| (Some(bits), rate))
-        .or_else(|| maximum_mixable_float_rate.map(|rate| (None, rate)))
+        .map(|(bits, rate)| (Some(bits), rate, integer_wire_formats))
+        .or_else(|| maximum_mixable_float_rate.map(|rate| (None, rate, integer_wire_formats)))
 }
 
 pub fn set_physical_format(
@@ -1206,7 +1235,45 @@ mod tests {
 
         assert_eq!(
             maximum_physical_format_capabilities(&formats),
-            Some((Some(32), 192_000.0))
+            Some((Some(32), 192_000.0, false))
+        );
+    }
+
+    #[test]
+    fn integer_wire_format_matches_stage_one_probe_flags_and_layout() {
+        for flags in [0x54, 0x4c] {
+            assert!(is_integer_wire_format(&stream_format(48_000.0, flags)));
+        }
+        for flags in [0x14, 0x0c, 0x04] {
+            assert!(!is_integer_wire_format(&stream_format(48_000.0, flags)));
+        }
+
+        let mut format = stream_format(48_000.0, 0x54);
+        format.mFormatFlags |= kAudioFormatFlagIsBigEndian;
+        assert!(!is_integer_wire_format(&format));
+
+        format = stream_format(48_000.0, 0x54);
+        format.mFormatFlags |= kAudioFormatFlagIsNonInterleaved;
+        assert!(!is_integer_wire_format(&format));
+
+        format = stream_format(48_000.0, 0x54);
+        format.mBytesPerFrame = 10;
+        assert!(!is_integer_wire_format(&format));
+    }
+
+    #[test]
+    fn maximum_capabilities_keep_mixable_integer_depth_without_an_integer_wire_format() {
+        let formats = [ranged_format(
+            0.0,
+            44_100.0,
+            192_000.0,
+            24,
+            kAudioFormatFlagIsSignedInteger,
+        )];
+
+        assert_eq!(
+            maximum_physical_format_capabilities(&formats),
+            Some((Some(24), 192_000.0, false))
         );
     }
 
@@ -1225,7 +1292,7 @@ mod tests {
 
         assert_eq!(
             maximum_physical_format_capabilities(&formats),
-            Some((None, 48_000.0))
+            Some((None, 48_000.0, false))
         );
     }
 

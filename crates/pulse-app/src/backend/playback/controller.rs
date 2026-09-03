@@ -6,6 +6,7 @@ const DROPOUT_NOTICE_CLEAR_AFTER: Duration = Duration::from_secs(30);
 
 impl Playback {
     pub(crate) fn install_controller(&mut self, device_id: device::DeviceId, kind: EngineKind) {
+        self.resolved_engine_kind = kind;
         let controller = PlaybackController::spawn(device_id, kind);
         self.sent_next = None;
         self.event_rx = Some(controller.subscribe());
@@ -200,7 +201,7 @@ impl Playback {
             _ => return false,
         };
         let Some(error) =
-            dsd_playback_error(&path, self.playback_output_mode, self.device_capabilities)
+            dsd_playback_error(&path, self.dsd_gate_engine_kind(), self.device_capabilities)
         else {
             return false;
         };
@@ -416,9 +417,10 @@ impl Playback {
                 self.record_dropout_at(now);
             }
             PlaybackEvent::OutputDeviceChanged { device_id, kind } => {
+                self.pending_output_mode_engine_kind = None;
                 self.complete_output_device_change(device_id, kind);
                 let retry_now = std::mem::take(&mut self.retry_after_output_mode_change)
-                    && self.playback_output_mode == StoredOutputMode::BitPerfect;
+                    && self.resolved_engine_kind == EngineKind::Integer;
                 if retry_now {
                     self.retry_after_output_mode_change();
                 } else {
@@ -432,7 +434,11 @@ impl Playback {
                 self.volume_state = state;
             }
             PlaybackEvent::ExclusiveModeFallback { device_id } => {
+                self.pending_output_mode_engine_kind = None;
                 self.playback_output_mode = StoredOutputMode::Shared;
+                self.resolved_engine_kind = EngineKind::Universal {
+                    exclusive_mode: false,
+                };
                 let device_name = self
                     .pending_device_change
                     .as_ref()
@@ -527,7 +533,7 @@ impl Playback {
                 // Output-device change failures are not play-scoped; handle
                 // them before the attempt staleness guard.
                 if let Some(pending) = self.pending_device_change.take() {
-                    if pending.output_mode == StoredOutputMode::BitPerfect {
+                    if pending.engine_kind == EngineKind::Integer {
                         self.retry = self
                             .current_play
                             .as_ref()
@@ -641,14 +647,14 @@ impl Playback {
         device_id: device::DeviceId,
         kind: EngineKind,
     ) {
-        let playback_output_mode = output_mode_for_engine_kind(kind);
         let Some(pending) = self.pending_device_change.take() else {
             if self
                 .active_device
                 .as_ref()
                 .is_some_and(|device| device.id == device_id)
             {
-                self.playback_output_mode = playback_output_mode;
+                self.playback_output_mode = output_mode_for_engine_kind(kind);
+                self.resolved_engine_kind = kind;
             }
             return;
         };
@@ -657,8 +663,7 @@ impl Playback {
         }
 
         let persist = pending.persist;
-        let output_device =
-            self.apply_completed_output_device_change(pending, playback_output_mode);
+        let output_device = self.apply_completed_output_device_change(pending, kind);
 
         if persist {
             self.pending_saved_output_device_uid = Some(output_device.uid);
@@ -690,7 +695,7 @@ impl Playback {
     pub(super) fn apply_completed_output_device_change(
         &mut self,
         pending: PendingDeviceChange,
-        playback_output_mode: StoredOutputMode,
+        engine_kind: EngineKind,
     ) -> device::Device {
         let PendingDeviceChange {
             device: output_device,
@@ -704,7 +709,8 @@ impl Playback {
         self.device_message = success_message;
         self.automatic_output_mode = automatic_mode;
         self.output_mode = output_mode;
-        self.playback_output_mode = playback_output_mode;
+        self.playback_output_mode = output_mode_for_engine_kind(engine_kind);
+        self.resolved_engine_kind = engine_kind;
         self.apply_device_capabilities_result(&output_device, capabilities);
         output_device
     }
@@ -786,7 +792,7 @@ impl Playback {
             let unsafe_dsd = dsd_playback_error_with_sample_rate(
                 &track.path,
                 track.sample_rate_hz,
-                self.playback_output_mode,
+                self.dsd_gate_engine_kind(),
                 self.device_capabilities,
             )
             .is_some();
@@ -805,17 +811,12 @@ impl Playback {
                 .as_ref()
                 .map(|device| device.name.as_str()),
         );
-        let action_available = self.retry.is_some()
-            && self.device_capabilities.is_some_and(|capabilities| {
-                capabilities.max_bits_per_channel.is_some()
-                    && capabilities.transport.supports_bit_perfect()
-            });
-        let toast = if error.needs_bit_perfect() && action_available {
+        let toast = if error.needs_exclusive() && self.retry.is_some() {
             match &self.active_device {
                 Some(device) => PlaybackToast::error_with_action(
                     title,
                     body,
-                    PlaybackToastAction::SwitchToBitPerfect {
+                    PlaybackToastAction::SwitchToExclusive {
                         device_uid: device.uid.clone(),
                     },
                 ),
@@ -837,9 +838,20 @@ impl Playback {
         self.play_file(retry.path);
     }
 
+    pub(super) fn dsd_gate_engine_kind(&self) -> EngineKind {
+        if self.resolved_engine_kind != EngineKind::Integer {
+            return self.resolved_engine_kind;
+        }
+        if let Some(pending) = &self.pending_device_change {
+            return pending.engine_kind;
+        }
+        self.pending_output_mode_engine_kind
+            .unwrap_or(self.resolved_engine_kind)
+    }
+
     pub(super) fn stop_before_unsafe_dsd_output_change(
         &mut self,
-        output_mode: StoredOutputMode,
+        engine_kind: EngineKind,
         capabilities: Option<device::OutputDeviceCapabilities>,
     ) {
         if !matches!(
@@ -851,7 +863,7 @@ impl Playback {
         let Some(path) = self.source_path.clone() else {
             return;
         };
-        let Some(error) = dsd_playback_error(&path, output_mode, capabilities) else {
+        let Some(error) = dsd_playback_error(&path, engine_kind, capabilities) else {
             return;
         };
         self.retry = self

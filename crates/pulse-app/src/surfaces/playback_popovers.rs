@@ -391,13 +391,10 @@ impl PlaybackRow {
             .device_capabilities
             .map(format_device_capabilities)
             .unwrap_or_else(|| "Capabilities unavailable".to_string());
-        let bit_perfect_available = self
+        let integer_path_available = self
             .snapshot
             .device_capabilities
-            .is_some_and(|capabilities| {
-                capabilities.max_bits_per_channel.is_some()
-                    && capabilities.transport.supports_bit_perfect()
-            });
+            .is_some_and(device::OutputDeviceCapabilities::has_integer_path);
         let shared = ui::output_mode_segment(
             "output-mode-shared",
             "Shared",
@@ -420,22 +417,6 @@ impl PlaybackRow {
             this.set_output_mode(StoredOutputMode::Exclusive, cx);
         }))
         .into_any_element();
-        let bit_perfect = ui::output_mode_segment(
-            "output-mode-bit-perfect",
-            "Bit-perfect",
-            self.snapshot.output_mode == StoredOutputMode::BitPerfect,
-            true,
-            !bit_perfect_available,
-        );
-        let bit_perfect = if bit_perfect_available {
-            bit_perfect
-                .on_click(cx.listener(|this, _, _, cx| {
-                    this.set_output_mode(StoredOutputMode::BitPerfect, cx);
-                }))
-                .into_any_element()
-        } else {
-            bit_perfect.into_any_element()
-        };
         let mut direct_devices = div().flex().flex_col().gap(rpx(2.)).w_full();
         for (index, output_device) in self.snapshot.devices.iter().cloned().enumerate() {
             direct_devices =
@@ -577,14 +558,13 @@ impl PlaybackRow {
                         .child(ui::output_mode_control(
                             "Mode",
                             self.output_mode_is_automatic(),
-                            bit_perfect_available,
+                            integer_path_available,
                             ui::output_mode_reset_link("output-mode-reset-auto")
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     this.reset_output_mode_to_auto(cx);
                                 }))
                                 .into_any_element(),
-                            ui::output_mode_segments(shared, exclusive, bit_perfect)
-                                .into_any_element(),
+                            ui::output_mode_segments(shared, exclusive).into_any_element(),
                             true,
                         ))
                     }),

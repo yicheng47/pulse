@@ -142,6 +142,7 @@ fn unsafe_dsd_lookahead_is_cleared_before_it_can_advance() {
     row.device_capabilities = Some(device::OutputDeviceCapabilities {
         max_bits_per_channel: Some(24),
         max_sample_rate: 192_000.0,
+        integer_wire_formats: true,
         transport: device::DeviceTransport::Usb,
     });
     row.sent_next = Some(dff_path);
@@ -170,6 +171,7 @@ fn unsafe_dsd_lookahead_skips_to_the_next_playable_track_with_a_warning() {
     row.device_capabilities = Some(device::OutputDeviceCapabilities {
         max_bits_per_channel: Some(24),
         max_sample_rate: 192_000.0,
+        integer_wire_formats: true,
         transport: device::DeviceTransport::Usb,
     });
     row.sent_next = Some(queue_tracks[1].path.clone());
@@ -241,10 +243,12 @@ fn safe_dsd_lookahead_uses_the_stored_rate_without_reopening_the_file() {
     let mut row = Playback::initial();
     row.seed_queue(QueueState::from_tracks(&[first, second], 0));
     row.playback_state = PlaybackState::Playing;
-    row.playback_output_mode = StoredOutputMode::BitPerfect;
+    row.playback_output_mode = StoredOutputMode::Exclusive;
+    row.resolved_engine_kind = EngineKind::Integer;
     row.device_capabilities = Some(device::OutputDeviceCapabilities {
         max_bits_per_channel: Some(24),
         max_sample_rate: 192_000.0,
+        integer_wire_formats: true,
         transport: device::DeviceTransport::Usb,
     });
     let command_rx = command_sink(&mut row);

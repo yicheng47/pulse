@@ -139,19 +139,20 @@ where
 pub struct StoredDeviceCapabilities {
     pub max_bits_per_channel: Option<u32>,
     pub max_sample_rate: u32,
+    pub integer_wire_formats: Option<bool>,
     pub transport: Option<StoredDeviceTransport>,
 }
 
 impl StoredDeviceCapabilities {
-    pub fn supports_bit_perfect(self) -> bool {
-        self.max_bits_per_channel.is_some()
+    pub fn has_integer_path(self) -> bool {
+        self.integer_wire_formats == Some(true)
             && self
                 .transport
                 .is_some_and(StoredDeviceTransport::supports_bit_perfect)
     }
 
     fn is_complete(self) -> bool {
-        self.transport.is_some()
+        self.integer_wire_formats.is_some() && self.transport.is_some()
     }
 }
 
@@ -188,8 +189,8 @@ impl StoredDeviceTransport {
 #[serde(rename_all = "camelCase")]
 pub enum StoredOutputMode {
     Shared,
+    #[serde(alias = "bitPerfect")]
     Exclusive,
-    BitPerfect,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
@@ -635,13 +636,14 @@ mod tests {
             Some(StoredDeviceCapabilities {
                 max_bits_per_channel: Some(24),
                 max_sample_rate: 192_000,
+                integer_wire_formats: Some(true),
                 transport: Some(StoredDeviceTransport::Usb),
             }),
             1_777_777_777,
         );
         settings
             .output_mode_preferences
-            .set_mode("matrix", StoredOutputMode::BitPerfect);
+            .set_mode("matrix", StoredOutputMode::Exclusive);
 
         settings.save(&path).unwrap();
 
@@ -704,7 +706,7 @@ mod tests {
     }
 
     #[test]
-    fn output_mode_preferences_round_trip_every_pinned_mode() {
+    fn output_mode_preferences_round_trip_both_pinned_modes_and_unpinned() {
         let directory = tempfile::tempdir().unwrap();
         let path = settings_path(directory.path());
         let mut settings = AppSettings::default();
@@ -714,15 +716,12 @@ mod tests {
         settings
             .output_mode_preferences
             .set_mode("exclusive", StoredOutputMode::Exclusive);
-        settings
-            .output_mode_preferences
-            .set_mode("integer", StoredOutputMode::BitPerfect);
 
         settings.save(&path).unwrap();
         let loaded = AppSettings::load(&path).unwrap().output_mode_preferences;
 
         assert_eq!(
-            loaded.effective_mode("shared", StoredOutputMode::BitPerfect),
+            loaded.effective_mode("shared", StoredOutputMode::Exclusive),
             StoredOutputMode::Shared
         );
         assert_eq!(
@@ -730,23 +729,47 @@ mod tests {
             StoredOutputMode::Exclusive
         );
         assert_eq!(
-            loaded.effective_mode("integer", StoredOutputMode::Shared),
-            StoredOutputMode::BitPerfect
+            loaded.effective_mode("auto", StoredOutputMode::Exclusive),
+            StoredOutputMode::Exclusive
         );
         assert!(loaded.is_pinned("shared"));
         assert!(loaded.is_pinned("exclusive"));
-        assert!(loaded.is_pinned("integer"));
+        assert!(!loaded.is_pinned("auto"));
+    }
+
+    #[test]
+    fn retired_bit_perfect_mode_loads_as_exclusive_and_normalizes_on_write() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = settings_path(directory.path());
+        fs::write(
+            &path,
+            r#"{"outputModePreferences":{"devices":{"matrix":{"mode":"bitPerfect"}}}}"#,
+        )
+        .unwrap();
+
+        let loaded = AppSettings::load(&path).unwrap();
+
+        assert_eq!(
+            loaded
+                .output_mode_preferences
+                .effective_mode("matrix", StoredOutputMode::Shared),
+            StoredOutputMode::Exclusive
+        );
+        loaded.save(&path).unwrap();
+        let contents = fs::read_to_string(path).unwrap();
+        assert!(contents.contains("\"mode\": \"exclusive\""));
+        assert!(!contents.contains("bitPerfect"));
     }
 
     #[test]
     fn explicit_mode_equal_to_auto_remains_pinned() {
         let mut preferences = OutputModePreferences::default();
-        preferences.set_mode("matrix", StoredOutputMode::BitPerfect);
+        preferences.set_mode("matrix", StoredOutputMode::Exclusive);
 
         assert!(preferences.is_pinned("matrix"));
         assert_eq!(
-            preferences.effective_mode("matrix", StoredOutputMode::BitPerfect),
-            StoredOutputMode::BitPerfect
+            preferences.effective_mode("matrix", StoredOutputMode::Exclusive),
+            StoredOutputMode::Exclusive
         );
     }
 
@@ -766,7 +789,7 @@ mod tests {
         assert_eq!(
             loaded
                 .output_mode_preferences
-                .effective_mode("shared", StoredOutputMode::BitPerfect),
+                .effective_mode("shared", StoredOutputMode::Exclusive),
             StoredOutputMode::Shared
         );
         assert_eq!(
@@ -792,8 +815,8 @@ mod tests {
 
         assert!(!preferences.is_pinned("matrix"));
         assert_eq!(
-            preferences.effective_mode("matrix", StoredOutputMode::BitPerfect),
-            StoredOutputMode::BitPerfect
+            preferences.effective_mode("matrix", StoredOutputMode::Exclusive),
+            StoredOutputMode::Exclusive
         );
     }
 
@@ -808,6 +831,7 @@ mod tests {
             Some(StoredDeviceCapabilities {
                 max_bits_per_channel: Some(24),
                 max_sample_rate: 192_000,
+                integer_wire_formats: Some(true),
                 transport: Some(StoredDeviceTransport::Usb),
             }),
             1_777_777_777,
@@ -835,6 +859,7 @@ mod tests {
             Some(StoredDeviceCapabilities {
                 max_bits_per_channel: None,
                 max_sample_rate: 48_000,
+                integer_wire_formats: Some(false),
                 transport: Some(StoredDeviceTransport::Bluetooth),
             }),
             100,
@@ -848,6 +873,7 @@ mod tests {
             Some(StoredDeviceCapabilities {
                 max_bits_per_channel: Some(24),
                 max_sample_rate: 192_000,
+                integer_wire_formats: Some(true),
                 transport: Some(StoredDeviceTransport::Usb),
             }),
             200,
@@ -855,8 +881,8 @@ mod tests {
 
         assert!(!preferences.is_pinned("matrix"));
         assert_eq!(
-            preferences.effective_mode("matrix", StoredOutputMode::BitPerfect),
-            StoredOutputMode::BitPerfect
+            preferences.effective_mode("matrix", StoredOutputMode::Exclusive),
+            StoredOutputMode::Exclusive
         );
         let stored = preferences.devices.get("matrix").unwrap();
         assert_eq!(stored.name.as_deref(), Some("mini-i Series"));
@@ -884,6 +910,50 @@ mod tests {
                 .unwrap()
                 .capabilities
                 .is_some()
+        );
+    }
+
+    #[test]
+    fn stored_capabilities_without_integer_wire_formats_require_a_reprobe() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = settings_path(directory.path());
+        fs::write(
+            &path,
+            r#"{"outputModePreferences":{"devices":{"matrix":{"capabilities":{"maxBitsPerChannel":24,"maxSampleRate":192000,"transport":"usb"}}}}}"#,
+        )
+        .unwrap();
+
+        let loaded = AppSettings::load(&path).unwrap();
+
+        assert_eq!(
+            loaded.output_mode_preferences.stored_capabilities("matrix"),
+            None
+        );
+    }
+
+    #[test]
+    fn stored_integer_path_requires_the_probe_flag_and_transport_gate() {
+        let safe = StoredDeviceCapabilities {
+            max_bits_per_channel: Some(24),
+            max_sample_rate: 192_000,
+            integer_wire_formats: Some(true),
+            transport: Some(StoredDeviceTransport::Usb),
+        };
+
+        assert!(safe.has_integer_path());
+        assert!(
+            !StoredDeviceCapabilities {
+                integer_wire_formats: Some(false),
+                ..safe
+            }
+            .has_integer_path()
+        );
+        assert!(
+            !StoredDeviceCapabilities {
+                transport: Some(StoredDeviceTransport::DisplayPort),
+                ..safe
+            }
+            .has_integer_path()
         );
     }
 

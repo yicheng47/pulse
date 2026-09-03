@@ -80,6 +80,7 @@ fn formats_advertised_output_capabilities_without_playback_claims() {
         format_device_capabilities(device::OutputDeviceCapabilities {
             max_bits_per_channel: Some(24),
             max_sample_rate: 192_000.0,
+            integer_wire_formats: true,
             transport: device::DeviceTransport::Usb,
         }),
         "Up to 24-bit / 192 kHz"
@@ -88,6 +89,7 @@ fn formats_advertised_output_capabilities_without_playback_claims() {
         format_device_capabilities(device::OutputDeviceCapabilities {
             max_bits_per_channel: None,
             max_sample_rate: 48_000.0,
+            integer_wire_formats: false,
             transport: device::DeviceTransport::Bluetooth,
         }),
         "Up to 48 kHz"
@@ -95,19 +97,21 @@ fn formats_advertised_output_capabilities_without_playback_claims() {
 }
 
 #[test]
-fn auto_output_mode_uses_the_transport_and_format_ladder() {
+fn auto_output_mode_uses_the_advertised_integer_depth() {
     assert_eq!(
         automatic_output_mode(&Ok(device::OutputDeviceCapabilities {
             max_bits_per_channel: Some(24),
             max_sample_rate: 192_000.0,
+            integer_wire_formats: true,
             transport: device::DeviceTransport::Usb,
         })),
-        StoredOutputMode::BitPerfect
+        StoredOutputMode::Exclusive
     );
     assert_eq!(
         automatic_output_mode(&Ok(device::OutputDeviceCapabilities {
             max_bits_per_channel: Some(24),
             max_sample_rate: 192_000.0,
+            integer_wire_formats: true,
             transport: device::DeviceTransport::DisplayPort,
         })),
         StoredOutputMode::Exclusive
@@ -116,6 +120,7 @@ fn auto_output_mode_uses_the_transport_and_format_ladder() {
         automatic_output_mode(&Ok(device::OutputDeviceCapabilities {
             max_bits_per_channel: None,
             max_sample_rate: 48_000.0,
+            integer_wire_formats: false,
             transport: device::DeviceTransport::BuiltIn,
         })),
         StoredOutputMode::Shared
@@ -135,6 +140,7 @@ fn dsd_play_file_refuses_before_dispatch_on_an_unsafe_output() {
     row.device_capabilities = Some(device::OutputDeviceCapabilities {
         max_bits_per_channel: Some(24),
         max_sample_rate: 192_000.0,
+        integer_wire_formats: true,
         transport: device::DeviceTransport::Usb,
     });
     let (command_tx, command_rx) = std::sync::mpsc::channel();
@@ -150,7 +156,7 @@ fn dsd_play_file_refuses_before_dispatch_on_an_unsafe_output() {
     assert!(row.error.is_none());
     assert_eq!(
         row.toasts.back().unwrap().title,
-        "DSD needs Bit-perfect output"
+        "DSD needs Exclusive output"
     );
 
     row.toggle_playback();
@@ -182,6 +188,7 @@ fn dsd_resume_stops_instead_of_dispatching_on_an_unsafe_output() {
     row.device_capabilities = Some(device::OutputDeviceCapabilities {
         max_bits_per_channel: Some(24),
         max_sample_rate: 192_000.0,
+        integer_wire_formats: true,
         transport: device::DeviceTransport::Usb,
     });
     let (command_tx, command_rx) = std::sync::mpsc::channel();
@@ -205,11 +212,13 @@ fn unsafe_output_mode_change_stops_dsd_before_reconfiguring() {
     ));
     let mut row = Playback::initial();
     row.active_device = Some(output_device(9, "matrix", "mini-i Series"));
-    row.output_mode = StoredOutputMode::BitPerfect;
-    row.playback_output_mode = StoredOutputMode::BitPerfect;
+    row.output_mode = StoredOutputMode::Exclusive;
+    row.playback_output_mode = StoredOutputMode::Exclusive;
+    row.resolved_engine_kind = EngineKind::Integer;
     row.device_capabilities = Some(device::OutputDeviceCapabilities {
         max_bits_per_channel: Some(24),
         max_sample_rate: 192_000.0,
+        integer_wire_formats: true,
         transport: device::DeviceTransport::Usb,
     });
     row.source_path = Some(path.clone());
@@ -233,12 +242,12 @@ fn unsafe_output_mode_change_stops_dsd_before_reconfiguring() {
     assert!(row.error.is_none());
     assert_eq!(
         row.toasts.back().unwrap().title,
-        "DSD needs Bit-perfect output"
+        "DSD needs Exclusive output"
     );
 }
 
 #[test]
-fn dsd_action_persists_bit_perfect_mode_and_retries_after_reconfiguration() {
+fn dsd_action_persists_exclusive_mode_and_retries_after_integer_reconfiguration() {
     let directory = tempfile::tempdir().unwrap();
     let path = PathBuf::from(concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -252,6 +261,7 @@ fn dsd_action_persists_bit_perfect_mode_and_retries_after_reconfiguration() {
     row.device_capabilities = Some(device::OutputDeviceCapabilities {
         max_bits_per_channel: Some(24),
         max_sample_rate: 192_000.0,
+        integer_wire_formats: true,
         transport: device::DeviceTransport::Usb,
     });
     let (command_tx, command_rx) = std::sync::mpsc::channel();
@@ -260,28 +270,28 @@ fn dsd_action_persists_bit_perfect_mode_and_retries_after_reconfiguration() {
     row.play_file(path.clone());
     assert!(matches!(
         row.toasts.back().unwrap().action,
-        Some(PlaybackToastAction::SwitchToBitPerfect { ref device_uid })
+        Some(PlaybackToastAction::SwitchToExclusive { ref device_uid })
             if device_uid == "matrix"
     ));
 
-    row.switch_to_bit_perfect_and_retry("matrix".to_string());
+    row.switch_to_exclusive_and_retry("matrix".to_string());
     assert_eq!(
         command_rx.recv().unwrap(),
         PlaybackCommand::SetOutputDevice {
             device_id: 9,
-            kind: EngineKind::BitPerfect,
+            kind: EngineKind::Integer,
         }
     );
     assert_eq!(
         row.settings
             .output_mode_preferences
             .effective_mode("matrix", StoredOutputMode::Shared),
-        StoredOutputMode::BitPerfect
+        StoredOutputMode::Exclusive
     );
 
     row.handle_event(PlaybackEvent::OutputDeviceChanged {
         device_id: 9,
-        kind: EngineKind::BitPerfect,
+        kind: EngineKind::Integer,
     });
     assert_eq!(
         command_rx.recv().unwrap(),
@@ -291,7 +301,7 @@ fn dsd_action_persists_bit_perfect_mode_and_retries_after_reconfiguration() {
 }
 
 #[test]
-fn dsd_refusal_has_no_action_when_the_device_cannot_use_bit_perfect() {
+fn dsd_refusal_has_no_action_when_the_device_has_no_integer_path() {
     let path = PathBuf::from("/Music/test.dff");
     let mut row = Playback::initial();
     row.active_device = Some(output_device(9, "bluetooth", "Bluetooth DAC"));
@@ -300,6 +310,7 @@ fn dsd_refusal_has_no_action_when_the_device_cannot_use_bit_perfect() {
     row.device_capabilities = Some(device::OutputDeviceCapabilities {
         max_bits_per_channel: Some(24),
         max_sample_rate: 192_000.0,
+        integer_wire_formats: true,
         transport: device::DeviceTransport::Bluetooth,
     });
     let (command_tx, _command_rx) = std::sync::mpsc::channel();
@@ -307,6 +318,10 @@ fn dsd_refusal_has_no_action_when_the_device_cannot_use_bit_perfect() {
 
     row.play_file(path);
 
+    assert_eq!(
+        row.toasts.back().unwrap().title,
+        "This device can't play DSD"
+    );
     assert!(row.toasts.back().unwrap().action.is_none());
 }
 
@@ -325,18 +340,19 @@ fn dsd_mode_retry_is_consumed_by_a_universal_fallback() {
     row.device_capabilities = Some(device::OutputDeviceCapabilities {
         max_bits_per_channel: Some(24),
         max_sample_rate: 192_000.0,
+        integer_wire_formats: true,
         transport: device::DeviceTransport::Usb,
     });
     let (command_tx, command_rx) = std::sync::mpsc::channel();
     row.command_tx = Some(command_tx);
 
     row.play_file(path);
-    row.switch_to_bit_perfect_and_retry("matrix".to_string());
+    row.switch_to_exclusive_and_retry("matrix".to_string());
     assert!(matches!(
         command_rx.recv().unwrap(),
         PlaybackCommand::SetOutputDevice {
             device_id: 9,
-            kind: EngineKind::BitPerfect,
+            kind: EngineKind::Integer,
         }
     ));
 
@@ -350,7 +366,7 @@ fn dsd_mode_retry_is_consumed_by_a_universal_fallback() {
 
     row.handle_event(PlaybackEvent::OutputDeviceChanged {
         device_id: 9,
-        kind: EngineKind::BitPerfect,
+        kind: EngineKind::Integer,
     });
     assert!(matches!(
         command_rx.try_recv(),
@@ -367,6 +383,12 @@ fn exclusive_fallback_notice_names_the_device_and_marks_playback_shared() {
     row.handle_event(PlaybackEvent::ExclusiveModeFallback { device_id: 9 });
 
     assert_eq!(row.playback_output_mode, StoredOutputMode::Shared);
+    assert_eq!(
+        row.resolved_engine_kind,
+        EngineKind::Universal {
+            exclusive_mode: false,
+        }
+    );
     assert_eq!(
         row.toasts.back(),
         Some(&PlaybackToast::warning(
@@ -416,16 +438,19 @@ fn applies_a_confirmed_output_device_and_its_success_message() {
             capabilities: Ok(device::OutputDeviceCapabilities {
                 max_bits_per_channel: Some(24),
                 max_sample_rate: 192_000.0,
+                integer_wire_formats: true,
                 transport: device::DeviceTransport::Usb,
             }),
-            automatic_mode: StoredOutputMode::BitPerfect,
-            output_mode: StoredOutputMode::BitPerfect,
+            automatic_mode: StoredOutputMode::Exclusive,
+            output_mode: StoredOutputMode::Exclusive,
+            engine_kind: EngineKind::Integer,
         },
-        StoredOutputMode::BitPerfect,
+        EngineKind::Integer,
     );
 
     assert_eq!(applied.id, selected.id);
     assert_eq!(row.active_device.as_ref().unwrap().uid, selected.uid);
+    assert_eq!(row.resolved_engine_kind, EngineKind::Integer);
     assert_eq!(
         row.device_message.as_ref().unwrap().text,
         "Using the system default."
@@ -442,10 +467,12 @@ fn attributes_a_device_change_error_and_clears_the_pending_change() {
         capabilities: Ok(device::OutputDeviceCapabilities {
             max_bits_per_channel: Some(24),
             max_sample_rate: 192_000.0,
+            integer_wire_formats: true,
             transport: device::DeviceTransport::Usb,
         }),
-        automatic_mode: StoredOutputMode::BitPerfect,
-        output_mode: StoredOutputMode::BitPerfect,
+        automatic_mode: StoredOutputMode::Exclusive,
+        output_mode: StoredOutputMode::Exclusive,
+        engine_kind: EngineKind::Integer,
     });
 
     row.handle_event(PlaybackEvent::Error {
@@ -455,6 +482,12 @@ fn attributes_a_device_change_error_and_clears_the_pending_change() {
     });
 
     assert!(row.pending_device_change.is_none());
+    assert_eq!(
+        row.resolved_engine_kind,
+        EngineKind::Universal {
+            exclusive_mode: false,
+        }
+    );
     assert_eq!(
         row.device_message.as_ref().unwrap().text,
         "Could not switch to mini-i Series: device hogged by pid 42"
@@ -468,8 +501,12 @@ fn attributes_a_device_change_error_and_clears_the_pending_change() {
 }
 
 #[test]
-fn bit_perfect_confirmation_is_exposed_in_the_snapshot() {
+fn bit_perfect_verdict_is_engine_owned_not_derived_from_the_mode() {
     let mut row = Playback::initial();
+    row.output_mode = StoredOutputMode::Exclusive;
+    row.playback_output_mode = StoredOutputMode::Exclusive;
+
+    assert!(!row.snapshot().bit_perfect_active);
 
     row.handle_event(PlaybackEvent::BitPerfectStateChanged { active: true });
     assert!(row.snapshot().bit_perfect_active);
@@ -502,17 +539,203 @@ fn active_hardware_volume_is_exposed_on_the_managed_device() {
 fn changing_the_active_mode_dispatches_a_resolved_output_device_command() {
     let mut row = Playback::initial();
     row.active_device = Some(output_device(9, "matrix", "mini-i Series"));
+    row.device_capabilities = Some(device::OutputDeviceCapabilities {
+        max_bits_per_channel: Some(24),
+        max_sample_rate: 192_000.0,
+        integer_wire_formats: true,
+        transport: device::DeviceTransport::Usb,
+    });
     let (command_tx, command_rx) = std::sync::mpsc::channel();
     row.command_tx = Some(command_tx);
 
-    row.apply_output_mode_if_active("matrix", StoredOutputMode::BitPerfect);
+    row.apply_output_mode_if_active("matrix", StoredOutputMode::Exclusive);
 
-    assert_eq!(row.output_mode, StoredOutputMode::BitPerfect);
+    assert_eq!(row.output_mode, StoredOutputMode::Exclusive);
+    assert_eq!(
+        row.resolved_engine_kind,
+        EngineKind::Universal {
+            exclusive_mode: false,
+        }
+    );
     assert_eq!(
         command_rx.recv().unwrap(),
         PlaybackCommand::SetOutputDevice {
             device_id: 9,
-            kind: EngineKind::BitPerfect,
+            kind: EngineKind::Integer,
+        }
+    );
+
+    row.handle_event(PlaybackEvent::OutputDeviceChanged {
+        device_id: 9,
+        kind: EngineKind::Integer,
+    });
+
+    assert_eq!(row.resolved_engine_kind, EngineKind::Integer);
+}
+
+#[test]
+fn pending_integer_switch_keeps_dsd_off_auhal_until_confirmation() {
+    let path = PathBuf::from(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../pulse-engine/tests/fixtures/dsd-interleave.dff"
+    ));
+    let mut row = Playback::initial();
+    row.active_device = Some(output_device(9, "matrix", "mini-i Series"));
+    row.device_capabilities = Some(device::OutputDeviceCapabilities {
+        max_bits_per_channel: Some(24),
+        max_sample_rate: 192_000.0,
+        integer_wire_formats: true,
+        transport: device::DeviceTransport::Usb,
+    });
+    let (command_tx, command_rx) = std::sync::mpsc::channel();
+    row.command_tx = Some(command_tx);
+
+    row.apply_output_mode_if_active("matrix", StoredOutputMode::Exclusive);
+    assert!(matches!(
+        command_rx.recv().unwrap(),
+        PlaybackCommand::SetOutputDevice {
+            kind: EngineKind::Integer,
+            ..
+        }
+    ));
+
+    row.play_file(path.clone());
+    assert_eq!(
+        row.toasts.back().unwrap().title,
+        "DSD needs Exclusive output"
+    );
+    assert!(command_rx.try_recv().is_err());
+
+    row.handle_event(PlaybackEvent::OutputDeviceChanged {
+        device_id: 9,
+        kind: EngineKind::Integer,
+    });
+    row.play_file(path.clone());
+
+    assert_eq!(
+        command_rx.recv().unwrap(),
+        PlaybackCommand::PlayFile { path }
+    );
+}
+
+#[test]
+fn pending_auhal_switch_refuses_dsd_before_confirmation() {
+    let path = PathBuf::from(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../pulse-engine/tests/fixtures/dsd-interleave.dff"
+    ));
+    let mut row = Playback::initial();
+    row.active_device = Some(output_device(9, "matrix", "mini-i Series"));
+    row.output_mode = StoredOutputMode::Exclusive;
+    row.playback_output_mode = StoredOutputMode::Exclusive;
+    row.resolved_engine_kind = EngineKind::Integer;
+    row.device_capabilities = Some(device::OutputDeviceCapabilities {
+        max_bits_per_channel: Some(24),
+        max_sample_rate: 192_000.0,
+        integer_wire_formats: true,
+        transport: device::DeviceTransport::Usb,
+    });
+    let (command_tx, command_rx) = std::sync::mpsc::channel();
+    row.command_tx = Some(command_tx);
+
+    row.apply_output_mode_if_active("matrix", StoredOutputMode::Shared);
+    assert!(matches!(
+        command_rx.recv().unwrap(),
+        PlaybackCommand::SetOutputDevice {
+            kind: EngineKind::Universal {
+                exclusive_mode: false
+            },
+            ..
+        }
+    ));
+
+    row.play_file(path);
+
+    assert_eq!(
+        row.toasts.back().unwrap().title,
+        "DSD needs Exclusive output"
+    );
+    assert!(command_rx.try_recv().is_err());
+}
+
+#[test]
+fn failed_output_mode_change_leaves_the_confirmed_engine_kind() {
+    let mut row = Playback::initial();
+    row.active_device = Some(output_device(9, "matrix", "mini-i Series"));
+    row.device_capabilities = Some(device::OutputDeviceCapabilities {
+        max_bits_per_channel: Some(24),
+        max_sample_rate: 192_000.0,
+        integer_wire_formats: true,
+        transport: device::DeviceTransport::Usb,
+    });
+    let (command_tx, command_rx) = std::sync::mpsc::channel();
+    row.command_tx = Some(command_tx);
+
+    row.apply_output_mode_if_active("matrix", StoredOutputMode::Exclusive);
+    assert!(matches!(
+        command_rx.recv().unwrap(),
+        PlaybackCommand::SetOutputDevice {
+            kind: EngineKind::Integer,
+            ..
+        }
+    ));
+
+    row.handle_event(PlaybackEvent::Error {
+        attempt: 0,
+        kind: PlaybackErrorKind::Device { hog_pid: None },
+        message: "no matching physical format".to_string(),
+    });
+
+    assert_eq!(
+        row.resolved_engine_kind,
+        EngineKind::Universal {
+            exclusive_mode: false,
+        }
+    );
+}
+
+#[test]
+fn exclusive_uses_auhal_when_the_device_has_no_integer_path() {
+    let mut row = Playback::initial();
+    row.active_device = Some(output_device(9, "display", "DELL U3223QE"));
+    row.device_capabilities = Some(device::OutputDeviceCapabilities {
+        max_bits_per_channel: Some(24),
+        max_sample_rate: 192_000.0,
+        integer_wire_formats: false,
+        transport: device::DeviceTransport::DisplayPort,
+    });
+    let (command_tx, command_rx) = std::sync::mpsc::channel();
+    row.command_tx = Some(command_tx);
+
+    row.apply_output_mode_if_active("display", StoredOutputMode::Exclusive);
+
+    assert_eq!(
+        row.resolved_engine_kind,
+        EngineKind::Universal {
+            exclusive_mode: false,
+        }
+    );
+    assert_eq!(
+        command_rx.recv().unwrap(),
+        PlaybackCommand::SetOutputDevice {
+            device_id: 9,
+            kind: EngineKind::Universal {
+                exclusive_mode: true,
+            },
+        }
+    );
+
+    row.handle_event(PlaybackEvent::OutputDeviceChanged {
+        device_id: 9,
+        kind: EngineKind::Universal {
+            exclusive_mode: true,
+        },
+    });
+
+    assert_eq!(
+        row.resolved_engine_kind,
+        EngineKind::Universal {
+            exclusive_mode: true,
         }
     );
 }

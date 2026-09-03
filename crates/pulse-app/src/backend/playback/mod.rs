@@ -59,6 +59,7 @@ struct PendingDeviceChange {
     capabilities: Result<device::OutputDeviceCapabilities, EngineError>,
     automatic_mode: StoredOutputMode,
     output_mode: StoredOutputMode,
+    engine_kind: EngineKind,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -82,7 +83,7 @@ pub(crate) enum PlaybackToastKind {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum PlaybackToastAction {
-    SwitchToBitPerfect { device_uid: String },
+    SwitchToExclusive { device_uid: String },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -164,7 +165,7 @@ pub(crate) struct ManagedDevice {
     pub saved_default: bool,
     pub output_mode: StoredOutputMode,
     pub automatic: bool,
-    pub bit_perfect_available: bool,
+    pub integer_path_available: bool,
     pub hardware_volume_available: bool,
 }
 
@@ -200,6 +201,7 @@ pub(crate) struct PlaybackSnapshot {
     pub(crate) automatic_output_mode: StoredOutputMode,
     pub(crate) output_mode: StoredOutputMode,
     pub(crate) playback_output_mode: StoredOutputMode,
+    pub(crate) resolved_engine_kind: EngineKind,
     pub(crate) output_mode_automatic: bool,
     pub(crate) bit_perfect_active: bool,
     pub(crate) volume_state: VolumeState,
@@ -321,12 +323,14 @@ pub(crate) struct Playback {
     pub(crate) device_capabilities: Option<device::OutputDeviceCapabilities>,
     pub(crate) device_capability_message: Option<DeviceMessage>,
     pending_device_change: Option<PendingDeviceChange>,
+    pending_output_mode_engine_kind: Option<EngineKind>,
     pending_saved_output_device_uid: Option<String>,
     pub(crate) device_message: Option<DeviceMessage>,
     device_sightings_writable: bool,
     pub(crate) automatic_output_mode: StoredOutputMode,
     pub(crate) output_mode: StoredOutputMode,
     pub(crate) playback_output_mode: StoredOutputMode,
+    pub(crate) resolved_engine_kind: EngineKind,
     pub(crate) bit_perfect_active: bool,
     pub(crate) volume_state: VolumeState,
     pub(crate) volume_level: f32,
@@ -388,12 +392,16 @@ impl Playback {
             device_capabilities: None,
             device_capability_message: None,
             pending_device_change: None,
+            pending_output_mode_engine_kind: None,
             pending_saved_output_device_uid: None,
             device_message: None,
             device_sightings_writable: true,
             automatic_output_mode: StoredOutputMode::Shared,
             output_mode: StoredOutputMode::Shared,
             playback_output_mode: StoredOutputMode::Shared,
+            resolved_engine_kind: EngineKind::Universal {
+                exclusive_mode: false,
+            },
             bit_perfect_active: false,
             volume_state: VolumeState::default(),
             volume_level: settings.volume_level,
@@ -450,12 +458,16 @@ impl Playback {
             device_capabilities: None,
             device_capability_message: None,
             pending_device_change: None,
+            pending_output_mode_engine_kind: None,
             pending_saved_output_device_uid: None,
             device_message: None,
             device_sightings_writable: false,
             automatic_output_mode: StoredOutputMode::Shared,
             output_mode: StoredOutputMode::Shared,
             playback_output_mode: StoredOutputMode::Shared,
+            resolved_engine_kind: EngineKind::Universal {
+                exclusive_mode: false,
+            },
             bit_perfect_active: false,
             volume_state: VolumeState::default(),
             volume_level: 1.0,
@@ -554,6 +566,7 @@ impl Playback {
             automatic_output_mode: self.automatic_output_mode,
             output_mode: self.output_mode,
             playback_output_mode: self.playback_output_mode,
+            resolved_engine_kind: self.resolved_engine_kind,
             output_mode_automatic: self.output_mode_is_automatic(),
             bit_perfect_active: self.bit_perfect_active,
             volume_state: self.volume_state,

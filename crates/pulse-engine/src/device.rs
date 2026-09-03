@@ -28,7 +28,14 @@ pub struct Device {
 pub struct OutputDeviceCapabilities {
     pub max_bits_per_channel: Option<u32>,
     pub max_sample_rate: f64,
+    pub integer_wire_formats: bool,
     pub transport: DeviceTransport,
+}
+
+impl OutputDeviceCapabilities {
+    pub fn has_integer_path(self) -> bool {
+        self.integer_wire_formats && self.transport.supports_bit_perfect()
+    }
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -133,16 +140,15 @@ pub fn default_output_device() -> Result<Device, EngineError> {
 pub fn output_device_capabilities(
     device_id: DeviceId,
 ) -> Result<OutputDeviceCapabilities, EngineError> {
-    let Some((max_bits_per_channel, max_sample_rate, transport_type)) =
-        hal::output_device_capabilities(device_id)?
-    else {
+    let Some(capabilities) = hal::output_device_capabilities(device_id)? else {
         return Err(EngineError::NoOutputCapabilities(device_id));
     };
 
     Ok(OutputDeviceCapabilities {
-        max_bits_per_channel,
-        max_sample_rate,
-        transport: transport_type.into(),
+        max_bits_per_channel: capabilities.max_bits_per_channel,
+        max_sample_rate: capabilities.max_sample_rate,
+        integer_wire_formats: capabilities.integer_wire_formats,
+        transport: capabilities.transport_type.into(),
     })
 }
 

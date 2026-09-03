@@ -334,6 +334,7 @@ mod tests {
         playback.device_capabilities = Some(device::OutputDeviceCapabilities {
             max_bits_per_channel: Some(24),
             max_sample_rate: 192_000.0,
+            integer_wire_formats: true,
             transport: device::DeviceTransport::Usb,
         });
         let (command_tx, command_rx) = std::sync::mpsc::channel();
@@ -353,7 +354,7 @@ mod tests {
         assert!(playback.error.is_none());
         assert_eq!(
             playback.toasts.back().unwrap().title,
-            "DSD needs Bit-perfect output"
+            "DSD needs Exclusive output"
         );
 
         playback.toggle_playback();

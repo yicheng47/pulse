@@ -14,13 +14,13 @@ pub(crate) enum ToastKind {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum ToastAction {
-    SwitchToBitPerfect { device_uid: String },
+    SwitchToExclusive { device_uid: String },
 }
 
 impl ToastAction {
     pub(crate) fn label(&self) -> &'static str {
         match self {
-            Self::SwitchToBitPerfect { .. } => "Switch to Bit-perfect",
+            Self::SwitchToExclusive { .. } => "Switch to Exclusive",
         }
     }
 }
@@ -236,9 +236,9 @@ mod tests {
         let mut state = ToastState::default();
         let schedule = state.push(
             Toast::error_with_action(
-                "DSD needs Bit-perfect output",
+                "DSD needs Exclusive output",
                 "body",
-                ToastAction::SwitchToBitPerfect {
+                ToastAction::SwitchToExclusive {
                     device_uid: "matrix".to_string(),
                 },
             ),

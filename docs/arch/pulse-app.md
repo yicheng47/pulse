@@ -63,7 +63,7 @@ Each product area keeps its rendering and interaction code in one surface module
 Domain objects split into three layers by where they live and who writes them:
 
 - **Catalog** — `library.sqlite`, written by the scanner and by explicit user actions. StorageRoot, Track, Artist, Playlist, PlaylistTrack, ScanHistory. Album is *derived* from tracks and has no table.
-- **Preferences** — `settings.json` (`AppSettings`, §7), written by the store on change. Saved output device, per-device exclusive-mode preferences and sightings, volume. Never joined to the catalog.
+- **Preferences** — `settings.json` (`AppSettings`, §7), written by the store on change. Saved output device, per-device Shared/Exclusive preferences and sightings, volume. Never joined to the catalog.
 - **Runtime** — in memory in `AppStore`, gone at quit. `PlaybackSnapshot`, the queue (`QueueState`), the device table, notices. Refers to catalog rows by `TrackId` and to devices by UID; nothing here is persisted (feature 21 will persist a subset back into `settings.json`).
 
 The key rule, from `AGENTS.md`: **relationships are managed in the application layer.** The schema declares no enforced foreign keys (`PRAGMA foreign_keys` is off; the `REFERENCES` clauses on the legacy tables are declarative only and disappear at the next rebuild). Related-id columns are plain integers, side tables join on natural keys, and insert/delete ordering and orphan cleanup are store code with tests.
@@ -89,7 +89,7 @@ The key rule, from `AGENTS.md`: **relationships are managed in the application l
 ┌─ Preferences (settings.json) ───────┐   ┌─ Runtime (AppStore, in memory) ───────────┐
 │  AppSettings                        │   │  PlaybackSnapshot · QueueState (TrackIds)  │
 │   saved output UID · per-device     │   │  ManagedDevice table · notices            │
-│   exclusive prefs + sightings ·     │   │  observed by surfaces via StoreRevisions  │
+│   output prefs + sightings ·        │   │  observed by surfaces via StoreRevisions  │
 │   volume                            │   │                                            │
 └─────────────────────────────────────┘   └────────────────────────────────────────────┘
 ```
@@ -164,7 +164,7 @@ The library catalog remains a separate `LibraryStore` owned by the library surfa
 
 ## 7. Settings And Migration
 
-Current app settings live in `settings.json` under Pulse's platform data directory: `pulse` for release builds and `pulse-dev` for debug builds. `AppSettings` stores the saved output-device UID, per-device exclusive-mode preferences and sightings, volume level, and mute state.
+Current app settings live in `settings.json` under Pulse's platform data directory: `pulse` for release builds and `pulse-dev` for debug builds. `AppSettings` stores the saved output-device UID, per-device Shared/Exclusive preferences and sightings, volume level, and mute state. An unpinned device remains automatic; its resolved segment is derived from the capability probe. Retired `bitPerfect` values deserialize as Exclusive, and incomplete stored capability records are reprobed.
 
 Saving writes pretty JSON to a newly created temporary file, synchronizes it, renames it over `settings.json`, and synchronizes the parent directory on Unix. Loading applies serde defaults for missing fields and normalizes the device UID and volume range. Invalid JSON is moved to a unique `.corrupt` sibling and replaced with defaults.
 
