@@ -48,7 +48,7 @@ fn legacy_disabled_marker_becomes_one_active_device_override() {
         playback
             .settings
             .output_mode_preferences
-            .effective_mode("airpods", StoredOutputMode::BitPerfect),
+            .effective_mode("airpods", StoredOutputMode::Exclusive),
         StoredOutputMode::Shared
     );
     assert_eq!(
@@ -72,6 +72,7 @@ fn forgetting_a_saved_device_updates_both_json_fields_atomically() {
         Some(StoredDeviceCapabilities {
             max_bits_per_channel: Some(24),
             max_sample_rate: 192_000,
+            integer_wire_formats: Some(true),
             transport: Some(StoredDeviceTransport::Usb),
         }),
         100,
@@ -114,7 +115,7 @@ fn combined_volume_update_preserves_unrelated_settings_fields() {
     assert_eq!(
         loaded
             .output_mode_preferences
-            .effective_mode("matrix", StoredOutputMode::BitPerfect),
+            .effective_mode("matrix", StoredOutputMode::Exclusive),
         StoredOutputMode::Shared
     );
     assert_eq!(loaded.legacy_exclusive_mode_disabled, Some(true));
@@ -164,7 +165,7 @@ fn accepts_only_supported_audio_extensions() {
 }
 
 #[test]
-fn dsd_gate_requires_bit_perfect_mode_and_the_dop_rate() {
+fn dsd_gate_requires_the_integer_engine_and_the_dop_rate() {
     let dff = Path::new(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../pulse-engine/tests/fixtures/dsd-interleave.dff"
@@ -172,18 +173,46 @@ fn dsd_gate_requires_bit_perfect_mode_and_the_dop_rate() {
     let capabilities = |max_sample_rate| device::OutputDeviceCapabilities {
         max_bits_per_channel: Some(24),
         max_sample_rate,
+        integer_wire_formats: true,
         transport: device::DeviceTransport::Usb,
     };
 
-    let wrong_mode =
-        dsd_playback_error(dff, StoredOutputMode::Shared, Some(capabilities(192_000.0))).unwrap();
-    assert_eq!(wrong_mode.title(), "DSD needs Bit-perfect output");
-    assert!(wrong_mode.needs_bit_perfect());
+    let shared = dsd_playback_error(
+        dff,
+        EngineKind::Universal {
+            exclusive_mode: false,
+        },
+        Some(capabilities(192_000.0)),
+    )
+    .unwrap();
+    assert_eq!(shared.title(), "DSD needs Exclusive output");
+    assert_eq!(
+        shared.body(Some("Matrix mini-i")),
+        "DoP only survives Pulse's untouched integer path, and that path needs the device to itself. Switch to Exclusive to play this track."
+    );
+    assert!(shared.needs_exclusive());
+
+    let mut no_integer_path = capabilities(192_000.0);
+    no_integer_path.integer_wire_formats = false;
+    let unsupported = dsd_playback_error(
+        dff,
+        EngineKind::Universal {
+            exclusive_mode: true,
+        },
+        Some(no_integer_path),
+    )
+    .unwrap();
+    assert_eq!(unsupported.title(), "This device can't play DSD");
+    assert_eq!(
+        unsupported.body(Some("DELL U3223QE")),
+        "DELL U3223QE has no integer path Pulse can trust for DoP — Exclusive here is transparent, not bit-perfect. Choose an output with an integer path."
+    );
+    assert!(!unsupported.needs_exclusive());
 
     let rate_ceiling = dsd_playback_error_with_sample_rate(
         Path::new("track.dsf"),
         Some(5_644_800),
-        StoredOutputMode::BitPerfect,
+        EngineKind::Integer,
         Some(capabilities(192_000.0)),
     )
     .unwrap();
@@ -193,23 +222,19 @@ fn dsd_gate_requires_bit_perfect_mode_and_the_dop_rate() {
         "Matrix mini-i supports up to 192 kHz; DSD128 needs 352.8 kHz for DoP."
     );
 
-    let unknown = dsd_playback_error(dff, StoredOutputMode::BitPerfect, None).unwrap();
+    let unknown = dsd_playback_error(dff, EngineKind::Integer, None).unwrap();
     assert_eq!(unknown.title(), "Output device not verified yet");
 
     let unreadable = dsd_playback_error(
         Path::new("missing.dff"),
-        StoredOutputMode::BitPerfect,
+        EngineKind::Integer,
         Some(capabilities(192_000.0)),
     )
     .unwrap();
     assert_eq!(unreadable.title(), "Couldn't read this DSD file");
 
     assert_eq!(
-        dsd_playback_error(
-            dff,
-            StoredOutputMode::BitPerfect,
-            Some(capabilities(192_000.0))
-        ),
+        dsd_playback_error(dff, EngineKind::Integer, Some(capabilities(192_000.0))),
         None
     );
 }
@@ -371,29 +396,95 @@ fn shared_output_labels_the_track_rate_as_source_metadata() {
         output_mode_meta(StoredOutputMode::Exclusive),
         "CoreAudio · Exclusive"
     );
-    assert_eq!(
-        output_mode_meta(StoredOutputMode::BitPerfect),
-        "CoreAudio · Bit-perfect"
-    );
 }
 
 #[test]
-fn every_resolved_output_mode_maps_to_one_controller_kind() {
+fn output_mode_resolver_covers_auto_and_pins_across_device_capabilities() {
+    let safe_integer_dac = device::OutputDeviceCapabilities {
+        max_bits_per_channel: Some(24),
+        max_sample_rate: 192_000.0,
+        integer_wire_formats: true,
+        transport: device::DeviceTransport::Usb,
+    };
+    let mixable_integer_device = device::OutputDeviceCapabilities {
+        integer_wire_formats: false,
+        ..safe_integer_dac
+    };
+    let display_integer_device = device::OutputDeviceCapabilities {
+        transport: device::DeviceTransport::DisplayPort,
+        ..safe_integer_dac
+    };
+    let float_only_device = device::OutputDeviceCapabilities {
+        max_bits_per_channel: None,
+        max_sample_rate: 48_000.0,
+        integer_wire_formats: false,
+        transport: device::DeviceTransport::BuiltIn,
+    };
+
+    for (capabilities, automatic, exclusive_kind) in [
+        (
+            safe_integer_dac,
+            StoredOutputMode::Exclusive,
+            EngineKind::Integer,
+        ),
+        (
+            mixable_integer_device,
+            StoredOutputMode::Exclusive,
+            EngineKind::Universal {
+                exclusive_mode: true,
+            },
+        ),
+        (
+            display_integer_device,
+            StoredOutputMode::Exclusive,
+            EngineKind::Universal {
+                exclusive_mode: true,
+            },
+        ),
+        (
+            float_only_device,
+            StoredOutputMode::Shared,
+            EngineKind::Universal {
+                exclusive_mode: true,
+            },
+        ),
+    ] {
+        assert_eq!(automatic_output_mode(&Ok(capabilities)), automatic);
+        assert_eq!(
+            automatic_stored_output_mode(Some(stored_device_capabilities(capabilities))),
+            automatic
+        );
+        assert_eq!(
+            resolve_engine_kind(automatic, Some(capabilities)),
+            if automatic == StoredOutputMode::Shared {
+                EngineKind::Universal {
+                    exclusive_mode: false,
+                }
+            } else {
+                exclusive_kind
+            }
+        );
+        assert_eq!(
+            resolve_engine_kind(StoredOutputMode::Shared, Some(capabilities)),
+            EngineKind::Universal {
+                exclusive_mode: false,
+            }
+        );
+        assert_eq!(
+            resolve_engine_kind(StoredOutputMode::Exclusive, Some(capabilities)),
+            exclusive_kind
+        );
+    }
+
     assert_eq!(
-        engine_kind_for_output_mode(StoredOutputMode::Shared),
-        EngineKind::Universal {
-            exclusive_mode: false,
-        }
+        output_mode_for_engine_kind(EngineKind::Integer),
+        StoredOutputMode::Exclusive
     );
     assert_eq!(
-        engine_kind_for_output_mode(StoredOutputMode::Exclusive),
-        EngineKind::Universal {
+        output_mode_for_engine_kind(EngineKind::Universal {
             exclusive_mode: true,
-        }
-    );
-    assert_eq!(
-        engine_kind_for_output_mode(StoredOutputMode::BitPerfect),
-        EngineKind::BitPerfect
+        }),
+        StoredOutputMode::Exclusive
     );
 }
 
@@ -405,6 +496,7 @@ fn a_missing_stored_transport_runs_the_capability_probe() {
         Ok(device::OutputDeviceCapabilities {
             max_bits_per_channel: Some(24),
             max_sample_rate: 192_000.0,
+            integer_wire_formats: true,
             transport: device::DeviceTransport::Usb,
         })
     });
@@ -438,6 +530,7 @@ fn managed_devices_merge_connected_and_stored_rows_without_duplicates() {
         Some(app_settings::StoredDeviceCapabilities {
             max_bits_per_channel: Some(24),
             max_sample_rate: 192_000,
+            integer_wire_formats: Some(true),
             transport: Some(StoredDeviceTransport::Usb),
         }),
         100,
@@ -448,6 +541,7 @@ fn managed_devices_merge_connected_and_stored_rows_without_duplicates() {
         Some(app_settings::StoredDeviceCapabilities {
             max_bits_per_channel: None,
             max_sample_rate: 48_000,
+            integer_wire_formats: Some(false),
             transport: Some(StoredDeviceTransport::Bluetooth),
         }),
         90,
@@ -480,6 +574,7 @@ fn managed_device_group_moves_keep_the_stored_pin() {
         Some(app_settings::StoredDeviceCapabilities {
             max_bits_per_channel: Some(24),
             max_sample_rate: 192_000,
+            integer_wire_formats: Some(true),
             transport: Some(StoredDeviceTransport::Usb),
         }),
         100,

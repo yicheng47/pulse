@@ -4,7 +4,7 @@
 //! Three layers live here. `PlaybackController` is the public handle (command sender, event
 //! subscriptions, shutdown). `Worker` is the state machine on its own thread. `PlaybackBackend` is
 //! the one trait both engines sit behind — `AuhalBackend` (AUHAL, universal) and `IntegerBackend`
-//! (raw HAL, bit-perfect) — so the worker never knows which one it is driving.
+//! (raw HAL, integer) — so the worker never knows which one it is driving.
 //!
 //! The worker moves bytes: `SourceDecoder::next_pcm` fills a chunk, `PlaybackBackend::feed` takes as
 //! much as the engine's ring has room for, and `pump` repeats until the decoder is dry. No sample
@@ -119,7 +119,7 @@ impl PlaybackController {
                     Ok(Box::new(AuhalBackend::open(device_id, exclusive_mode)?)
                         as Box<dyn PlaybackBackend>)
                 }
-                EngineKind::BitPerfect => {
+                EngineKind::Integer => {
                     Ok(Box::new(IntegerBackend::open(device_id)?) as Box<dyn PlaybackBackend>)
                 }
             }),
@@ -366,7 +366,7 @@ impl PlaybackBackend for AuhalBackend {
     }
 }
 
-/// The bit-perfect engine behind the trait: raw HAL IOProc, hog held, integer device formats.
+/// The integer engine behind the trait: raw HAL IOProc, hog held, integer device formats.
 struct IntegerBackend {
     engine: IntegerEngine,
 }
@@ -1059,7 +1059,7 @@ impl Worker {
             EngineKind::Universal { exclusive_mode } => {
                 exclusive_mode && !self.shared_mode_fallback
             }
-            EngineKind::BitPerfect => true,
+            EngineKind::Integer => true,
         }
     }
 
@@ -1106,7 +1106,7 @@ impl Worker {
             Ok(()) => {
                 let volume_state = VolumeState::new(backend.volume_domain());
                 self.backend = Some((self.output_device, engine_kind, backend));
-                self.set_bit_perfect_active(engine_kind == EngineKind::BitPerfect);
+                self.set_bit_perfect_active(engine_kind == EngineKind::Integer);
                 self.set_volume_state(volume_state);
                 if let Some((level, muted)) = hardware_volume_event {
                     self.volume_level = level;
@@ -1131,7 +1131,7 @@ impl Worker {
             EngineKind::Universal { .. } => EngineKind::Universal {
                 exclusive_mode: self.actual_exclusive_mode(),
             },
-            EngineKind::BitPerfect => EngineKind::BitPerfect,
+            EngineKind::Integer => EngineKind::Integer,
         }
     }
 
@@ -1892,7 +1892,7 @@ mod tests {
         releases: usize,
         fail_exclusive_open_device: Option<DeviceId>,
         fail_exclusive_start_device: Option<DeviceId>,
-        fail_bitperfect_start_device: Option<DeviceId>,
+        fail_integer_start_device: Option<DeviceId>,
         fail_all_open_device: Option<DeviceId>,
         stop_error: bool,
         release_error: bool,
@@ -1926,7 +1926,7 @@ mod tests {
                 releases: 0,
                 fail_exclusive_open_device: None,
                 fail_exclusive_start_device: None,
-                fail_bitperfect_start_device: None,
+                fail_integer_start_device: None,
                 fail_all_open_device: None,
                 stop_error: false,
                 release_error: false,
@@ -1983,7 +1983,7 @@ mod tests {
                 return Err(EngineError::UnsupportedNominalSampleRate(TEST_FORMAT));
             }
             if self.retains_device
-                && self.log.lock().unwrap().fail_bitperfect_start_device == Some(self.device_id)
+                && self.log.lock().unwrap().fail_integer_start_device == Some(self.device_id)
             {
                 return Err(EngineError::Os {
                     call: "AudioDeviceStart",
@@ -2032,7 +2032,7 @@ mod tests {
             } else {
                 match self.engine_kind {
                     EngineKind::Universal { .. } => VolumeDomain::Software,
-                    EngineKind::BitPerfect => VolumeDomain::Fixed,
+                    EngineKind::Integer => VolumeDomain::Fixed,
                 }
             }
         }
@@ -3059,8 +3059,8 @@ mod tests {
     }
 
     #[test]
-    fn bitperfect_pause_retains_backend_and_resume_reuses_it() {
-        let (controller, log) = fake_controller_with_kind(EngineKind::BitPerfect);
+    fn integer_pause_retains_backend_and_resume_reuses_it() {
+        let (controller, log) = fake_controller_with_kind(EngineKind::Integer);
         let events = controller.subscribe();
         let commands = controller.command_sender();
         commands
@@ -3113,7 +3113,7 @@ mod tests {
 
     #[test]
     fn stop_releases_a_backend_retained_by_pause() {
-        let (controller, log) = fake_controller_with_kind(EngineKind::BitPerfect);
+        let (controller, log) = fake_controller_with_kind(EngineKind::Integer);
         let events = controller.subscribe();
         let commands = controller.command_sender();
         commands
@@ -3147,7 +3147,7 @@ mod tests {
 
     #[test]
     fn device_switch_releases_a_backend_retained_by_pause() {
-        let (controller, log) = fake_controller_with_kind(EngineKind::BitPerfect);
+        let (controller, log) = fake_controller_with_kind(EngineKind::Integer);
         let events = controller.subscribe();
         let commands = controller.command_sender();
         commands
@@ -3172,7 +3172,7 @@ mod tests {
         commands
             .send(PlaybackCommand::SetOutputDevice {
                 device_id: 9,
-                kind: EngineKind::BitPerfect,
+                kind: EngineKind::Integer,
             })
             .unwrap();
         wait_for(&events, |event| {
@@ -3189,7 +3189,7 @@ mod tests {
 
     #[test]
     fn engine_switch_releases_a_backend_retained_by_pause() {
-        let (controller, log) = fake_controller_with_kind(EngineKind::BitPerfect);
+        let (controller, log) = fake_controller_with_kind(EngineKind::Integer);
         let events = controller.subscribe();
         let commands = controller.command_sender();
         commands
@@ -3227,13 +3227,13 @@ mod tests {
         });
 
         let log = log.lock().unwrap();
-        assert_eq!(log.engine_kinds, [EngineKind::BitPerfect]);
+        assert_eq!(log.engine_kinds, [EngineKind::Integer]);
         assert_eq!(log.releases, 1);
     }
 
     #[test]
-    fn exclusive_mode_command_does_not_change_bitperfect_backend() {
-        let (controller, log) = fake_controller_with_kind(EngineKind::BitPerfect);
+    fn exclusive_mode_command_does_not_change_integer_backend() {
+        let (controller, log) = fake_controller_with_kind(EngineKind::Integer);
         let events = controller.subscribe();
         let commands = controller.command_sender();
         commands
@@ -3263,7 +3263,7 @@ mod tests {
         });
 
         let log = log.lock().unwrap();
-        assert_eq!(log.engine_kinds, [EngineKind::BitPerfect]);
+        assert_eq!(log.engine_kinds, [EngineKind::Integer]);
         assert_eq!(log.releases, 0);
     }
 
@@ -3516,9 +3516,9 @@ mod tests {
     }
 
     #[test]
-    fn bitperfect_start_failure_surfaces_without_float_fallback() {
-        let (controller, log) = fake_controller_with_kind(EngineKind::BitPerfect);
-        log.lock().unwrap().fail_bitperfect_start_device = Some(7);
+    fn integer_start_failure_surfaces_without_float_fallback() {
+        let (controller, log) = fake_controller_with_kind(EngineKind::Integer);
+        log.lock().unwrap().fail_integer_start_device = Some(7);
         let events = controller.subscribe();
         controller
             .command_sender()
@@ -3547,13 +3547,13 @@ mod tests {
         );
         let log = log.lock().unwrap();
         assert_eq!(log.opened_devices, [7]);
-        assert_eq!(log.engine_kinds, [EngineKind::BitPerfect]);
+        assert_eq!(log.engine_kinds, [EngineKind::Integer]);
         assert_eq!(log.releases, 1);
     }
 
     #[test]
-    fn bitperfect_restart_failure_clears_the_confirmed_state() {
-        let (controller, log) = fake_controller_with_kind(EngineKind::BitPerfect);
+    fn integer_restart_failure_clears_the_confirmed_state() {
+        let (controller, log) = fake_controller_with_kind(EngineKind::Integer);
         let events = controller.subscribe();
         let commands = controller.command_sender();
         commands
@@ -3568,7 +3568,7 @@ mod tests {
             *event == PlaybackEvent::StateChanged(PlaybackState::Playing)
         });
 
-        log.lock().unwrap().fail_bitperfect_start_device = Some(7);
+        log.lock().unwrap().fail_integer_start_device = Some(7);
         commands
             .send(PlaybackCommand::PlayFile {
                 path: PathBuf::from("second.flac"),
@@ -4067,7 +4067,7 @@ mod tests {
             matches!(event, PlaybackEvent::ExclusiveModeFallback { device_id: 9 })
         });
 
-        let (fixed_controller, _) = fake_controller_with_kind(EngineKind::BitPerfect);
+        let (fixed_controller, _) = fake_controller_with_kind(EngineKind::Integer);
         let fixed_events = fixed_controller.subscribe();
         fixed_controller
             .command_sender()
@@ -4581,7 +4581,7 @@ mod tests {
 
     #[test]
     fn dropping_controller_releases_a_backend_retained_by_pause() {
-        let (controller, log) = fake_controller_with_kind(EngineKind::BitPerfect);
+        let (controller, log) = fake_controller_with_kind(EngineKind::Integer);
         let events = controller.subscribe();
         let commands = controller.command_sender();
         commands
@@ -4612,8 +4612,8 @@ mod tests {
     }
 
     #[test]
-    fn explicit_shutdown_releases_a_paused_bit_perfect_backend_once() {
-        let (mut controller, log) = fake_controller_with_kind(EngineKind::BitPerfect);
+    fn explicit_shutdown_releases_a_paused_integer_backend_once() {
+        let (mut controller, log) = fake_controller_with_kind(EngineKind::Integer);
         let events = controller.subscribe();
         let commands = controller.command_sender();
         commands
@@ -5083,8 +5083,8 @@ mod tests {
     }
 
     #[test]
-    fn bitperfect_format_mismatch_reuses_backend_without_state_flicker() {
-        let (controller, log) = fake_controller_with_kind(EngineKind::BitPerfect);
+    fn integer_format_mismatch_reuses_backend_without_state_flicker() {
+        let (controller, log) = fake_controller_with_kind(EngineKind::Integer);
         configure_decoder(&log, "a.flac", TEST_FORMAT, 2_000, 2_000);
         configure_decoder(&log, "b.flac", ALT_FORMAT, 1_000, 4_000);
         log.lock().unwrap().position_limit = 0;
@@ -5149,8 +5149,8 @@ mod tests {
     }
 
     #[test]
-    fn bitperfect_boundary_start_failure_releases_the_reused_backend() {
-        let (controller, log) = fake_controller_with_kind(EngineKind::BitPerfect);
+    fn integer_boundary_start_failure_releases_the_reused_backend() {
+        let (controller, log) = fake_controller_with_kind(EngineKind::Integer);
         configure_decoder(&log, "a.flac", TEST_FORMAT, 2_000, 2_000);
         configure_decoder(&log, "b.flac", ALT_FORMAT, 1_000, 4_000);
         log.lock().unwrap().position_limit = 0;
@@ -5176,7 +5176,7 @@ mod tests {
         wait_for_log(&log, |log| log.backend_fed_frames == 2_000);
         {
             let mut log = log.lock().unwrap();
-            log.fail_bitperfect_start_device = Some(7);
+            log.fail_integer_start_device = Some(7);
             log.position_limit = 2_000;
         }
 
@@ -5211,7 +5211,7 @@ mod tests {
         wait_for(&events, |event| {
             *event == PlaybackEvent::StateChanged(PlaybackState::Idle)
         });
-        log.lock().unwrap().fail_bitperfect_start_device = None;
+        log.lock().unwrap().fail_integer_start_device = None;
         commands
             .send(PlaybackCommand::PlayFile {
                 path: PathBuf::from("c.flac"),
@@ -6328,7 +6328,7 @@ mod tests {
             Arc::new(move |device_id, engine_kind| {
                 let (exclusive_mode, retains_device) = match engine_kind {
                     EngineKind::Universal { exclusive_mode } => (exclusive_mode, false),
-                    EngineKind::BitPerfect => (true, true),
+                    EngineKind::Integer => (true, true),
                 };
                 let (fail_all_open, fail_exclusive_open, hardware_volume, hardware_volume_settable) = {
                     let mut log = backend_log.lock().unwrap();

@@ -116,9 +116,7 @@ pub(crate) fn format_output_device(
     let sample_rate = format_sample_rate(sample_rate);
     match mode {
         StoredOutputMode::Shared => format!("{sample_rate} source · {device_name}"),
-        StoredOutputMode::Exclusive | StoredOutputMode::BitPerfect => {
-            format!("{sample_rate} · {device_name}")
-        }
+        StoredOutputMode::Exclusive => format!("{sample_rate} · {device_name}"),
     }
 }
 
@@ -126,7 +124,6 @@ pub(crate) fn output_mode_meta(mode: StoredOutputMode) -> &'static str {
     match mode {
         StoredOutputMode::Shared => "CoreAudio · Shared",
         StoredOutputMode::Exclusive => "CoreAudio · Exclusive",
-        StoredOutputMode::BitPerfect => "CoreAudio · Bit-perfect",
     }
 }
 
@@ -181,7 +178,8 @@ pub(crate) fn is_supported_audio(path: &Path) -> bool {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum DsdPlaybackError {
-    NeedsBitPerfect,
+    NeedsExclusive,
+    NoIntegerPath,
     Unreadable {
         detail: String,
     },
@@ -196,7 +194,8 @@ pub(crate) enum DsdPlaybackError {
 impl DsdPlaybackError {
     pub(crate) fn title(&self) -> String {
         match self {
-            Self::NeedsBitPerfect => "DSD needs Bit-perfect output".to_string(),
+            Self::NeedsExclusive => "DSD needs Exclusive output".to_string(),
+            Self::NoIntegerPath => "This device can't play DSD".to_string(),
             Self::Unreadable { .. } => "Couldn't read this DSD file".to_string(),
             Self::DeviceNotVerified => "Output device not verified yet".to_string(),
             Self::RateCeiling { dsd_label, .. } => {
@@ -208,9 +207,10 @@ impl DsdPlaybackError {
     pub(crate) fn body(&self, device_name: Option<&str>) -> String {
         let device_name = device_name.unwrap_or("The active output device");
         match self {
-            Self::NeedsBitPerfect => {
-                "DSD can play only through Pulse's bit-perfect output path.".to_string()
-            }
+            Self::NeedsExclusive => "DoP only survives Pulse's untouched integer path, and that path needs the device to itself. Switch to Exclusive to play this track.".to_string(),
+            Self::NoIntegerPath => format!(
+                "{device_name} has no integer path Pulse can trust for DoP — Exclusive here is transparent, not bit-perfect. Choose an output with an integer path."
+            ),
             Self::Unreadable { detail } => detail.clone(),
             Self::DeviceNotVerified => {
                 format!("Pulse hasn't verified {device_name}'s sample-rate ceiling yet.")
@@ -227,23 +227,23 @@ impl DsdPlaybackError {
         }
     }
 
-    pub(crate) fn needs_bit_perfect(&self) -> bool {
-        matches!(self, Self::NeedsBitPerfect)
+    pub(crate) fn needs_exclusive(&self) -> bool {
+        matches!(self, Self::NeedsExclusive)
     }
 }
 
 pub(crate) fn dsd_playback_error(
     path: &Path,
-    output_mode: StoredOutputMode,
+    engine_kind: EngineKind,
     capabilities: Option<device::OutputDeviceCapabilities>,
 ) -> Option<DsdPlaybackError> {
-    dsd_playback_error_with_sample_rate(path, None, output_mode, capabilities)
+    dsd_playback_error_with_sample_rate(path, None, engine_kind, capabilities)
 }
 
 pub(crate) fn dsd_playback_error_with_sample_rate(
     path: &Path,
     sample_rate_hz: Option<u32>,
-    output_mode: StoredOutputMode,
+    engine_kind: EngineKind,
     capabilities: Option<device::OutputDeviceCapabilities>,
 ) -> Option<DsdPlaybackError> {
     let is_dsd = path
@@ -255,8 +255,14 @@ pub(crate) fn dsd_playback_error_with_sample_rate(
     if !is_dsd {
         return None;
     }
-    if output_mode != StoredOutputMode::BitPerfect {
-        return Some(DsdPlaybackError::NeedsBitPerfect);
+    if engine_kind != EngineKind::Integer {
+        return Some(match capabilities {
+            Some(capabilities) if capabilities.has_integer_path() => {
+                DsdPlaybackError::NeedsExclusive
+            }
+            Some(_) => DsdPlaybackError::NoIntegerPath,
+            None => DsdPlaybackError::DeviceNotVerified,
+        });
     }
     let dsd_rate = match sample_rate_hz {
         Some(sample_rate) => sample_rate,
@@ -325,12 +331,6 @@ pub(crate) fn automatic_output_mode(
     capabilities: &Result<device::OutputDeviceCapabilities, EngineError>,
 ) -> StoredOutputMode {
     match capabilities {
-        Ok(capabilities)
-            if capabilities.max_bits_per_channel.is_some()
-                && capabilities.transport.supports_bit_perfect() =>
-        {
-            StoredOutputMode::BitPerfect
-        }
         Ok(capabilities) if capabilities.max_bits_per_channel.is_some() => {
             StoredOutputMode::Exclusive
         }
@@ -342,7 +342,6 @@ pub(crate) fn automatic_stored_output_mode(
     capabilities: Option<StoredDeviceCapabilities>,
 ) -> StoredOutputMode {
     match capabilities {
-        Some(capabilities) if capabilities.supports_bit_perfect() => StoredOutputMode::BitPerfect,
         Some(capabilities) if capabilities.max_bits_per_channel.is_some() => {
             StoredOutputMode::Exclusive
         }
@@ -350,15 +349,22 @@ pub(crate) fn automatic_stored_output_mode(
     }
 }
 
-pub(crate) fn engine_kind_for_output_mode(mode: StoredOutputMode) -> EngineKind {
+pub(crate) fn resolve_engine_kind(
+    mode: StoredOutputMode,
+    capabilities: Option<device::OutputDeviceCapabilities>,
+) -> EngineKind {
     match mode {
         StoredOutputMode::Shared => EngineKind::Universal {
             exclusive_mode: false,
         },
+        StoredOutputMode::Exclusive
+            if capabilities.is_some_and(|value| value.has_integer_path()) =>
+        {
+            EngineKind::Integer
+        }
         StoredOutputMode::Exclusive => EngineKind::Universal {
             exclusive_mode: true,
         },
-        StoredOutputMode::BitPerfect => EngineKind::BitPerfect,
     }
 }
 
@@ -370,7 +376,7 @@ pub(crate) fn output_mode_for_engine_kind(kind: EngineKind) -> StoredOutputMode 
         EngineKind::Universal {
             exclusive_mode: true,
         } => StoredOutputMode::Exclusive,
-        EngineKind::BitPerfect => StoredOutputMode::BitPerfect,
+        EngineKind::Integer => StoredOutputMode::Exclusive,
     }
 }
 
@@ -395,9 +401,9 @@ pub(crate) fn merge_managed_devices(
                 saved_default: saved_output_device_uid == Some(uid),
                 output_mode: preferences.effective_mode(uid, automatic_mode),
                 automatic: stored.mode.is_none(),
-                bit_perfect_available: stored
+                integer_path_available: stored
                     .capabilities
-                    .is_some_and(StoredDeviceCapabilities::supports_bit_perfect),
+                    .is_some_and(StoredDeviceCapabilities::has_integer_path),
                 hardware_volume_available: false,
             },
         );
@@ -415,7 +421,7 @@ pub(crate) fn merge_managed_devices(
                 saved_default: saved_output_device_uid == Some(connected.uid.as_str()),
                 output_mode: preferences.effective_mode(&connected.uid, StoredOutputMode::Shared),
                 automatic: !preferences.is_pinned(&connected.uid),
-                bit_perfect_available: false,
+                integer_path_available: false,
                 hardware_volume_available: false,
             });
         managed.name = connected.name.clone();
@@ -451,6 +457,7 @@ pub(crate) fn stored_device_capabilities(
     StoredDeviceCapabilities {
         max_bits_per_channel: capabilities.max_bits_per_channel,
         max_sample_rate: capabilities.max_sample_rate.round() as u32,
+        integer_wire_formats: Some(capabilities.integer_wire_formats),
         transport: Some(stored_device_transport(capabilities.transport)),
     }
 }

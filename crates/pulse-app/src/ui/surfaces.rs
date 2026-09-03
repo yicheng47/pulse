@@ -126,7 +126,7 @@ pub(crate) fn output_mode_reset_link(id: impl Into<ElementId>) -> Stateful<Div> 
 pub(crate) fn output_mode_control(
     label: &'static str,
     automatic: bool,
-    bit_perfect_available: bool,
+    integer_path_available: bool,
     reset_link: AnyElement,
     segments: AnyElement,
     stacked: bool,
@@ -139,7 +139,7 @@ pub(crate) fn output_mode_control(
         .child(label);
     let state = if !automatic {
         reset_link
-    } else if !bit_perfect_available {
+    } else if !integer_path_available {
         div()
             .ml(rpx(8.))
             .px(rpx(5.))
@@ -192,11 +192,7 @@ pub(crate) fn output_mode_control(
     }
 }
 
-pub(crate) fn output_mode_segments(
-    shared: AnyElement,
-    exclusive: AnyElement,
-    bit_perfect: AnyElement,
-) -> Div {
+pub(crate) fn output_mode_segments(shared: AnyElement, exclusive: AnyElement) -> Div {
     div()
         .flex()
         .items_center()
@@ -207,7 +203,6 @@ pub(crate) fn output_mode_segments(
         .border_color(theme::border_strong())
         .child(shared)
         .child(exclusive)
-        .child(bit_perfect)
 }
 
 pub(crate) fn output_mode_segment(

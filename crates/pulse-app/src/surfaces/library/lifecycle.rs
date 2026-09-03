@@ -538,7 +538,7 @@ impl LibraryView {
         dsd_playback_error_with_sample_rate(
             &track.path,
             Some(sample_rate_hz),
-            self.dsd_output_mode,
+            self.dsd_engine_kind,
             self.dsd_device_capabilities,
         )
         .is_some()

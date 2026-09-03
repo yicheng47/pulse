@@ -7,8 +7,8 @@ use std::{
 use objc2_core_audio::AudioStreamRangedDescription;
 use objc2_core_audio_types::{
     AudioStreamBasicDescription, kAudioFormatFlagIsAlignedHigh, kAudioFormatFlagIsBigEndian,
-    kAudioFormatFlagIsFloat, kAudioFormatFlagIsNonInterleaved, kAudioFormatFlagIsNonMixable,
-    kAudioFormatFlagIsSignedInteger, kAudioFormatLinearPCM,
+    kAudioFormatFlagIsFloat, kAudioFormatFlagIsNonInterleaved, kAudioFormatFlagIsSignedInteger,
+    kAudioFormatLinearPCM,
 };
 use rtrb::{Consumer, Producer, RingBuffer};
 
@@ -485,23 +485,11 @@ fn integer_candidate(
     let rate_supported = (format.mSampleRate - requested_rate).abs() < 0.5
         || (requested_rate >= ranged.mSampleRateRange.mMinimum
             && requested_rate <= ranged.mSampleRateRange.mMaximum);
-    if format.mFormatID != kAudioFormatLinearPCM
-        || format.mFormatFlags & kAudioFormatFlagIsFloat != 0
-        || format.mFormatFlags & kAudioFormatFlagIsSignedInteger == 0
-        || format.mFormatFlags & kAudioFormatFlagIsNonMixable == 0
-        || format.mFormatFlags & kAudioFormatFlagIsBigEndian != 0
-        || format.mFormatFlags & kAudioFormatFlagIsNonInterleaved != 0
+    if !hal::is_integer_wire_format(&format)
         || format.mChannelsPerFrame != u32::from(source.channels)
         || format.mBitsPerChannel < u32::from(source.bits_per_sample)
-        || !format.mBitsPerChannel.is_multiple_of(8)
-        || format.mBytesPerFrame == 0
-        || format.mChannelsPerFrame == 0
-        || !format
-            .mBytesPerFrame
-            .is_multiple_of(format.mChannelsPerFrame)
         || format.mBytesPerFrame / format.mChannelsPerFrame
             < u32::from(source.bits_per_sample).div_ceil(8)
-        || format.mBytesPerFrame / format.mChannelsPerFrame > 4
         || !rate_supported
     {
         return None;

@@ -5,7 +5,7 @@ use crate::device::DeviceId;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EngineKind {
     Universal { exclusive_mode: bool },
-    BitPerfect,
+    Integer,
 }
 
 #[derive(Debug, Clone, PartialEq)]

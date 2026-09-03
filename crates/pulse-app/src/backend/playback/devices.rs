@@ -95,7 +95,8 @@ impl Playback {
             .settings
             .output_mode_preferences
             .effective_mode(&active_device.uid, self.automatic_output_mode);
-        let engine_kind = engine_kind_for_output_mode(self.output_mode);
+        let engine_kind =
+            resolve_engine_kind(self.output_mode, capabilities.as_ref().ok().copied());
         self.playback_output_mode = output_mode_for_engine_kind(engine_kind);
         self.apply_device_capabilities_result(&active_device, capabilities);
         self.install_controller(active_device.id, engine_kind);
@@ -205,9 +206,9 @@ impl Playback {
             }
             active.output_mode = self.output_mode;
             active.automatic = self.output_mode_is_automatic();
-            active.bit_perfect_available = active
+            active.integer_path_available = active
                 .capabilities
-                .is_some_and(StoredDeviceCapabilities::supports_bit_perfect);
+                .is_some_and(StoredDeviceCapabilities::has_integer_path);
             active.hardware_volume_available =
                 self.volume_state.domain == pulse_engine::VolumeDomain::Device;
         }
@@ -251,7 +252,7 @@ impl Playback {
         self.apply_output_mode_if_active(&device_uid, mode)
     }
 
-    pub(crate) fn switch_to_bit_perfect_and_retry(&mut self, device_uid: String) {
+    pub(crate) fn switch_to_exclusive_and_retry(&mut self, device_uid: String) {
         if self.retry.is_none()
             || !self
                 .active_device
@@ -261,7 +262,7 @@ impl Playback {
             return;
         }
         self.retry_after_output_mode_change =
-            self.set_device_output_mode(device_uid, StoredOutputMode::BitPerfect);
+            self.set_device_output_mode(device_uid, StoredOutputMode::Exclusive);
     }
 
     pub(crate) fn reset_device_output_mode_to_auto(&mut self, device_uid: String) {
@@ -310,12 +311,17 @@ impl Playback {
             return false;
         };
         let device_id = active_device.id;
-        self.stop_before_unsafe_dsd_output_change(mode, self.device_capabilities);
+        let engine_kind = resolve_engine_kind(mode, self.device_capabilities);
+        self.stop_before_unsafe_dsd_output_change(engine_kind, self.device_capabilities);
         self.output_mode = mode;
-        self.send_command(PlaybackCommand::SetOutputDevice {
+        let sent = self.send_command(PlaybackCommand::SetOutputDevice {
             device_id,
-            kind: engine_kind_for_output_mode(mode),
-        })
+            kind: engine_kind,
+        });
+        if sent {
+            self.pending_output_mode_engine_kind = Some(engine_kind);
+        }
+        sent
     }
 
     pub(crate) fn forget_managed_device(&mut self, device_uid: &str) -> bool {
@@ -510,7 +516,9 @@ impl Playback {
             .settings
             .output_mode_preferences
             .effective_mode(&output_device.uid, automatic_mode);
-        self.stop_before_unsafe_dsd_output_change(output_mode, capabilities.as_ref().ok().copied());
+        let engine_kind = resolve_engine_kind(output_mode, capabilities.as_ref().ok().copied());
+        self.stop_before_unsafe_dsd_output_change(engine_kind, capabilities.as_ref().ok().copied());
+        self.pending_output_mode_engine_kind = None;
         self.pending_device_change = Some(PendingDeviceChange {
             device: output_device.clone(),
             persist,
@@ -518,19 +526,19 @@ impl Playback {
             capabilities,
             automatic_mode,
             output_mode,
+            engine_kind,
         });
 
         if self.command_tx.is_none() {
-            let kind = engine_kind_for_output_mode(output_mode);
-            self.install_controller(output_device.id, kind);
-            self.complete_output_device_change(output_device.id, kind);
+            self.install_controller(output_device.id, engine_kind);
+            self.complete_output_device_change(output_device.id, engine_kind);
             self.sync_next_source();
 
             return;
         }
         if !self.send_command(PlaybackCommand::SetOutputDevice {
             device_id: output_device.id,
-            kind: engine_kind_for_output_mode(output_mode),
+            kind: engine_kind,
         }) {
             self.pending_device_change = None;
             self.device_message = Some(DeviceMessage {

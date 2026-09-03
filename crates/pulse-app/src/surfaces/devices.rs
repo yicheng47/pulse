@@ -202,8 +202,6 @@ impl DeviceManagementPage {
         let shared_uid = device.uid.clone();
         let exclusive_store = self.app_store.clone();
         let exclusive_uid = device.uid.clone();
-        let bit_perfect_store = self.app_store.clone();
-        let bit_perfect_uid = device.uid.clone();
         let shared = ui::output_mode_segment(
             ("device-mode-shared", index),
             "Shared",
@@ -242,30 +240,6 @@ impl DeviceManagementPage {
             });
         })
         .into_any_element();
-        let bit_perfect = ui::output_mode_segment(
-            ("device-mode-bit-perfect", index),
-            "Bit-perfect",
-            device.output_mode == StoredOutputMode::BitPerfect,
-            true,
-            !device.bit_perfect_available,
-        );
-        let bit_perfect = if device.bit_perfect_available {
-            bit_perfect
-                .on_click(move |_, _, cx| {
-                    bit_perfect_store.update(cx, |store, store_cx| {
-                        store.send_command(
-                            PlaybackAction::SetDeviceOutputMode {
-                                device_uid: bit_perfect_uid.clone(),
-                                mode: StoredOutputMode::BitPerfect,
-                            },
-                            store_cx,
-                        );
-                    });
-                })
-                .into_any_element()
-        } else {
-            bit_perfect.into_any_element()
-        };
         div()
             .id(("managed-device", index))
             .flex()
@@ -306,7 +280,7 @@ impl DeviceManagementPage {
             .child(ui::output_mode_control(
                 "Output mode",
                 device.automatic,
-                device.bit_perfect_available,
+                device.integer_path_available,
                 ui::output_mode_reset_link(("device-mode-reset", index))
                     .on_click(move |_, _, cx| {
                         reset_store.update(cx, |store, store_cx| {
@@ -317,7 +291,7 @@ impl DeviceManagementPage {
                         });
                     })
                     .into_any_element(),
-                ui::output_mode_segments(shared, exclusive, bit_perfect).into_any_element(),
+                ui::output_mode_segments(shared, exclusive).into_any_element(),
                 false,
             ))
             .into_any_element()

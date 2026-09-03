@@ -192,8 +192,8 @@ impl AppStore {
             return;
         };
         match action {
-            ToastAction::SwitchToBitPerfect { device_uid } => {
-                self.playback.switch_to_bit_perfect_and_retry(device_uid);
+            ToastAction::SwitchToExclusive { device_uid } => {
+                self.playback.switch_to_exclusive_and_retry(device_uid);
             }
         }
         self.bump_toast_revision();
@@ -429,14 +429,13 @@ fn toast_from_playback(toast: PlaybackToast) -> Toast {
     match (toast.kind, toast.action) {
         (PlaybackToastKind::Error, None) => Toast::error(toast.title, toast.body),
         (PlaybackToastKind::Warning, _) => Toast::warning(toast.title, toast.body),
-        (
-            PlaybackToastKind::Error,
-            Some(PlaybackToastAction::SwitchToBitPerfect { device_uid }),
-        ) => Toast::error_with_action(
-            toast.title,
-            toast.body,
-            ToastAction::SwitchToBitPerfect { device_uid },
-        ),
+        (PlaybackToastKind::Error, Some(PlaybackToastAction::SwitchToExclusive { device_uid })) => {
+            Toast::error_with_action(
+                toast.title,
+                toast.body,
+                ToastAction::SwitchToExclusive { device_uid },
+            )
+        }
     }
 }
 
@@ -540,6 +539,7 @@ fn playback_changed(before: &PlaybackSnapshot, after: &PlaybackSnapshot) -> bool
         automatic_output_mode: _before_automatic_output_mode,
         output_mode: _before_output_mode,
         playback_output_mode: before_playback_output_mode,
+        resolved_engine_kind: before_resolved_engine_kind,
         output_mode_automatic: _before_output_mode_automatic,
         bit_perfect_active: before_bit_perfect_active,
         volume_state: before_volume_state,
@@ -567,6 +567,7 @@ fn playback_changed(before: &PlaybackSnapshot, after: &PlaybackSnapshot) -> bool
         automatic_output_mode: _after_automatic_output_mode,
         output_mode: _after_output_mode,
         playback_output_mode: after_playback_output_mode,
+        resolved_engine_kind: after_resolved_engine_kind,
         output_mode_automatic: _after_output_mode_automatic,
         bit_perfect_active: after_bit_perfect_active,
         volume_state: after_volume_state,
@@ -589,6 +590,7 @@ fn playback_changed(before: &PlaybackSnapshot, after: &PlaybackSnapshot) -> bool
         || active_device_row(before_active_device.as_ref())
             != active_device_row(after_active_device.as_ref())
         || before_playback_output_mode != after_playback_output_mode
+        || before_resolved_engine_kind != after_resolved_engine_kind
         || before_bit_perfect_active != after_bit_perfect_active
         || before_volume_state != after_volume_state
         || before_volume_level != after_volume_level
