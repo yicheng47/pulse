@@ -29,14 +29,14 @@ The runtime is a long-lived controller inside the Rust process, not a separate O
 │  transport state · current source · device · decode pump · event emission    │
 │                                                                              │
 │  SourceDecoder ──── DecoderFactory        PlaybackBackend ── BackendFactory  │
-│   PcmDecoder (symphonia)                   EngineBackend  → universal engine │
+│   PcmDecoder (symphonia)                   AuhalBackend   → universal engine │
 │   DsdDopDecoder (.dsf/.dff → DoP)          IntegerBackend → integer engine   │
 └───────────────┬───────────────────────────────────┬──────────────────────────┘
                 │ interleaved PCM bytes             │ engine API
                 ▼                                   ▼
 ┌───────────────────────────────┐   ┌──────────────────────────────────────────┐
 │ universal engine              │   │ integer engine                           │
-│ auhal_engine.rs + auhal.rs          │   │ integer_engine.rs + raw_sink.rs          │
+│ auhal_engine.rs + auhal.rs    │   │ integer_engine.rs + raw_sink.rs          │
 │ PCM → f32 → rtrb ring         │   │ PCM → IntPacker → rtrb ring              │
 │ AUHAL render callback drains  │   │ raw IOProc drains integer bytes          │
 │ float32 client stream;        │   │ virtual = physical integer format;       │
@@ -96,7 +96,7 @@ crates/pulse-engine/src/
   decode_dsd.rs     DSF/DFF parsers + DoP packer (feature 71)
   device.rs         output-device discovery and identity
   hal.rs            all unsafe Core Audio property FFI: hog, formats, rates, listeners
-  auhal_engine.rs         universal engine: format negotiation + AUHAL lifecycle
+  auhal_engine.rs   universal engine: format negotiation + AUHAL lifecycle
   auhal.rs          AudioUnit render-callback sink (float32 client stream)
   integer_engine.rs bit-perfect engine: probe-gated open, IntPacker, IOProc lifecycle
   raw_sink.rs       raw IOProc callback + ring consumer
@@ -116,9 +116,57 @@ The product API is controller-oriented: `PlaybackController::spawn`, commands in
 The controller abstracts both of its variable ends behind private traits with factories, each with a fake implementation for tests:
 
 - **`SourceDecoder`** (`format` / `duration_ms` / `seek` / `next_pcm`) behind a `DecoderFactory` that routes by extension: `.dsf`/`.dff` → `DsdDopDecoder`, everything else → symphonia's `PcmDecoder`.
-- **`PlaybackBackend`** (`start` / `feed` / `position` / `underrun_frames` / volume surface / `stop` / `retains_device_when_paused` / `release`) behind a `BackendFactory` keyed by `EngineKind`. `EngineBackend` adapts the universal engine; `IntegerBackend` adapts the integer engine. The wrappers keep controller vocabulary out of the engine modules.
+- **`PlaybackBackend`** (`start` / `feed` / `position` / `underrun_frames` / volume surface / `stop` / `retains_device_when_paused` / `release`) behind a `BackendFactory` keyed by `EngineKind`. `AuhalBackend` adapts the universal engine; `IntegerBackend` adapts the integer engine. The wrappers keep controller vocabulary out of the engine modules.
 
 Both traits are deliberately private: the controller is their only consumer, and the pattern stays consistent across the crate. Promote one only when a second consumer or a third implementation is real.
+
+### 7.1 Entity map
+
+Who owns what, by struct field. `├─` is ownership, `←` says which type stands behind a trait object or which command selects it. The controller never names an engine type: it holds a `Box<dyn PlaybackBackend>` and a `Box<dyn SourceDecoder>`, and the two factories are the only places the concrete types appear.
+
+```text
+PlaybackController  (controller.rs)             public handle, held by pulse-app's playback backend
+├─ command_tx: Sender<PlaybackCommand>          cloned out by command_sender()
+├─ subscribers: Vec<Sender<PlaybackEvent>>      one per subscribe(); broadcast() fans out
+├─ backend_release: ActiveBackendRelease        Option<Arc<dyn BackendRelease>> for the quit path
+│                                               ← IntegerReleaseHandle (the universal engine has none)
+└─ worker thread "pulse-playback-controller"
+   └─ Worker                                    the state machine; everything below is single-threaded
+      ├─ state · attempt · output_device · engine_kind · shared_mode_fallback
+      ├─ bit_perfect_active · volume_state · volume_level · muted · adopted_hardware_volume
+      ├─ current:  Option<CurrentTrack>         what the listener hears: source, format, positions, dropouts
+      ├─ active:   Option<ActivePlayback>       present exactly while Playing: staged PCM, fed frames, watchdog
+      │  └─ decoder: Box<dyn SourceDecoder>     ← PcmDecoder (decode.rs, symphonia) | DsdDopDecoder (decode_dsd.rs)
+      ├─ next_source: Option<PreloadedSource>   the SetNext track, decoder already open
+      ├─ transition: Option<PendingTransition>  a gapless boundary fed into the ring but not yet audible
+      ├─ prepared_decoder: Option<PreparedDecoder>  seeked while paused, consumed by Resume
+      ├─ backend: Option<(DeviceId, EngineKind, Box<dyn PlaybackBackend>)>
+      │  ├─ AuhalBackend   { engine: AuhalEngine }    ← EngineKind::Universal { exclusive_mode }
+      │  └─ IntegerBackend { engine: IntegerEngine }  ← EngineKind::BitPerfect
+      ├─ backend_factory: (DeviceId, EngineKind) → Box<dyn PlaybackBackend>
+      └─ decoder_factory: &Path → Box<dyn SourceDecoder>   .dsf/.dff → DsdDopDecoder, else PcmDecoder
+
+AuhalEngine  (auhal_engine.rs)                  universal engine
+├─ _hog: Option<HogGuard>                       hal.rs; exclusive mode only
+├─ hardware_volume: Option<HardwareVolume>      hal.rs; only when the hog is owned
+├─ gain_control: GainControl                    gain.rs; software volume and fades, applied in the render callback
+├─ packer: FloatPacker                          integer PCM → f32
+├─ producer / consumer: rtrb ring<u8>           ~4 s of f32 frames; the consumer moves into the sink on play
+└─ sink: Option<AuhalSink>  (auhal.rs)          AudioUnit render callback drains the ring; position + underrun atomics
+
+IntegerEngine  (integer_engine.rs)              bit-perfect engine
+├─ release_handle: IntegerReleaseHandle         Arc<Mutex<IntegerDeviceResources>>, shared with the quit path
+│  └─ IntegerDeviceResources
+│     ├─ sink: Option<RawSink>  (raw_sink.rs)   AudioDeviceIOProc; CallbackContext { consumer, position, underrun }
+│     ├─ format_restore: Option<FormatRestoreGuard>  hal.rs; every output stream's physical + virtual format, mixing
+│     └─ hog: Option<HogGuard>                  hal.rs; mandatory
+├─ hardware_volume: Option<HardwareVolume>      hal.rs
+├─ packer: IntPacker                            source integers → device container: zero pad + sign extend, no arithmetic
+├─ format / device_format                       PcmFormat / AudioStreamBasicDescription negotiated by set_format
+└─ producer / consumer: rtrb ring<u8>           4 s of device frames; the consumer moves into RawSink on play
+```
+
+Three things cross a thread boundary, and nothing else does: the ring (producer on the worker, consumer inside the sink's callback context), the two position/underrun atomics the callback bumps, and `IntegerDeviceResources` behind its mutex (worker and quit path). `PlaybackCommand` in and `PlaybackEvent` out are the app boundary; `EngineKind` is the only engine-selecting value the app sends.
 
 ## 8. Module Responsibilities
 
