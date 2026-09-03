@@ -92,4 +92,5 @@ Each stage's mission goal is the "Rules for every stage" section plus the stage 
 
 ## Log
 
+- **2026-09-03** — Feature 81 (Shared/Exclusive modes) filed; its resolver phase consumes stage 2's `integer_wire_formats` plumbing and rewrites the same resolver, so stage 2 and 81's phase 2 are sequenced, never concurrent — whichever runs first carries the predicate. 81's fallback question may resolve stage 5 (mono) without a packer change.
 - **2026-09-03** — Review double-checked against the code at `b5f6ac1`: every claim and citation confirmed, `cargo test -p pulse-engine` 138 green; two additions recorded in the review's Log (mandatory `IOProcStreamUsage`, mono refusal). Plan written; PR-per-stage with Jason's personal review agreed. The `arch/pulse-engine.md` pause-lock sentence rewritten to cite feature 71's pending observation (pulled out of stage 4 as a lead doc edit).
