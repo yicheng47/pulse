@@ -54,7 +54,9 @@ Stage 1 goes first because it is the smallest diff with the largest audible payo
 
 **Reviewer attention points.** Old `settings.json` files must load (missing field → reprobe, never a parse error). The Matrix (`0x54`) and every device in the stage-1 probe table resolve exactly as before. `integer_candidate` must accept and reject exactly the same formats as today — the predicate is an extraction, not a behavior change on the engine side.
 
-**Jason's check after merge.** Devices page: the Matrix still shows Bit-perfect under AUTO; a DELL display shows `NO INTEGER PATH`; a fresh `settings.json` round-trips the new field.
+**Jason's check after merge.** Devices page: the Matrix resolves to Exclusive unpinned and Signal Path reads BIT-PERFECT while it plays; a DELL display shows `NO INTEGER PATH`; a fresh `settings.json` round-trips `integerWireFormats`.
+
+**Status.** Landed 2026-09-03 inside feature 81 phase 2 (PR #82 → `995e426`); the resolver it feeds is 81's two-mode `resolve_engine_kind`, not the three-mode AUTO described above.
 
 ## Stage 3 — Stream-indexed IOProc fill
 
@@ -92,6 +94,7 @@ Each stage's mission goal is the "Rules for every stage" section plus the stage 
 
 ## Log
 
+- **2026-09-03** — Stage 2 landed inside feature 81 phase 2 (PR #82 → `995e426`, codex-crew mission reviewed by the lead under Jason's drive-mode authorization for 81): `is_integer_wire_format` in `hal.rs` with `integer_candidate` delegating its source-independent checks to it, `integer_wire_formats` on both capability records (stored data without it reprobes), and Exclusive resolving to `Integer` only through the predicate plus the transport gate. 359 app / 143 engine tests green; `integer_candidate` parity and old `settings.json` loads verified in review. Next: stage 4 as its own PR; stage 3 waits for a multi-stream device report.
 - **2026-09-03** — Stage 1 merged to `main` as `64d3bc5` (PR #79 → carried by #80, Jason's review): `stop_active` in `rebuild_for_preloaded` plus four boundary tests, 141 engine tests green. Hardware acceptance (the three-track Matrix sequence) is Jason's. Next: feature 81 phase 2 carries stage 2's predicate; stages 3–4 follow.
 - **2026-09-03** — Feature 81 (Shared/Exclusive modes) filed; its resolver phase consumes stage 2's `integer_wire_formats` plumbing and rewrites the same resolver, so stage 2 and 81's phase 2 are sequenced, never concurrent — whichever runs first carries the predicate. 81's fallback question may resolve stage 5 (mono) without a packer change.
 - **2026-09-03** — Review double-checked against the code at `b5f6ac1`: every claim and citation confirmed, `cargo test -p pulse-engine` 138 green; two additions recorded in the review's Log (mandatory `IOProcStreamUsage`, mono refusal). Plan written; PR-per-stage with Jason's personal review agreed. The `arch/pulse-engine.md` pause-lock sentence rewritten to cite feature 71's pending observation (pulled out of stage 4 as a lead doc edit).
