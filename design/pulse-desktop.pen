@@ -2779,7 +2779,7 @@
                       "fill": "$text-primary",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "DSD needs Bit-perfect output",
+                      "content": "DSD needs Exclusive output",
                       "fontFamily": "$font-sans",
                       "fontSize": 13,
                       "fontWeight": "600"
@@ -2839,7 +2839,7 @@
                               "id": "OjAnw",
                               "name": "Label",
                               "fill": "$text-primary",
-                              "content": "Switch to Bit-perfect",
+                              "content": "Switch to Exclusive",
                               "fontFamily": "$font-display",
                               "fontSize": 12,
                               "fontWeight": "700"
@@ -2941,8 +2941,8 @@
     {
       "type": "frame",
       "id": "vH78z",
-      "x": 3501,
-      "y": -119,
+      "x": 3548,
+      "y": -947,
       "name": "Output Device Popover",
       "width": 360,
       "fill": "$bg-surface",
@@ -3043,7 +3043,7 @@
                       "fill": "$text-secondary",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "CoreAudio · Bit-perfect",
+                      "content": "CoreAudio · Exclusive",
                       "fontFamily": "$font-sans",
                       "fontSize": 12,
                       "fontWeight": "normal"
@@ -3085,40 +3085,11 @@
             {
               "type": "frame",
               "id": "m14ZyM",
-              "name": "Output Mode Row",
+              "name": "Output Mode Segments",
               "width": "fill_container",
               "layout": "vertical",
               "gap": 8,
               "children": [
-                {
-                  "type": "frame",
-                  "id": "DWw2E",
-                  "name": "Engine Label Group",
-                  "gap": 8,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "EGxyK",
-                      "name": "Engine Label",
-                      "fill": "$text-primary",
-                      "content": "Mode",
-                      "fontFamily": "$font-sans",
-                      "fontSize": 12,
-                      "fontWeight": "600"
-                    },
-                    {
-                      "type": "text",
-                      "id": "F1PqH",
-                      "name": "Reset Link",
-                      "fill": "$accent",
-                      "content": "Reset to Auto",
-                      "fontFamily": "$font-sans",
-                      "fontSize": 12,
-                      "fontWeight": "600"
-                    }
-                  ]
-                },
                 {
                   "type": "frame",
                   "id": "eovxT",
@@ -3157,44 +3128,31 @@
                       "type": "frame",
                       "id": "I0sewb",
                       "name": "Seg Exclusive",
+                      "fill": "$bg-elevated",
                       "cornerRadius": 3,
+                      "gap": 4,
                       "padding": [
                         2,
                         8
                       ],
+                      "alignItems": "center",
                       "children": [
+                        {
+                          "type": "icon",
+                          "id": "u98yDV",
+                          "name": "Lock",
+                          "width": 10,
+                          "height": 10,
+                          "icon": "lock",
+                          "library": "lucide",
+                          "fill": "$text-primary"
+                        },
                         {
                           "type": "text",
                           "id": "qPEjA",
                           "name": "Seg Label",
-                          "fill": "$text-secondary",
+                          "fill": "$text-primary",
                           "content": "Exclusive",
-                          "fontFamily": "$font-sans",
-                          "fontSize": 10,
-                          "fontWeight": "600"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "fEn5S",
-                      "name": "Seg Bit-perfect",
-                      "fill": "$quality-soft",
-                      "cornerRadius": 3,
-                      "stroke": "$quality-border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "padding": [
-                        2,
-                        8
-                      ],
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "ArMpP",
-                          "name": "Seg Label",
-                          "fill": "$quality",
-                          "content": "Bit-perfect",
                           "fontFamily": "$font-sans",
                           "fontSize": 10,
                           "fontWeight": "600"
@@ -41474,7 +41432,7 @@
       "type": "frame",
       "id": "IAPbC",
       "x": 993,
-      "y": -947,
+      "y": -743,
       "name": "Spec — Volume States",
       "clip": true,
       "width": 640,
@@ -41703,7 +41661,7 @@
               "fill": "$text-muted",
               "textGrowth": "fixed-width",
               "width": "fill_container",
-              "content": "A domain label sits at the popover's foot and names the mechanism the slider drives: DEVICE (kAudioDevicePropertyVolumeScalar while hogged — the DAC's own attenuator, full-scale samples on the wire) or SOFTWARE (engine gain, cubic taper). The % readout renders in the quality green when the path is transparent — unity software gain or device volume — and returns to text-primary below unity. On the bit-perfect engine with no hardware volume the slider is disabled at 100% with the domain label reading FIXED. Devices page: a device's class line appends \"Device volume\" when hardware volume is available while hogged (feature 31 phase 3 fills the Matrix's actual camp). Copy rule: \"samples leave Pulse untouched\", never \"bit-perfect to the DAC\" — the bit-perfect wording belongs to the integer engine's indicator alone (feature 32).",
+              "content": "A domain label sits at the popover's foot and names the mechanism the slider drives: DEVICE (kAudioDevicePropertyVolumeScalar while hogged — the DAC's own attenuator, full-scale samples on the wire) or SOFTWARE (engine gain, cubic taper). The % readout renders in the quality green when the path is transparent — unity software gain or device volume — and returns to text-primary below unity. On the integer engine with no hardware volume the slider is disabled at 100% with the domain label reading FIXED. Devices page: a device's class line appends \"Device volume\" when hardware volume is available while hogged (feature 31 phase 3 fills the Matrix's actual camp). Copy rule: \"samples leave Pulse untouched\", never \"bit-perfect to the DAC\" — the bit-perfect wording belongs to the Signal Path verdict alone (feature 32; feature 81 removed it from the mode control).",
               "lineHeight": 1.45,
               "fontFamily": "$font-sans",
               "fontSize": 11,
@@ -41816,8 +41774,8 @@
     {
       "type": "frame",
       "id": "IChZh",
-      "x": 1673,
-      "y": -947,
+      "x": 1809,
+      "y": -1247,
       "name": "Volume Popover",
       "width": 56,
       "fill": "$bg-surface",
@@ -42167,33 +42125,6 @@
                                               "fontFamily": "$font-sans",
                                               "fontSize": 12,
                                               "fontWeight": "600"
-                                            },
-                                            {
-                                              "type": "frame",
-                                              "id": "y5feqd",
-                                              "name": "Auto Tag",
-                                              "fill": "$bg-elevated",
-                                              "cornerRadius": "$radius-sm",
-                                              "stroke": "$border-strong",
-                                              "strokeWidth": 1,
-                                              "strokeAlignment": "inner",
-                                              "padding": [
-                                                2,
-                                                6
-                                              ],
-                                              "children": [
-                                                {
-                                                  "type": "text",
-                                                  "id": "X336Wa",
-                                                  "name": "Auto Label",
-                                                  "fill": "$text-secondary",
-                                                  "content": "AUTO",
-                                                  "fontFamily": "$font-mono",
-                                                  "fontSize": 9,
-                                                  "fontWeight": "700",
-                                                  "letterSpacing": 0.5
-                                                }
-                                              ]
                                             }
                                           ]
                                         },
@@ -42235,44 +42166,31 @@
                                               "type": "frame",
                                               "id": "sjJNu",
                                               "name": "Seg Exclusive",
+                                              "fill": "$bg-elevated",
                                               "cornerRadius": 3,
+                                              "gap": 4,
                                               "padding": [
                                                 2,
                                                 8
                                               ],
+                                              "alignItems": "center",
                                               "children": [
+                                                {
+                                                  "type": "icon",
+                                                  "id": "nq0OS",
+                                                  "name": "Lock",
+                                                  "width": 10,
+                                                  "height": 10,
+                                                  "icon": "lock",
+                                                  "library": "lucide",
+                                                  "fill": "$text-primary"
+                                                },
                                                 {
                                                   "type": "text",
                                                   "id": "A2cdJ",
                                                   "name": "Seg Label",
-                                                  "fill": "$text-secondary",
+                                                  "fill": "$text-primary",
                                                   "content": "Exclusive",
-                                                  "fontFamily": "$font-sans",
-                                                  "fontSize": 10,
-                                                  "fontWeight": "600"
-                                                }
-                                              ]
-                                            },
-                                            {
-                                              "type": "frame",
-                                              "id": "T8rkyW",
-                                              "name": "Seg Bit-perfect",
-                                              "fill": "$quality-soft",
-                                              "cornerRadius": 3,
-                                              "stroke": "$quality-border",
-                                              "strokeWidth": 1,
-                                              "strokeAlignment": "inner",
-                                              "padding": [
-                                                2,
-                                                8
-                                              ],
-                                              "children": [
-                                                {
-                                                  "type": "text",
-                                                  "id": "wHAYI",
-                                                  "name": "Seg Label",
-                                                  "fill": "$quality",
-                                                  "content": "Bit-perfect",
                                                   "fontFamily": "$font-sans",
                                                   "fontSize": 10,
                                                   "fontWeight": "600"
@@ -42480,39 +42398,29 @@
                                               "id": "mGVA6",
                                               "name": "Seg Exclusive",
                                               "cornerRadius": 3,
+                                              "gap": 4,
                                               "padding": [
                                                 2,
                                                 8
                                               ],
+                                              "alignItems": "center",
                                               "children": [
+                                                {
+                                                  "type": "icon",
+                                                  "id": "R0lma",
+                                                  "name": "Lock",
+                                                  "width": 10,
+                                                  "height": 10,
+                                                  "icon": "lock",
+                                                  "library": "lucide",
+                                                  "fill": "$text-secondary"
+                                                },
                                                 {
                                                   "type": "text",
                                                   "id": "ukTrv",
                                                   "name": "Seg Label",
                                                   "fill": "$text-secondary",
                                                   "content": "Exclusive",
-                                                  "fontFamily": "$font-sans",
-                                                  "fontSize": 10,
-                                                  "fontWeight": "600"
-                                                }
-                                              ]
-                                            },
-                                            {
-                                              "type": "frame",
-                                              "id": "uM0pc",
-                                              "name": "Seg Bit-perfect",
-                                              "cornerRadius": 3,
-                                              "padding": [
-                                                2,
-                                                8
-                                              ],
-                                              "children": [
-                                                {
-                                                  "type": "text",
-                                                  "id": "M5fL7",
-                                                  "name": "Seg Label",
-                                                  "fill": "$text-muted",
-                                                  "content": "Bit-perfect",
                                                   "fontFamily": "$font-sans",
                                                   "fontSize": 10,
                                                   "fontWeight": "600"
@@ -42753,39 +42661,29 @@
                                               "name": "Seg Exclusive",
                                               "fill": "$bg-elevated",
                                               "cornerRadius": 3,
+                                              "gap": 4,
                                               "padding": [
                                                 2,
                                                 8
                                               ],
+                                              "alignItems": "center",
                                               "children": [
+                                                {
+                                                  "type": "icon",
+                                                  "id": "D7CNWq",
+                                                  "name": "Lock",
+                                                  "width": 10,
+                                                  "height": 10,
+                                                  "icon": "lock",
+                                                  "library": "lucide",
+                                                  "fill": "$text-primary"
+                                                },
                                                 {
                                                   "type": "text",
                                                   "id": "R8Yo2Z",
                                                   "name": "Seg Label",
                                                   "fill": "$text-primary",
                                                   "content": "Exclusive",
-                                                  "fontFamily": "$font-sans",
-                                                  "fontSize": 10,
-                                                  "fontWeight": "600"
-                                                }
-                                              ]
-                                            },
-                                            {
-                                              "type": "frame",
-                                              "id": "h79uVP",
-                                              "name": "Seg Bit-perfect",
-                                              "cornerRadius": 3,
-                                              "padding": [
-                                                2,
-                                                8
-                                              ],
-                                              "children": [
-                                                {
-                                                  "type": "text",
-                                                  "id": "lepxm",
-                                                  "name": "Seg Label",
-                                                  "fill": "$text-muted",
-                                                  "content": "Bit-perfect",
                                                   "fontFamily": "$font-sans",
                                                   "fontSize": 10,
                                                   "fontWeight": "600"
@@ -42935,16 +42833,6 @@
                                               "fontFamily": "$font-sans",
                                               "fontSize": 12,
                                               "fontWeight": "600"
-                                            },
-                                            {
-                                              "type": "text",
-                                              "id": "nAtIy",
-                                              "name": "Reset Link",
-                                              "fill": "$accent",
-                                              "content": "Reset to Auto",
-                                              "fontFamily": "$font-sans",
-                                              "fontSize": 11,
-                                              "fontWeight": "600"
                                             }
                                           ]
                                         },
@@ -42988,39 +42876,29 @@
                                               "id": "bORpQ",
                                               "name": "Seg Exclusive",
                                               "cornerRadius": 3,
+                                              "gap": 4,
                                               "padding": [
                                                 2,
                                                 8
                                               ],
+                                              "alignItems": "center",
                                               "children": [
+                                                {
+                                                  "type": "icon",
+                                                  "id": "TgJmG",
+                                                  "name": "Lock",
+                                                  "width": 10,
+                                                  "height": 10,
+                                                  "icon": "lock",
+                                                  "library": "lucide",
+                                                  "fill": "$text-secondary"
+                                                },
                                                 {
                                                   "type": "text",
                                                   "id": "W4bo1F",
                                                   "name": "Seg Label",
                                                   "fill": "$text-secondary",
                                                   "content": "Exclusive",
-                                                  "fontFamily": "$font-sans",
-                                                  "fontSize": 10,
-                                                  "fontWeight": "600"
-                                                }
-                                              ]
-                                            },
-                                            {
-                                              "type": "frame",
-                                              "id": "Xa67f",
-                                              "name": "Seg Bit-perfect",
-                                              "cornerRadius": 3,
-                                              "padding": [
-                                                2,
-                                                8
-                                              ],
-                                              "children": [
-                                                {
-                                                  "type": "text",
-                                                  "id": "Sxtb8",
-                                                  "name": "Seg Label",
-                                                  "fill": "$text-secondary",
-                                                  "content": "Bit-perfect",
                                                   "fontFamily": "$font-sans",
                                                   "fontSize": 10,
                                                   "fontWeight": "600"
@@ -49164,7 +49042,7 @@
           "fill": "$text-secondary",
           "textGrowth": "fixed-width",
           "width": "fill_container",
-          "content": "Feature 32 (Jason, 2026-08-31 — supersedes feature 08's separate Exclusive toggle): one per-device Output mode control — Shared / Exclusive / Bit-perfect — one axis: shared AUHAL, hogged AUHAL, hogged integer. Stored mode None = AUTO, resolving down the ladder: gate passes → Bit-perfect; integer physical formats but gated transport or refused virtual → Exclusive; float-only → Shared. Pinning any segment drops the AUTO tag (Reset to Auto returns). The Bit-perfect segment is disabled with the NO INTEGER PATH tag on gated devices. Maps 1:1 onto the engine protocol: Shared → Universal{shared}, Exclusive → Universal{exclusive}, Bit-perfect → BitPerfect — no controller changes. Migration: stored exclusive_mode_override + engine collapse into one stored mode. Changing the active device's mode restarts playback; bit-perfect wording stays gated on the stage 5 DoP pass.",
+          "content": "Feature 81 (Jason, 2026-09-03 — supersedes feature 32's third segment): the per-device Output mode control has two segments — Shared / Exclusive — because they answer one question: does Pulse own the device. Shared → Universal{shared}. Exclusive → the integer backend when the hardened integer-path predicate passes (feature 78 stage 2: a non-mixable, little-endian, interleaved integer physical format on a non-display, non-Bluetooth transport), otherwise Universal{exclusive} — the same hog, AUHAL doing the conversion. Bit-perfect is no longer a mode: it is the Signal Path verdict, shown only while the integer backend is actually running (BIT-PERFECT); AUHAL-exclusive reads TRANSPARENT. Auto is not a control anywhere: every surface shows just the two segments with the resolved one preselected (exclusive-capable formats → Exclusive, float-only → Shared), and tapping the other one pins it — no AUTO tag, no Reset to Auto. The Devices page adds only the Output mode label and, on gated devices, the NO INTEGER PATH tag (Exclusive still works there, it just isn't bit-perfect). Segments are neutral, no green: the green stays on the capability line and the verdict. Exclusive carries the lock glyph: Pulse holds the device. Stored bitPerfect migrates to exclusive silently.",
           "lineHeight": 1.45,
           "fontFamily": "$font-sans",
           "fontSize": 11,
@@ -49173,7 +49051,7 @@
         {
           "type": "frame",
           "id": "K6NoG0",
-          "name": "STATE 1 — AUTO → BIT-PERFECT",
+          "name": "STATE 1 — AUTO → EXCLUSIVE · INTEGER",
           "width": "fill_container",
           "layout": "vertical",
           "gap": 10,
@@ -49183,7 +49061,7 @@
               "id": "IChOP",
               "name": "State Label",
               "fill": "$text-secondary",
-              "content": "STATE 1 — AUTO · GATE PASSES → BIT-PERFECT",
+              "content": "STATE 1 — AUTO · INTEGER PATH → EXCLUSIVE (INTEGER BACKEND)",
               "fontFamily": "$font-mono",
               "fontSize": 10,
               "fontWeight": "700",
@@ -49300,33 +49178,6 @@
                           "fontFamily": "$font-sans",
                           "fontSize": 12,
                           "fontWeight": "600"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "tFKeI",
-                          "name": "Auto Tag",
-                          "fill": "$bg-elevated",
-                          "cornerRadius": "$radius-sm",
-                          "stroke": "$border-strong",
-                          "strokeWidth": 1,
-                          "strokeAlignment": "inner",
-                          "padding": [
-                            2,
-                            6
-                          ],
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "d69X1r",
-                              "name": "Auto Label",
-                              "fill": "$text-secondary",
-                              "content": "AUTO",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 9,
-                              "fontWeight": "700",
-                              "letterSpacing": 0.5
-                            }
-                          ]
                         }
                       ]
                     },
@@ -49368,44 +49219,31 @@
                           "type": "frame",
                           "id": "wDSuR",
                           "name": "Seg Exclusive",
+                          "fill": "$bg-elevated",
                           "cornerRadius": 3,
+                          "gap": 4,
                           "padding": [
                             2,
                             8
                           ],
+                          "alignItems": "center",
                           "children": [
+                            {
+                              "type": "icon",
+                              "id": "xHtJs",
+                              "name": "Lock",
+                              "width": 10,
+                              "height": 10,
+                              "icon": "lock",
+                              "library": "lucide",
+                              "fill": "$text-primary"
+                            },
                             {
                               "type": "text",
                               "id": "IMfc3",
                               "name": "Seg Label",
-                              "fill": "$text-secondary",
+                              "fill": "$text-primary",
                               "content": "Exclusive",
-                              "fontFamily": "$font-sans",
-                              "fontSize": 10,
-                              "fontWeight": "600"
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "clFoV",
-                          "name": "Seg Bit-perfect",
-                          "fill": "$quality-soft",
-                          "cornerRadius": 3,
-                          "stroke": "$quality-border",
-                          "strokeWidth": 1,
-                          "strokeAlignment": "inner",
-                          "padding": [
-                            2,
-                            8
-                          ],
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "A2SMzk",
-                              "name": "Seg Label",
-                              "fill": "$quality",
-                              "content": "Bit-perfect",
                               "fontFamily": "$font-sans",
                               "fontSize": 10,
                               "fontWeight": "600"
@@ -49425,7 +49263,7 @@
               "fill": "$text-secondary",
               "textGrowth": "fixed-width",
               "width": "fill_container",
-              "content": "Integer DAC, nothing pinned: AUTO resolves to Bit-perfect. Hog + integer path implied by the mode itself — no second control to lock. Pause holds the device; no fades (clicks accepted); volume hardware-only or fixed at 100%; disclosed in the control's tooltip.",
+              "content": "Integer DAC, nothing pinned: the resolver picks Exclusive and Pulse opens the integer backend — hog held, integer physical = virtual format, no float crossing. Signal Path reads BIT-PERFECT while it plays. The control shows the resolved segment preselected and nothing else; nothing on it says bit-perfect — that claim belongs to the verdict, not the switch. Pause holds the device; volume hardware-only or fixed at 100%.",
               "lineHeight": 1.45,
               "fontFamily": "$font-sans",
               "fontSize": 11,
@@ -49436,7 +49274,7 @@
         {
           "type": "frame",
           "id": "s0EMJ",
-          "name": "STATE 2 — PINNED",
+          "name": "STATE 2 — PINNED SHARED",
           "width": "fill_container",
           "layout": "vertical",
           "gap": 10,
@@ -49446,7 +49284,7 @@
               "id": "QEW8p",
               "name": "State Label",
               "fill": "$text-secondary",
-              "content": "STATE 2 — PINNED · RESET TO AUTO",
+              "content": "STATE 2 — PINNED SHARED",
               "fontFamily": "$font-mono",
               "fontSize": 10,
               "fontWeight": "700",
@@ -49589,16 +49427,6 @@
                           "fontFamily": "$font-sans",
                           "fontSize": 12,
                           "fontWeight": "600"
-                        },
-                        {
-                          "type": "text",
-                          "id": "Z8k8J",
-                          "name": "Reset Link",
-                          "fill": "$accent",
-                          "content": "Reset to Auto",
-                          "fontFamily": "$font-sans",
-                          "fontSize": 11,
-                          "fontWeight": "600"
                         }
                       ]
                     },
@@ -49642,39 +49470,29 @@
                           "id": "PNkZy",
                           "name": "Seg Exclusive",
                           "cornerRadius": 3,
+                          "gap": 4,
                           "padding": [
                             2,
                             8
                           ],
+                          "alignItems": "center",
                           "children": [
+                            {
+                              "type": "icon",
+                              "id": "lQDCX",
+                              "name": "Lock",
+                              "width": 10,
+                              "height": 10,
+                              "icon": "lock",
+                              "library": "lucide",
+                              "fill": "$text-secondary"
+                            },
                             {
                               "type": "text",
                               "id": "S1GAC7",
                               "name": "Seg Label",
                               "fill": "$text-secondary",
                               "content": "Exclusive",
-                              "fontFamily": "$font-sans",
-                              "fontSize": 10,
-                              "fontWeight": "600"
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "l78anW",
-                          "name": "Seg Bit-perfect",
-                          "cornerRadius": 3,
-                          "padding": [
-                            2,
-                            8
-                          ],
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "B62w5j",
-                              "name": "Seg Label",
-                              "fill": "$text-secondary",
-                              "content": "Bit-perfect",
                               "fontFamily": "$font-sans",
                               "fontSize": 10,
                               "fontWeight": "600"
@@ -49694,7 +49512,7 @@
               "fill": "$text-secondary",
               "textGrowth": "fixed-width",
               "width": "fill_container",
-              "content": "The user pinned a mode (here: Shared on a capable interface — keeps other apps audible, fades and software volume alive). AUTO tag replaced by the Reset to Auto action, feature 08's pinned pattern carried over per-mode.",
+              "content": "The user tapped Shared on a capable interface — other apps stay audible, fades and software volume alive; Signal Path reads TRANSPARENT at unity, PROCESSED otherwise. A pin is just the other segment; there is nothing to reset — tap Exclusive to go back. A DSD track here refuses with \"DSD needs Exclusive output\" and the [Switch to Exclusive] action, which pins Exclusive and retries.",
               "lineHeight": 1.45,
               "fontFamily": "$font-sans",
               "fontSize": 11,
@@ -49705,7 +49523,7 @@
         {
           "type": "frame",
           "id": "c09XA",
-          "name": "STATE 3 — GATED",
+          "name": "STATE 3 — NO INTEGER PATH",
           "width": "fill_container",
           "layout": "vertical",
           "gap": 10,
@@ -49715,7 +49533,7 @@
               "id": "O8QiFA",
               "name": "State Label",
               "fill": "$text-secondary",
-              "content": "STATE 3 — GATED · DISPLAY / BLUETOOTH / BUILT-IN",
+              "content": "STATE 3 — NO INTEGER PATH · EXCLUSIVE IS AUHAL, NOT BIT-PERFECT",
               "fontFamily": "$font-mono",
               "fontSize": 10,
               "fontWeight": "700",
@@ -49928,39 +49746,29 @@
                           "name": "Seg Exclusive",
                           "fill": "$bg-elevated",
                           "cornerRadius": 3,
+                          "gap": 4,
                           "padding": [
                             2,
                             8
                           ],
+                          "alignItems": "center",
                           "children": [
+                            {
+                              "type": "icon",
+                              "id": "EedJ2",
+                              "name": "Lock",
+                              "width": 10,
+                              "height": 10,
+                              "icon": "lock",
+                              "library": "lucide",
+                              "fill": "$text-primary"
+                            },
                             {
                               "type": "text",
                               "id": "HfaoI",
                               "name": "Seg Label",
                               "fill": "$text-primary",
                               "content": "Exclusive",
-                              "fontFamily": "$font-sans",
-                              "fontSize": 10,
-                              "fontWeight": "600"
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "ZsRSQ",
-                          "name": "Seg Bit-perfect",
-                          "cornerRadius": 3,
-                          "padding": [
-                            2,
-                            8
-                          ],
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "waqGa",
-                              "name": "Seg Label",
-                              "fill": "$text-muted",
-                              "content": "Bit-perfect",
                               "fontFamily": "$font-sans",
                               "fontSize": 10,
                               "fontWeight": "600"
@@ -49980,7 +49788,222 @@
               "fill": "$text-secondary",
               "textGrowth": "fixed-width",
               "width": "fill_container",
-              "content": "Gate = transport + format (stage 1 findings): display and Bluetooth transports are excluded even when they advertise integer physical formats — the DELLs accept integer physical yet refuse every integer virtual write — and built-in output falls out by float-only formats. Bit-perfect segment disabled with the NO INTEGER PATH tag; AUTO still resolves Shared vs Exclusive per feature 08's ladder (this DELL: integer formats → Exclusive). Start-time virtual refusal (noErr, then settle timeout up to 2 s) is the backstop: clear error, never a silent float fallback.",
+              "content": "Gate = transport + format (the feature 78 stage 2 predicate): display and Bluetooth transports are excluded even when they advertise integer physical formats — the DELLs accept integer physical yet refuse every integer virtual write — and built-in output falls out by float-only formats. Exclusive stays selectable and resolves to Universal{exclusive}: hog held, native rate, AUHAL converts; Signal Path reads TRANSPARENT. The NO INTEGER PATH tag says why it will never read BIT-PERFECT. DSD refuses here with \"This device can't play DSD\" and no switch action — DoP never goes through AUHAL.",
+              "lineHeight": 1.45,
+              "fontFamily": "$font-sans",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "jVgc8",
+          "name": "STATE 4 — POPOVER · QUICK SWITCH",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 10,
+          "children": [
+            {
+              "type": "text",
+              "id": "fLWIy",
+              "name": "State Label",
+              "fill": "$text-secondary",
+              "content": "STATE 4 — OUTPUT POPOVER · QUICK SWITCH (SEGMENTS ONLY)",
+              "fontFamily": "$font-mono",
+              "fontSize": 10,
+              "fontWeight": "700",
+              "letterSpacing": 0.8
+            },
+            {
+              "type": "frame",
+              "id": "SDu8E",
+              "name": "Popover Card",
+              "width": "fill_container",
+              "fill": "$bg-inset",
+              "cornerRadius": "$radius-md",
+              "stroke": "$accent",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 10,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "o9NyI",
+                  "name": "Device",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "Ur7Zv",
+                      "name": "Icon",
+                      "width": 22,
+                      "height": 22,
+                      "icon": "speaker",
+                      "library": "lucide",
+                      "fill": "$accent"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "a2qwE",
+                      "name": "Copy",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 3,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "nj5bT",
+                          "name": "Name",
+                          "fill": "$text-primary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "mini-i Series",
+                          "fontFamily": "$font-display",
+                          "fontSize": 17,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "F8NHs",
+                          "name": "Driver",
+                          "fill": "$text-secondary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "CoreAudio · Exclusive",
+                          "fontFamily": "$font-sans",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "v52Swq",
+                          "name": "Info",
+                          "fill": "$quality",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Up to 24-bit / 192 kHz",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "icon",
+                      "id": "z0i77",
+                      "name": "Check",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "check",
+                      "library": "lucide",
+                      "fill": "$accent"
+                    }
+                  ]
+                },
+                {
+                  "type": "rectangle",
+                  "id": "rOLD5",
+                  "name": "Divider",
+                  "fill": "$border",
+                  "width": "fill_container",
+                  "height": 1
+                },
+                {
+                  "type": "frame",
+                  "id": "xTGz9",
+                  "name": "Output Mode Segments",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "qIrgN",
+                      "name": "Engine Segments",
+                      "cornerRadius": "$radius-sm",
+                      "stroke": "$border-strong",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": 2,
+                      "padding": 2,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "N8RVq",
+                          "name": "Seg Shared",
+                          "cornerRadius": 3,
+                          "padding": [
+                            2,
+                            8
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "KnXIa",
+                              "name": "Seg Label",
+                              "fill": "$text-secondary",
+                              "content": "Shared",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 10,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "HasdD",
+                          "name": "Seg Exclusive",
+                          "fill": "$bg-elevated",
+                          "cornerRadius": 3,
+                          "gap": 4,
+                          "padding": [
+                            2,
+                            8
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "e6ia2",
+                              "name": "Lock",
+                              "width": 10,
+                              "height": 10,
+                              "icon": "lock",
+                              "library": "lucide",
+                              "fill": "$text-primary"
+                            },
+                            {
+                              "type": "text",
+                              "id": "Asj0C",
+                              "name": "Seg Label",
+                              "fill": "$text-primary",
+                              "content": "Exclusive",
+                              "fontFamily": "$font-sans",
+                              "fontSize": 10,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "vOqCB",
+              "name": "Caption",
+              "fill": "$text-secondary",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "The popover's current-device card is the quick switch: name, CoreAudio · <mode>, capability line, then the bare Shared / Exclusive control. Auto's choice is simply the preselected segment; tapping the other one pins it; there is no Auto affordance on any surface (Jason, 2026-09-03). The Devices page row adds only the Output mode label and, on gated devices, the NO INTEGER PATH tag. Exclusive carries the lock glyph everywhere: it says Pulse holds the device. Feature 77's release button joins this card later and must read as an action on the hold, not as a third segment.",
               "lineHeight": 1.45,
               "fontFamily": "$font-sans",
               "fontSize": 11,
@@ -49993,8 +50016,8 @@
     {
       "type": "frame",
       "id": "GGd35",
-      "x": 5376,
-      "y": -1380,
+      "x": 3994,
+      "y": -947,
       "name": "Spec — DSD Gate & Toasts",
       "width": 760,
       "fill": "$bg-page",
@@ -50206,7 +50229,7 @@
           "id": "KOSaT",
           "name": "Copy Heading",
           "fill": "$text-primary",
-          "content": "Refusal copy — final strings for the four gate errors",
+          "content": "Refusal copy — final strings for the five gate errors",
           "fontFamily": "$font-display",
           "fontSize": 15,
           "fontWeight": "700"
@@ -50229,7 +50252,7 @@
             {
               "type": "frame",
               "id": "t9Xb5s",
-              "name": "Copy / OUTPUT MODE ≠ BIT-PERFECT",
+              "name": "Copy / SHARED ON A DEVICE WITH AN INTEGER PATH",
               "width": "fill_container",
               "stroke": "$border",
               "strokeWidth": {
@@ -50247,7 +50270,7 @@
                   "id": "YDx1h",
                   "name": "Condition",
                   "fill": "$text-muted",
-                  "content": "OUTPUT MODE ≠ BIT-PERFECT",
+                  "content": "SHARED · DEVICE HAS AN INTEGER PATH",
                   "fontFamily": "$font-mono",
                   "fontSize": 10,
                   "fontWeight": "700"
@@ -50259,7 +50282,7 @@
                   "fill": "$text-primary",
                   "textGrowth": "fixed-width",
                   "width": "fill_container",
-                  "content": "DSD needs Bit-perfect output",
+                  "content": "DSD needs Exclusive output",
                   "fontFamily": "$font-sans",
                   "fontSize": 13,
                   "fontWeight": "600"
@@ -50271,7 +50294,7 @@
                   "fill": "$text-secondary",
                   "textGrowth": "fixed-width",
                   "width": "fill_container",
-                  "content": "DoP only survives the untouched integer path. Switch the output mode to play this track.",
+                  "content": "DoP only survives Pulse's untouched integer path, and that path needs the device to itself. Switch to Exclusive to play this track.",
                   "fontFamily": "$font-sans",
                   "fontSize": 12,
                   "fontWeight": "normal"
@@ -50283,7 +50306,71 @@
                   "fill": "$accent",
                   "textGrowth": "fixed-width",
                   "width": "fill_container",
-                  "content": "→ [Switch to Bit-perfect] switches the mode and retries the same track.",
+                  "content": "→ [Switch to Exclusive] pins Exclusive on this device and retries the same track.",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "y8cO8",
+              "name": "Copy / NO INTEGER PATH ON THIS DEVICE",
+              "width": "fill_container",
+              "stroke": "$border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                12,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "D2jgC",
+                  "name": "Condition",
+                  "fill": "$text-muted",
+                  "content": "NO INTEGER PATH ON THIS DEVICE",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 10,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "O588E",
+                  "name": "Title",
+                  "fill": "$text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "This device can't play DSD",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "zDLUx",
+                  "name": "Body",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "{device} has no integer path Pulse can trust for DoP — Exclusive here is transparent, not bit-perfect. Choose an output with an integer path.",
+                  "fontFamily": "$font-sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "wx4rC",
+                  "name": "Action Note",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "→ no action. The toast just dismisses; DoP is never sent through AUHAL.",
                   "fontFamily": "$font-mono",
                   "fontSize": 11,
                   "fontWeight": "normal"
