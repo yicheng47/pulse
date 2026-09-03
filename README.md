@@ -19,4 +19,4 @@ Bundled releases use Sparkle to fetch a signed `appcast.xml` from GitHub Release
 
 ## Status
 
-v0.3.0 shipped 2026-09-01 — the bit-perfect release: the integer engine proven bit-exact by the DoP test, one-axis Output mode (Shared · Exclusive · Bit-perfect), volume transparency. DSD (DSF/DFF over DoP) landed on `main` right after. Work runs through feature specs in [`docs/features/`](docs/features/) with matching GitHub issues; current state lives in [`docs/roadmap.md`](docs/roadmap.md)'s `Now` section.
+v0.3.2 shipped 2026-09-03 — Shared and Exclusive output modes: Exclusive runs the integer engine wherever the device has a safe integer path and Core Audio exclusive otherwise; Bit-perfect is what Signal Path reports, not a switch. v0.3.0 (2026-09-01) proved the integer engine bit-exact by the DoP test; v0.3.1 added DSD (DSF/DFF over DoP), toasts, and faster scans. Work runs through feature specs in [`docs/features/`](docs/features/) with matching GitHub issues; current state lives in [`docs/roadmap.md`](docs/roadmap.md)'s `Now` section.
