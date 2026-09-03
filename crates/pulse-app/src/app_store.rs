@@ -361,10 +361,6 @@ impl AppStore {
                 self.playback.set_device_output_mode(device_uid, mode);
                 false
             }
-            PlaybackAction::ResetDeviceOutputMode(device_uid) => {
-                self.playback.reset_device_output_mode_to_auto(device_uid);
-                false
-            }
             PlaybackAction::ForgetManagedDevice(device_uid) => {
                 self.playback.forget_managed_device(&device_uid)
             }
@@ -517,9 +513,7 @@ fn devices_changed(before: &RevisionSnapshot, after: &RevisionSnapshot) -> bool 
         || active_device_row(before.playback.active_device.as_ref())
             != active_device_row(after.playback.active_device.as_ref())
         || before.playback.device_capabilities != after.playback.device_capabilities
-        || before.playback.automatic_output_mode != after.playback.automatic_output_mode
         || before.playback.output_mode != after.playback.output_mode
-        || before.playback.output_mode_automatic != after.playback.output_mode_automatic
         || before.playback.volume_state != after.playback.volume_state
 }
 
@@ -536,11 +530,9 @@ fn playback_changed(before: &PlaybackSnapshot, after: &PlaybackSnapshot) -> bool
         active_device: before_active_device,
         device_capabilities: _before_device_capabilities,
         device_message: _before_device_message,
-        automatic_output_mode: _before_automatic_output_mode,
         output_mode: _before_output_mode,
         playback_output_mode: before_playback_output_mode,
         resolved_engine_kind: before_resolved_engine_kind,
-        output_mode_automatic: _before_output_mode_automatic,
         bit_perfect_active: before_bit_perfect_active,
         volume_state: before_volume_state,
         volume_level: before_volume_level,
@@ -564,11 +556,9 @@ fn playback_changed(before: &PlaybackSnapshot, after: &PlaybackSnapshot) -> bool
         active_device: after_active_device,
         device_capabilities: _after_device_capabilities,
         device_message: _after_device_message,
-        automatic_output_mode: _after_automatic_output_mode,
         output_mode: _after_output_mode,
         playback_output_mode: after_playback_output_mode,
         resolved_engine_kind: after_resolved_engine_kind,
-        output_mode_automatic: _after_output_mode_automatic,
         bit_perfect_active: after_bit_perfect_active,
         volume_state: after_volume_state,
         volume_level: after_volume_level,

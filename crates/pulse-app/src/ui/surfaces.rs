@@ -1,8 +1,8 @@
 use crate::theme::rpx;
 
 use gpui::{
-    AnyElement, CursorStyle, Div, ElementId, FontWeight, IntoElement, RenderOnce, Rgba,
-    SharedString, Stateful, Window, div, linear_color_stop, linear_gradient, prelude::*,
+    AnyElement, Div, ElementId, FontWeight, IntoElement, RenderOnce, Rgba, SharedString, Stateful,
+    Window, div, linear_color_stop, linear_gradient, prelude::*, svg,
 };
 
 use crate::theme;
@@ -111,25 +111,10 @@ pub(crate) fn pill(label: impl Into<SharedString>, active: bool) -> impl IntoEle
         )
 }
 
-pub(crate) fn output_mode_reset_link(id: impl Into<ElementId>) -> Stateful<Div> {
-    div()
-        .id(id)
-        .ml(rpx(8.))
-        .cursor_pointer()
-        .font_family(theme::FONT_SANS)
-        .font_weight(FontWeight::SEMIBOLD)
-        .text_size(theme::text::SMALL)
-        .text_color(theme::accent())
-        .child("Reset to Auto")
-}
-
 pub(crate) fn output_mode_control(
     label: &'static str,
-    automatic: bool,
     integer_path_available: bool,
-    reset_link: AnyElement,
     segments: AnyElement,
-    stacked: bool,
 ) -> Div {
     let label = div()
         .font_family(theme::FONT_SANS)
@@ -137,59 +122,30 @@ pub(crate) fn output_mode_control(
         .text_size(theme::text::BODY)
         .text_color(theme::text_primary())
         .child(label);
-    let state = if !automatic {
-        reset_link
-    } else if !integer_path_available {
-        div()
-            .ml(rpx(8.))
-            .px(rpx(5.))
-            .py(rpx(2.))
-            .rounded(rpx(theme::RADIUS_SM))
-            .border_1()
-            .border_color(theme::border_strong())
-            .bg(theme::bg_elevated())
-            .font_family(theme::FONT_MONO)
-            .font_weight(FontWeight::BOLD)
-            .text_size(theme::text::CAPTION_XS)
-            .text_color(theme::text_muted())
-            .child("NO INTEGER PATH")
-            .into_any_element()
-    } else {
-        div()
-            .ml(rpx(8.))
-            .px(rpx(5.))
-            .py(rpx(2.))
-            .rounded(rpx(theme::RADIUS_SM))
-            .border_1()
-            .border_color(theme::border_strong())
-            .bg(theme::bg_elevated())
-            .font_family(theme::FONT_MONO)
-            .font_weight(FontWeight::BOLD)
-            .text_size(theme::text::CAPTION_XS)
-            .text_color(theme::text_secondary())
-            .child("AUTO")
-            .into_any_element()
-    };
-
-    if stacked {
-        div()
-            .flex()
-            .flex_col()
-            .items_start()
-            .gap(rpx(8.))
-            .w_full()
-            .child(div().flex().items_center().child(label).child(state))
-            .child(segments)
-    } else {
-        div()
-            .flex()
-            .items_center()
-            .w_full()
-            .child(label)
-            .child(state)
-            .child(div().flex_1())
-            .child(segments)
-    }
+    div()
+        .flex()
+        .items_center()
+        .w_full()
+        .child(label)
+        .when(!integer_path_available, |control| {
+            control.child(
+                div()
+                    .ml(rpx(8.))
+                    .px(rpx(5.))
+                    .py(rpx(2.))
+                    .rounded(rpx(theme::RADIUS_SM))
+                    .border_1()
+                    .border_color(theme::border_strong())
+                    .bg(theme::bg_elevated())
+                    .font_family(theme::FONT_MONO)
+                    .font_weight(FontWeight::BOLD)
+                    .text_size(theme::text::CAPTION_XS)
+                    .text_color(theme::text_muted())
+                    .child("NO INTEGER PATH"),
+            )
+        })
+        .child(div().flex_1())
+        .child(segments)
 }
 
 pub(crate) fn output_mode_segments(shared: AnyElement, exclusive: AnyElement) -> Div {
@@ -209,48 +165,45 @@ pub(crate) fn output_mode_segment(
     id: impl Into<ElementId>,
     label: &'static str,
     selected: bool,
-    quality: bool,
-    disabled: bool,
+    locked: bool,
 ) -> Stateful<Div> {
+    let label_color = if selected {
+        theme::text_primary()
+    } else {
+        theme::text_secondary()
+    };
     div()
         .id(id)
         .flex()
         .items_center()
+        .gap(rpx(4.))
         .px(rpx(8.))
         .py(rpx(2.))
         .rounded(rpx(3.))
+        // Preserve the approved chip geometry without a visible segment stroke.
         .border_1()
-        .border_color(if selected && quality {
-            theme::quality_border()
-        } else if selected {
-            theme::border_strong()
-        } else {
-            theme::bg_inset()
-        })
-        .bg(if selected && quality {
-            theme::quality_soft()
-        } else if selected {
+        .border_color(if selected {
             theme::bg_elevated()
         } else {
             theme::bg_inset()
         })
-        .opacity(if disabled { 0.5 } else { 1.0 })
-        .cursor(if disabled {
-            CursorStyle::Arrow
+        .bg(if selected {
+            theme::bg_elevated()
         } else {
-            CursorStyle::PointingHand
+            theme::bg_inset()
         })
+        .cursor_pointer()
         .font_family(theme::FONT_SANS)
         .font_weight(FontWeight::SEMIBOLD)
         .text_size(theme::text::CAPTION)
-        .text_color(if selected && quality {
-            theme::quality()
-        } else if selected {
-            theme::text_primary()
-        } else if disabled {
-            theme::text_muted()
-        } else {
-            theme::text_secondary()
+        .text_color(label_color)
+        .when(locked, |segment| {
+            segment.child(
+                svg()
+                    .path("icons/lock.svg")
+                    .size(rpx(10.))
+                    .text_color(label_color),
+            )
         })
         .child(label)
 }

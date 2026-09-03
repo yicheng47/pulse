@@ -400,7 +400,6 @@ pub(crate) fn merge_managed_devices(
                 active: false,
                 saved_default: saved_output_device_uid == Some(uid),
                 output_mode: preferences.effective_mode(uid, automatic_mode),
-                automatic: stored.mode.is_none(),
                 integer_path_available: stored
                     .capabilities
                     .is_some_and(StoredDeviceCapabilities::has_integer_path),
@@ -420,7 +419,6 @@ pub(crate) fn merge_managed_devices(
                 active: false,
                 saved_default: saved_output_device_uid == Some(connected.uid.as_str()),
                 output_mode: preferences.effective_mode(&connected.uid, StoredOutputMode::Shared),
-                automatic: !preferences.is_pinned(&connected.uid),
                 integer_path_available: false,
                 hardware_volume_available: false,
             });

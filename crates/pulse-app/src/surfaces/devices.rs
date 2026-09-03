@@ -196,8 +196,6 @@ impl DeviceManagementPage {
             );
         }
 
-        let reset_store = self.app_store.clone();
-        let reset_uid = device.uid.clone();
         let shared_store = self.app_store.clone();
         let shared_uid = device.uid.clone();
         let exclusive_store = self.app_store.clone();
@@ -206,7 +204,6 @@ impl DeviceManagementPage {
             ("device-mode-shared", index),
             "Shared",
             device.output_mode == StoredOutputMode::Shared,
-            false,
             false,
         )
         .on_click(move |_, _, cx| {
@@ -225,8 +222,7 @@ impl DeviceManagementPage {
             ("device-mode-exclusive", index),
             "Exclusive",
             device.output_mode == StoredOutputMode::Exclusive,
-            false,
-            false,
+            true,
         )
         .on_click(move |_, _, cx| {
             exclusive_store.update(cx, |store, store_cx| {
@@ -279,20 +275,8 @@ impl DeviceManagementPage {
             )
             .child(ui::output_mode_control(
                 "Output mode",
-                device.automatic,
                 device.integer_path_available,
-                ui::output_mode_reset_link(("device-mode-reset", index))
-                    .on_click(move |_, _, cx| {
-                        reset_store.update(cx, |store, store_cx| {
-                            store.send_command(
-                                PlaybackAction::ResetDeviceOutputMode(reset_uid.clone()),
-                                store_cx,
-                            );
-                        });
-                    })
-                    .into_any_element(),
                 ui::output_mode_segments(shared, exclusive).into_any_element(),
-                false,
             ))
             .into_any_element()
     }

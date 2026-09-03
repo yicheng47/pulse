@@ -238,6 +238,7 @@ impl OutputModePreferences {
             .unwrap_or(automatic)
     }
 
+    #[cfg(test)]
     pub fn is_pinned(&self, device_uid: &str) -> bool {
         self.devices
             .get(device_uid)
@@ -246,12 +247,6 @@ impl OutputModePreferences {
 
     pub fn set_mode(&mut self, device_uid: &str, mode: StoredOutputMode) {
         self.devices.entry(device_uid.to_string()).or_default().mode = Some(mode);
-    }
-
-    pub fn clear_mode(&mut self, device_uid: &str) {
-        if let Some(device) = self.devices.get_mut(device_uid) {
-            device.mode = None;
-        }
     }
 
     pub fn record_sighting(
@@ -804,20 +799,6 @@ mod tests {
         let contents = fs::read_to_string(&path).unwrap();
         assert!(contents.contains("\"outputModePreferences\""));
         assert!(!contents.contains("\"exclusiveMode\":"));
-    }
-
-    #[test]
-    fn clearing_a_pin_returns_the_device_to_auto() {
-        let mut preferences = OutputModePreferences::default();
-        preferences.set_mode("matrix", StoredOutputMode::Shared);
-
-        preferences.clear_mode("matrix");
-
-        assert!(!preferences.is_pinned("matrix"));
-        assert_eq!(
-            preferences.effective_mode("matrix", StoredOutputMode::Exclusive),
-            StoredOutputMode::Exclusive
-        );
     }
 
     #[test]
