@@ -1,3 +1,20 @@
+//! The playback controller: one worker thread that owns a decoder and an output backend and turns
+//! `PlaybackCommand`s into `PlaybackEvent`s.
+//!
+//! Three layers live here. `PlaybackController` is the public handle (command sender, event
+//! subscriptions, shutdown). `Worker` is the state machine on its own thread. `PlaybackBackend` is
+//! the one trait both engines sit behind — `EngineBackend` (AUHAL, universal) and `IntegerBackend`
+//! (raw HAL, bit-perfect) — so the worker never knows which one it is driving.
+//!
+//! The worker moves bytes: `SourceDecoder::next_pcm` fills a chunk, `PlaybackBackend::feed` takes as
+//! much as the engine's ring has room for, and `pump` repeats until the decoder is dry. No sample
+//! value is inspected or changed on this thread; the bit-perfect claim depends on that.
+//!
+//! Reading order: the `Worker` fields and their invariants, then `run`, `start_path` →
+//! `start_backend`, `pump`, and the ways a track ends (`begin_seamless_transition` /
+//! `rebuild_for_preloaded`, or `finish_playback`). `stop_active` versus `release_backend` is the
+//! distinction most of the device behaviour hangs on.
+
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},
@@ -32,6 +49,8 @@ type DecoderFactory =
     Arc<dyn Fn(&Path) -> Result<Box<dyn SourceDecoder>, EngineError> + Send + Sync>;
 type Clock = Box<dyn Fn() -> Instant + Send>;
 
+/// Public handle to the playback worker. Cloneable command senders and per-subscriber event
+/// channels are the whole API; the worker thread owns every engine object.
 pub struct PlaybackController {
     command_tx: Sender<PlaybackCommand>,
     subscribers: EventSubscribers,
@@ -40,6 +59,9 @@ pub struct PlaybackController {
     backend_release: ActiveBackendRelease,
 }
 
+/// A handle that can give the output device back from a thread other than the worker's — the app's
+/// quit path uses it with a deadline so a stuck worker cannot keep the hog or the device format.
+/// Only the integer engine provides one; the universal engine has nothing to release out of band.
 trait BackendRelease: Send + Sync {
     fn release_before(&self, deadline: Instant) -> Result<(), EngineError>;
 }
@@ -52,6 +74,8 @@ enum BackendReleaseOutcome {
     Failed(EngineError),
 }
 
+/// The release handle of whichever backend is currently open, shared between the worker (which
+/// replaces it on open and clears it on release) and `PlaybackController::shutdown`.
 #[derive(Clone, Default)]
 struct ActiveBackendRelease {
     handle: Arc<Mutex<Option<BackendReleaseHandle>>>,
@@ -186,6 +210,10 @@ impl PlaybackController {
         self.shutdown_with_timeouts(SHUTDOWN_RELEASE_LOCK_TIMEOUT, SHUTDOWN_WORKER_JOIN_TIMEOUT)
     }
 
+    /// Quit path. Flags the worker to stop, releases the device from this thread if a handle
+    /// exists, then waits a bounded time for the worker to exit. The two waits are bounded
+    /// independently so a hung HAL call cannot block the app's exit; the error text says which
+    /// half did not finish.
     fn shutdown_with_timeouts(
         &mut self,
         release_lock_timeout: Duration,
@@ -253,6 +281,18 @@ impl Drop for PlaybackController {
 
 type EventSubscribers = Arc<Mutex<Vec<Sender<PlaybackEvent>>>>;
 
+/// What the worker needs from an output engine. Both engines implement the same lifecycle:
+///
+/// - `start(format)`: negotiate the device for `format`, then play. On an already-open backend
+///   this renegotiates in place (rate, physical/virtual format, fresh ring) — the basis of the
+///   format-change boundary reuse in `rebuild_for_preloaded`.
+/// - `feed`: push interleaved PCM in `format`; returns whole frames accepted, never blocks.
+/// - `position`: frames the device has consumed since `start`. Every position and gapless
+///   decision in the worker is derived from it, never from what was fed.
+/// - `stop`: stop the sink and drain the ring; the device stays open.
+/// - `release`: give the device back (hog, restored formats). The box is consumed.
+/// - `retains_device_when_paused`: whether Pause should `stop` (keep the device: integer engine)
+///   or `release` (universal engine, which holds nothing worth keeping).
 trait PlaybackBackend {
     fn start(&mut self, format: PcmFormat) -> Result<(), EngineError>;
     fn feed(&mut self, pcm: &[u8]) -> usize;
@@ -273,6 +313,7 @@ trait PlaybackBackend {
     }
 }
 
+/// The universal engine behind the trait: AUHAL, float32 client format, shared or exclusive.
 struct EngineBackend {
     engine: Engine,
 }
@@ -325,6 +366,7 @@ impl PlaybackBackend for EngineBackend {
     }
 }
 
+/// The bit-perfect engine behind the trait: raw HAL IOProc, hog held, integer device formats.
 struct IntegerBackend {
     engine: IntegerEngine,
 }
@@ -391,6 +433,9 @@ impl BackendRelease for crate::integer_engine::IntegerReleaseHandle {
     }
 }
 
+/// What the worker needs from a decoder: format and duration up front, `seek` returning the
+/// position actually reached, and `next_pcm` filling a chunk of interleaved PCM in `format`
+/// (`Ok(None)` at end of stream). PCM files come through symphonia, DSD through the DoP packer.
 trait SourceDecoder {
     fn format(&self) -> PcmFormat;
     fn duration_ms(&self) -> Option<u64>;
@@ -434,6 +479,9 @@ impl SourceDecoder for DsdDopDecoder {
     }
 }
 
+/// The track the listener hears — what `NowPlaying`, `Position`, and dropout events describe.
+/// `position_ms` is the last reported position (or the resting point while paused);
+/// `resume_position_ms` is where Resume restarts from. Dropout tallies are per track.
 struct CurrentTrack {
     source: PlayableSource,
     format: PcmFormat,
@@ -443,6 +491,12 @@ struct CurrentTrack {
     last_reported_dropout_frames: u64,
 }
 
+/// The pump's working state; present exactly while audio is flowing (`Playing`), absent while
+/// paused, ended, or idle. `pcm` / `pcm_offset` stage the decoder's current chunk between feeds;
+/// `fed_frames` counts frames handed to the backend this run; `track_start_frames` and
+/// `base_position_ms` map the backend's frame counter back to a position in the current track
+/// (they move at a gapless boundary, see `advance_transition_if_audible`). The remaining fields
+/// drive dropout accounting and the output-stall watchdog.
 struct ActivePlayback {
     decoder: Box<dyn SourceDecoder>,
     base_position_ms: u64,
@@ -458,17 +512,23 @@ struct ActivePlayback {
     stalled_since: Option<Instant>,
 }
 
+/// A `SetNext` track, opened and format-checked ahead of time so the boundary needs no I/O.
 struct PreloadedSource {
     source: PlayableSource,
     format: PcmFormat,
     decoder: Box<dyn SourceDecoder>,
 }
 
+/// A gapless boundary that has been fed into the ring but is not audible yet. Until the backend's
+/// frame counter reaches `boundary_frames`, positions still belong to the outgoing track; then
+/// `advance_transition_if_audible` makes `incoming` the current track and announces `Advanced`.
 struct PendingTransition {
     boundary_frames: u64,
     incoming: CurrentTrack,
 }
 
+/// A decoder already opened and seeked while paused (`Load`, or `Seek` in `Paused`), so Resume
+/// starts from the exact position without repeating the seek.
 struct PreparedDecoder {
     path: PathBuf,
     requested_position_ms: u64,
@@ -483,15 +543,30 @@ struct WorkerSettings {
     now: Clock,
 }
 
+/// The state machine, single-threaded on the worker thread. Three optional slots carry the
+/// playback lifecycle, with these invariants:
+///
+/// - `active.is_some()` implies `current` and `backend` are set (audio is flowing).
+/// - `backend` can outlive `active`: paused on the integer engine (device kept), or between the
+///   stop and the restart at a format-change boundary.
+/// - `next_source` holds a `SetNext` track until its boundary; `transition` holds a boundary that
+///   is fed but not yet audible; a track is never in both.
+///
+/// `state` is what the UI sees; `set_state` guards the transitions. `bit_perfect_active` and
+/// `volume_state` feed the UI indicators and change only in `start_backend` / `release_backend`,
+/// which is why a boundary that skips `release_backend` shows no flicker.
 struct Worker {
     state: PlaybackState,
     /// Count of PlayFile and Load commands processed. Gapless advances keep the current count.
     attempt: u64,
     output_device: DeviceId,
     engine_kind: EngineKind,
+    /// True after an exclusive start fell back to shared; cleared by any device or mode change.
     shared_mode_fallback: bool,
     bit_perfect_active: bool,
     volume_state: VolumeState,
+    /// Devices whose hardware volume was read once and adopted as the app level; later starts on
+    /// them push the app level down instead of reading again.
     adopted_hardware_volume: HashSet<DeviceId>,
     volume_level: f32,
     muted: bool,
@@ -502,6 +577,8 @@ struct Worker {
     next_source: Option<PreloadedSource>,
     transition: Option<PendingTransition>,
     prepared_decoder: Option<PreparedDecoder>,
+    /// The open engine, tagged with the device and kind it was opened for so
+    /// `take_or_open_backend` knows whether it can be reused.
     backend: Option<(DeviceId, EngineKind, Box<dyn PlaybackBackend>)>,
     command_rx: Receiver<PlaybackCommand>,
     subscribers: EventSubscribers,
@@ -551,6 +628,9 @@ impl Worker {
         }
     }
 
+    /// The loop. While audio flows, commands are polled without blocking and `pump` does the
+    /// work, sleeping `FEED_RETRY_DELAY` only when nothing moved (ring full, decoder waiting).
+    /// Idle, it blocks on the command channel. However the loop ends, the device is released.
     fn run(mut self) {
         while !self.shutdown.load(Ordering::Acquire) {
             if self.active.is_some() {
@@ -599,6 +679,8 @@ impl Worker {
         }
     }
 
+    /// One command. A boundary that has become audible is settled first, so the command applies
+    /// to the track the listener is actually hearing.
     fn handle_command_once(&mut self, command: PlaybackCommand) {
         if self.transition.is_some() {
             let backend_position = self
@@ -633,6 +715,8 @@ impl Worker {
         }
     }
 
+    /// Start a track from the top. Everything queued is dropped; the open backend is kept for
+    /// `start_backend` to reuse.
     fn play_file(&mut self, path: PathBuf) -> Result<(), EngineError> {
         self.attempt += 1;
         self.next_source = None;
@@ -644,6 +728,8 @@ impl Worker {
         self.start_path(&path, 0, true, false)
     }
 
+    /// Restore a track paused at `position_ms` without touching the device (launch-state
+    /// restore): the decoder is opened and seeked, and the worker parks in `Paused`.
     fn load(&mut self, path: PathBuf, position_ms: u64) -> Result<(), EngineError> {
         if !matches!(
             self.state,
@@ -747,6 +833,9 @@ impl Worker {
         self.next_source = None;
     }
 
+    /// Pause. The integer engine keeps the device (hog, negotiated format) and only stops the
+    /// sink; the universal engine releases it. A buffered gapless boundary is undone back into
+    /// `next_source`, because its frames were discarded with the ring.
     fn pause(&mut self) -> Result<(), EngineError> {
         if self.state != PlaybackState::Playing {
             self.illegal_command("Pause");
@@ -774,6 +863,8 @@ impl Worker {
         Ok(())
     }
 
+    /// Resume is a fresh start of the current path at its resume position; the backend is
+    /// reused if it is still open.
     fn resume(&mut self) -> Result<(), EngineError> {
         if self.state != PlaybackState::Paused {
             self.illegal_command("Resume");
@@ -785,6 +876,9 @@ impl Worker {
         self.start_path(&path, position_ms, false, true)
     }
 
+    /// Seek. Paused: open a decoder, seek it, and park it as `prepared_decoder` for Resume.
+    /// Playing: stop the sink and restart the same path at the new position (the backend stays
+    /// open).
     fn seek(&mut self, position_ms: u64) -> Result<(), EngineError> {
         if !matches!(self.state, PlaybackState::Playing | PlaybackState::Paused) {
             self.illegal_command("Seek");
@@ -825,6 +919,8 @@ impl Worker {
         self.start_path(&path, requested_position_ms, false, true)
     }
 
+    /// Stop: release the device and forget the track. Idle is reported even if the stop call
+    /// fails, because dropping the backend releases the device regardless.
     fn stop(&mut self) -> Result<(), EngineError> {
         if self.state == PlaybackState::Idle {
             return Ok(());
@@ -848,6 +944,8 @@ impl Worker {
         Ok(())
     }
 
+    /// Switch device (and engine kind). While playing, restart the current track on the new
+    /// device from the audible position, rolling the selection back if it fails to start.
     fn set_output_device(
         &mut self,
         device_id: DeviceId,
@@ -908,6 +1006,8 @@ impl Worker {
         Ok(())
     }
 
+    /// Universal engine only: flip exclusive mode, restarting the current track if one is
+    /// playing.
     fn set_exclusive_mode(&mut self, enabled: bool) -> Result<(), EngineError> {
         let EngineKind::Universal { exclusive_mode } = self.engine_kind else {
             return Ok(());
@@ -963,6 +1063,12 @@ impl Worker {
         }
     }
 
+    /// The one place a backend is obtained and started. Reuses the open backend when device and
+    /// kind match, otherwise opens one; applies volume (adopting the device's hardware level the
+    /// first time it is seen); then `start(format)`. An exclusive universal start that fails for
+    /// a recoverable reason falls back to a fresh shared backend and reports
+    /// `ExclusiveModeFallback`. Success is the only path that sets `bit_perfect_active` and the
+    /// volume state.
     fn start_backend(&mut self, format: PcmFormat) -> Result<(), EngineError> {
         let engine_kind = self.actual_engine_kind();
         let exclusive_mode = matches!(
@@ -1029,6 +1135,8 @@ impl Worker {
         }
     }
 
+    /// Hand back the open backend if it is for the same device and kind; otherwise release it (a
+    /// failure there is reported but does not block the new device) and open a fresh one.
     fn take_or_open_backend(
         &mut self,
         engine_kind: EngineKind,
@@ -1082,6 +1190,9 @@ impl Worker {
         Ok(())
     }
 
+    /// Open (or take the prepared) decoder, seek it, start the backend for its format, and
+    /// install the track as `current` + `active`. Used by play, resume, seek-while-playing, and
+    /// device or mode switches; the flags say which events the caller has already announced.
     fn start_path(
         &mut self,
         path: &Path,
@@ -1153,6 +1264,12 @@ impl Worker {
         Ok(())
     }
 
+    /// One iteration of the audio loop; returns whether anything moved. In order: decode the next
+    /// chunk once the staged one is fully fed; feed as much as the ring takes; read the backend's
+    /// frame counter and derive dropouts, gapless advancement, and position events from it; trip
+    /// the stall watchdog if the counter stops while frames are outstanding; and, once the
+    /// decoder is dry and everything fed has been heard, decide how the track ends — splice the
+    /// next track into the same ring (same format), rebuild for a new format, or finish.
     fn pump(&mut self) -> Result<bool, EngineError> {
         let mut made_progress = false;
         let bytes_per_frame = self
@@ -1258,6 +1375,7 @@ impl Worker {
                 .as_ref()
                 .map(|next| next.format == self.current_format())
             {
+                // Same format: keep feeding the same ring, mark where the new track starts.
                 Some(true) => {
                     let next = self.next_source.take().expect("next source was checked");
                     self.begin_seamless_transition(next);
@@ -1266,11 +1384,13 @@ impl Worker {
                         made_progress = true;
                     }
                 }
+                // Different format: once the ring has been heard out, renegotiate the device.
                 Some(false) if backend_position >= fed_frames => {
                     let next = self.next_source.take().expect("next source was checked");
                     self.rebuild_for_preloaded(next)?;
                     made_progress = true;
                 }
+                // Nothing queued and the last fed frame has been heard.
                 None if backend_position >= fed_frames => {
                     self.finish_playback();
                     made_progress = true;
@@ -1282,6 +1402,8 @@ impl Worker {
         Ok(made_progress)
     }
 
+    /// Gapless splice: swap the decoder under the live ring and remember the frame count at
+    /// which the incoming track begins. Nothing on the device changes.
     fn begin_seamless_transition(&mut self, next: PreloadedSource) {
         let active = self
             .active
@@ -1305,6 +1427,9 @@ impl Worker {
         });
     }
 
+    /// Once the backend has consumed up to the boundary, make the incoming track `current`,
+    /// rebase the position math on `boundary_frames`, and announce `Advanced`. Returns whether
+    /// it did.
     fn advance_transition_if_audible(&mut self, backend_position: u64) -> bool {
         let Some(transition) = self
             .transition
@@ -1340,6 +1465,11 @@ impl Worker {
         true
     }
 
+    /// Format-change boundary. The ring is already heard out (the caller waited for it), so the
+    /// sink is stopped and the same backend is restarted for the new format: the engine
+    /// renegotiates rate and formats on the device it still holds. The backend is deliberately
+    /// not released — no hog gap, no restore-then-reapply, no indicator flicker (feature 78,
+    /// stage 1).
     fn rebuild_for_preloaded(&mut self, next: PreloadedSource) -> Result<(), EngineError> {
         self.stop_active()?;
         self.start_backend(next.format)?;
@@ -1375,6 +1505,7 @@ impl Worker {
         Ok(())
     }
 
+    /// Natural end: the last fed frame has been heard. Releases the device and reports `Ended`.
     fn finish_playback(&mut self) {
         let position_ms = self.logical_position_ms();
         let should_emit_position = self
@@ -1407,6 +1538,7 @@ impl Worker {
         }
     }
 
+    /// Any error: release the device, drop every queued track, report `Error`.
     fn fail(&mut self, error: EngineError) {
         let error = match self.release_backend() {
             Ok(()) => error,
@@ -1424,6 +1556,8 @@ impl Worker {
         });
     }
 
+    /// Stop the audio without giving up the device: the sink stops and drains, the backend stays
+    /// in its slot for `start_backend` to reuse. Pairs with `release_backend`, which gives it up.
     fn stop_active(&mut self) -> Result<(), EngineError> {
         if self.active.take().is_some() {
             let (device_id, engine_kind, mut backend) = self
@@ -1437,6 +1571,8 @@ impl Worker {
         Ok(())
     }
 
+    /// Give the device back: stop if audio was flowing, then `release` (hog, formats). This is
+    /// the only place the bit-perfect indicator and the volume state are cleared.
     fn release_backend(&mut self) -> Result<(), EngineError> {
         let was_active = self.active.take().is_some();
         self.set_bit_perfect_active(false);
@@ -1550,6 +1686,8 @@ impl Worker {
             .format
     }
 
+    /// Position of the audible track in ms, from the backend's frame counter (settling a
+    /// boundary that has become audible first).
     fn logical_position_ms(&mut self) -> u64 {
         if self.active.is_none() {
             return self
@@ -1567,6 +1705,8 @@ impl Worker {
         self.logical_position_ms_at(backend_position)
     }
 
+    /// Base position plus the frames consumed since the current track started, clamped to its
+    /// duration.
     fn logical_position_ms_at(&self, backend_position: u64) -> u64 {
         let active = self
             .active
@@ -1600,6 +1740,9 @@ impl Worker {
             .ok_or_else(|| EngineError::Decode("no current source".to_string()))
     }
 
+    /// Turn the backend's cumulative underrun counter into per-track dropout frames. The first
+    /// reading after a start is a baseline, not a dropout (priming zeros), and underruns after
+    /// the decoder has drained with nothing queued are the drain tail, not dropouts either.
     fn update_dropout_accounting(&mut self, backend_position: u64) {
         let has_following_source = self.transition.is_some() || self.next_source.is_some();
         let underrun_frames = self
@@ -1636,6 +1779,7 @@ impl Worker {
         current.dropout_frames = current.dropout_frames.saturating_add(new_dropout_frames);
     }
 
+    /// Report position, preceded by a `Dropout` event when the tally moved since the last report.
     fn emit_position(&mut self, position_ms: u64) {
         let dropout_report = self.current.as_mut().and_then(|current| {
             let frames = current
@@ -1676,6 +1820,8 @@ impl Worker {
     }
 }
 
+/// Collapse a burst of queued volume commands into the last one. The first non-volume command
+/// met on the way is returned so it is not lost.
 fn coalesce_volume_commands(
     command_rx: &Receiver<PlaybackCommand>,
     mut level: f32,
@@ -1702,6 +1848,8 @@ fn frames_to_ms(frames: u64, sample_rate: u32) -> u64 {
     frames.saturating_mul(1_000) / u64::from(sample_rate)
 }
 
+/// Exclusive-start failures that mean "this device will not do exclusive", where shared mode is
+/// the right recovery; anything else is a real error.
 fn exclusive_start_can_fallback(error: &EngineError) -> bool {
     matches!(
         error,
