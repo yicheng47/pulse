@@ -204,10 +204,6 @@ impl PlaybackRow {
         self.snapshot.device_message.clone()
     }
 
-    pub(super) fn output_mode_is_automatic(&self) -> bool {
-        self.snapshot.output_mode_automatic
-    }
-
     pub(super) fn set_output_mode(&mut self, mode: StoredOutputMode, cx: &mut Context<Self>) {
         let Some(active_device) = self.snapshot.active_device.clone() else {
             return;
@@ -219,13 +215,6 @@ impl PlaybackRow {
             },
             cx,
         );
-    }
-
-    pub(super) fn reset_output_mode_to_auto(&mut self, cx: &mut Context<Self>) {
-        let Some(active_device) = self.snapshot.active_device.clone() else {
-            return;
-        };
-        self.send(PlaybackAction::ResetDeviceOutputMode(active_device.uid), cx);
     }
 
     pub(super) fn select_output_device(

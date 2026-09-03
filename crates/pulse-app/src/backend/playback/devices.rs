@@ -205,7 +205,6 @@ impl Playback {
                 active.capabilities = Some(stored_device_capabilities(capabilities));
             }
             active.output_mode = self.output_mode;
-            active.automatic = self.output_mode_is_automatic();
             active.integer_path_available = active
                 .capabilities
                 .is_some_and(StoredDeviceCapabilities::has_integer_path);
@@ -224,12 +223,6 @@ impl Playback {
             messages.push((error.clone(), true));
         }
         messages
-    }
-
-    pub(crate) fn output_mode_is_automatic(&self) -> bool {
-        self.active_device
-            .as_ref()
-            .is_none_or(|device| !self.settings.output_mode_preferences.is_pinned(&device.uid))
     }
 
     pub(crate) fn set_device_output_mode(
@@ -263,39 +256,6 @@ impl Playback {
         }
         self.retry_after_output_mode_change =
             self.set_device_output_mode(device_uid, StoredOutputMode::Exclusive);
-    }
-
-    pub(crate) fn reset_device_output_mode_to_auto(&mut self, device_uid: String) {
-        let automatic_mode = self.automatic_mode_for_device(&device_uid);
-        let mut updated_preferences = self.settings.output_mode_preferences.clone();
-        updated_preferences.clear_mode(&device_uid);
-        if let Err(error) = self.set_output_mode_preferences(updated_preferences) {
-            self.device_message = Some(DeviceMessage {
-                text: format!("Could not save the output-mode preference: {error}"),
-                is_error: true,
-            });
-
-            return;
-        }
-        self.device_sightings_writable = true;
-        self.apply_output_mode_if_active(&device_uid, automatic_mode);
-    }
-
-    fn automatic_mode_for_device(&self, device_uid: &str) -> StoredOutputMode {
-        if self
-            .active_device
-            .as_ref()
-            .is_some_and(|device| device.uid == device_uid)
-        {
-            return self.automatic_output_mode;
-        }
-        automatic_stored_output_mode(
-            self.settings
-                .output_mode_preferences
-                .devices()
-                .find(|(uid, _)| *uid == device_uid)
-                .and_then(|(_, preferences)| preferences.capabilities),
-        )
     }
 
     pub(crate) fn apply_output_mode_if_active(

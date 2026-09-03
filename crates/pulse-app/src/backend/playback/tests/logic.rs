@@ -586,7 +586,6 @@ fn managed_device_group_moves_keep_the_stored_pin() {
         disconnected.not_connected[0].output_mode,
         StoredOutputMode::Shared
     );
-    assert!(!disconnected.not_connected[0].automatic);
 
     let connected = merge_managed_devices(
         &[output_device(9, "matrix", "mini-i Series")],
@@ -595,7 +594,6 @@ fn managed_device_group_moves_keep_the_stored_pin() {
         &preferences,
     );
     assert_eq!(connected.connected[0].output_mode, StoredOutputMode::Shared);
-    assert!(!connected.connected[0].automatic);
     assert!(preferences.is_pinned("matrix"));
 }
 

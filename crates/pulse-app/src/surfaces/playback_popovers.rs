@@ -391,15 +391,10 @@ impl PlaybackRow {
             .device_capabilities
             .map(format_device_capabilities)
             .unwrap_or_else(|| "Capabilities unavailable".to_string());
-        let integer_path_available = self
-            .snapshot
-            .device_capabilities
-            .is_some_and(device::OutputDeviceCapabilities::has_integer_path);
         let shared = ui::output_mode_segment(
             "output-mode-shared",
             "Shared",
             self.snapshot.output_mode == StoredOutputMode::Shared,
-            false,
             false,
         )
         .on_click(cx.listener(|this, _, _, cx| {
@@ -410,8 +405,7 @@ impl PlaybackRow {
             "output-mode-exclusive",
             "Exclusive",
             self.snapshot.output_mode == StoredOutputMode::Exclusive,
-            false,
-            false,
+            true,
         )
         .on_click(cx.listener(|this, _, _, cx| {
             this.set_output_mode(StoredOutputMode::Exclusive, cx);
@@ -555,18 +549,11 @@ impl PlaybackRow {
                                 .my(rpx(10.))
                                 .bg(theme::border()),
                         )
-                        .child(ui::output_mode_control(
-                            "Mode",
-                            self.output_mode_is_automatic(),
-                            integer_path_available,
-                            ui::output_mode_reset_link("output-mode-reset-auto")
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.reset_output_mode_to_auto(cx);
-                                }))
-                                .into_any_element(),
-                            ui::output_mode_segments(shared, exclusive).into_any_element(),
-                            true,
-                        ))
+                        .child(
+                            div()
+                                .flex()
+                                .child(ui::output_mode_segments(shared, exclusive)),
+                        )
                     }),
             );
 
