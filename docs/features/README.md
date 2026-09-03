@@ -6,7 +6,6 @@ Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phase
 
 ## Active
 
-- [`81-shared-exclusive-output-modes.md`](81-shared-exclusive-output-modes.md) - P2. Two ownership modes, Shared and Exclusive; Exclusive resolves to the integer backend when the device has a safe integer path, else AUHAL exclusive; Bit-perfect becomes the runtime Signal Path verdict only; stored Bit-perfect migrates to Exclusive. After 78 stage 2; Pencil pass before the designed surface.
 - [`78-integer-engine-hardening.md`](78-integer-engine-hardening.md) - P2. Follow-ups from the 2026-09-02 review of the bit-perfect path: format-change track boundaries renegotiate on the held device instead of releasing and re-hogging; the AUTO gate uses the engine's own integer-wire-format predicate; the IOProc fills only the negotiated stream's buffer. Sample path untouched. Review record: [`impls/78-integer-engine-review.md`](../impls/78-integer-engine-review.md).
 - [`77-manual-device-unlock.md`](77-manual-device-unlock.md) - P2. Lock/unlock control on the output popover's active device: release hog + restore format on click, session kept, next play re-acquires; resolves the pause-release question (hold-on-pause stays, no auto-release). Pencil pass gates the mission.
 - [`76-seamless-transport.md`](76-seamless-transport.md) - P2. Same-track seek and pause/resume keep the live decoder and running sink — no factory rebuild, no IOProc stop/start on seek; ring flushed producer-side, refill gap not counted as dropout; rebuild demoted to the recovery path.
