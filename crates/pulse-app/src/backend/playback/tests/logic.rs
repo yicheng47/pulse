@@ -381,12 +381,13 @@ fn formats_reported_pcm_without_inventing_codec_details() {
 #[test]
 fn shared_output_labels_the_track_rate_as_source_metadata() {
     assert_eq!(
-        format_output_device(44_100, "AirPods Pro", StoredOutputMode::Shared),
+        format_output_device(
+            Some(Path::new("track.dff")),
+            44_100,
+            "AirPods Pro",
+            StoredOutputMode::Shared
+        ),
         "44.1 kHz source · AirPods Pro"
-    );
-    assert_eq!(
-        format_output_device(44_100, "mini-i Series", StoredOutputMode::Exclusive),
-        "44.1 kHz · mini-i Series"
     );
     assert_eq!(
         output_mode_meta(StoredOutputMode::Shared),
@@ -395,6 +396,70 @@ fn shared_output_labels_the_track_rate_as_source_metadata() {
     assert_eq!(
         output_mode_meta(StoredOutputMode::Exclusive),
         "CoreAudio · Exclusive"
+    );
+}
+
+#[test]
+fn dsd_sources_label_the_dop_carrier_on_the_integer_path() {
+    assert_eq!(
+        format_output_device(
+            Some(Path::new("track.dff")),
+            176_400,
+            "mini-i Series",
+            StoredOutputMode::Exclusive
+        ),
+        "DoP 176.4 kHz · mini-i Series"
+    );
+    assert_eq!(
+        format_output_device(
+            Some(Path::new("track.dsf")),
+            352_800,
+            "mini-i Series",
+            StoredOutputMode::Exclusive
+        ),
+        "DoP 352.8 kHz · mini-i Series"
+    );
+    assert_eq!(
+        format_output_device(
+            Some(Path::new("track.DFF")),
+            176_400,
+            "mini-i Series",
+            StoredOutputMode::Exclusive
+        ),
+        "DoP 176.4 kHz · mini-i Series"
+    );
+    assert_eq!(
+        format_output_device(
+            Some(Path::new("track.flac")),
+            176_400,
+            "mini-i Series",
+            StoredOutputMode::Exclusive
+        ),
+        "176.4 kHz · mini-i Series"
+    );
+    assert_eq!(
+        format_bit_perfect_output_detail(
+            Some(Path::new("track.dff")),
+            "mini-i Series",
+            PcmFormat {
+                sample_rate: 176_400,
+                bits_per_sample: 24,
+                channels: 2,
+            }
+        ),
+        "mini-i Series · DoP 24/176.4 integer"
+    );
+    assert_eq!(
+        format_bit_perfect_output_detail(
+            Some(Path::new("track.flac")),
+            "mini-i Series",
+            PcmFormat {
+                sample_rate: 176_400,
+                bits_per_sample: 24,
+                channels: 2,
+            }
+        ),
+        "mini-i Series · 24/176.4 integer"
     );
 }
 

@@ -238,6 +238,8 @@ pub fn format_label(path: &Path) -> &'static str {
         Some("m4a") => "ALAC",
         Some("aif" | "aiff") => "AIFF",
         Some("wav") => "WAV",
+        Some("dsf") => "DSF",
+        Some("dff") => "DFF",
         _ => "PCM",
     }
 }
@@ -589,7 +591,9 @@ mod tests {
 
     #[test]
     fn formats_container_quality_and_hi_res_threshold() {
-        assert_eq!(format_label(Path::new("track.flac")), "FLAC");
+        assert_eq!(format_label(Path::new("x.dff")), "DFF");
+        assert_eq!(format_label(Path::new("x.DSF")), "DSF");
+        assert_eq!(format_label(Path::new("x.flac")), "FLAC");
         assert_eq!(format_label(Path::new("track.m4a")), "ALAC");
         assert_eq!(format_label(Path::new("track.aiff")), "AIFF");
         assert_eq!(format_label(Path::new("track.wav")), "WAV");
