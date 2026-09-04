@@ -98,7 +98,7 @@ impl HogGuard {
                         owns: true,
                     })
                 } else if owner == HOG_MODE_FREE {
-                    Err(EngineError::Hogged(HOG_MODE_FREE))
+                    Err(EngineError::HogModeNotAcquired)
                 } else {
                     Err(EngineError::Hogged(owner))
                 }

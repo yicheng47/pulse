@@ -52,7 +52,9 @@ impl From<&EngineError> for PlaybackErrorKind {
             EngineError::Hogged(pid) => Self::Device {
                 hog_pid: Some(*pid),
             },
-            EngineError::Os { .. }
+            EngineError::HogModeNotAcquired
+            | EngineError::HoggedByCurrentProcess
+            | EngineError::Os { .. }
             | EngineError::NoOutputDevice
             | EngineError::NoOutputCapabilities(_)
             | EngineError::UnsupportedNominalSampleRate(_)
@@ -174,5 +176,21 @@ mod tests {
             }
         );
         assert!(VolumeState::new(VolumeDomain::Fixed).transparent(0.2, true));
+    }
+
+    #[test]
+    fn hog_errors_only_expose_another_process_pid() {
+        assert_eq!(
+            PlaybackErrorKind::from(&EngineError::Hogged(42)),
+            PlaybackErrorKind::Device { hog_pid: Some(42) }
+        );
+        assert_eq!(
+            PlaybackErrorKind::from(&EngineError::HogModeNotAcquired),
+            PlaybackErrorKind::Device { hog_pid: None }
+        );
+        assert_eq!(
+            PlaybackErrorKind::from(&EngineError::HoggedByCurrentProcess),
+            PlaybackErrorKind::Device { hog_pid: None }
+        );
     }
 }

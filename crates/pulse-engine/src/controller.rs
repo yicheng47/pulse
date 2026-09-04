@@ -34,7 +34,7 @@ use crate::{
 };
 
 const POSITION_EVENT_INTERVAL_MS: u64 = 100;
-const FEED_RETRY_DELAY: Duration = Duration::from_millis(2);
+const FEED_RETRY_DELAY: Duration = Duration::from_millis(10);
 const SHUTDOWN_POLL_INTERVAL: Duration = Duration::from_millis(100);
 // These bound the two waits independently; HAL teardown uses its own deadlines once begun.
 const SHUTDOWN_RELEASE_LOCK_TIMEOUT: Duration = Duration::from_secs(1);
@@ -2277,7 +2277,7 @@ mod tests {
         wait_for(&events, |event| {
             matches!(event, PlaybackEvent::Ended { .. })
         });
-        assert_no_matching_event(&events, Duration::from_millis(20), |event| {
+        assert_no_matching_event(&events, Duration::from_millis(100), |event| {
             matches!(event, PlaybackEvent::Dropout { .. })
         });
     }
@@ -4882,7 +4882,7 @@ mod tests {
                 dropout_frames: 0,
             }
         );
-        assert_no_matching_event(&events, Duration::from_millis(20), |event| {
+        assert_no_matching_event(&events, Duration::from_millis(100), |event| {
             matches!(event, PlaybackEvent::Advanced { .. })
         });
 
@@ -5326,7 +5326,7 @@ mod tests {
                 message: "decode: unreadable source".to_string(),
             }
         );
-        assert_no_matching_event(&events, Duration::from_millis(20), |event| {
+        assert_no_matching_event(&events, Duration::from_millis(100), |event| {
             *event == PlaybackEvent::StateChanged(PlaybackState::Error)
         });
         log.lock().unwrap().position_limit = u64::MAX;
@@ -5479,7 +5479,7 @@ mod tests {
         ));
         assert_no_matching_event(
             &events,
-            Duration::from_millis(20),
+            Duration::from_millis(100),
             |event| matches!(event, PlaybackEvent::Advanced { source, .. } if source.path == Path::new("c.flac")),
         );
         let log = log.lock().unwrap();
@@ -5534,7 +5534,7 @@ mod tests {
         );
         assert_no_matching_event(
             &events,
-            Duration::from_millis(20),
+            Duration::from_millis(100),
             |event| matches!(event, PlaybackEvent::Advanced { source, .. } if source.path == Path::new("c.flac")),
         );
     }

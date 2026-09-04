@@ -243,9 +243,7 @@ impl IntegerEngine {
     pub(crate) fn open(device: device::DeviceId) -> Result<Self, EngineError> {
         let hog = hal::HogGuard::acquire(device)?;
         if !hog.owns() {
-            return Err(EngineError::Hogged(
-                i32::try_from(std::process::id()).expect("process id must fit in pid_t"),
-            ));
+            return Err(EngineError::HoggedByCurrentProcess);
         }
         let format_restore = hal::FormatRestoreGuard::capture(device)?;
         hal::set_mixing_enabled(device, false)?;
