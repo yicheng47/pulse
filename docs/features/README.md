@@ -6,6 +6,8 @@ Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phase
 
 ## Active
 
+- [`88-eyebrow-text-size.md`](88-eyebrow-text-size.md) - P3. New `EYEBROW` text token (11 px) for sidebar section labels, page eyebrows, and table column headers, one step up from the 10 px `CAPTION` they share with badges. Pencil pass first.
+- [`87-dop-output-label.md`](87-dop-output-label.md) - P3. The playback row's output line and Signal Path name the DoP carrier for a DSD source (`DoP 176.4 kHz · mini-i Series`) instead of a bare rate. Copy-only, no design pass.
 - [`85-album-disc-headers.md`](85-album-disc-headers.md) - P2. `Disc N` header rows in the album track table whenever the tracks span more than one disc; disc numbers are already scanned, stored, and ordered — this only draws the boundary. Recorded 2026-09-03; design and scheduling deferred.
 - [`84-album-artist-link.md`](84-album-artist-link.md) - P2. The album header's artist name links to the artist's detail page through the existing Artists route; plain text when the catalog has no artist row. Filed 2026-09-03, no Pencil pass proposed (hover state on existing text).
 - [`78-integer-engine-hardening.md`](78-integer-engine-hardening.md) - P2. Follow-ups from the 2026-09-02 review of the bit-perfect path: format-change track boundaries renegotiate on the held device instead of releasing and re-hogging; the AUTO gate uses the engine's own integer-wire-format predicate; the IOProc fills only the negotiated stream's buffer. Sample path untouched. Review record: [`impls/78-integer-engine-review.md`](../impls/78-integer-engine-review.md).

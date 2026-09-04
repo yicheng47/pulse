@@ -82,6 +82,8 @@ Stage 1 goes first because it is the smallest diff with the largest audible payo
 
 **Reviewer attention points.** No change to `HogGuard::drop` ownership logic. Error text is user-visible — read it as a user would.
 
+**Status.** Merged 2026-09-04 as `3c15d6c` (PR #86): `EngineError::HogModeNotAcquired` ("this device does not support Exclusive output") and `EngineError::HoggedByCurrentProcess` ("this application already holds the device exclusively"), both mapping to a device error with no pid; `FEED_RETRY_DELAY` 10 ms with the five negative-assertion windows widened to 100 ms so they still span several pump cycles.
+
 ## Stage 5 — Mono sources (decision pending)
 
 Found in the 2026-09-03 double-check. `integer_candidate` requires `mChannelsPerFrame == source.channels`, the decoder passes the file's channel count through unchanged, and nothing upmixes, so a mono FLAC under Bit-perfect fails with `NoMatchingPhysicalFormat` on every play and a stereo→mono boundary mid-album fails inside `rebuild_for_preloaded`; there is no fallback for the `BitPerfect` kind. The universal path plays it (`hal.rs:907` accepts ≥ channels).
@@ -94,6 +96,7 @@ Each stage's mission goal is the "Rules for every stage" section plus the stage 
 
 ## Log
 
+- **2026-09-04** — Stage 4 merged as `3c15d6c` (PR #86, codex-crew mission; lead pass — `make verify`, diff read — then Jason's go to merge). One reviewer must-fix in the loop: the 10 ms pump sleep made the 20 ms "no event" windows meaningless, widened to 100 ms. Jason's check: a 24/192 track and a DSD64 file on the Matrix in Exclusive with seeks and a gapless boundary, no dropout notice. Next: stage 3 when a multi-stream device report arrives; stage 5 on Jason's decision.
 - **2026-09-03** — Stage 2 landed inside feature 81 phase 2 (PR #82 → `995e426`, codex-crew mission reviewed by the lead under Jason's drive-mode authorization for 81): `is_integer_wire_format` in `hal.rs` with `integer_candidate` delegating its source-independent checks to it, `integer_wire_formats` on both capability records (stored data without it reprobes), and Exclusive resolving to `Integer` only through the predicate plus the transport gate. 359 app / 143 engine tests green; `integer_candidate` parity and old `settings.json` loads verified in review. Next: stage 4 as its own PR; stage 3 waits for a multi-stream device report.
 - **2026-09-03** — Stage 1 merged to `main` as `64d3bc5` (PR #79 → carried by #80, Jason's review): `stop_active` in `rebuild_for_preloaded` plus four boundary tests, 141 engine tests green. Hardware acceptance (the three-track Matrix sequence) is Jason's. Next: feature 81 phase 2 carries stage 2's predicate; stages 3–4 follow.
 - **2026-09-03** — Feature 81 (Shared/Exclusive modes) filed; its resolver phase consumes stage 2's `integer_wire_formats` plumbing and rewrites the same resolver, so stage 2 and 81's phase 2 are sequenced, never concurrent — whichever runs first carries the predicate. 81's fallback question may resolve stage 5 (mono) without a packer change.
