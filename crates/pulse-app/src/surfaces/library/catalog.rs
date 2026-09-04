@@ -3,24 +3,41 @@ use crate::theme::rpx;
 use super::*;
 
 impl LibraryView {
-    pub(super) fn open_artist(&mut self, artist: Artist, cx: &mut Context<Self>) {
+    pub(super) fn open_artist(&mut self, artist: Artist, cx: &mut Context<Self>) -> bool {
         let Some(store) = self.store.as_ref() else {
             self.show_error(self.store_busy_message(), cx);
             cx.notify();
-            return;
+            return false;
         };
         let detail = match ops::catalog::artist_detail(store, artist, self.album_sort) {
             Ok(detail) => detail,
             Err(error) => {
                 self.show_error(error.to_string(), cx);
-                return;
+                return false;
             }
         };
+        if self.destination != Destination::Artists {
+            self.set_destination(Destination::Artists, cx);
+        }
         self.artist_route.open_artist(detail.artist.name.clone());
         self.artist_detail = Some(detail);
         self.artist_detail_scroll = ScrollHandle::new();
         self.persist_route(cx);
         cx.notify();
+        true
+    }
+
+    pub(super) fn open_album_artist(&mut self, artist: Artist, cx: &mut Context<Self>) {
+        if self.store.is_none() {
+            return;
+        }
+        if !self.open_artist(artist, cx) {
+            return;
+        }
+        self.album_detail = None;
+        self.album_artist = None;
+        self.selected_album_track_id = None;
+        self.album_menu_open = false;
     }
 
     pub(super) fn cycle_album_sort(&mut self, cx: &mut Context<Self>) {
@@ -192,14 +209,18 @@ impl LibraryView {
     }
 
     pub(super) fn open_album(&mut self, album: Album, cx: &mut Context<Self>) {
-        let tracks = if let Some(store) = &self.store {
-            match ops::catalog::album_tracks(store, &album.artist, &album.title) {
+        let (tracks, album_artist) = if let Some(store) = &self.store {
+            let tracks = match ops::catalog::album_tracks(store, &album.artist, &album.title) {
                 Ok(tracks) => tracks,
                 Err(error) => {
                     self.show_error(error.to_string(), cx);
                     return;
                 }
-            }
+            };
+            let album_artist = ops::catalog::artist_by_name(store, &album.artist)
+                .ok()
+                .flatten();
+            (tracks, album_artist)
         } else {
             let mut tracks = self
                 .tracks
@@ -223,13 +244,14 @@ impl LibraryView {
                     track.path.clone(),
                 )
             });
-            tracks
+            (tracks, None)
         };
         self.album_detail_scroll = ScrollHandle::new();
         if self.destination == Destination::Artists {
             self.artist_route.open_album(album.title.clone());
         }
         self.album_detail = Some(AlbumDetail { album, tracks });
+        self.album_artist = album_artist;
         self.selected_album_track_id = None;
         self.album_menu_open = false;
         self.persist_route(cx);

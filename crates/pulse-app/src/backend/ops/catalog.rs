@@ -72,6 +72,10 @@ pub fn artist_index(store: &LibraryStore) -> Result<Vec<Artist>, LibraryError> {
     artists::index(store)
 }
 
+pub fn artist_by_name(store: &LibraryStore, name: &str) -> Result<Option<Artist>, LibraryError> {
+    artists::by_name(store, name)
+}
+
 pub fn artist_detail(
     store: &LibraryStore,
     artist: Artist,
@@ -267,6 +271,15 @@ mod tests {
             .find(|artist| artist.name == "Artist A")
             .unwrap()
             .clone();
+        let exact = artist_by_name(&store, "Artist A").unwrap().unwrap();
+        assert_eq!(exact.name, "Artist A");
+        assert_eq!((exact.album_count, exact.track_count), (2, 2));
+        assert_eq!(
+            artist_by_name(&store, "  Artist A  ").unwrap().unwrap().id,
+            exact.id
+        );
+        assert!(artist_by_name(&store, "artist a").unwrap().is_none());
+        assert!(artist_by_name(&store, "Unknown Name").unwrap().is_none());
         let detail = artist_detail(&store, artist, AlbumSortOrder::Title).unwrap();
         assert_eq!(detail.albums.len(), 2);
         assert_eq!(detail.tracks.len(), 2);

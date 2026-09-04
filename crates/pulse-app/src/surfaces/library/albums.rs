@@ -381,6 +381,32 @@ impl LibraryView {
             .then(|| self.artist_route.artist().map(str::to_string))
             .flatten();
         let back_label = artist_back.clone().unwrap_or_else(|| "Albums".to_string());
+        let album_artist = self.album_artist.clone().filter(|_| self.store.is_some());
+        let artist_label = if let Some(artist) = album_artist {
+            div()
+                .id("album-detail-artist")
+                .flex_none()
+                .font_family(theme::FONT_SANS)
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_size(theme::text::LABEL)
+                .text_color(theme::text_primary())
+                .cursor_pointer()
+                .hover(|style| style.text_color(theme::accent()))
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.open_album_artist(artist.clone(), cx);
+                }))
+                .child(album.artist.clone())
+                .into_any_element()
+        } else {
+            div()
+                .flex_none()
+                .font_family(theme::FONT_SANS)
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_size(theme::text::LABEL)
+                .text_color(theme::text_primary())
+                .child(album.artist.clone())
+                .into_any_element()
+        };
 
         let mut table = div()
             .flex()
@@ -426,6 +452,7 @@ impl LibraryView {
                     .cursor_pointer()
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.album_detail = None;
+                        this.album_artist = None;
                         if this.destination == crate::surfaces::Destination::Artists {
                             this.artist_route.back();
                         }
@@ -502,15 +529,7 @@ impl LibraryView {
                                     .w_full()
                                     .min_w_0()
                                     .gap(rpx(8.))
-                                    .child(
-                                        div()
-                                            .flex_none()
-                                            .font_family(theme::FONT_SANS)
-                                            .font_weight(FontWeight::SEMIBOLD)
-                                            .text_size(theme::text::LABEL)
-                                            .text_color(theme::text_primary())
-                                            .child(album.artist.clone()),
-                                    )
+                                    .child(artist_label)
                                     .child(
                                         div()
                                             .flex_1()
