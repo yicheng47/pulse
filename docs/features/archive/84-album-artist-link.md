@@ -34,4 +34,5 @@ The album header prints the artist name as static text beside the `year · track
 
 ## Log
 
+- **2026-09-04** — Shipped in v0.3.3. Spec archived, #84 closed.
 - **2026-09-04** — Merged as `704178c` (PR #92, codex-crew mission, lead review). `artist_by_name` in `ops::catalog` resolves through the writer's own `EFFECTIVE_ALBUM_ARTIST_SQL` key (whitespace folds, case does not); the album header label becomes a hover link that opens the existing artist detail and switches the destination; the artist is resolved once when the album opens and a missing row renders plain text; session restore carries it. Two GPUI tests cover the route + relaunch and the artist → album → artist round trip. In-app look is Jason's; ships in the next release.

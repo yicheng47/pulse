@@ -30,4 +30,5 @@ The playback row's output line comes from `format_output_device(sample_rate, dev
 
 ## Log
 
+- **2026-09-04** — Shipped in v0.3.3. Spec archived, #87 closed.
 - **2026-09-04** — Merged: `3c5804f` (PR #90: DoP prefix on the row and Signal Path via one shared `is_dsd_source` rule, `format_label` gains DSF/DFF) and `c403993` (PR #91: the row drops the rate to `DoP · <device>` after Jason's overflow screenshot). Codex-crew mission, lead review. In-app look is Jason's; ships in the next release.
