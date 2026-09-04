@@ -652,6 +652,7 @@ impl PlaybackRow {
             .unwrap_or_else(|| ("—".to_string(), theme::text_muted()));
         let device = match (self.snapshot.format, &self.snapshot.active_device) {
             (Some(format), Some(device)) => format_output_device(
+                self.snapshot.source_path.as_deref(),
                 format.sample_rate,
                 &device.name,
                 self.snapshot.playback_output_mode,

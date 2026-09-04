@@ -11,9 +11,9 @@ use pulse_engine::device;
 use crate::{
     backend::{
         SignalPathVerdict, StoredOutputMode, TrackRef, displayed_volume_level,
-        format_device_capabilities, format_quality, format_queue_meta, format_queue_time,
-        format_sample_rate, format_volume_percent, output_mode_meta, signal_path_verdict,
-        volume_control_level, volume_control_muted,
+        format_bit_perfect_output_detail, format_device_capabilities, format_quality,
+        format_queue_meta, format_queue_time, format_sample_rate, format_volume_percent,
+        output_mode_meta, signal_path_verdict, volume_control_level, volume_control_muted,
     },
     surfaces::PlaybackRow,
     theme, ui,
@@ -241,12 +241,13 @@ impl PlaybackRow {
             "Universal · AUHAL · float32"
         };
         let output_detail = match (&self.snapshot.active_device, self.snapshot.format) {
-            (Some(device), Some(format)) if self.snapshot.bit_perfect_active => format!(
-                "{} · {}/{} integer",
-                device.name,
-                format.bits_per_sample,
-                compact_sample_rate(format.sample_rate)
-            ),
+            (Some(device), Some(format)) if self.snapshot.bit_perfect_active => {
+                format_bit_perfect_output_detail(
+                    self.snapshot.source_path.as_deref(),
+                    &device.name,
+                    format,
+                )
+            }
             (Some(device), Some(_)) => {
                 format!("{} · Core Audio client · float32", device.name)
             }
@@ -978,14 +979,6 @@ fn software_volume_detail(level: f32, muted: bool) -> String {
         format!("Software · {percent} (−∞ dB)")
     } else {
         format!("Software · {percent} (−{:.1} dB)", -(20.0 * gain.log10()))
-    }
-}
-
-fn compact_sample_rate(sample_rate: u32) -> String {
-    if sample_rate.is_multiple_of(1_000) {
-        (sample_rate / 1_000).to_string()
-    } else {
-        format!("{:.1}", f64::from(sample_rate) / 1_000.0)
     }
 }
 

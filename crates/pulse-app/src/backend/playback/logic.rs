@@ -109,6 +109,7 @@ pub(crate) fn format_time(milliseconds: u64) -> String {
 }
 
 pub(crate) fn format_output_device(
+    source_path: Option<&Path>,
     sample_rate: u32,
     device_name: &str,
     mode: StoredOutputMode,
@@ -116,8 +117,28 @@ pub(crate) fn format_output_device(
     let sample_rate = format_sample_rate(sample_rate);
     match mode {
         StoredOutputMode::Shared => format!("{sample_rate} source · {device_name}"),
+        StoredOutputMode::Exclusive if is_dsd_source(source_path) => {
+            format!("DoP {sample_rate} · {device_name}")
+        }
         StoredOutputMode::Exclusive => format!("{sample_rate} · {device_name}"),
     }
+}
+
+pub(crate) fn format_bit_perfect_output_detail(
+    source_path: Option<&Path>,
+    device_name: &str,
+    format: PcmFormat,
+) -> String {
+    let dop = if is_dsd_source(source_path) {
+        "DoP "
+    } else {
+        ""
+    };
+    format!(
+        "{device_name} · {dop}{}/{} integer",
+        format.bits_per_sample,
+        compact_sample_rate(format.sample_rate)
+    )
 }
 
 pub(crate) fn output_mode_meta(mode: StoredOutputMode) -> &'static str {
@@ -141,7 +162,7 @@ pub(crate) fn format_quality(path: Option<&Path>, format: PcmFormat) -> String {
         .and_then(|extension| extension.to_str())
         .map(str::to_ascii_uppercase)
         .unwrap_or_else(|| "PCM".to_string());
-    if matches!(container.as_str(), "DSF" | "DFF") {
+    if is_dsd_source(path) {
         let dsd = match format.sample_rate {
             176_400 => "DSD64",
             352_800 => "DSD128",
@@ -150,6 +171,22 @@ pub(crate) fn format_quality(path: Option<&Path>, format: PcmFormat) -> String {
         return format!("{container} · {dsd}");
     }
     format!("{container} · {}-bit", format.bits_per_sample)
+}
+
+fn is_dsd_source(path: Option<&Path>) -> bool {
+    path.and_then(Path::extension)
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| {
+            extension.eq_ignore_ascii_case("dsf") || extension.eq_ignore_ascii_case("dff")
+        })
+}
+
+fn compact_sample_rate(sample_rate: u32) -> String {
+    if sample_rate.is_multiple_of(1_000) {
+        (sample_rate / 1_000).to_string()
+    } else {
+        format!("{:.1}", f64::from(sample_rate) / 1_000.0)
+    }
 }
 
 pub(crate) fn track_secondary(path: &Path) -> String {
