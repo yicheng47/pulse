@@ -43,10 +43,12 @@ impl LibraryView {
         }
         if destination != self.destination && destination == Destination::Albums {
             self.album_detail = None;
+            self.album_artist = None;
             self.selected_album_track_id = None;
         }
         if destination != self.destination && destination == Destination::Artists {
             self.album_detail = None;
+            self.album_artist = None;
             self.artist_detail = None;
             self.artist_route = ArtistRoute::Index;
             self.text_input.reset("");
@@ -125,6 +127,7 @@ impl LibraryView {
         if self.artist_route.artist().is_some() && self.artist_detail.is_none() {
             self.artist_route = ArtistRoute::Index;
             self.album_detail = None;
+            self.album_artist = None;
         }
         self.playlists = playlists;
         self.catalog_summary = catalog_summary;
@@ -146,12 +149,15 @@ impl LibraryView {
                 .find(|album| (album.artist.as_str(), album.title.as_str()) == (&key.0, &key.1))
                 .cloned()
             {
+                let album_artist = ops::catalog::artist_by_name(store, &album.artist)?;
                 self.album_detail = Some(AlbumDetail {
                     tracks: ops::catalog::album_tracks(store, &album.artist, &album.title)?,
                     album,
                 });
+                self.album_artist = album_artist;
             } else {
                 self.album_detail = None;
+                self.album_artist = None;
                 if self.destination == Destination::Artists {
                     self.artist_route.back();
                 }

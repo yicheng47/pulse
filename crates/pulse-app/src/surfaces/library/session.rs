@@ -1,10 +1,16 @@
 use super::*;
 
+struct RestoredAlbum {
+    album: Album,
+    tracks: Vec<Track>,
+    artist: Option<Artist>,
+}
+
 enum RestoredRoute {
-    Albums(Option<(Album, Vec<Track>)>),
+    Albums(Option<RestoredAlbum>),
     Artists {
         detail: Option<Box<ArtistDetail>>,
-        album: Option<(Album, Vec<Track>)>,
+        album: Option<RestoredAlbum>,
     },
     Tracks,
     Playlists(Option<(PlaylistSummary, Vec<PlaylistTrack>)>),
@@ -105,22 +111,33 @@ impl LibraryView {
 
     fn apply_restored_route(&mut self, route: RestoredRoute) {
         self.album_detail = None;
+        self.album_artist = None;
         self.artist_detail = None;
         self.artist_route = ArtistRoute::Index;
         match route {
             RestoredRoute::Albums(detail) => {
                 self.destination = Destination::Albums;
-                self.album_detail = detail.map(|(album, tracks)| AlbumDetail { album, tracks });
+                if let Some(detail) = detail {
+                    self.album_detail = Some(AlbumDetail {
+                        album: detail.album,
+                        tracks: detail.tracks,
+                    });
+                    self.album_artist = detail.artist;
+                }
             }
             RestoredRoute::Artists { detail, album } => {
                 self.destination = Destination::Artists;
                 self.artist_detail = detail.map(|detail| *detail);
-                if let Some((album, tracks)) = album {
+                if let Some(album_detail) = album {
                     self.artist_route = ArtistRoute::Album {
-                        artist: album.artist.clone(),
-                        album: album.title.clone(),
+                        artist: album_detail.album.artist.clone(),
+                        album: album_detail.album.title.clone(),
                     };
-                    self.album_detail = Some(AlbumDetail { album, tracks });
+                    self.album_detail = Some(AlbumDetail {
+                        album: album_detail.album,
+                        tracks: album_detail.tracks,
+                    });
+                    self.album_artist = album_detail.artist;
                 } else if let Some(detail) = &self.artist_detail {
                     self.artist_route = ArtistRoute::Detail {
                         artist: detail.artist.name.clone(),
@@ -153,7 +170,12 @@ fn resolve_session_route(
                 return Ok(RestoredRoute::Albums(None));
             };
             let tracks = ops::catalog::album_tracks(store, &found.artist, &found.title)?;
-            Ok(RestoredRoute::Albums(Some((found, tracks))))
+            let artist = ops::catalog::artist_by_name(store, &found.artist)?;
+            Ok(RestoredRoute::Albums(Some(RestoredAlbum {
+                album: found,
+                tracks,
+                artist,
+            })))
         }
         SessionRoute::Artists {
             artist: None,
@@ -186,7 +208,11 @@ fn resolve_session_route(
                         return Ok(RestoredRoute::Albums(None));
                     };
                     let tracks = ops::catalog::album_tracks(store, &found.artist, &found.title)?;
-                    Some((found, tracks))
+                    Some(RestoredAlbum {
+                        artist: Some(detail.artist.clone()),
+                        album: found,
+                        tracks,
+                    })
                 }
                 None => None,
             };
@@ -387,6 +413,124 @@ mod tests {
                 view.session_route(),
                 SessionRoute::Albums { album: None }
             ));
+        });
+    }
+
+    #[gpui::test]
+    fn album_artist_navigation_switches_destination_and_restores_after_relaunch(
+        cx: &mut TestAppContext,
+    ) {
+        let store_directory = tempfile::tempdir().unwrap();
+        let harness = launch_harness_with_session(
+            cx,
+            Some(populated_store(store_directory.path())),
+            SessionState::default(),
+        );
+        cx.update_entity(&harness.view, |view, cx| {
+            view.restore_launch_state(cx);
+            let album = ops::catalog::album_page(
+                view.store.as_ref().unwrap(),
+                AlbumSortOrder::Title,
+                &crate::backend::AlbumQueryFilter::All,
+                None,
+                1,
+                0,
+            )
+            .unwrap()
+            .albums
+            .into_iter()
+            .next()
+            .unwrap();
+            view.open_album(album, cx);
+            view.open_album_artist(view.album_artist.clone().unwrap(), cx);
+
+            assert_eq!(
+                view.session_route(),
+                SessionRoute::Artists {
+                    artist: Some("Artist".to_string()),
+                    album: None,
+                }
+            );
+        });
+        cx.update_entity(&harness.app_store, |store, _| store.shutdown());
+
+        let persisted_session = AppSettings::load(&harness.settings_path)
+            .unwrap()
+            .session
+            .unwrap();
+        assert_eq!(
+            persisted_session.route,
+            SessionRoute::Artists {
+                artist: Some("Artist".to_string()),
+                album: None,
+            }
+        );
+
+        let relaunched_store_directory = tempfile::tempdir().unwrap();
+        let relaunched = launch_harness_with_session(
+            cx,
+            Some(populated_store(relaunched_store_directory.path())),
+            persisted_session,
+        );
+        cx.update_entity(&relaunched.view, |view, cx| view.restore_launch_state(cx));
+        cx.read_entity(&relaunched.view, |view, _| {
+            assert!(view.destination() == Destination::Artists);
+            assert_eq!(
+                view.session_route(),
+                SessionRoute::Artists {
+                    artist: Some("Artist".to_string()),
+                    album: None,
+                }
+            );
+            assert_eq!(
+                view.artist_detail
+                    .as_ref()
+                    .map(|detail| detail.artist.name.as_str()),
+                Some("Artist")
+            );
+        });
+    }
+
+    #[gpui::test]
+    fn artist_album_artist_navigation_clears_the_album_and_opens_artist_detail(
+        cx: &mut TestAppContext,
+    ) {
+        let store_directory = tempfile::tempdir().unwrap();
+        let harness = launch_harness_with_session(
+            cx,
+            Some(populated_store(store_directory.path())),
+            SessionState::default(),
+        );
+        cx.update_entity(&harness.view, |view, cx| {
+            view.restore_launch_state(cx);
+            let artist = ops::catalog::artist_by_name(view.store.as_ref().unwrap(), "Artist")
+                .unwrap()
+                .unwrap();
+            view.set_destination(Destination::Artists, cx);
+            view.open_artist(artist, cx);
+            let album = view.artist_detail.as_ref().unwrap().albums[0].clone();
+            view.open_album(album, cx);
+            assert!(matches!(view.artist_route, ArtistRoute::Album { .. }));
+
+            view.open_album_artist(view.album_artist.clone().unwrap(), cx);
+
+            assert_eq!(
+                view.artist_route,
+                ArtistRoute::Detail {
+                    artist: "Artist".to_string(),
+                }
+            );
+            assert!(view.album_detail.is_none());
+            assert!(view.album_artist.is_none());
+            assert!(view.selected_album_track_id.is_none());
+            assert!(!view.album_menu_open);
+            assert_eq!(
+                view.session_route(),
+                SessionRoute::Artists {
+                    artist: Some("Artist".to_string()),
+                    album: None,
+                }
+            );
         });
     }
 

@@ -1,6 +1,6 @@
 use std::{collections::BTreeSet, path::PathBuf};
 
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, OptionalExtension, Row, params};
 
 use super::super::{AlbumSortOrder, Artist, LibraryError, TrackId, UNKNOWN_ALBUM};
 use super::{
@@ -47,6 +47,27 @@ struct ArtistRow {
 }
 
 impl ArtistRow {
+    fn from_row(row: &Row<'_>) -> rusqlite::Result<Self> {
+        Ok(Self {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            name_key: row.get(2)?,
+            album_count: row.get(3)?,
+            track_count: row.get(4)?,
+            total_duration_ms: row.get(5)?,
+            earliest_added_ms: row.get(6)?,
+            cover_art_path: row.get(7)?,
+            display_name: row.get(8)?,
+            hidden: row.get(9)?,
+            mbid: row.get(10)?,
+            photo_path: row.get(11)?,
+            photo_source: row.get(12)?,
+            enriched_at_ms: row.get(13)?,
+            created_at_ms: row.get(14)?,
+            updated_at_ms: row.get(15)?,
+        })
+    }
+
     fn into_artist(self, earliest_added_year: Option<i64>) -> Artist {
         Artist {
             id: self.id,
@@ -234,29 +255,34 @@ pub fn index(store: &LibraryStore) -> Result<Vec<Artist>, LibraryError> {
     let mut statement = conn.prepare(&sql)?;
     let artists = statement
         .query_map([], |row| {
-            let artist = ArtistRow {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                name_key: row.get(2)?,
-                album_count: row.get(3)?,
-                track_count: row.get(4)?,
-                total_duration_ms: row.get(5)?,
-                earliest_added_ms: row.get(6)?,
-                cover_art_path: row.get(7)?,
-                display_name: row.get(8)?,
-                hidden: row.get(9)?,
-                mbid: row.get(10)?,
-                photo_path: row.get(11)?,
-                photo_source: row.get(12)?,
-                enriched_at_ms: row.get(13)?,
-                created_at_ms: row.get(14)?,
-                updated_at_ms: row.get(15)?,
-            };
+            let artist = ArtistRow::from_row(row)?;
             Ok(artist.into_artist(row.get(16)?))
         })?
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(artists)
+}
+
+pub fn by_name(store: &LibraryStore, name: &str) -> Result<Option<Artist>, LibraryError> {
+    let conn = &store.connection;
+    let columns = select_list(COLUMNS);
+    let sql = format!(
+        "SELECT {columns},
+                CAST(strftime(
+                    '%Y', earliest_added_ms / 1000, 'unixepoch', 'localtime'
+                ) AS INTEGER) AS earliest_added_year
+         FROM artists
+         WHERE name_key = (
+             SELECT {EFFECTIVE_ALBUM_ARTIST_SQL}
+             FROM (SELECT ?1 AS album_artist, ?1 AS artist)
+         )"
+    );
+    conn.query_row(&sql, [name], |row| {
+        let artist = ArtistRow::from_row(row)?;
+        Ok(artist.into_artist(row.get(16)?))
+    })
+    .optional()
+    .map_err(Into::into)
 }
 
 #[cfg(test)]
