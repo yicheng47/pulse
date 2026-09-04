@@ -118,7 +118,7 @@ pub(crate) fn format_output_device(
     match mode {
         StoredOutputMode::Shared => format!("{sample_rate} source · {device_name}"),
         StoredOutputMode::Exclusive if is_dsd_source(source_path) => {
-            format!("DoP {sample_rate} · {device_name}")
+            format!("DoP · {device_name}")
         }
         StoredOutputMode::Exclusive => format!("{sample_rate} · {device_name}"),
     }

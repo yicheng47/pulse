@@ -408,7 +408,7 @@ fn dsd_sources_label_the_dop_carrier_on_the_integer_path() {
             "mini-i Series",
             StoredOutputMode::Exclusive
         ),
-        "DoP 176.4 kHz · mini-i Series"
+        "DoP · mini-i Series"
     );
     assert_eq!(
         format_output_device(
@@ -417,7 +417,7 @@ fn dsd_sources_label_the_dop_carrier_on_the_integer_path() {
             "mini-i Series",
             StoredOutputMode::Exclusive
         ),
-        "DoP 352.8 kHz · mini-i Series"
+        "DoP · mini-i Series"
     );
     assert_eq!(
         format_output_device(
@@ -426,7 +426,7 @@ fn dsd_sources_label_the_dop_carrier_on_the_integer_path() {
             "mini-i Series",
             StoredOutputMode::Exclusive
         ),
-        "DoP 176.4 kHz · mini-i Series"
+        "DoP · mini-i Series"
     );
     assert_eq!(
         format_output_device(
