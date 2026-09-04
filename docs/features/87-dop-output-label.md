@@ -8,7 +8,7 @@ The playback row's output line comes from `format_output_device(sample_rate, dev
 
 ## Scope
 
-- **Name the carrier.** For a DSD source the output line reads `DoP 176.4 kHz · mini-i Series` (DSD128: `DoP 352.8 kHz`). The rate stays: it is what the DAC's own display shows and what a user checks when the lock fails. PCM sources are unchanged.
+- **Name the carrier.** For a DSD source the output line reads `DoP · mini-i Series`. The rate is dropped from the row (Jason, 2026-09-04: `DoP 176.4 kHz · mini-i S…` overflowed the column) — DSD64 on the badge above implies it, and Signal Path still prints it. PCM sources are unchanged.
 - **Same source rule as the badge.** DSD detection reuses `format_quality`'s extension check on the row's `source_path`; no new state. A DSD source only ever runs on the integer path (the DoP gate), so the Shared wording never needs a DoP variant.
 - **Signal Path too.** The popover's output line (`surfaces/playback_popovers.rs`, the integer-path arm of `output_detail`) reads `mini-i Series · DoP 24/176.4 integer` for a DSD source.
 - **Album badge container.** The album header's quality badge formats the album's quality without a file path, so a DSD album reads `PCM DSD64` (Jason's screenshot, 2026-09-04). Pass the container from the album's tracks — `DFF DSD64` / `DSF DSD64` — so the badge matches the row's `DFF · DSD64`.
@@ -26,4 +26,8 @@ The playback row's output line comes from `format_output_device(sample_rate, dev
 ## Verification
 
 - `make verify` green with the tests above.
-- Manual on the Matrix in Exclusive: play a DSD64 file — the row reads `DFF · DSD64` over `DoP 176.4 kHz · mini-i Series`, Signal Path's output line says DoP, and the DAC display shows DSD. A PCM track right after shows the plain rate again.
+- Manual on the Matrix in Exclusive: play a DSD64 file — the row reads `DFF · DSD64` over `DoP · mini-i Series`, Signal Path's output line reads `mini-i Series · DoP 24/176.4 integer`, the album badge reads `DFF DSD64`, and the DAC display shows DSD. A PCM track right after shows the plain rate again.
+
+## Log
+
+- **2026-09-04** — Merged: `3c5804f` (PR #90: DoP prefix on the row and Signal Path via one shared `is_dsd_source` rule, `format_label` gains DSF/DFF) and `c403993` (PR #91: the row drops the rate to `DoP · <device>` after Jason's overflow screenshot). Codex-crew mission, lead review. In-app look is Jason's; ships in the next release.

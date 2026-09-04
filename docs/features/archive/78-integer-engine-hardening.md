@@ -35,3 +35,7 @@ Staged in [`impls/78-integer-engine-plan.md`](../impls/78-integer-engine-plan.md
 - `make verify` green; new unit tests per phase (release count and event sequence at a format-change boundary; predicate table with the stage-1 flag words `0x54`, `0x4c`, `0x14`, `0x0c`, `0x04`; two-buffer IOProc fill with a disabled second stream).
 - Hardware, Matrix Mini-i Pro 4: play a 44.1/16 track followed by a 96/24 track and then a DSD64 track with the display visible — one rate change per boundary, no PCM flash back to the pre-Pulse format, the bit-perfect indicator steady. Audio MIDI Setup shows the original format restored only after Stop or quit.
 - Hardware, if available: any device with two output streams (an interface exposing separate stereo pairs, or an aggregate) — audio only on the selected pair, silence on the other, no phantom dropout counter.
+
+## Log
+
+- **2026-09-04** — Closed: stages 1, 2, and 4 shipped (`64d3bc5`, `995e426`, `3c15d6c`; the first two in v0.3.2). Stages 3 and 5 moved to feature 89 (#89) — no trigger for the multi-stream fill, mono awaits Jason's decision. Matrix acceptance of the shipped stages stays Jason's manual check.

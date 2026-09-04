@@ -1,6 +1,6 @@
 # Integer Engine Review — 2026-09-02
 
-Feature 78 · P2 · GitHub issue [#78](https://github.com/yicheng47/pulse/issues/78) · spec [`features/78-integer-engine-hardening.md`](../features/78-integer-engine-hardening.md). The review record behind the spec: what the bit-perfect path does byte by byte and call by call, what was verified against the dependencies rather than assumed, what was found, and how the fixes should land. Reviewed at `37dfb4b` (after the quit-release refactor `f5150fd`); `cargo test -p pulse-engine` 138 green. Companion to [`arch/pulse-engine.md`](../arch/pulse-engine.md) §9 and the M3 record in [`archive/bit-perfect/`](archive/bit-perfect/README.md).
+Feature 78 · P2 · GitHub issue [#78](https://github.com/yicheng47/pulse/issues/78) · spec [`features/archive/78-integer-engine-hardening.md`](../features/archive/78-integer-engine-hardening.md). The review record behind the spec: what the bit-perfect path does byte by byte and call by call, what was verified against the dependencies rather than assumed, what was found, and how the fixes should land. Reviewed at `37dfb4b` (after the quit-release refactor `f5150fd`); `cargo test -p pulse-engine` 138 green. Companion to [`arch/pulse-engine.md`](../arch/pulse-engine.md) §9 and the M3 record in [`archive/bit-perfect/`](archive/bit-perfect/README.md).
 
 ## 1. Verdict
 

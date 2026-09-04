@@ -1,6 +1,6 @@
 # 78 — Integer engine hardening: staged build plan
 
-> Impl note for [feature 78](../features/78-integer-engine-hardening.md) (issue [#78](https://github.com/yicheng47/pulse/issues/78)). The contract is the spec; the mechanism behind every stage is the review record [`78-integer-engine-review.md`](78-integer-engine-review.md), double-checked against the code on 2026-09-03 (all findings confirmed; two additions in its Log). This is the core of the app, so the merge gate is different from the usual flow: **Jason reviews every PR personally.** Each stage is one branch, one PR into `main`, one `codex-crew` mission, run one at a time — the crew works in the shared checkout, and every stage starts from the `main` that includes the previous one.
+> Impl note for [feature 78](../features/archive/78-integer-engine-hardening.md) (issue [#78](https://github.com/yicheng47/pulse/issues/78)). The contract is the spec; the mechanism behind every stage is the review record [`78-integer-engine-review.md`](78-integer-engine-review.md), double-checked against the code on 2026-09-03 (all findings confirmed; two additions in its Log). This is the core of the app, so the merge gate is different from the usual flow: **Jason reviews every PR personally.** Each stage is one branch, one PR into `main`, one `codex-crew` mission, run one at a time — the crew works in the shared checkout, and every stage starts from the `main` that includes the previous one.
 
 ## Stage order and why
 
@@ -92,10 +92,11 @@ Found in the 2026-09-03 double-check. `integer_candidate` requires `mChannelsPer
 
 ## Mission goal template
 
-Each stage's mission goal is the "Rules for every stage" section plus the stage section, verbatim, with these pointers: spec `docs/features/78-integer-engine-hardening.md`, review `docs/impls/78-integer-engine-review.md`, this note, and `AGENTS.md`. Title: `78 · stage <n> — <name>`. Crew: `codex-crew` (codex coder, Claude reviewer).
+Each stage's mission goal is the "Rules for every stage" section plus the stage section, verbatim, with these pointers: spec `docs/features/archive/78-integer-engine-hardening.md`, review `docs/impls/78-integer-engine-review.md`, this note, and `AGENTS.md`. Title: `78 · stage <n> — <name>`. Crew: `codex-crew` (codex coder, Claude reviewer).
 
 ## Log
 
+- **2026-09-04** — Feature 78 closed on Jason's ask with stages 1, 2, and 4 shipped; stages 3 and 5 are tracked by feature 89 (#89), which points back at this note's § Stage 3 and § Stage 5 as their spec.
 - **2026-09-04** — Stage 4 merged as `3c15d6c` (PR #86, codex-crew mission; lead pass — `make verify`, diff read — then Jason's go to merge). One reviewer must-fix in the loop: the 10 ms pump sleep made the 20 ms "no event" windows meaningless, widened to 100 ms. Jason's check: a 24/192 track and a DSD64 file on the Matrix in Exclusive with seeks and a gapless boundary, no dropout notice. Next: stage 3 when a multi-stream device report arrives; stage 5 on Jason's decision.
 - **2026-09-03** — Stage 2 landed inside feature 81 phase 2 (PR #82 → `995e426`, codex-crew mission reviewed by the lead under Jason's drive-mode authorization for 81): `is_integer_wire_format` in `hal.rs` with `integer_candidate` delegating its source-independent checks to it, `integer_wire_formats` on both capability records (stored data without it reprobes), and Exclusive resolving to `Integer` only through the predicate plus the transport gate. 359 app / 143 engine tests green; `integer_candidate` parity and old `settings.json` loads verified in review. Next: stage 4 as its own PR; stage 3 waits for a multi-stream device report.
 - **2026-09-03** — Stage 1 merged to `main` as `64d3bc5` (PR #79 → carried by #80, Jason's review): `stop_active` in `rebuild_for_preloaded` plus four boundary tests, 141 engine tests green. Hardware acceptance (the three-track Matrix sequence) is Jason's. Next: feature 81 phase 2 carries stage 2's predicate; stages 3–4 follow.
