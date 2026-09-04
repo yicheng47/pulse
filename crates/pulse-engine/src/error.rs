@@ -12,6 +12,10 @@ pub enum EngineError {
     NoOutputCapabilities(u32),
     #[error("device hogged by pid {0}")]
     Hogged(i32),
+    #[error("this device does not support Exclusive output")]
+    HogModeNotAcquired,
+    #[error("this application already holds the device exclusively")]
+    HoggedByCurrentProcess,
     #[error("device does not support the nominal sample rate in {0:?}")]
     UnsupportedNominalSampleRate(crate::PcmFormat),
     #[error("no physical format matches {0:?}")]
@@ -47,6 +51,22 @@ mod tests {
         assert_eq!(
             EngineError::NoMatchingPhysicalFormat(FORMAT).to_string(),
             "no physical format matches PcmFormat { sample_rate: 44100, bits_per_sample: 16, channels: 2 }"
+        );
+    }
+
+    #[test]
+    fn hog_errors_describe_distinct_ownership_states() {
+        assert_eq!(
+            EngineError::Hogged(42).to_string(),
+            "device hogged by pid 42"
+        );
+        assert_eq!(
+            EngineError::HogModeNotAcquired.to_string(),
+            "this device does not support Exclusive output"
+        );
+        assert_eq!(
+            EngineError::HoggedByCurrentProcess.to_string(),
+            "this application already holds the device exclusively"
         );
     }
 }
