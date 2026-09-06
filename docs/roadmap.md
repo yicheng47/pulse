@@ -1,15 +1,15 @@
 # Roadmap
 
-The active-development tracker for Pulse. Since 2026-08-29 this file — not GitHub issues — is where unfinished work lives (Jason: the repo is private and in active development; a local doc is the more efficient tracker). Features are specs in [`docs/features/`](features/README.md), bugs are notes in [`docs/bugs/`](bugs/README.md), and this board orders both into milestones. Durable product and architecture decisions go to `docs/product/` and `docs/arch/`; the MVP-era stage history lives in [`docs/impls/archive/`](impls/archive/).
+The active-development tracker for Pulse. Features have GitHub issues and matching numbered specs in [`docs/features/`](features/README.md); bugs are notes in [`docs/bugs/`](bugs/README.md). This board orders both into milestones. Durable product and architecture decisions go to `docs/product/` and `docs/arch/`; the MVP-era stage history lives in [`docs/impls/archive/`](impls/archive/).
 
 ## Now
 
-The cursor for a fresh session — current state of `main` in one glance; details in the milestone tables below. Updated 2026-09-03.
+The cursor for a fresh session — current state of `main` in one glance; details in the milestone tables below. Updated 2026-09-06.
 
-- **Just landed**: v0.3.3 (2026-09-04) — album artist link (84, `704178c`), DoP output label + DSF/DFF album badge (87, `3c5804f` + `c403993`), feature 78 stage 4 honest hog errors and 10 ms pump cadence (`3c15d6c`). Feature 78 closed; its leftovers are feature 89.
-- **In flight**: nothing running; feature 78 closed 2026-09-04 with stages 1, 2, and 4 shipped — its two untriggered items are feature 89; feature 76 seamless in-track transport (spec filed, mission queued behind 78); feature 77 manual device unlock (spec + Pencil pass in progress, design gate is Jason's).
+- **Latest work**: feature 93 engine modularization and whole-engine review complete, accepted by Jason 2026-09-06; pending the next release. Latest release remains v0.3.3 (2026-09-04): album artist link (84), DoP output label and DSF/DFF album badges (87), and feature 78 stage 4.
+- **In flight**: no implementation in flight. Feature 93's Codex crew completed its review with no refactor regressions; pre-existing engine findings remain open in [`impls/93-engine-review.md`](impls/93-engine-review.md). Feature 78 is closed; its two untriggered items remain feature 89.
 - **Waiting on Jason**: feature 71 phase 4 remainder — pause-lock / seek-relock / refusal checks on the Matrix; closes [#71](https://github.com/yicheng47/pulse/issues/71). Hardware ⌘Q check for the quit fix (`f5150fd`) rides the same session. NAS scan timing for 75. (UI smoke test of the 09-01/02 merges: passed 2026-09-02. Pause-release question: resolved — hold-on-pause stays, manual unlock ships as feature 77.)
-- **Up next**: the design batch for Jason — 88 eyebrow size, 77 lock button, 56's Now Playing node ids — then feature 56 (now-playing page); feature 89 when a multi-stream report or Jason's mono decision arrives.
+- **Up next**: triage feature 93's findings, starting with the P1 engine-level DoP gate, before further playback changes. Then resume the design batch — 88 eyebrow size, 77 lock button, 56's Now Playing node ids — and feature 56 (now-playing page). Feature 76's dependency on 78 is cleared. Feature 89 waits for a multi-stream report or Jason's mono decision.
 
 ## How this board works
 
@@ -59,10 +59,12 @@ A challenge milestone (Jason, 2026-08-31): prove a bit-exact delivery path exist
 
 ## M4 — DSD, now playing, integrations → v0.4.0
 
-DSD playback first, then the now-playing page, then integrations and polish; artist metadata postponed (Jason, 2026-09-01) — it keeps its bottom row until re-prioritized. Build order below.
+Engine modularization and review before further playback work (Jason, 2026-09-05); then the remaining DSD validation, now-playing page, integrations, and polish. Artist metadata remains postponed (Jason, 2026-09-01). Build order below.
 
 | Item | Priority | Status | Notes |
 |---|---|---|---|
+| [Feature 93 — engine modularization and review](features/archive/93-engine-modularization-review.md) | P2 | done | Codex crew mission `01M1S1C51AGQY42HJEAWWCXAVC`: four module splits, preserved behavior/test coverage, whole-engine report, clean independent review, `make verify` green. Accepted by Jason 2026-09-06; pending the next release. |
+| [Engine review 93 — behavioral follow-ups](impls/93-engine-review.md) | P1 | planned | F1 missing engine DoP gate first; F2 startup watchdog, F3 odd DoP joins, F4 Universal Exclusive restoration (P2), F5 late subscriptions (P3) require separate triage. U1–U5 remain investigation/hardware concerns, not confirmed defects. |
 | [Feature 71 — DSD playback over DoP](features/71-dsd-over-dop.md) | P2 | in progress | Phases 1–2 `f50e040`; phase 3 (refusal UI on the toast primitive) `ee09b0c`. Remaining: phase 4 Matrix acceptance (Jason, hardware at home). Impl note: [`impls/71-dsd-over-dop.md`](impls/71-dsd-over-dop.md). |
 | [Feature 74 — toast notifications](features/archive/74-toast-notifications.md) | P2 | done | `ee09b0c`, codex crew mission 2026-09-01: primitive + migration + 71's refusal UI; smoke-tested by Jason (one design fix round on the action button). |
 | [Feature 56 — now playing page](features/56-now-playing-page.md) | P2 | planned | Design pinned. |

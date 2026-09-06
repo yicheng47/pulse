@@ -19,6 +19,7 @@ Each spec is `{number}-{slug}.md` and states motivation, scope, non-goals, phase
 
 ## Implemented
 
+- [`93-engine-modularization-review.md`](archive/93-engine-modularization-review.md) - P2, issue #93. Controller/HAL/integer packing and release/DSF-DFF parsers split into focused modules; existing behavior and tests preserved. Whole-engine review complete, `make verify` green, accepted by Jason 2026-09-06. Pre-existing findings remain in [`impls/93-engine-review.md`](../impls/93-engine-review.md) for triage; pending the next release.
 - [`87-dop-output-label.md`](archive/87-dop-output-label.md) - P3, issue #87. For a DSD source the row reads `DoP · <device>`, Signal Path `DoP 24/176.4 integer`, and DSF/DFF albums get their container badge. `3c5804f` + `c403993`; shipped v0.3.3.
 - [`84-album-artist-link.md`](archive/84-album-artist-link.md) - P2, issue #84. The album header's artist name opens the artist page through the existing Artists route (`artist_by_name` on the writer's key rule), plain text when no row resolves. `704178c`; shipped v0.3.3.
 - [`78-integer-engine-hardening.md`](archive/78-integer-engine-hardening.md) - P2, issue #78. Integer engine hardening from the 2026-09-02 review: in-place format change at track boundaries (`64d3bc5`), the integer-wire predicate behind the Exclusive resolver (`995e426`, via feature 81), honest hog errors + 10 ms pump cadence (`3c15d6c`). Stages 3 and 5 moved to feature 89. Closed 2026-09-04.

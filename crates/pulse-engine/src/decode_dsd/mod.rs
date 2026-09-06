@@ -1,3 +1,9 @@
+mod dff;
+mod dsf;
+
+use dff::parse_dff;
+use dsf::parse_dsf;
+
 use std::{
     fs::File,
     io::{Read, Seek, SeekFrom},
@@ -206,250 +212,6 @@ impl DsdDopDecoder {
     }
 }
 
-fn parse_dsf(file: &mut File, file_len: u64) -> Result<ParsedDsd, EngineError> {
-    file.seek(SeekFrom::Start(0))?;
-    expect_bytes(file, b"DSD ", "DSF file ID")?;
-    let header_size = read_u64_le(file, "DSF header size")?;
-    if header_size != 28 {
-        return decode_error(format!(
-            "DSF header size must be 28 bytes, found {header_size}"
-        ));
-    }
-    let declared_file_size = read_u64_le(file, "DSF file size")?;
-    if declared_file_size > file_len {
-        return decode_error(format!(
-            "DSF file is truncated: header declares {declared_file_size} bytes but file has {file_len}"
-        ));
-    }
-    let _metadata_offset = read_u64_le(file, "DSF metadata offset")?;
-
-    expect_bytes(file, b"fmt ", "DSF format chunk")?;
-    let format_size = read_u64_le(file, "DSF format chunk size")?;
-    if format_size != 52 {
-        return decode_error(format!(
-            "DSF format chunk size must be 52 bytes, found {format_size}"
-        ));
-    }
-    let version = read_u32_le(file, "DSF format version")?;
-    let format_id = read_u32_le(file, "DSF format ID")?;
-    if version != 1 || format_id != 0 {
-        return decode_error(format!(
-            "unsupported DSF format version {version}, ID {format_id}"
-        ));
-    }
-    let _channel_type = read_u32_le(file, "DSF channel type")?;
-    let channels = u8_from_u32(read_u32_le(file, "DSF channel count")?, "DSF channel count")?;
-    let sample_rate = read_u32_le(file, "DSF sample rate")?;
-    validate_dsd_rate(sample_rate)?;
-    let bits_per_sample = read_u32_le(file, "DSF bits per sample")?;
-    if bits_per_sample == 8 {
-        return decode_error("MSB-first DSF is not supported");
-    }
-    if bits_per_sample != 1 {
-        return decode_error(format!(
-            "unsupported DSF bits-per-sample value {bits_per_sample}"
-        ));
-    }
-    let sample_count = read_u64_le(file, "DSF sample count")?;
-    let block_size = read_u32_le(file, "DSF block size")?;
-    if block_size != DSF_BLOCK_SIZE {
-        return decode_error(format!(
-            "DSF channel block size must be {DSF_BLOCK_SIZE} bytes, found {block_size}"
-        ));
-    }
-    let _reserved = read_u32_le(file, "DSF reserved field")?;
-
-    expect_bytes(file, b"data", "DSF data chunk")?;
-    let data_chunk_size = read_u64_le(file, "DSF data chunk size")?;
-    if data_chunk_size < 12 {
-        return decode_error("DSF data chunk is shorter than its header");
-    }
-    let data_offset = file.stream_position()?;
-    let data_size = data_chunk_size - 12;
-    let data_end = checked_add(data_offset, data_size, "DSF data end")?;
-    if data_end > file_len {
-        return decode_error("DSF data chunk exceeds the file");
-    }
-
-    let bytes_per_channel = sample_count.div_ceil(8);
-    let blocks_per_channel = bytes_per_channel.div_ceil(u64::from(block_size));
-    let required_data_size = checked_mul(
-        checked_mul(
-            blocks_per_channel,
-            u64::from(block_size),
-            "DSF channel data size",
-        )?,
-        u64::from(channels),
-        "DSF data size",
-    )?;
-    if data_size < required_data_size {
-        return decode_error(format!(
-            "DSF data chunk has {data_size} bytes but sample count requires {required_data_size}"
-        ));
-    }
-
-    Ok(ParsedDsd {
-        sample_rate,
-        channels,
-        total_frames: sample_count / u64::from(DOP_BITS_PER_FRAME),
-        layout: DsdLayout::Dsf {
-            data_offset,
-            block_size,
-        },
-    })
-}
-
-fn parse_dff(file: &mut File, file_len: u64) -> Result<ParsedDsd, EngineError> {
-    file.seek(SeekFrom::Start(0))?;
-    expect_bytes(file, b"FRM8", "DFF file ID")?;
-    let form_size = read_u64_be(file, "DFF FRM8 size")?;
-    let form_end = checked_add(12, form_size, "DFF FRM8 end")?;
-    if form_end != file_len {
-        return decode_error(format!(
-            "DFF file size is {file_len} bytes but FRM8 declares {form_end}"
-        ));
-    }
-    if form_size < 4 {
-        return decode_error("DFF FRM8 chunk is too short");
-    }
-    expect_bytes(file, b"DSD ", "DFF form type")?;
-
-    let mut sample_rate = None;
-    let mut channels = None;
-    let mut compression = None;
-    let mut data = None;
-    while file.stream_position()? < form_end {
-        let (chunk_id, chunk_size, data_offset, padded_end) =
-            read_dff_chunk_header(file, form_end, "FRM8")?;
-        match &chunk_id {
-            b"PROP" => {
-                let properties = parse_dff_properties(file, data_offset, chunk_size)?;
-                sample_rate = properties.sample_rate;
-                channels = properties.channels;
-                compression = properties.compression;
-            }
-            b"DSD " => data = Some((data_offset, chunk_size)),
-            b"DST " => return decode_error("DST-compressed DFF is not supported"),
-            _ => {}
-        }
-        file.seek(SeekFrom::Start(padded_end))?;
-    }
-
-    let sample_rate = sample_rate
-        .ok_or_else(|| EngineError::Decode("DFF is missing its FS chunk".to_string()))?;
-    validate_dsd_rate(sample_rate)?;
-    let channels =
-        channels.ok_or_else(|| EngineError::Decode("DFF is missing its CHNL chunk".to_string()))?;
-    let compression = compression
-        .ok_or_else(|| EngineError::Decode("DFF is missing its CMPR chunk".to_string()))?;
-    if compression == *b"DST " {
-        return decode_error("DST-compressed DFF is not supported");
-    }
-    if compression != *b"DSD " {
-        return decode_error(format!(
-            "unsupported DFF compression {}",
-            String::from_utf8_lossy(&compression)
-        ));
-    }
-    let (data_offset, data_size) = data.ok_or_else(|| {
-        EngineError::Decode("DFF is missing its DSD sound data chunk".to_string())
-    })?;
-    if data_size % u64::from(channels) != 0 {
-        return decode_error("DFF sound data does not contain complete channel clusters");
-    }
-
-    Ok(ParsedDsd {
-        sample_rate,
-        channels,
-        total_frames: data_size / u64::from(channels) / 2,
-        layout: DsdLayout::Dff { data_offset },
-    })
-}
-
-#[derive(Default)]
-struct DffProperties {
-    sample_rate: Option<u32>,
-    channels: Option<u8>,
-    compression: Option<[u8; 4]>,
-}
-
-fn parse_dff_properties(
-    file: &mut File,
-    data_offset: u64,
-    size: u64,
-) -> Result<DffProperties, EngineError> {
-    if size < 4 {
-        return decode_error("DFF PROP chunk is too short");
-    }
-    let end = checked_add(data_offset, size, "DFF PROP end")?;
-    file.seek(SeekFrom::Start(data_offset))?;
-    expect_bytes(file, b"SND ", "DFF PROP type")?;
-
-    let mut properties = DffProperties::default();
-    while file.stream_position()? < end {
-        let (chunk_id, chunk_size, _chunk_data, padded_end) =
-            read_dff_chunk_header(file, end, "PROP")?;
-        match &chunk_id {
-            b"FS  " => {
-                if chunk_size != 4 {
-                    return decode_error("DFF FS chunk must contain one 32-bit sample rate");
-                }
-                properties.sample_rate = Some(read_u32_be(file, "DFF sample rate")?);
-            }
-            b"CHNL" => {
-                if chunk_size < 2 {
-                    return decode_error("DFF CHNL chunk is too short");
-                }
-                let channel_count = read_u16_be(file, "DFF channel count")?;
-                if chunk_size != 2 + u64::from(channel_count) * 4 {
-                    return decode_error("DFF CHNL size does not match its channel count");
-                }
-                properties.channels = Some(u8_from_u16(channel_count, "DFF channel count")?);
-            }
-            b"CMPR" => {
-                if chunk_size < 5 {
-                    return decode_error("DFF CMPR chunk is too short");
-                }
-                let compression = read_array(file, "DFF compression type")?;
-                let name_len = read_u8(file, "DFF compression name length")?;
-                if u64::from(name_len) > chunk_size - 5 {
-                    return decode_error("DFF compression name exceeds its chunk");
-                }
-                properties.compression = Some(compression);
-            }
-            _ => {}
-        }
-        file.seek(SeekFrom::Start(padded_end))?;
-    }
-    Ok(properties)
-}
-
-fn read_dff_chunk_header(
-    file: &mut File,
-    limit: u64,
-    parent: &str,
-) -> Result<([u8; 4], u64, u64, u64), EngineError> {
-    let header_offset = file.stream_position()?;
-    if checked_add(header_offset, 12, "DFF chunk header end")? > limit {
-        return decode_error(format!("truncated DFF chunk header in {parent}"));
-    }
-    let chunk_id = read_array(file, "DFF chunk ID")?;
-    let chunk_size = read_u64_be(file, "DFF chunk size")?;
-    let data_offset = file.stream_position()?;
-    let padded_end = checked_add(
-        data_offset,
-        checked_add(chunk_size, chunk_size & 1, "DFF padded chunk size")?,
-        "DFF chunk end",
-    )?;
-    if padded_end > limit {
-        return decode_error(format!(
-            "DFF chunk {} exceeds its {parent} container",
-            String::from_utf8_lossy(&chunk_id)
-        ));
-    }
-    Ok((chunk_id, chunk_size, data_offset, padded_end))
-}
-
 fn validate_dsd_rate(sample_rate: u32) -> Result<(), EngineError> {
     if sample_rate != DSD64_RATE && sample_rate != DSD128_RATE {
         return decode_error(format!(
@@ -584,12 +346,12 @@ mod tests {
         env!("CARGO_MANIFEST_DIR"),
         "/tests/fixtures/dsd-bit-reversal.dsf"
     );
-    const DSF_DOP: &[u8] = include_bytes!("../tests/fixtures/dsd-bit-reversal.dop");
+    const DSF_DOP: &[u8] = include_bytes!("../../tests/fixtures/dsd-bit-reversal.dop");
     const DFF: &str = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/tests/fixtures/dsd-interleave.dff"
     );
-    const DFF_DOP: &[u8] = include_bytes!("../tests/fixtures/dsd-interleave.dop");
+    const DFF_DOP: &[u8] = include_bytes!("../../tests/fixtures/dsd-interleave.dop");
     const DST_DFF: &str = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/tests/fixtures/dst-refusal.dff"
