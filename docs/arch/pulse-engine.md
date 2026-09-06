@@ -1,6 +1,6 @@
 # Pulse Engine Architecture
 
-> Companion to [`tech-stack.md`](tech-stack.md). The stack doc records technology choices; this doc explains how playback hangs together, which layer owns which responsibility, and why the boundaries exist. Rewritten 2026-09-01 after the M3 bit-perfect milestone shipped (v0.3.0); the design record behind it is archived in [`impls/archive/bit-perfect/`](../impls/archive/bit-perfect/README.md).
+> Companion to [`tech-stack.md`](tech-stack.md). The stack doc records technology choices; this doc explains how playback hangs together, which layer owns which responsibility, and why the boundaries exist. Updated 2026-09-05 for feature 93; the whole-engine review is in [`93-engine-review.md`](../impls/93-engine-review.md). The M3 bit-perfect milestone shipped as v0.3.0; the design record behind it is archived in [`impls/archive/bit-perfect/`](../impls/archive/bit-perfect/README.md).
 
 ## 1. Overview
 
@@ -8,8 +8,8 @@
 
 There are **two engines** behind one controller. The app exposes Shared and Exclusive output modes: Shared uses the universal engine without a device hog, while Exclusive resolves to the integer engine when the device probe finds a safe integer path and otherwise uses the universal engine with a hog. Bit-perfect is a runtime verdict for the verified integer path, not a selectable mode.
 
-- The **universal engine** (`auhal_engine.rs` + `auhal.rs`) plays through Core Audio's Hardware AudioUnit (AUHAL). Pulse feeds an interleaved float32 client stream and Core Audio converts to the device's physical format. It works on every output — Bluetooth, AirPods, float-only devices — and runs shared (polite, no device-wide rate switching) or exclusive (hog + native rate). Its honest claim is native-rate playback with no Pulse-side DSP. It is **not** bit-perfect: the float32 client boundary is a deliberate transform.
-- The **integer engine** (`integer_engine.rs` + `raw_sink.rs`) is a raw HAL sink: `AudioDeviceCreateIOProcID` with hog mode, mixing disabled, an integer physical format, and — the decisive part — the **virtual format set equal to the integer physical format**, so the IOProc buffer takes source integers directly. Samples are never converted to float and the engine structurally cannot multiply them; volume is hardware or fixed. **This path is bit-perfect, and since 2026-09-01 the claim is proven, not aspirational**: a DoP-packed DSD64 stream played through the full path and the Matrix Mini-i Pro 4 displayed "DSD DoP 2.8MHz" — DoP markers survive only bit-exact delivery, so a single flipped bit would have broken the DSD lock.
+- The **universal engine** (`auhal_engine.rs` + `auhal.rs`) plays through Core Audio's Hardware AudioUnit (AUHAL). Pulse feeds an interleaved float32 client stream and Core Audio converts to the device's physical format. It works on every output — Bluetooth, AirPods, float-only devices — and runs shared (polite, no device-wide rate switching) or exclusive (hog + native rate). Exclusive requests the native device rate; Shared permits Core Audio resampling. Steady playback at unity skips Pulse software gain, while volume and transport fades intentionally change samples. It is **not** bit-perfect: the float32 client boundary is a deliberate transform.
+- The **integer engine** (`integer_engine/mod.rs` + `raw_sink.rs`) is a raw HAL sink: `AudioDeviceCreateIOProcID` with hog mode, mixing disabled, an integer physical format, and — the decisive part — the **virtual format set equal to the integer physical format**, so the IOProc buffer takes source integers directly. Samples are never converted to float and the engine structurally cannot multiply them; volume is hardware or fixed. **This path is bit-perfect, and since 2026-09-01 the claim is proven, not aspirational**: a DoP-packed DSD64 stream played through the full path and the Matrix Mini-i Pro 4 displayed "DSD DoP 2.8MHz" — the DAC recognized the DoP marker stream through the complete output path. This hardware observation complements byte-exact software tests; the display alone cannot prove every DSD payload bit or every device/format combination.
 
 The two-engine shape is the resolution of an old failure. Stage 0003's raw-HAL attempt produced heavy noise and forced the AUHAL pivot; the root cause, understood only during M3, was integer bytes written into a buffer whose *virtual* format was still float32. The integer engine fixes that cause instead of avoiding it, and the universal engine remains the compatibility path rather than a fallback wearing the bit-perfect label.
 
@@ -36,7 +36,7 @@ The runtime is a long-lived controller inside the Rust process, not a separate O
                 ▼                                   ▼
 ┌───────────────────────────────┐   ┌──────────────────────────────────────────┐
 │ universal engine              │   │ integer engine                           │
-│ auhal_engine.rs + auhal.rs    │   │ integer_engine.rs + raw_sink.rs          │
+│ auhal_engine.rs + auhal.rs    │   │ integer_engine/ + raw_sink.rs            │
 │ PCM → f32 → rtrb ring         │   │ PCM → IntPacker → rtrb ring              │
 │ AUHAL render callback drains  │   │ raw IOProc drains integer bytes          │
 │ float32 client stream;        │   │ virtual = physical integer format;       │
@@ -52,19 +52,19 @@ SQLite, app view state, library scanning, artwork, and metadata belong outside t
 
 **Sample rate** is frames per second the DAC consumes. If file and device rates differ, something must resample; Pulse treats native-rate switching as core behavior (Exclusive switches the device; Shared leaves the device clock alone and lets AUHAL resample).
 
-**Bit depth** is the integer width of each source sample — 16 or 24 for the PCM library formats.
+**Bit depth** is the integer width of each source sample — 16, 24, or 32 for the supported integer PCM inputs.
 
 **Virtual vs physical format**: the physical format is what the hardware side of the stream runs; the virtual format is what the process-facing buffer carries. They can differ — that gap is exactly where 0003's noise came from, and closing it (virtual = physical integer) is the integer engine's premise.
 
 **Hog mode** is exclusive device ownership — a lease preventing other processes from sharing the output while Pulse plays. It dies with the process.
 
-**DoP** packs the DSD bitstream into 24-bit PCM frames — 16 DSD bits per channel per frame under an alternating `0x05`/`0xFA` marker byte. The DAC recognizes the markers and unpacks the original DSD stream. Because any sample-value change destroys the markers, DoP doubles as a bit-exactness proof and is why DSD playback is gated to the integer engine.
+**DoP** packs the DSD bitstream into 24-bit PCM frames — 16 DSD bits per channel per frame under an alternating `0x05`/`0xFA` marker byte. The DAC recognizes the markers and unpacks the original DSD stream. Preserving the markers is necessary for DoP recognition but does not prove every payload bit is unchanged. The app guards DSD playback against unsafe output paths to preserve the packed stream; [review 93, F1](../impls/93-engine-review.md#f1--p1--dop-safety-is-not-enforced-at-the-engine-boundary) records the missing engine-level DoP gate and the remaining app event-timing window.
 
 **Bit-perfect** means no layer transforms sample values between decode and the DAC. In Pulse this claim belongs to the integer engine only; the universal engine does not make it.
 
 ## 4. Thread Model
 
-Four execution contexts.
+Decode and packing run on the playback worker, not on a separate decode thread. The adapter, worker, and realtime callback are the three thread contexts; the adapter also invokes the independent integer release handle during quit.
 
 ### 4.1 Adapter Thread
 
@@ -74,35 +74,51 @@ Four execution contexts.
 
 Normal Rust code: owns the state machine (idle / loading / playing / paused / ended / error), the current source and decoder, the selected device and backend, the decode pump, and event emission. It decides when to open, hold, or rebuild an engine.
 
-### 4.3 Decode And Packing Work
+### 4.3 Decode And Packing Work (On The Controller Thread)
 
 Blocking, allocating work: symphonia decodes containers to interleaved integer PCM; `DsdDopDecoder` parses DSF/DFF and emits DoP frames. Feeding converts to the sink's wire format — float32 for the universal engine, packed integers via `IntPacker` (driven by the probed format flags, not assumptions) for the integer engine — and pushes into a bounded `rtrb` ring.
 
 ### 4.4 Realtime Callback
 
-Both sinks end in a realtime callback — the AUHAL render callback or the raw IOProc. The rules are identical and non-negotiable: read pre-packed bytes from the ring consumer, copy into the output buffer, zero-fill underruns, update atomics, return. No allocation, no locks, no syscalls, no waiting, no unbounded work. Violations are audible.
+Both sinks end in a realtime callback — the AUHAL render callback or the raw IOProc. Both callbacks consume pre-packed bytes from the ring, copy into the output buffer, zero-fill underruns, and update atomics. The universal callback additionally applies software gain and transport fades; the raw integer callback only copies. No allocation, no locks, no syscalls, no waiting, no unbounded work. Violations are audible.
 
 ## 5. Crate Layout
 
 ```text
 crates/pulse-engine/src/
-  lib.rs            public surface, PcmFormat
-  controller.rs     PlaybackController: state machine, decode pump, backend/decoder seams
-  command.rs        PlaybackCommand, EngineKind
-  event.rs          PlaybackEvent, PlaybackErrorKind, VolumeDomain/VolumeState
-  state.rs          PlaybackState
-  source.rs         PlayableSource
-  decode.rs         symphonia decode: FLAC/ALAC/AIFF/WAV → integer PCM
-  decode_dsd.rs     DSF/DFF parsers + DoP packer (feature 71)
-  device.rs         output-device discovery and identity
-  hal.rs            all unsafe Core Audio property FFI: hog, formats, rates, listeners
-  auhal_engine.rs   universal engine: format negotiation + AUHAL lifecycle
-  auhal.rs          AudioUnit render-callback sink (float32 client stream)
-  integer_engine.rs integer engine: probe-gated open, IntPacker, IOProc lifecycle
-  raw_sink.rs       raw IOProc callback + ring consumer
-  gain.rs           software volume for the universal path (unity default)
-  levels.rs         playback analysis tap
-  error.rs          EngineError
+  lib.rs                 public surface, PcmFormat
+  controller/
+    mod.rs               public handle, spawning, subscriptions, shutdown
+    backend.rs           backend adapters, factories, independent release handles
+    decoder.rs           private decoder trait and adapters
+    worker.rs            one transport state machine, decode pump, events
+    tests/               worker::tests via path attribute; shared fakes and grouped tests
+  command.rs             PlaybackCommand, EngineKind
+  event.rs               PlaybackEvent, PlaybackErrorKind, VolumeDomain/VolumeState
+  state.rs / source.rs   PlaybackState / PlayableSource
+  decode.rs              symphonia PCM decode and accurate seek
+  decode_dsd/
+    mod.rs               shared decoder, seek/markers, DoP output, binary helpers, fixtures
+    dsf.rs / dff.rs       container parsers
+  device.rs              output-device discovery and identity
+  hal/
+    mod.rs               stable public/crate-visible facade
+    property.rs          typed Core Audio property FFI
+    formats.rs           stream formats, rate selection, readback polling
+    ownership.rs         hog, mixing, capture/restore guards and failure-order tests
+    volume.rs            hardware volume probe and writes
+    capabilities.rs      capability predicates and buffer-list parsing
+    test_support.rs      shared format fixtures (test-only)
+  auhal_engine.rs         universal lifecycle and float packing
+  auhal.rs                AudioUnit sink, callback, gain hook
+  integer_engine/
+    mod.rs               lifecycle and source-dependent format selection
+    packing.rs           IntPacker and byte-exact tests
+    release.rs           resource ownership and release synchronization
+  raw_sink.rs             raw IOProc callback and ring consumer
+  gain.rs                 universal software volume and transport ramps
+  levels.rs               RMS/peak model; analysis tap is not implemented
+  error.rs                EngineError
 ```
 
 ## 6. Public Boundary
@@ -125,7 +141,7 @@ Both traits are deliberately private: the controller is their only consumer, and
 Who owns what, by struct field. `├─` is ownership, `←` says which type stands behind a trait object or which command selects it. The controller never names an engine type: it holds a `Box<dyn PlaybackBackend>` and a `Box<dyn SourceDecoder>`, and the two factories are the only places the concrete types appear.
 
 ```text
-PlaybackController  (controller.rs)             public handle, held by pulse-app's playback backend
+PlaybackController  (controller/mod.rs)             public handle, held by pulse-app's playback backend
 ├─ command_tx: Sender<PlaybackCommand>          cloned out by command_sender()
 ├─ subscribers: Vec<Sender<PlaybackEvent>>      one per subscribe(); broadcast() fans out
 ├─ backend_release: ActiveBackendRelease        Option<Arc<dyn BackendRelease>> for the quit path
@@ -136,7 +152,7 @@ PlaybackController  (controller.rs)             public handle, held by pulse-app
       ├─ bit_perfect_active · volume_state · volume_level · muted · adopted_hardware_volume
       ├─ current:  Option<CurrentTrack>         what the listener hears: source, format, positions, dropouts
       ├─ active:   Option<ActivePlayback>       present exactly while Playing: staged PCM, fed frames, watchdog
-      │  └─ decoder: Box<dyn SourceDecoder>     ← PcmDecoder (decode.rs, symphonia) | DsdDopDecoder (decode_dsd.rs)
+      │  └─ decoder: Box<dyn SourceDecoder>     ← PcmDecoder (decode.rs, symphonia) | DsdDopDecoder (decode_dsd/mod.rs)
       ├─ next_source: Option<PreloadedSource>   the SetNext track, decoder already open
       ├─ transition: Option<PendingTransition>  a gapless boundary fed into the ring but not yet audible
       ├─ prepared_decoder: Option<PreparedDecoder>  seeked while paused, consumed by Resume
@@ -147,20 +163,20 @@ PlaybackController  (controller.rs)             public handle, held by pulse-app
       └─ decoder_factory: &Path → Box<dyn SourceDecoder>   .dsf/.dff → DsdDopDecoder, else PcmDecoder
 
 AuhalEngine  (auhal_engine.rs)                  universal engine
-├─ _hog: Option<HogGuard>                       hal.rs; exclusive mode only
-├─ hardware_volume: Option<HardwareVolume>      hal.rs; only when the hog is owned
+├─ _hog: Option<HogGuard>                       hal/ownership.rs; exclusive mode only
+├─ hardware_volume: Option<HardwareVolume>      hal/volume.rs; only when the hog is owned
 ├─ gain_control: GainControl                    gain.rs; software volume and fades, applied in the render callback
 ├─ packer: FloatPacker                          integer PCM → f32
 ├─ producer / consumer: rtrb ring<u8>           ~4 s of f32 frames; the consumer moves into the sink on play
 └─ sink: Option<AuhalSink>  (auhal.rs)          AudioUnit render callback drains the ring; position + underrun atomics
 
-IntegerEngine  (integer_engine.rs)              integer engine
+IntegerEngine  (integer_engine/mod.rs)              integer engine
 ├─ release_handle: IntegerReleaseHandle         Arc<Mutex<IntegerDeviceResources>>, shared with the quit path
 │  └─ IntegerDeviceResources
 │     ├─ sink: Option<RawSink>  (raw_sink.rs)   AudioDeviceIOProc; CallbackContext { consumer, position, underrun }
-│     ├─ format_restore: Option<FormatRestoreGuard>  hal.rs; every output stream's physical + virtual format, mixing
-│     └─ hog: Option<HogGuard>                  hal.rs; mandatory
-├─ hardware_volume: Option<HardwareVolume>      hal.rs
+│     ├─ format_restore: Option<FormatRestoreGuard>  hal/ownership.rs; every output stream's physical + virtual format, mixing
+│     └─ hog: Option<HogGuard>                  hal/ownership.rs; mandatory
+├─ hardware_volume: Option<HardwareVolume>      hal/volume.rs
 ├─ packer: IntPacker                            source integers → device container: zero pad + sign extend, no arithmetic
 ├─ format / device_format                       PcmFormat / AudioStreamBasicDescription negotiated by set_format
 └─ producer / consumer: rtrb ring<u8>           4 s of device frames; the consumer moves into RawSink on play
@@ -170,16 +186,16 @@ Three things cross a thread boundary, and nothing else does: the ring (producer 
 
 ## 8. Module Responsibilities
 
-- **`controller.rs`** — owns transport behavior: command receiver, event sender, state machine, decode pump, backend lifecycle (open / hold / rebuild on device- or format-change), end-of-track and gapless advance (`SetNext`), position and dropout reporting.
+- **`controller/`** — owns transport behavior: command receiver, event sender, state machine, decode pump, backend lifecycle (open / hold / rebuild on device- or format-change), end-of-track and gapless advance (`SetNext`), position and dropout reporting.
 - **`state.rs` / `source.rs`** — state snapshots and the engine-level playable input; they know paths and durations, never SQLite rows or UI types.
 - **`device.rs`** — discovery and identity (id, uid, name) only; no playback state.
 - **`decode.rs`** — symphonia: open, probe native format, decode to interleaved integer PCM, accurate seek, `EngineError::Decode` on failure.
-- **`decode_dsd.rs`** — DSF (planar blocks, LSB-first bit reversal) and DFF (chunked, MSB-first) to DoP frames; refuses DST and MSB-first DSF with clear errors rather than risking noise.
-- **`hal.rs`** — the entire unsafe Core Audio property surface behind typed `Result` helpers: hog acquire/release, nominal rate, physical/virtual formats, mixing, listeners. Rate and format switches are async; the wrappers wait on property listeners before trusting new state.
+- **`decode_dsd/`** — DSF (planar blocks, LSB-first bit reversal) and DFF (chunked, MSB-first) to DoP frames; refuses DST and MSB-first DSF with clear errors rather than risking noise.
+- **`hal/`** — Core Audio property access behind typed `Result` helpers. The facade keeps existing `hal::` paths; focused modules own property FFI, formats/rates, ownership/restoration, hardware volume, and capabilities. Rate and format switches are asynchronous; the wrappers poll readback with deadlines. Callback and AudioUnit FFI also live in their sink modules.
 - **`auhal_engine.rs` / `auhal.rs`** — the universal engine: nominal-rate handling per mode, float32 packing, AUHAL sink lifecycle, software gain hook.
-- **`integer_engine.rs` / `raw_sink.rs`** — the integer engine; see §9.
+- **`integer_engine/mod.rs` / `raw_sink.rs`** — the integer engine; see §9.
 - **`gain.rs`** — software volume for the universal path only; the integer path has no gain stage by construction.
-- **`levels.rs`** — analysis tap; must never slow playback.
+- **`levels.rs`** — the RMS/peak data model. `AuhalEngine::levels()` currently returns defaults; there is no active analysis tap or FFT.
 
 ## 9. The Bit-Perfect Design
 
@@ -187,10 +203,10 @@ Design-level summary of the M3 milestone; the staged record with hardware findin
 
 - **Premise**: set the stream's virtual format equal to an integer physical format, so the IOProc buffer carries source integers untouched. This is the direct fix for 0003's root cause.
 - **Probe gate**: not every device accepts an integer virtual format. A capability probe answers per device; on a device without a safe integer path, Exclusive resolves to the universal engine with the hog (feature 81) and the Devices page says `NO INTEGER PATH`. The milestone's stage 1 was explicitly a gate — "not possible on this OS/device" would have been recorded as the honest outcome rather than shipping a float engine with the label.
-- **Device state discipline**: hog, mixing, and both formats are mutated under RAII guards (`HogGuard`, `FormatRestoreGuard`) that restore prior state on release. Hog dies with the process; formats can persist across a crash — a documented, accepted risk.
+- **Integer device state discipline**: hog, mixing, and both formats are mutated under RAII guards (`HogGuard`, `FormatRestoreGuard`) that restore prior state on release. Hog dies with the process; formats can persist across a crash. The universal exclusive path currently has no format restore guard; the review records that pre-existing difference.
 - **Purity**: the integer path has no multiply. Volume is the device's hardware control or fixed at 100% (feature 31's volume domains and Signal Path verdicts surface this honestly in the app).
 - **Pause holds the device** (`retains_device_when_paused`): pausing keeps hog and the negotiated format instead of tearing the sink down. Whether a DAC holds its DSD lock through the data gap of a pause is the DAC's business, not the engine's — feature 71 phase 4 still owes that observation on the Matrix.
-- **Proof**: the DoP acceptance. A DSD64 stream DoP-packed into ordinary PCM frames played end to end and the Matrix reported the DSD stream intact. DSD playback (feature 71) now rides this property in production: DSD tracks are refused on any path that cannot guarantee bit-exact delivery, because corrupted DoP is loud hiss.
+- **Hardware acceptance**: a DSD64 stream DoP-packed into ordinary PCM frames played end to end and the Matrix recognized its DoP markers. This complements the byte-exact software tests. DSD playback (feature 71) relies on this path in production: the app guards against unsafe outputs because corrupted DoP can become audible PCM noise. The engine boundary still lacks its own DoP gate; [review 93](../impls/93-engine-review.md#f1--p1--dop-safety-is-not-enforced-at-the-engine-boundary) records that gap and the remaining app event-timing window.
 
 ## 10. Backpressure And Underruns
 
@@ -198,7 +214,7 @@ Decode is the producer; the realtime callback is the consumer; the ring is bound
 
 ## 11. Pause, Resume, And Seek Semantics
 
-Pause preserves the logical position. On the universal path the sink may be rebuilt on resume; on the integer path the device is held (§9) and resume continues without renegotiation. Seek re-seeks the decoder (accurately, decoding forward to the target), resets the ring, and resumes per prior state; the DoP packer restarts its marker phase on every seek. Format changes between tracks take an engine rebuild; same-format boundaries advance gaplessly via `SetNext`.
+Pause preserves the logical position. On the universal path the sink may be rebuilt on resume; on the integer path the device is held (§9) and resume continues without renegotiation. Seek re-seeks the decoder (accurately, decoding forward to the target), resets the ring, and resumes per prior state; the DoP packer restarts its marker phase on every seek. Format changes between queued tracks stop the sink and renegotiate through the existing backend, retaining the integer device lease (feature 78). Same-format boundaries splice through `SetNext`; the review records the unresolved marker-phase issue for odd-length DoP tracks.
 
 ## 12. Format Examples
 
@@ -212,13 +228,13 @@ Integer engine, DSD64 DFF: `DsdDopDecoder` emits 176.4kHz/24-bit DoP frames (16 
 
 Unit tests cover parsing, state transitions, packing, ring behavior, and error mapping — byte-exact fixtures for the DoP packer, generated by `script/generate_dsd_fixtures.py`. Controller behavior is tested against `FakeBackend`/`FakeDecoder` through the §7 seams; hardware is never required for transport logic.
 
-Hardware validation matches the claim being made. The universal engine validates clean native-rate playback and device etiquette. The integer engine validates bit-exactness — the DoP test is the standing proof, re-runnable whenever the path changes: if the Matrix shows the DSD rate, delivery is bit-exact; if it shows PCM or noise, it is not.
+Hardware validation matches the claim being made. The universal engine validates clean playback, native-rate requests in Exclusive, Shared conversion, and device etiquette. The integer engine validates bit-exactness — the DoP test is the standing proof, re-runnable whenever the path changes: the Matrix DSD readout confirms marker recognition for that run; unexpected PCM/noise indicates the DoP path needs investigation. Byte-exact tests supply the independent sample-value evidence.
 
 ## 14. Non-Goals
 
 - DST decompression, SACD ISO, native/raw DSD output — DSD exists only as DoP-packed PCM (feature 71).
 - DSD→PCM conversion: unplayable-on-this-device DSD refuses with a clear error instead.
-- Video, streaming integrations, libmpv/FFmpeg/GPL audio dependencies.
+- Video, streaming integrations, libmpv, or FFmpeg. Pulse itself is GPLv3; GPL-compatible dependencies are allowed, as recorded in [AGENTS.md](../../AGENTS.md).
 - App UI owning playback state; GPUI or `pulse-app` types inside `pulse-engine`; SQLite inside the engine.
 
 Current build order lives in [`docs/roadmap.md`](../roadmap.md) — start at its `## Now` section.
