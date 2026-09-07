@@ -4,6 +4,7 @@ One note per open bug, written with the `bug` skill's template (description, exp
 
 ## Open
 
+- [`shared-output-volume-not-synced.md`](shared-output-volume-not-synced.md) - P2. Mac Studio Speakers in Shared uses Pulse software gain and does not follow macOS volume. Existing policy confirmed; device volume is available. Proposed device-controlled slider and external-change sync await a product decision.
 - [`volume-lock-lags-bit-perfect-switch.md`](volume-lock-lags-bit-perfect-switch.md) - P2. The volume control locks only when the next play starts, not when Exclusive resolves to the integer engine; the domain is emitted only from a backend start.
 
 
